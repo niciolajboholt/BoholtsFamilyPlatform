@@ -56,3 +56,147 @@ Begrundelse:
 
 Familien bruger allerede eksisterende kalendere.
 
+# ADR-006: Platform Strategy – Apple First
+
+**Status:** Accepted
+**Date:** 2026-07-24
+
+## Context
+
+Boholts Family Platform is designed as a long-term family platform for managing shared family activities, including calendar coordination, tasks, planning, information sharing and future integrations.
+
+A strategic decision is required regarding the initial technology platform.
+
+The project needs to balance:
+
+* Development speed
+* User experience
+* Long-term maintainability
+* Access to platform-specific capabilities
+* Potential future expansion to additional platforms
+
+The primary expected users are Apple device users, and the best initial experience should therefore be created within the Apple ecosystem.
+
+---
+
+## Decision
+
+Boholts Family Platform will follow an **Apple First development strategy**.
+
+The initial target platforms are:
+
+* iPhone
+* iPad
+* Future possibility: macOS
+
+The primary technology stack will be:
+
+* Swift
+* SwiftUI
+* SwiftData
+* Xcode
+* Apple native frameworks
+
+---
+
+## Architectural Principles
+
+Although the first implementation is Apple-specific, the architecture must maintain clear separation between:
+
+```
+User Interface Layer
+        |
+        |
+Business Logic Layer
+        |
+        |
+Data Model Layer
+        |
+        |
+Integration Services
+```
+
+The goal is to avoid unnecessary dependency between product logic and the user interface implementation.
+
+This allows future clients or platforms to be added without redesigning the entire system.
+
+---
+
+## Consequences
+
+### Positive
+
+* Native Apple user experience
+
+* Full access to Apple ecosystem capabilities
+
+* Faster initial development
+
+* Direct support for:
+
+  * Apple Calendar integration
+  * Notifications
+  * Widgets
+  * iCloud services
+  * Siri integrations
+  * Future HomeKit possibilities
+
+* Alignment with existing project decisions:
+
+  * SwiftUI architecture
+  * SwiftData database design
+  * Xcode project structure
+
+---
+
+### Negative
+
+* Requires Apple development hardware
+* Android support will require additional implementation effort
+* Some future platform-independent services may require additional abstraction
+
+---
+
+## Alternatives Considered
+
+### Cross-platform development
+
+Examples:
+
+* Flutter
+* .NET MAUI
+* React Native
+
+Rejected for the initial phase because the project prioritizes the best native Apple experience and already has an Apple-focused architecture.
+
+---
+
+### Native iOS and Android development from day one
+
+Rejected because it increases complexity and delays the first usable version.
+
+---
+
+## Future Android Strategy
+
+Android is not part of the initial development scope.
+
+If Android support becomes relevant, it should be implemented as an additional client application connected to the same underlying platform principles, data model and services.
+
+The strategic decision is therefore:
+
+**Apple First — not Apple Only.**
+
+---
+
+## Related Documents
+
+This decision affects:
+
+* 04_Teknisk_Arkitektur.md
+* 09_Data_Model.md
+* 11_Google_Calendar_Integration.md
+* 13_Xcode_Project_Setup_and_Coding_Standards.md
+* 15_Xcode_Projectstruktur_og_Foerste_Implementation.md
+* 16_SwiftData_Database_Design.md
+* 18_Google_Calendar_Sync_Engine.md
