@@ -1,0 +1,9 @@
+.DS_Store
+*.xcuserstate
+DerivedData/
+build/
+.idea/
+
+# Private files
+Secrets/
+Credentials/
