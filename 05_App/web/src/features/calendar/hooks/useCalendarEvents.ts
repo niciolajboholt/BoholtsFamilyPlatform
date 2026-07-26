@@ -15,16 +15,34 @@ export function useCalendarEvents(): UseCalendarEventsResult {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    try {
-      const calendarEvents = CalendarService.getEvents();
+    let isMounted = true;
 
-      setEvents(calendarEvents);
-      setError(null);
-    } catch {
-      setError("Kalenderaftalerne kunne ikke indlæses.");
-    } finally {
-      setIsLoading(false);
+    async function loadEvents(): Promise<void> {
+      try {
+        setIsLoading(true);
+        setError(null);
+
+        const calendarEvents = await CalendarService.getEvents();
+
+        if (isMounted) {
+          setEvents(calendarEvents);
+        }
+      } catch {
+        if (isMounted) {
+          setError("Kalenderaftalerne kunne ikke indlæses.");
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
     }
+
+    void loadEvents();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   return {
