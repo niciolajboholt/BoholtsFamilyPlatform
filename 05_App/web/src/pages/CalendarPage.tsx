@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Box,
   Button,
@@ -9,16 +9,9 @@ import {
 } from "@mui/material";
 
 import { calendarEvents } from "../features/calendar/data/calendarEvents";
+import { calendarOwners } from "../features/calendar/data/calendarOwners";
 import type { CalendarOwnerId } from "../features/calendar/models/calendarEvent";
 import { getEventsForDate } from "../features/calendar/utils/getEventsForDate";
-
-const ownerNames: Record<CalendarOwnerId, string> = {
-  nicolaj: "Nicolaj",
-  christine: "Christine",
-  alfred: "Alfred",
-  jens: "Jens",
-  family: "Familien",
-};
 
 function formatDate(date: Date): string {
   return new Intl.DateTimeFormat("da-DK", {
@@ -52,10 +45,20 @@ function CalendarPage() {
     new Date("2026-07-27T12:00:00"),
   );
 
-  const eventsForSelectedDate = getEventsForDate(
-    calendarEvents,
-    selectedDate,
-  );
+  const [selectedOwnerId, setSelectedOwnerId] =
+    useState<CalendarOwnerId | "all">("all");
+
+  const eventsForSelectedDate = useMemo(() => {
+    const events = getEventsForDate(calendarEvents, selectedDate);
+
+    if (selectedOwnerId === "all") {
+      return events;
+    }
+
+    return events.filter((event) =>
+      event.ownerIds.includes(selectedOwnerId),
+    );
+  }, [selectedDate, selectedOwnerId]);
 
   return (
     <Box sx={{ maxWidth: 900, mx: "auto", pb: 4 }}>
@@ -96,7 +99,10 @@ function CalendarPage() {
             </Button>
 
             <Box sx={{ textAlign: "center" }}>
-              <Typography variant="h6" sx={{ textTransform: "capitalize" }}>
+              <Typography
+                variant="h6"
+                sx={{ textTransform: "capitalize" }}
+              >
                 {formatDate(selectedDate)}
               </Typography>
 
@@ -115,6 +121,60 @@ function CalendarPage() {
             >
               Næste dag
             </Button>
+          </Box>
+        </CardContent>
+      </Card>
+
+      <Card sx={{ mb: 2.5 }}>
+        <CardContent sx={{ p: 3 }}>
+          <Typography
+            variant="subtitle1"
+            sx={{ fontWeight: 700, mb: 1.5 }}
+          >
+            Vis kalender for
+          </Typography>
+
+          <Box
+            sx={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 1,
+            }}
+          >
+            <Chip
+              label="Alle"
+              clickable
+              onClick={() => setSelectedOwnerId("all")}
+              variant={selectedOwnerId === "all" ? "filled" : "outlined"}
+              color={selectedOwnerId === "all" ? "primary" : "default"}
+            />
+
+            {Object.values(calendarOwners).map((owner) => {
+              const isSelected = selectedOwnerId === owner.id;
+
+              return (
+                <Chip
+                  key={owner.id}
+                  label={owner.name}
+                  clickable
+                  onClick={() => setSelectedOwnerId(owner.id)}
+                  variant={isSelected ? "filled" : "outlined"}
+                  sx={{
+                    borderColor: owner.color,
+                    backgroundColor: isSelected
+                      ? owner.color
+                      : "transparent",
+                    color: isSelected ? "#ffffff" : owner.color,
+                    fontWeight: 600,
+                    "&:hover": {
+                      backgroundColor: isSelected
+                        ? owner.color
+                        : `${owner.color}18`,
+                    },
+                  }}
+                />
+              );
+            })}
           </Box>
         </CardContent>
       </Card>
@@ -153,6 +213,7 @@ function CalendarPage() {
                 <Box>
                   <Typography variant="body2" color="primary.main">
                     {formatTime(event.start, event.allDay)}
+
                     {!event.allDay &&
                       ` – ${formatTime(event.end, event.allDay)}`}
                   </Typography>
@@ -162,7 +223,10 @@ function CalendarPage() {
                   </Typography>
 
                   {event.description && (
-                    <Typography color="text.secondary" sx={{ mt: 0.5 }}>
+                    <Typography
+                      color="text.secondary"
+                      sx={{ mt: 0.5 }}
+                    >
                       {event.description}
                     </Typography>
                   )}
@@ -185,13 +249,25 @@ function CalendarPage() {
                     gap: 1,
                   }}
                 >
-                  {event.ownerIds.map((ownerId) => (
-                    <Chip
-                      key={ownerId}
-                      label={ownerNames[ownerId]}
-                      size="small"
-                    />
-                  ))}
+                  {event.ownerIds.map((ownerId) => {
+                    const owner = calendarOwners[ownerId];
+
+                    return (
+                      <Chip
+                        key={owner.id}
+                        label={owner.name}
+                        size="small"
+                        sx={{
+                          backgroundColor: owner.color,
+                          color: "#ffffff",
+                          fontWeight: 600,
+                          "& .MuiChip-label": {
+                            color: "#ffffff",
+                          },
+                        }}
+                      />
+                    );
+                  })}
                 </Box>
               </Box>
             </CardContent>
