@@ -1,61 +1,70 @@
 import { useMemo, useState } from "react";
 
 import {
-  Alert,
   Box,
-  Button,
   Card,
   CardContent,
   Chip,
-  CircularProgress,
   Typography,
 } from "@mui/material";
 
+import CalendarToolbar from "../features/calendar/components/CalendarToolbar";
+import EventList from "../features/calendar/components/EventList";
+import MonthCalendar from "../features/calendar/components/MonthCalendar";
 import { calendarOwners } from "../features/calendar/data/calendarOwners";
 import { useCalendarEvents } from "../features/calendar/hooks/useCalendarEvents";
 import type { CalendarOwnerId } from "../features/calendar/models/calendarEvent";
 import { getEventsForDate } from "../features/calendar/utils/getEventsForDate";
 
-function formatDate(date: Date): string {
-  return new Intl.DateTimeFormat("da-DK", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  }).format(date);
+function startOfMonth(date: Date): Date {
+  const result = new Date(
+    date.getFullYear(),
+    date.getMonth(),
+    1,
+  );
+
+  result.setHours(12, 0, 0, 0);
+
+  return result;
 }
 
-function formatTime(value: string, allDay: boolean): string {
-  if (allDay) {
-    return "Hele dagen";
-  }
+function changeMonth(
+  date: Date,
+  numberOfMonths: number,
+): Date {
+  const result = new Date(
+    date.getFullYear(),
+    date.getMonth() + numberOfMonths,
+    1,
+  );
 
-  return new Intl.DateTimeFormat("da-DK", {
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(value));
-}
+  result.setHours(12, 0, 0, 0);
 
-function changeDate(date: Date, numberOfDays: number): Date {
-  const nextDate = new Date(date);
-
-  nextDate.setDate(nextDate.getDate() + numberOfDays);
-
-  return nextDate;
+  return result;
 }
 
 function CalendarPage() {
-  const [selectedDate, setSelectedDate] = useState(
-    new Date("2026-07-27T12:00:00"),
+  const initialDate = new Date(
+    "2026-07-27T12:00:00",
   );
+
+  const [selectedDate, setSelectedDate] =
+    useState(initialDate);
+
+  const [visibleMonth, setVisibleMonth] =
+    useState(startOfMonth(initialDate));
 
   const [selectedOwnerId, setSelectedOwnerId] =
     useState<CalendarOwnerId | "all">("all");
 
-  const { events, isLoading, error } = useCalendarEvents();
+  const { events, isLoading, error } =
+    useCalendarEvents();
 
   const eventsForSelectedDate = useMemo(() => {
-    const dateEvents = getEventsForDate(events, selectedDate);
+    const dateEvents = getEventsForDate(
+      events,
+      selectedDate,
+    );
 
     if (selectedOwnerId === "all") {
       return dateEvents;
@@ -66,16 +75,50 @@ function CalendarPage() {
     );
   }, [events, selectedDate, selectedOwnerId]);
 
+  function handleSelectDate(date: Date) {
+    setSelectedDate(date);
+
+    if (
+      date.getMonth() !== visibleMonth.getMonth() ||
+      date.getFullYear() !== visibleMonth.getFullYear()
+    ) {
+      setVisibleMonth(startOfMonth(date));
+    }
+  }
+
+  function handlePreviousMonth() {
+    setVisibleMonth((currentMonth) =>
+      changeMonth(currentMonth, -1),
+    );
+  }
+
+  function handleNextMonth() {
+    setVisibleMonth((currentMonth) =>
+      changeMonth(currentMonth, 1),
+    );
+  }
+
+  function handleToday() {
+    const today = new Date();
+
+    today.setHours(12, 0, 0, 0);
+
+    setSelectedDate(today);
+    setVisibleMonth(startOfMonth(today));
+  }
+
   return (
     <Box
       sx={{
-        maxWidth: 900,
+        maxWidth: 1100,
         mx: "auto",
         pb: 4,
       }}
     >
       <Box sx={{ mb: 3 }}>
-        <Typography variant="h4">Kalender</Typography>
+        <Typography variant="h4">
+          Kalender
+        </Typography>
 
         <Typography
           color="text.secondary"
@@ -85,71 +128,15 @@ function CalendarPage() {
         </Typography>
       </Box>
 
-      <Card sx={{ mb: 2.5 }}>
-        <CardContent sx={{ p: 3 }}>
-          <Box
-            sx={{
-              display: "flex",
-              alignItems: {
-                xs: "stretch",
-                sm: "center",
-              },
-              justifyContent: "space-between",
-              flexDirection: {
-                xs: "column",
-                sm: "row",
-              },
-              gap: 2,
-            }}
-          >
-            <Button
-              variant="outlined"
-              onClick={() =>
-                setSelectedDate((currentDate) =>
-                  changeDate(currentDate, -1),
-                )
-              }
-            >
-              Forrige dag
-            </Button>
-
-            <Box sx={{ textAlign: "center" }}>
-              <Typography
-                variant="h6"
-                sx={{
-                  textTransform: "capitalize",
-                }}
-              >
-                {formatDate(selectedDate)}
-              </Typography>
-
-              <Typography
-                variant="body2"
-                color="text.secondary"
-              >
-                {eventsForSelectedDate.length}{" "}
-                {eventsForSelectedDate.length === 1
-                  ? "aftale"
-                  : "aftaler"}
-              </Typography>
-            </Box>
-
-            <Button
-              variant="outlined"
-              onClick={() =>
-                setSelectedDate((currentDate) =>
-                  changeDate(currentDate, 1),
-                )
-              }
-            >
-              Næste dag
-            </Button>
-          </Box>
-        </CardContent>
-      </Card>
+      <CalendarToolbar
+        visibleMonth={visibleMonth}
+        onPreviousMonth={handlePreviousMonth}
+        onNextMonth={handleNextMonth}
+        onToday={handleToday}
+      />
 
       <Card sx={{ mb: 2.5 }}>
-        <CardContent sx={{ p: 3 }}>
+        <CardContent sx={{ p: 2.5 }}>
           <Typography
             variant="subtitle1"
             sx={{
@@ -170,7 +157,9 @@ function CalendarPage() {
             <Chip
               label="Alle"
               clickable
-              onClick={() => setSelectedOwnerId("all")}
+              onClick={() =>
+                setSelectedOwnerId("all")
+              }
               variant={
                 selectedOwnerId === "all"
                   ? "filled"
@@ -183,193 +172,62 @@ function CalendarPage() {
               }
             />
 
-            {Object.values(calendarOwners).map((owner) => {
-              const isSelected =
-                selectedOwnerId === owner.id;
+            {Object.values(calendarOwners).map(
+              (owner) => {
+                const isSelected =
+                  selectedOwnerId === owner.id;
 
-              return (
-                <Chip
-                  key={owner.id}
-                  label={owner.name}
-                  clickable
-                  onClick={() =>
-                    setSelectedOwnerId(owner.id)
-                  }
-                  variant={
-                    isSelected
-                      ? "filled"
-                      : "outlined"
-                  }
-                  sx={{
-                    borderColor: owner.color,
-                    backgroundColor: isSelected
-                      ? owner.color
-                      : "transparent",
-                    color: isSelected
-                      ? "#ffffff"
-                      : owner.color,
-                    fontWeight: 600,
-
-                    "&:hover": {
+                return (
+                  <Chip
+                    key={owner.id}
+                    label={owner.name}
+                    clickable
+                    onClick={() =>
+                      setSelectedOwnerId(owner.id)
+                    }
+                    variant={
+                      isSelected
+                        ? "filled"
+                        : "outlined"
+                    }
+                    sx={{
+                      borderColor: owner.color,
                       backgroundColor: isSelected
                         ? owner.color
-                        : `${owner.color}18`,
-                    },
-                  }}
-                />
-              );
-            })}
+                        : "transparent",
+                      color: isSelected
+                        ? "#ffffff"
+                        : owner.color,
+                      fontWeight: 600,
+
+                      "&:hover": {
+                        backgroundColor: isSelected
+                          ? owner.color
+                          : `${owner.color}18`,
+                      },
+                    }}
+                  />
+                );
+              },
+            )}
           </Box>
         </CardContent>
       </Card>
 
-      {isLoading && (
-        <Card>
-          <CardContent
-            sx={{
-              p: 4,
-              display: "flex",
-              justifyContent: "center",
-            }}
-          >
-            <CircularProgress />
-          </CardContent>
-        </Card>
-      )}
+      <MonthCalendar
+        visibleMonth={visibleMonth}
+        selectedDate={selectedDate}
+        events={events}
+        selectedOwnerId={selectedOwnerId}
+        onSelectDate={handleSelectDate}
+      />
 
-      {error && (
-        <Alert severity="error">
-          {error}
-        </Alert>
-      )}
-
-      {!isLoading && !error && (
-        <Box
-          sx={{
-            display: "grid",
-            gap: 2,
-          }}
-        >
-          {eventsForSelectedDate.length === 0 && (
-            <Card>
-              <CardContent
-                sx={{
-                  p: 3,
-                  textAlign: "center",
-                }}
-              >
-                <Typography variant="h6">
-                  Ingen aftaler
-                </Typography>
-
-                <Typography
-                  color="text.secondary"
-                  sx={{ mt: 0.5 }}
-                >
-                  Familien har ingen registrerede aftaler denne dag.
-                </Typography>
-              </CardContent>
-            </Card>
-          )}
-
-          {eventsForSelectedDate.map((event) => (
-            <Card key={event.id}>
-              <CardContent sx={{ p: 3 }}>
-                <Box
-                  sx={{
-                    display: "flex",
-                    alignItems: {
-                      xs: "flex-start",
-                      sm: "center",
-                    },
-                    justifyContent: "space-between",
-                    flexDirection: {
-                      xs: "column",
-                      sm: "row",
-                    },
-                    gap: 2,
-                  }}
-                >
-                  <Box>
-                    <Typography
-                      variant="body2"
-                      color="primary.main"
-                      sx={{ fontWeight: 600 }}
-                    >
-                      {formatTime(
-                        event.start,
-                        event.allDay,
-                      )}
-
-                      {!event.allDay &&
-                        ` – ${formatTime(
-                          event.end,
-                          event.allDay,
-                        )}`}
-                    </Typography>
-
-                    <Typography
-                      variant="h6"
-                      sx={{ mt: 0.5 }}
-                    >
-                      {event.title}
-                    </Typography>
-
-                    {event.description && (
-                      <Typography
-                        color="text.secondary"
-                        sx={{ mt: 0.5 }}
-                      >
-                        {event.description}
-                      </Typography>
-                    )}
-
-                    {event.location && (
-                      <Typography
-                        variant="body2"
-                        color="text.secondary"
-                        sx={{ mt: 0.75 }}
-                      >
-                        {event.location}
-                      </Typography>
-                    )}
-                  </Box>
-
-                  <Box
-                    sx={{
-                      display: "flex",
-                      flexWrap: "wrap",
-                      gap: 1,
-                    }}
-                  >
-                    {event.ownerIds.map((ownerId) => {
-                      const owner =
-                        calendarOwners[ownerId];
-
-                      return (
-                        <Chip
-                          key={owner.id}
-                          label={owner.name}
-                          size="small"
-                          sx={{
-                            backgroundColor: owner.color,
-                            color: "#ffffff",
-                            fontWeight: 600,
-
-                            "& .MuiChip-label": {
-                              color: "#ffffff",
-                            },
-                          }}
-                        />
-                      );
-                    })}
-                  </Box>
-                </Box>
-              </CardContent>
-            </Card>
-          ))}
-        </Box>
-      )}
+      <EventList
+        selectedDate={selectedDate}
+        events={eventsForSelectedDate}
+        isLoading={isLoading}
+        error={error}
+      />
     </Box>
   );
 }
