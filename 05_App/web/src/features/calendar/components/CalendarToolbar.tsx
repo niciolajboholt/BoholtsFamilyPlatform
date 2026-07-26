@@ -6,11 +6,17 @@ import {
   Typography,
 } from "@mui/material";
 
+import type { CalendarView } from "../models/calendarView";
+import { getWeekDays } from "../utils/getWeekDays";
+import CalendarViewToggle from "./CalendarViewToggle";
+
 interface CalendarToolbarProps {
-  visibleMonth: Date;
-  onPreviousMonth: () => void;
-  onNextMonth: () => void;
+  calendarView: CalendarView;
+  visibleDate: Date;
+  onPrevious: () => void;
+  onNext: () => void;
   onToday: () => void;
+  onChangeView: (view: CalendarView) => void;
 }
 
 function formatMonth(date: Date): string {
@@ -20,12 +26,38 @@ function formatMonth(date: Date): string {
   }).format(date);
 }
 
+function formatWeek(date: Date): string {
+  const weekDays = getWeekDays(date);
+  const firstDay = weekDays[0];
+  const lastDay = weekDays[6];
+
+  const firstText = new Intl.DateTimeFormat("da-DK", {
+    day: "numeric",
+    month: "short",
+  }).format(firstDay);
+
+  const lastText = new Intl.DateTimeFormat("da-DK", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(lastDay);
+
+  return `${firstText} – ${lastText}`;
+}
+
 function CalendarToolbar({
-  visibleMonth,
-  onPreviousMonth,
-  onNextMonth,
+  calendarView,
+  visibleDate,
+  onPrevious,
+  onNext,
   onToday,
+  onChangeView,
 }: CalendarToolbarProps) {
+  const title =
+    calendarView === "month"
+      ? formatMonth(visibleDate)
+      : formatWeek(visibleDate);
+
   return (
     <Card sx={{ mb: 2.5 }}>
       <CardContent sx={{ p: 2.5 }}>
@@ -34,7 +66,7 @@ function CalendarToolbar({
             display: "grid",
             gridTemplateColumns: {
               xs: "1fr",
-              sm: "auto 1fr auto",
+              md: "auto 1fr auto",
             },
             alignItems: "center",
             gap: 2,
@@ -42,7 +74,7 @@ function CalendarToolbar({
         >
           <Button
             variant="outlined"
-            onClick={onPreviousMonth}
+            onClick={onPrevious}
           >
             ← Forrige
           </Button>
@@ -55,21 +87,36 @@ function CalendarToolbar({
                 fontWeight: 700,
               }}
             >
-              {formatMonth(visibleMonth)}
+              {title}
             </Typography>
 
-            <Button
-              size="small"
-              onClick={onToday}
-              sx={{ mt: 0.5 }}
+            <Box
+              sx={{
+                mt: 1,
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+                flexWrap: "wrap",
+                gap: 1,
+              }}
             >
-              Gå til i dag
-            </Button>
+              <Button
+                size="small"
+                onClick={onToday}
+              >
+                I dag
+              </Button>
+
+              <CalendarViewToggle
+                value={calendarView}
+                onChange={onChangeView}
+              />
+            </Box>
           </Box>
 
           <Button
             variant="outlined"
-            onClick={onNextMonth}
+            onClick={onNext}
           >
             Næste →
           </Button>

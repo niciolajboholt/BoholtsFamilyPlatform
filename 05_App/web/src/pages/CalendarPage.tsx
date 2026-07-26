@@ -11,9 +11,11 @@ import {
 import CalendarToolbar from "../features/calendar/components/CalendarToolbar";
 import EventList from "../features/calendar/components/EventList";
 import MonthCalendar from "../features/calendar/components/MonthCalendar";
+import WeekCalendar from "../features/calendar/components/WeekCalendar";
 import { calendarOwners } from "../features/calendar/data/calendarOwners";
 import { useCalendarEvents } from "../features/calendar/hooks/useCalendarEvents";
 import type { CalendarOwnerId } from "../features/calendar/models/calendarEvent";
+import type { CalendarView } from "../features/calendar/models/calendarView";
 import { getEventsForDate } from "../features/calendar/utils/getEventsForDate";
 
 function startOfMonth(date: Date): Date {
@@ -43,6 +45,18 @@ function changeMonth(
   return result;
 }
 
+function changeWeek(
+  date: Date,
+  numberOfWeeks: number,
+): Date {
+  const result = new Date(date);
+
+  result.setDate(result.getDate() + numberOfWeeks * 7);
+  result.setHours(12, 0, 0, 0);
+
+  return result;
+}
+
 function CalendarPage() {
   const initialDate = new Date(
     "2026-07-27T12:00:00",
@@ -51,8 +65,11 @@ function CalendarPage() {
   const [selectedDate, setSelectedDate] =
     useState(initialDate);
 
-  const [visibleMonth, setVisibleMonth] =
+  const [visibleDate, setVisibleDate] =
     useState(startOfMonth(initialDate));
+
+  const [calendarView, setCalendarView] =
+    useState<CalendarView>("month");
 
   const [selectedOwnerId, setSelectedOwnerId] =
     useState<CalendarOwnerId | "all">("all");
@@ -78,24 +95,39 @@ function CalendarPage() {
   function handleSelectDate(date: Date) {
     setSelectedDate(date);
 
-    if (
-      date.getMonth() !== visibleMonth.getMonth() ||
-      date.getFullYear() !== visibleMonth.getFullYear()
-    ) {
-      setVisibleMonth(startOfMonth(date));
+    if (calendarView === "month") {
+      setVisibleDate(startOfMonth(date));
+    } else {
+      setVisibleDate(date);
     }
   }
 
-  function handlePreviousMonth() {
-    setVisibleMonth((currentMonth) =>
-      changeMonth(currentMonth, -1),
+  function handlePrevious() {
+    setVisibleDate((currentDate) =>
+      calendarView === "month"
+        ? changeMonth(currentDate, -1)
+        : changeWeek(currentDate, -1),
     );
+
+    if (calendarView === "week") {
+      setSelectedDate((currentDate) =>
+        changeWeek(currentDate, -1),
+      );
+    }
   }
 
-  function handleNextMonth() {
-    setVisibleMonth((currentMonth) =>
-      changeMonth(currentMonth, 1),
+  function handleNext() {
+    setVisibleDate((currentDate) =>
+      calendarView === "month"
+        ? changeMonth(currentDate, 1)
+        : changeWeek(currentDate, 1),
     );
+
+    if (calendarView === "week") {
+      setSelectedDate((currentDate) =>
+        changeWeek(currentDate, 1),
+      );
+    }
   }
 
   function handleToday() {
@@ -104,13 +136,28 @@ function CalendarPage() {
     today.setHours(12, 0, 0, 0);
 
     setSelectedDate(today);
-    setVisibleMonth(startOfMonth(today));
+
+    setVisibleDate(
+      calendarView === "month"
+        ? startOfMonth(today)
+        : today,
+    );
+  }
+
+  function handleChangeView(view: CalendarView) {
+    setCalendarView(view);
+
+    setVisibleDate(
+      view === "month"
+        ? startOfMonth(selectedDate)
+        : selectedDate,
+    );
   }
 
   return (
     <Box
       sx={{
-        maxWidth: 1100,
+        maxWidth: 1200,
         mx: "auto",
         pb: 4,
       }}
@@ -129,10 +176,12 @@ function CalendarPage() {
       </Box>
 
       <CalendarToolbar
-        visibleMonth={visibleMonth}
-        onPreviousMonth={handlePreviousMonth}
-        onNextMonth={handleNextMonth}
+        calendarView={calendarView}
+        visibleDate={visibleDate}
+        onPrevious={handlePrevious}
+        onNext={handleNext}
         onToday={handleToday}
+        onChangeView={handleChangeView}
       />
 
       <Card sx={{ mb: 2.5 }}>
@@ -214,13 +263,22 @@ function CalendarPage() {
         </CardContent>
       </Card>
 
-      <MonthCalendar
-        visibleMonth={visibleMonth}
-        selectedDate={selectedDate}
-        events={events}
-        selectedOwnerId={selectedOwnerId}
-        onSelectDate={handleSelectDate}
-      />
+      {calendarView === "month" ? (
+        <MonthCalendar
+          visibleMonth={visibleDate}
+          selectedDate={selectedDate}
+          events={events}
+          selectedOwnerId={selectedOwnerId}
+          onSelectDate={handleSelectDate}
+        />
+      ) : (
+        <WeekCalendar
+          selectedDate={selectedDate}
+          events={events}
+          selectedOwnerId={selectedOwnerId}
+          onSelectDate={handleSelectDate}
+        />
+      )}
 
       <EventList
         selectedDate={selectedDate}
