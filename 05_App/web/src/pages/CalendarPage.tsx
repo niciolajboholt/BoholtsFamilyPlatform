@@ -1,190 +1,203 @@
+import { useState } from "react";
 import {
-  AddRounded,
-  CalendarMonthRounded,
-  ChevronLeftRounded,
-  ChevronRightRounded,
-} from "@mui/icons-material";
-import {
-  Avatar,
   Box,
   Button,
   Card,
   CardContent,
   Chip,
-  IconButton,
-  Stack,
   Typography,
 } from "@mui/material";
 
-const appointments = [
-  {
-    time: "08:00",
-    title: "Aflevering",
-    description: "Alfred i skole og Jens i børnehave",
-    color: "#D99832",
-    initials: "A",
-  },
-  {
-    time: "15:30",
-    title: "Hentning",
-    description: "Christine henter Alfred",
-    color: "#C06C84",
-    initials: "C",
-  },
-  {
-    time: "17:00",
-    title: "Familietid",
-    description: "Hele familien",
-    color: "#2E7D32",
-    initials: "F",
-  },
-];
+import { calendarEvents } from "../features/calendar/data/calendarEvents";
+import type { CalendarOwnerId } from "../features/calendar/models/calendarEvent";
+import { getEventsForDate } from "../features/calendar/utils/getEventsForDate";
 
-function CalendarPage() {
-  const currentDate = new Intl.DateTimeFormat("da-DK", {
+const ownerNames: Record<CalendarOwnerId, string> = {
+  nicolaj: "Nicolaj",
+  christine: "Christine",
+  alfred: "Alfred",
+  jens: "Jens",
+  family: "Familien",
+};
+
+function formatDate(date: Date): string {
+  return new Intl.DateTimeFormat("da-DK", {
     weekday: "long",
     day: "numeric",
     month: "long",
     year: "numeric",
-  }).format(new Date());
+  }).format(date);
+}
+
+function formatTime(value: string, allDay: boolean): string {
+  if (allDay) {
+    return "Hele dagen";
+  }
+
+  return new Intl.DateTimeFormat("da-DK", {
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value));
+}
+
+function changeDate(date: Date, days: number): Date {
+  const nextDate = new Date(date);
+  nextDate.setDate(nextDate.getDate() + days);
+
+  return nextDate;
+}
+
+function CalendarPage() {
+  const [selectedDate, setSelectedDate] = useState(
+    new Date("2026-07-27T12:00:00"),
+  );
+
+  const eventsForSelectedDate = getEventsForDate(
+    calendarEvents,
+    selectedDate,
+  );
 
   return (
     <Box sx={{ maxWidth: 900, mx: "auto", pb: 4 }}>
-      <Box
-        sx={{
-          display: "flex",
-          flexDirection: { xs: "column", sm: "row" },
-          justifyContent: "space-between",
-          alignItems: { xs: "stretch", sm: "center" },
-          gap: 2,
-          mb: 3,
-        }}
-      >
-        <Box>
-          <Typography variant="h4">Kalender</Typography>
+      <Box sx={{ mb: 3 }}>
+        <Typography variant="h4">Kalender</Typography>
 
-          <Typography
-            color="text.secondary"
-            sx={{ mt: 0.5, textTransform: "capitalize" }}
-          >
-            {currentDate}
-          </Typography>
-        </Box>
-
-        <Button variant="contained" startIcon={<AddRounded />}>
-          Ny aftale
-        </Button>
+        <Typography color="text.secondary" sx={{ mt: 0.5 }}>
+          Familiens aftaler samlet ét sted.
+        </Typography>
       </Box>
 
       <Card sx={{ mb: 2.5 }}>
-        <CardContent sx={{ p: 2.5 }}>
+        <CardContent sx={{ p: 3 }}>
           <Box
             sx={{
               display: "flex",
-              alignItems: "center",
+              alignItems: {
+                xs: "stretch",
+                sm: "center",
+              },
               justifyContent: "space-between",
+              flexDirection: {
+                xs: "column",
+                sm: "row",
+              },
+              gap: 2,
             }}
           >
-            <IconButton aria-label="Forrige dag">
-              <ChevronLeftRounded />
-            </IconButton>
-
-            <Stack
-              sx={{
-                alignItems: "center",
-                gap: 0.5,
-              }}
+            <Button
+              variant="outlined"
+              onClick={() =>
+                setSelectedDate((currentDate) =>
+                  changeDate(currentDate, -1),
+                )
+              }
             >
-              <Avatar
-                sx={{
-                  bgcolor: "primary.main",
-                  width: 44,
-                  height: 44,
-                }}
-              >
-                <CalendarMonthRounded />
-              </Avatar>
+              Forrige dag
+            </Button>
 
-              <Typography sx={{ fontWeight: 700 }}>I dag</Typography>
-            </Stack>
+            <Box sx={{ textAlign: "center" }}>
+              <Typography variant="h6" sx={{ textTransform: "capitalize" }}>
+                {formatDate(selectedDate)}
+              </Typography>
 
-            <IconButton aria-label="Næste dag">
-              <ChevronRightRounded />
-            </IconButton>
+              <Typography variant="body2" color="text.secondary">
+                {eventsForSelectedDate.length} aftaler
+              </Typography>
+            </Box>
+
+            <Button
+              variant="outlined"
+              onClick={() =>
+                setSelectedDate((currentDate) =>
+                  changeDate(currentDate, 1),
+                )
+              }
+            >
+              Næste dag
+            </Button>
           </Box>
         </CardContent>
       </Card>
 
-      <Stack sx={{ gap: 2 }}>
-        {appointments.map((appointment) => (
-          <Card key={`${appointment.time}-${appointment.title}`}>
-            <CardContent sx={{ p: 2.5 }}>
+      <Box sx={{ display: "grid", gap: 2 }}>
+        {eventsForSelectedDate.length === 0 && (
+          <Card>
+            <CardContent sx={{ p: 3, textAlign: "center" }}>
+              <Typography variant="h6">Ingen aftaler</Typography>
+
+              <Typography color="text.secondary" sx={{ mt: 0.5 }}>
+                Familien har ingen registrerede aftaler denne dag.
+              </Typography>
+            </CardContent>
+          </Card>
+        )}
+
+        {eventsForSelectedDate.map((event) => (
+          <Card key={event.id}>
+            <CardContent sx={{ p: 3 }}>
               <Box
                 sx={{
-                  display: "grid",
-                  gridTemplateColumns: {
-                    xs: "64px 1fr",
-                    sm: "80px 1fr auto",
+                  display: "flex",
+                  alignItems: {
+                    xs: "flex-start",
+                    sm: "center",
+                  },
+                  justifyContent: "space-between",
+                  flexDirection: {
+                    xs: "column",
+                    sm: "row",
                   },
                   gap: 2,
-                  alignItems: "center",
                 }}
               >
-                <Typography
-                  sx={{
-                    fontWeight: 700,
-                    color: "text.secondary",
-                  }}
-                >
-                  {appointment.time}
-                </Typography>
-
                 <Box>
-                  <Typography variant="h6">
-                    {appointment.title}
+                  <Typography variant="body2" color="primary.main">
+                    {formatTime(event.start, event.allDay)}
+                    {!event.allDay &&
+                      ` – ${formatTime(event.end, event.allDay)}`}
                   </Typography>
 
-                  <Typography variant="body2" color="text.secondary">
-                    {appointment.description}
+                  <Typography variant="h6" sx={{ mt: 0.5 }}>
+                    {event.title}
                   </Typography>
+
+                  {event.description && (
+                    <Typography color="text.secondary" sx={{ mt: 0.5 }}>
+                      {event.description}
+                    </Typography>
+                  )}
+
+                  {event.location && (
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{ mt: 0.75 }}
+                    >
+                      {event.location}
+                    </Typography>
+                  )}
                 </Box>
 
-                <Chip
-                  avatar={
-                    <Avatar
-                      sx={{
-                        bgcolor: appointment.color,
-                        color: "#fff",
-                      }}
-                    >
-                      {appointment.initials}
-                    </Avatar>
-                  }
-                  label={appointment.description}
+                <Box
                   sx={{
-                    display: { xs: "none", sm: "flex" },
-                    justifySelf: "end",
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: 1,
                   }}
-                />
+                >
+                  {event.ownerIds.map((ownerId) => (
+                    <Chip
+                      key={ownerId}
+                      label={ownerNames[ownerId]}
+                      size="small"
+                    />
+                  ))}
+                </Box>
               </Box>
             </CardContent>
           </Card>
         ))}
-      </Stack>
-
-      <Card sx={{ mt: 2.5, border: "1px dashed", borderColor: "divider" }}>
-        <CardContent sx={{ p: 3, textAlign: "center" }}>
-          <Typography variant="h6">Flere kalenderkilder kommer senere</Typography>
-
-          <Typography
-            variant="body2"
-            color="text.secondary"
-            sx={{ mt: 0.75 }}
-          >
-            Her bliver Google Calendar og familiens interne kalendere samlet.
-          </Typography>
-        </CardContent>
-      </Card>
+      </Box>
     </Box>
   );
 }
