@@ -1,17 +1,19 @@
 import { useMemo, useState } from "react";
 
 import {
+  Alert,
   Box,
   Button,
   Card,
   CardContent,
   Chip,
+  CircularProgress,
   Typography,
 } from "@mui/material";
 
 import { calendarOwners } from "../features/calendar/data/calendarOwners";
+import { useCalendarEvents } from "../features/calendar/hooks/useCalendarEvents";
 import type { CalendarOwnerId } from "../features/calendar/models/calendarEvent";
-import { CalendarService } from "../features/calendar/services/CalendarService";
 import { getEventsForDate } from "../features/calendar/utils/getEventsForDate";
 
 function formatDate(date: Date): string {
@@ -50,7 +52,7 @@ function CalendarPage() {
   const [selectedOwnerId, setSelectedOwnerId] =
     useState<CalendarOwnerId | "all">("all");
 
-  const events = CalendarService.getEvents();
+  const { events, isLoading, error } = useCalendarEvents();
 
   const eventsForSelectedDate = useMemo(() => {
     const dateEvents = getEventsForDate(events, selectedDate);
@@ -73,9 +75,7 @@ function CalendarPage() {
       }}
     >
       <Box sx={{ mb: 3 }}>
-        <Typography variant="h4">
-          Kalender
-        </Typography>
+        <Typography variant="h4">Kalender</Typography>
 
         <Typography
           color="text.secondary"
@@ -223,132 +223,153 @@ function CalendarPage() {
         </CardContent>
       </Card>
 
-      <Box
-        sx={{
-          display: "grid",
-          gap: 2,
-        }}
-      >
-        {eventsForSelectedDate.length === 0 && (
-          <Card>
-            <CardContent
-              sx={{
-                p: 3,
-                textAlign: "center",
-              }}
-            >
-              <Typography variant="h6">
-                Ingen aftaler
-              </Typography>
+      {isLoading && (
+        <Card>
+          <CardContent
+            sx={{
+              p: 4,
+              display: "flex",
+              justifyContent: "center",
+            }}
+          >
+            <CircularProgress />
+          </CardContent>
+        </Card>
+      )}
 
-              <Typography
-                color="text.secondary"
-                sx={{ mt: 0.5 }}
-              >
-                Familien har ingen registrerede aftaler denne
-                dag.
-              </Typography>
-            </CardContent>
-          </Card>
-        )}
+      {error && (
+        <Alert severity="error">
+          {error}
+        </Alert>
+      )}
 
-        {eventsForSelectedDate.map((event) => (
-          <Card key={event.id}>
-            <CardContent sx={{ p: 3 }}>
-              <Box
+      {!isLoading && !error && (
+        <Box
+          sx={{
+            display: "grid",
+            gap: 2,
+          }}
+        >
+          {eventsForSelectedDate.length === 0 && (
+            <Card>
+              <CardContent
                 sx={{
-                  display: "flex",
-                  alignItems: {
-                    xs: "flex-start",
-                    sm: "center",
-                  },
-                  justifyContent: "space-between",
-                  flexDirection: {
-                    xs: "column",
-                    sm: "row",
-                  },
-                  gap: 2,
+                  p: 3,
+                  textAlign: "center",
                 }}
               >
-                <Box>
-                  <Typography
-                    variant="body2"
-                    color="primary.main"
-                    sx={{ fontWeight: 600 }}
-                  >
-                    {formatTime(
-                      event.start,
-                      event.allDay,
-                    )}
+                <Typography variant="h6">
+                  Ingen aftaler
+                </Typography>
 
-                    {!event.allDay &&
-                      ` – ${formatTime(
-                        event.end,
-                        event.allDay,
-                      )}`}
-                  </Typography>
+                <Typography
+                  color="text.secondary"
+                  sx={{ mt: 0.5 }}
+                >
+                  Familien har ingen registrerede aftaler denne dag.
+                </Typography>
+              </CardContent>
+            </Card>
+          )}
 
-                  <Typography
-                    variant="h6"
-                    sx={{ mt: 0.5 }}
-                  >
-                    {event.title}
-                  </Typography>
-
-                  {event.description && (
-                    <Typography
-                      color="text.secondary"
-                      sx={{ mt: 0.5 }}
-                    >
-                      {event.description}
-                    </Typography>
-                  )}
-
-                  {event.location && (
-                    <Typography
-                      variant="body2"
-                      color="text.secondary"
-                      sx={{ mt: 0.75 }}
-                    >
-                      {event.location}
-                    </Typography>
-                  )}
-                </Box>
-
+          {eventsForSelectedDate.map((event) => (
+            <Card key={event.id}>
+              <CardContent sx={{ p: 3 }}>
                 <Box
                   sx={{
                     display: "flex",
-                    flexWrap: "wrap",
-                    gap: 1,
+                    alignItems: {
+                      xs: "flex-start",
+                      sm: "center",
+                    },
+                    justifyContent: "space-between",
+                    flexDirection: {
+                      xs: "column",
+                      sm: "row",
+                    },
+                    gap: 2,
                   }}
                 >
-                  {event.ownerIds.map((ownerId) => {
-                    const owner =
-                      calendarOwners[ownerId];
+                  <Box>
+                    <Typography
+                      variant="body2"
+                      color="primary.main"
+                      sx={{ fontWeight: 600 }}
+                    >
+                      {formatTime(
+                        event.start,
+                        event.allDay,
+                      )}
 
-                    return (
-                      <Chip
-                        key={owner.id}
-                        label={owner.name}
-                        size="small"
-                        sx={{
-                          backgroundColor: owner.color,
-                          color: "#ffffff",
-                          fontWeight: 600,
+                      {!event.allDay &&
+                        ` – ${formatTime(
+                          event.end,
+                          event.allDay,
+                        )}`}
+                    </Typography>
 
-                          "& .MuiChip-label": {
+                    <Typography
+                      variant="h6"
+                      sx={{ mt: 0.5 }}
+                    >
+                      {event.title}
+                    </Typography>
+
+                    {event.description && (
+                      <Typography
+                        color="text.secondary"
+                        sx={{ mt: 0.5 }}
+                      >
+                        {event.description}
+                      </Typography>
+                    )}
+
+                    {event.location && (
+                      <Typography
+                        variant="body2"
+                        color="text.secondary"
+                        sx={{ mt: 0.75 }}
+                      >
+                        {event.location}
+                      </Typography>
+                    )}
+                  </Box>
+
+                  <Box
+                    sx={{
+                      display: "flex",
+                      flexWrap: "wrap",
+                      gap: 1,
+                    }}
+                  >
+                    {event.ownerIds.map((ownerId) => {
+                      const owner =
+                        calendarOwners[ownerId];
+
+                      return (
+                        <Chip
+                          key={owner.id}
+                          label={owner.name}
+                          size="small"
+                          sx={{
+                            backgroundColor: owner.color,
                             color: "#ffffff",
-                          },
-                        }}
-                      />
-                    );
-                  })}
+                            fontWeight: 600,
+
+                            "& .MuiChip-label": {
+                              color: "#ffffff",
+                            },
+                          }}
+                        />
+                      );
+                    })}
+                  </Box>
                 </Box>
-              </Box>
-            </CardContent>
-          </Card>
-        ))}
-      </Box>
+              </CardContent>
+            </Card>
+          ))}
+        </Box>
+      )}
     </Box>
   );
 }
