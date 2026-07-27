@@ -11,13 +11,17 @@ import {
 } from "@mui/material";
 
 import CalendarToolbar from "../features/calendar/components/CalendarToolbar";
+import EditEventDialog from "../features/calendar/components/EditEventDialog";
 import EventList from "../features/calendar/components/EventList";
 import MonthCalendar from "../features/calendar/components/MonthCalendar";
 import NewEventDialog from "../features/calendar/components/NewEventDialog";
 import WeekCalendar from "../features/calendar/components/WeekCalendar";
 import { calendarOwners } from "../features/calendar/data/calendarOwners";
 import { useCalendarEvents } from "../features/calendar/hooks/useCalendarEvents";
-import type { CalendarOwnerId } from "../features/calendar/models/calendarEvent";
+import type {
+  CalendarEvent,
+  CalendarOwnerId,
+} from "../features/calendar/models/calendarEvent";
 import type { CalendarView } from "../features/calendar/models/calendarView";
 import type { CreateCalendarEventInput } from "../features/calendar/services/CalendarService";
 import { getEventsForDate } from "../features/calendar/utils/getEventsForDate";
@@ -81,12 +85,19 @@ function CalendarPage() {
     setIsNewEventDialogOpen,
   ] = useState(false);
 
+  const [
+    selectedEvent,
+    setSelectedEvent,
+  ] = useState<CalendarEvent | null>(null);
+
   const {
     events,
     isLoading,
     isSaving,
     error,
     createEvent,
+    updateEvent,
+    deleteEvent,
   } = useCalendarEvents();
 
   const eventsForSelectedDate = useMemo(() => {
@@ -181,6 +192,43 @@ function CalendarPage() {
         ? startOfMonth(createdDate)
         : createdDate,
     );
+  }
+
+  function handleSelectEvent(event: CalendarEvent) {
+    setSelectedEvent(event);
+  }
+
+  function handleCloseEditDialog() {
+    setSelectedEvent(null);
+  }
+
+async function handleUpdateEvent(
+  event: CalendarEvent,
+) {
+  const updatedEvent = await updateEvent(event);
+
+  const updatedDate = new Date(
+    updatedEvent.start,
+  );
+
+  updatedDate.setHours(12, 0, 0, 0);
+
+  setSelectedDate(updatedDate);
+
+  setVisibleDate(
+    calendarView === "month"
+      ? startOfMonth(updatedDate)
+      : updatedDate,
+  );
+
+  setSelectedEvent(updatedEvent);
+}
+
+  async function handleDeleteEvent(
+    eventId: string,
+  ) {
+    await deleteEvent(eventId);
+    setSelectedEvent(null);
   }
 
   return (
@@ -326,13 +374,15 @@ function CalendarPage() {
           events={events}
           selectedOwnerId={selectedOwnerId}
           onSelectDate={handleSelectDate}
+          onSelectEvent={handleSelectEvent}
         />
       ) : (
-        <WeekCalendar
+       <WeekCalendar
           selectedDate={selectedDate}
           events={events}
           selectedOwnerId={selectedOwnerId}
           onSelectDate={handleSelectDate}
+          onSelectEvent={handleSelectEvent}
         />
       )}
 
@@ -341,6 +391,7 @@ function CalendarPage() {
         events={eventsForSelectedDate}
         isLoading={isLoading}
         error={error}
+        onSelectEvent={handleSelectEvent}
       />
 
       <NewEventDialog
@@ -351,6 +402,15 @@ function CalendarPage() {
           setIsNewEventDialogOpen(false)
         }
         onCreate={handleCreateEvent}
+      />
+
+      <EditEventDialog
+        open={selectedEvent !== null}
+        event={selectedEvent}
+        isSaving={isSaving}
+        onClose={handleCloseEditDialog}
+        onUpdate={handleUpdateEvent}
+        onDelete={handleDeleteEvent}
       />
     </Box>
   );

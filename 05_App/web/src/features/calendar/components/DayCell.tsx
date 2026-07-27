@@ -13,6 +13,7 @@ interface DayCellProps {
   isSelected: boolean;
   isToday: boolean;
   onSelect: (date: Date) => void;
+  onSelectEvent: (event: CalendarEvent) => void;
 }
 
 function DayCell({
@@ -22,12 +23,21 @@ function DayCell({
   isSelected,
   isToday,
   onSelect,
+  onSelectEvent,
 }: DayCellProps) {
   const ownerIds = Array.from(
     new Set(
       events.flatMap((event) => event.ownerIds),
     ),
   ) as CalendarOwnerId[];
+
+  function handleSelectEvent(
+    event: CalendarEvent,
+    mouseEvent: React.MouseEvent,
+  ) {
+    mouseEvent.stopPropagation();
+    onSelectEvent(event);
+  }
 
   return (
     <ButtonBase
@@ -62,7 +72,8 @@ function DayCell({
               ? "background.paper"
               : "action.hover",
           opacity: isCurrentMonth ? 1 : 0.55,
-          transition: "background-color 150ms, border-color 150ms",
+          transition:
+            "background-color 150ms, border-color 150ms",
 
           "&:hover": {
             backgroundColor: isSelected
@@ -167,6 +178,23 @@ function DayCell({
               return (
                 <Box
                   key={event.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={(mouseEvent) =>
+                    handleSelectEvent(
+                      event,
+                      mouseEvent,
+                    )
+                  }
+                  onKeyDown={(keyboardEvent) => {
+                    if (
+                      keyboardEvent.key === "Enter" ||
+                      keyboardEvent.key === " "
+                    ) {
+                      keyboardEvent.stopPropagation();
+                      onSelectEvent(event);
+                    }
+                  }}
                   sx={{
                     px: 0.75,
                     py: 0.3,
@@ -174,6 +202,17 @@ function DayCell({
                     backgroundColor: `${firstOwner.color}18`,
                     borderLeft: `3px solid ${firstOwner.color}`,
                     overflow: "hidden",
+                    cursor: "pointer",
+
+                    "&:hover": {
+                      backgroundColor: `${firstOwner.color}28`,
+                    },
+
+                    "&:focus-visible": {
+                      outline: "2px solid",
+                      outlineColor: "primary.main",
+                      outlineOffset: 1,
+                    },
                   }}
                 >
                   <Typography

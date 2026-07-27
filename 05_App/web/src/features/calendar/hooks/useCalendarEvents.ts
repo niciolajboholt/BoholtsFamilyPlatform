@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from "react";
-
 import type { CalendarEvent } from "../models/calendarEvent";
 import {
   CalendarService,
@@ -14,6 +13,21 @@ interface UseCalendarEventsResult {
   createEvent: (
     input: CreateCalendarEventInput,
   ) => Promise<CalendarEvent>;
+  updateEvent: (
+    event: CalendarEvent,
+  ) => Promise<CalendarEvent>;
+  deleteEvent: (
+    eventId: string,
+  ) => Promise<void>;
+  refreshEvents: () => Promise<void>;
+}
+
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return "Der opstod en ukendt fejl.";
 }
 
 export function useCalendarEvents(): UseCalendarEventsResult {
@@ -22,69 +36,96 @@ export function useCalendarEvents(): UseCalendarEventsResult {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let isMounted = true;
+  const refreshEvents = useCallback(async (): Promise<void> => {
+    setIsLoading(true);
+    setError(null);
 
-    async function loadEvents() {
-      try {
-        setIsLoading(true);
-        setError(null);
+    try {
+      const loadedEvents =
+        await CalendarService.getEvents();
 
-        const loadedEvents =
-          await CalendarService.getEvents();
-
-        if (isMounted) {
-          setEvents(loadedEvents);
-        }
-      } catch {
-        if (isMounted) {
-          setError(
-            "Kalenderaftalerne kunne ikke indlæses.",
-          );
-        }
-      } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
-      }
+      setEvents(loadedEvents);
+    } catch (caughtError: unknown) {
+      setError(getErrorMessage(caughtError));
+    } finally {
+      setIsLoading(false);
     }
-
-    void loadEvents();
-
-    return () => {
-      isMounted = false;
-    };
   }, []);
+
+  useEffect(() => {
+    void refreshEvents();
+  }, [refreshEvents]);
 
   const createEvent = useCallback(
     async (
       input: CreateCalendarEventInput,
     ): Promise<CalendarEvent> => {
-      try {
-        setIsSaving(true);
-        setError(null);
+      setIsSaving(true);
+      setError(null);
 
+      try {
         const createdEvent =
           await CalendarService.createEvent(input);
 
-        setEvents((currentEvents) =>
-          [...currentEvents, createdEvent].sort(
-            (firstEvent, secondEvent) =>
-              new Date(firstEvent.start).getTime() -
-              new Date(secondEvent.start).getTime(),
-          ),
-        );
+        await refreshEvents();
 
         return createdEvent;
-      } catch {
-        setError("Aftalen kunne ikke oprettes.");
+      } catch (caughtError: unknown) {
+        const message = getErrorMessage(caughtError);
 
-        throw new Error("Aftalen kunne ikke oprettes.");
+        setError(message);
+        throw caughtError;
       } finally {
         setIsSaving(false);
       }
     },
-    [],
+    [refreshEvents],
+  );
+
+  const updateEvent = useCallback(
+    async (
+      event: CalendarEvent,
+    ): Promise<CalendarEvent> => {
+      setIsSaving(true);
+      setError(null);
+
+      try {
+        const updatedEvent =
+          await CalendarService.updateEvent(event);
+
+        await refreshEvents();
+
+        return updatedEvent;
+      } catch (caughtError: unknown) {
+        const message = getErrorMessage(caughtError);
+
+        setError(message);
+        throw caughtError;
+      } finally {
+        setIsSaving(false);
+      }
+    },
+    [refreshEvents],
+  );
+
+  const deleteEvent = useCallback(
+    async (eventId: string): Promise<void> => {
+      setIsSaving(true);
+      setError(null);
+
+      try {
+        await CalendarService.deleteEvent(eventId);
+        await refreshEvents();
+      } catch (caughtError: unknown) {
+        const message = getErrorMessage(caughtError);
+
+        setError(message);
+        throw caughtError;
+      } finally {
+        setIsSaving(false);
+      }
+    },
+    [refreshEvents],
   );
 
   return {
@@ -93,5 +134,8 @@ export function useCalendarEvents(): UseCalendarEventsResult {
     isSaving,
     error,
     createEvent,
+    updateEvent,
+    deleteEvent,
+    refreshEvents,
   };
 }

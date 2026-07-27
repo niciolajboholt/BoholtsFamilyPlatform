@@ -19,6 +19,7 @@ interface WeekCalendarProps {
   events: CalendarEvent[];
   selectedOwnerId: CalendarOwnerId | "all";
   onSelectDate: (date: Date) => void;
+  onSelectEvent: (event: CalendarEvent) => void;
 }
 
 function isSameDate(
@@ -67,6 +68,7 @@ function WeekCalendar({
   events,
   selectedOwnerId,
   onSelectDate,
+  onSelectEvent,
 }: WeekCalendarProps) {
   const weekDays = getWeekDays(selectedDate);
   const today = new Date();
@@ -199,12 +201,39 @@ function WeekCalendar({
                     return (
                       <Box
                         key={event.id}
+                        role="button"
+                        tabIndex={0}
+                        onClick={(mouseEvent) => {
+                          mouseEvent.stopPropagation();
+                          onSelectEvent(event);
+                        }}
+                        onKeyDown={(keyboardEvent) => {
+                          if (
+                            keyboardEvent.key === "Enter" ||
+                            keyboardEvent.key === " "
+                          ) {
+                            keyboardEvent.preventDefault();
+                            keyboardEvent.stopPropagation();
+                            onSelectEvent(event);
+                          }
+                        }}
                         sx={{
                           minWidth: 0,
                           p: 0.75,
                           borderRadius: 1,
                           borderLeft: `4px solid ${primaryOwner.color}`,
                           backgroundColor: `${primaryOwner.color}14`,
+                          cursor: "pointer",
+
+                          "&:hover": {
+                            backgroundColor: `${primaryOwner.color}24`,
+                          },
+
+                          "&:focus-visible": {
+                            outline: "2px solid",
+                            outlineColor: "primary.main",
+                            outlineOffset: 1,
+                          },
                         }}
                       >
                         <Typography

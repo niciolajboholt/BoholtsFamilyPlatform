@@ -23,10 +23,7 @@ function createEventId(): string {
 }
 
 function isCalendarEvent(value: unknown): value is CalendarEvent {
-  if (
-    typeof value !== "object" ||
-    value === null
-  ) {
+  if (typeof value !== "object" || value === null) {
     return false;
   }
 
@@ -117,5 +114,71 @@ export class CalendarService {
     ]);
 
     return Promise.resolve(event);
+  }
+
+  static async updateEvent(
+    event: CalendarEvent,
+  ): Promise<CalendarEvent> {
+    if (event.source !== "internal") {
+      throw new Error(
+        "Kun interne aftaler kan redigeres.",
+      );
+    }
+
+    const storedEvents = readStoredEvents();
+
+    const eventExists = storedEvents.some(
+      (storedEvent) =>
+        storedEvent.id === event.id,
+    );
+
+    if (!eventExists) {
+      throw new Error(
+        "Aftalen blev ikke fundet i lokal lagring.",
+      );
+    }
+
+    const updatedEvents = storedEvents.map(
+      (storedEvent) =>
+        storedEvent.id === event.id
+          ? event
+          : storedEvent,
+    );
+
+    saveStoredEvents(updatedEvents);
+
+    return Promise.resolve(event);
+  }
+
+  static async deleteEvent(
+    eventId: string,
+  ): Promise<void> {
+    const storedEvents = readStoredEvents();
+
+    const event = storedEvents.find(
+      (storedEvent) =>
+        storedEvent.id === eventId,
+    );
+
+    if (!event) {
+      throw new Error(
+        "Aftalen blev ikke fundet i lokal lagring.",
+      );
+    }
+
+    if (event.source !== "internal") {
+      throw new Error(
+        "Kun interne aftaler kan slettes.",
+      );
+    }
+
+    const updatedEvents = storedEvents.filter(
+      (storedEvent) =>
+        storedEvent.id !== eventId,
+    );
+
+    saveStoredEvents(updatedEvents);
+
+    return Promise.resolve();
   }
 }

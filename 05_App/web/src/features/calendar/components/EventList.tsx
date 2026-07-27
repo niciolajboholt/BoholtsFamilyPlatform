@@ -2,6 +2,7 @@ import {
   Alert,
   Box,
   Card,
+  CardActionArea,
   CardContent,
   Chip,
   CircularProgress,
@@ -16,6 +17,7 @@ interface EventListProps {
   events: CalendarEvent[];
   isLoading: boolean;
   error: string | null;
+  onSelectEvent: (event: CalendarEvent) => void;
 }
 
 function formatDate(date: Date): string {
@@ -46,6 +48,7 @@ function EventList({
   events,
   isLoading,
   error,
+  onSelectEvent,
 }: EventListProps) {
   return (
     <Box>
@@ -122,6 +125,7 @@ function EventList({
             <EventCard
               key={event.id}
               event={event}
+              onSelectEvent={onSelectEvent}
             />
           ))}
         </Box>
@@ -132,9 +136,13 @@ function EventList({
 
 interface EventCardProps {
   event: CalendarEvent;
+  onSelectEvent: (event: CalendarEvent) => void;
 }
 
-function EventCard({ event }: EventCardProps) {
+function EventCard({
+  event,
+  onSelectEvent,
+}: EventCardProps) {
   const primaryOwner =
     calendarOwners[event.ownerIds[0]];
 
@@ -144,99 +152,104 @@ function EventCard({ event }: EventCardProps) {
         borderLeft: `5px solid ${primaryOwner.color}`,
       }}
     >
-      <CardContent sx={{ p: 3 }}>
-        <Box
-          sx={{
-            display: "flex",
-            alignItems: {
-              xs: "flex-start",
-              sm: "center",
-            },
-            justifyContent: "space-between",
-            flexDirection: {
-              xs: "column",
-              sm: "row",
-            },
-            gap: 2,
-          }}
-        >
-          <Box>
-            <Typography
-              variant="body2"
-              sx={{
-                fontWeight: 700,
-                color: primaryOwner.color,
-              }}
-            >
-              {formatTime(
-                event.start,
-                event.allDay,
-              )}
-
-              {!event.allDay &&
-                ` – ${formatTime(
-                  event.end,
-                  event.allDay,
-                )}`}
-            </Typography>
-
-            <Typography
-              variant="h6"
-              sx={{ mt: 0.5 }}
-            >
-              {event.title}
-            </Typography>
-
-            {event.description && (
-              <Typography
-                color="text.secondary"
-                sx={{ mt: 0.5 }}
-              >
-                {event.description}
-              </Typography>
-            )}
-
-            {event.location && (
-              <Typography
-                variant="body2"
-                color="text.secondary"
-                sx={{ mt: 0.75 }}
-              >
-                {event.location}
-              </Typography>
-            )}
-          </Box>
-
+      <CardActionArea
+        onClick={() => onSelectEvent(event)}
+        aria-label={`Åbn aftalen ${event.title}`}
+      >
+        <CardContent sx={{ p: 3 }}>
           <Box
             sx={{
               display: "flex",
-              flexWrap: "wrap",
-              gap: 1,
+              alignItems: {
+                xs: "flex-start",
+                sm: "center",
+              },
+              justifyContent: "space-between",
+              flexDirection: {
+                xs: "column",
+                sm: "row",
+              },
+              gap: 2,
             }}
           >
-            {event.ownerIds.map((ownerId) => {
-              const owner = calendarOwners[ownerId];
+            <Box>
+              <Typography
+                variant="body2"
+                sx={{
+                  fontWeight: 700,
+                  color: primaryOwner.color,
+                }}
+              >
+                {formatTime(
+                  event.start,
+                  event.allDay,
+                )}
 
-              return (
-                <Chip
-                  key={owner.id}
-                  label={owner.name}
-                  size="small"
-                  sx={{
-                    backgroundColor: owner.color,
-                    color: "#ffffff",
-                    fontWeight: 600,
+                {!event.allDay &&
+                  ` – ${formatTime(
+                    event.end,
+                    event.allDay,
+                  )}`}
+              </Typography>
 
-                    "& .MuiChip-label": {
+              <Typography
+                variant="h6"
+                sx={{ mt: 0.5 }}
+              >
+                {event.title}
+              </Typography>
+
+              {event.description && (
+                <Typography
+                  color="text.secondary"
+                  sx={{ mt: 0.5 }}
+                >
+                  {event.description}
+                </Typography>
+              )}
+
+              {event.location && (
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ mt: 0.75 }}
+                >
+                  {event.location}
+                </Typography>
+              )}
+            </Box>
+
+            <Box
+              sx={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 1,
+              }}
+            >
+              {event.ownerIds.map((ownerId) => {
+                const owner = calendarOwners[ownerId];
+
+                return (
+                  <Chip
+                    key={owner.id}
+                    label={owner.name}
+                    size="small"
+                    sx={{
+                      backgroundColor: owner.color,
                       color: "#ffffff",
-                    },
-                  }}
-                />
-              );
-            })}
+                      fontWeight: 600,
+
+                      "& .MuiChip-label": {
+                        color: "#ffffff",
+                      },
+                    }}
+                  />
+                );
+              })}
+            </Box>
           </Box>
-        </Box>
-      </CardContent>
+        </CardContent>
+      </CardActionArea>
     </Card>
   );
 }

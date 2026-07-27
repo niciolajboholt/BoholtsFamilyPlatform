@@ -1,4 +1,9 @@
-import { Box, Card, CardContent, Typography } from "@mui/material";
+import {
+  Box,
+  Card,
+  CardContent,
+  Typography,
+} from "@mui/material";
 
 import type {
   CalendarEvent,
@@ -17,6 +22,7 @@ interface MonthCalendarProps {
   events: CalendarEvent[];
   selectedOwnerId: CalendarOwnerId | "all";
   onSelectDate: (date: Date) => void;
+  onSelectEvent: (event: CalendarEvent) => void;
 }
 
 const weekdays = [
@@ -59,8 +65,11 @@ function MonthCalendar({
   events,
   selectedOwnerId,
   onSelectDate,
+  onSelectEvent,
 }: MonthCalendarProps) {
-  const calendarDays = getCalendarMonth(visibleMonth);
+  const calendarDays =
+    getCalendarMonth(visibleMonth);
+
   const today = new Date();
 
   return (
@@ -76,7 +85,8 @@ function MonthCalendar({
         <Box
           sx={{
             display: "grid",
-            gridTemplateColumns: "repeat(7, minmax(0, 1fr))",
+            gridTemplateColumns:
+              "repeat(7, minmax(0, 1fr))",
             gap: {
               xs: 0.5,
               sm: 0.75,
@@ -106,7 +116,8 @@ function MonthCalendar({
         <Box
           sx={{
             display: "grid",
-            gridTemplateColumns: "repeat(7, minmax(0, 1fr))",
+            gridTemplateColumns:
+              "repeat(7, minmax(0, 1fr))",
             gap: {
               xs: 0.5,
               sm: 0.75,
@@ -118,23 +129,35 @@ function MonthCalendar({
               date,
               isCurrentMonth,
             }: CalendarMonthDay) => {
-              const dateEvents = filterEventsByOwner(
-                getEventsForDate(events, date),
-                selectedOwnerId,
-              );
+              const dateEvents =
+                filterEventsByOwner(
+                  getEventsForDate(
+                    events,
+                    date,
+                  ),
+                  selectedOwnerId,
+                );
 
               return (
                 <DayCell
                   key={date.toISOString()}
                   date={date}
                   events={dateEvents}
-                  isCurrentMonth={isCurrentMonth}
+                  isCurrentMonth={
+                    isCurrentMonth
+                  }
                   isSelected={isSameDate(
                     date,
                     selectedDate,
                   )}
-                  isToday={isSameDate(date, today)}
+                  isToday={isSameDate(
+                    date,
+                    today,
+                  )}
                   onSelect={onSelectDate}
+                  onSelectEvent={
+                    onSelectEvent
+                  }
                 />
               );
             },
