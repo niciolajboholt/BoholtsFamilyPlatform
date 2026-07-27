@@ -1,7 +1,9 @@
 import { useMemo, useState } from "react";
 
+import AddIcon from "@mui/icons-material/Add";
 import {
   Box,
+  Button,
   Card,
   CardContent,
   Chip,
@@ -11,11 +13,13 @@ import {
 import CalendarToolbar from "../features/calendar/components/CalendarToolbar";
 import EventList from "../features/calendar/components/EventList";
 import MonthCalendar from "../features/calendar/components/MonthCalendar";
+import NewEventDialog from "../features/calendar/components/NewEventDialog";
 import WeekCalendar from "../features/calendar/components/WeekCalendar";
 import { calendarOwners } from "../features/calendar/data/calendarOwners";
 import { useCalendarEvents } from "../features/calendar/hooks/useCalendarEvents";
 import type { CalendarOwnerId } from "../features/calendar/models/calendarEvent";
 import type { CalendarView } from "../features/calendar/models/calendarView";
+import type { CreateCalendarEventInput } from "../features/calendar/services/CalendarService";
 import { getEventsForDate } from "../features/calendar/utils/getEventsForDate";
 
 function startOfMonth(date: Date): Date {
@@ -58,9 +62,7 @@ function changeWeek(
 }
 
 function CalendarPage() {
-  const initialDate = new Date(
-    "2026-07-27T12:00:00",
-  );
+  const initialDate = new Date("2026-07-27T12:00:00");
 
   const [selectedDate, setSelectedDate] =
     useState(initialDate);
@@ -74,8 +76,18 @@ function CalendarPage() {
   const [selectedOwnerId, setSelectedOwnerId] =
     useState<CalendarOwnerId | "all">("all");
 
-  const { events, isLoading, error } =
-    useCalendarEvents();
+  const [
+    isNewEventDialogOpen,
+    setIsNewEventDialogOpen,
+  ] = useState(false);
+
+  const {
+    events,
+    isLoading,
+    isSaving,
+    error,
+    createEvent,
+  } = useCalendarEvents();
 
   const eventsForSelectedDate = useMemo(() => {
     const dateEvents = getEventsForDate(
@@ -154,6 +166,23 @@ function CalendarPage() {
     );
   }
 
+  async function handleCreateEvent(
+    input: CreateCalendarEventInput,
+  ) {
+    const createdEvent = await createEvent(input);
+    const createdDate = new Date(createdEvent.start);
+
+    createdDate.setHours(12, 0, 0, 0);
+
+    setSelectedDate(createdDate);
+
+    setVisibleDate(
+      calendarView === "month"
+        ? startOfMonth(createdDate)
+        : createdDate,
+    );
+  }
+
   return (
     <Box
       sx={{
@@ -162,17 +191,44 @@ function CalendarPage() {
         pb: 4,
       }}
     >
-      <Box sx={{ mb: 3 }}>
-        <Typography variant="h4">
-          Kalender
-        </Typography>
+      <Box
+        sx={{
+          mb: 3,
+          display: "flex",
+          alignItems: {
+            xs: "stretch",
+            sm: "center",
+          },
+          justifyContent: "space-between",
+          flexDirection: {
+            xs: "column",
+            sm: "row",
+          },
+          gap: 2,
+        }}
+      >
+        <Box>
+          <Typography variant="h4">
+            Kalender
+          </Typography>
 
-        <Typography
-          color="text.secondary"
-          sx={{ mt: 0.5 }}
+          <Typography
+            color="text.secondary"
+            sx={{ mt: 0.5 }}
+          >
+            Familiens aftaler samlet ét sted.
+          </Typography>
+        </Box>
+
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={() =>
+            setIsNewEventDialogOpen(true)
+          }
         >
-          Familiens aftaler samlet ét sted.
-        </Typography>
+          Ny aftale
+        </Button>
       </Box>
 
       <CalendarToolbar
@@ -285,6 +341,16 @@ function CalendarPage() {
         events={eventsForSelectedDate}
         isLoading={isLoading}
         error={error}
+      />
+
+      <NewEventDialog
+        open={isNewEventDialogOpen}
+        initialDate={selectedDate}
+        isSaving={isSaving}
+        onClose={() =>
+          setIsNewEventDialogOpen(false)
+        }
+        onCreate={handleCreateEvent}
       />
     </Box>
   );
