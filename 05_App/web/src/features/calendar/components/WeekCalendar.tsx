@@ -3,6 +3,7 @@ import {
   Card,
   CardContent,
   Chip,
+  Divider,
   Typography,
 } from "@mui/material";
 
@@ -40,10 +41,6 @@ function formatWeekday(date: Date): string {
 }
 
 function formatTime(event: CalendarEvent): string {
-  if (event.allDay) {
-    return "Hele dagen";
-  }
-
   return new Intl.DateTimeFormat("da-DK", {
     hour: "2-digit",
     minute: "2-digit",
@@ -60,6 +57,129 @@ function filterEventsByOwner(
 
   return events.filter((event) =>
     event.ownerIds.includes(selectedOwnerId),
+  );
+}
+
+function sortTimedEvents(
+  events: CalendarEvent[],
+): CalendarEvent[] {
+  return [...events].sort(
+    (firstEvent, secondEvent) =>
+      new Date(firstEvent.start).getTime() -
+      new Date(secondEvent.start).getTime(),
+  );
+}
+
+interface EventCardProps {
+  event: CalendarEvent;
+  showTime: boolean;
+  onSelectEvent: (event: CalendarEvent) => void;
+}
+
+function EventCard({
+  event,
+  showTime,
+  onSelectEvent,
+}: EventCardProps) {
+  const primaryOwner =
+    calendarOwners[event.ownerIds[0]];
+
+  const ownerColor =
+    primaryOwner?.color ?? "#607d8b";
+
+  return (
+    <Box
+      role="button"
+      tabIndex={0}
+      onClick={(mouseEvent) => {
+        mouseEvent.stopPropagation();
+        onSelectEvent(event);
+      }}
+      onKeyDown={(keyboardEvent) => {
+        if (
+          keyboardEvent.key === "Enter" ||
+          keyboardEvent.key === " "
+        ) {
+          keyboardEvent.preventDefault();
+          keyboardEvent.stopPropagation();
+          onSelectEvent(event);
+        }
+      }}
+      sx={{
+        minWidth: 0,
+        p: 0.75,
+        borderRadius: 1,
+        borderLeft: `4px solid ${ownerColor}`,
+        backgroundColor: `${ownerColor}14`,
+        cursor: "pointer",
+
+        "&:hover": {
+          backgroundColor: `${ownerColor}24`,
+        },
+
+        "&:focus-visible": {
+          outline: "2px solid",
+          outlineColor: "primary.main",
+          outlineOffset: 1,
+        },
+      }}
+    >
+      {showTime && (
+        <Typography
+          variant="caption"
+          sx={{
+            display: "block",
+            fontWeight: 700,
+          }}
+        >
+          {formatTime(event)}
+        </Typography>
+      )}
+
+      <Typography
+        variant="body2"
+        noWrap
+        sx={{ fontWeight: 600 }}
+      >
+        {event.title}
+      </Typography>
+
+      <Box
+        sx={{
+          display: "flex",
+          flexWrap: "wrap",
+          gap: 0.5,
+          mt: 0.5,
+        }}
+      >
+        {event.ownerIds.map((ownerId) => {
+          const owner =
+            calendarOwners[ownerId];
+
+          if (!owner) {
+            return null;
+          }
+
+          return (
+            <Chip
+              key={ownerId}
+              label={owner.name}
+              size="small"
+              sx={{
+                height: 20,
+                backgroundColor: owner.color,
+                color: "#ffffff",
+
+                "& .MuiChip-label": {
+                  px: 0.75,
+                  fontSize: "0.65rem",
+                },
+              }}
+            />
+          );
+        })}
+      </Box>
+    </Box>
   );
 }
 
@@ -94,31 +214,48 @@ function WeekCalendar({
           }}
         >
           {weekDays.map((date) => {
-            const dayEvents = filterEventsByOwner(
-              getEventsForDate(events, date),
-              selectedOwnerId,
-            );
+            const dayEvents =
+              filterEventsByOwner(
+                getEventsForDate(events, date),
+                selectedOwnerId,
+              );
 
-            const isSelected = isSameDate(
-              date,
-              selectedDate,
-            );
+            const allDayEvents =
+              dayEvents.filter(
+                (event) => event.allDay,
+              );
 
-            const isToday = isSameDate(date, today);
+            const timedEvents =
+              sortTimedEvents(
+                dayEvents.filter(
+                  (event) => !event.allDay,
+                ),
+              );
+
+            const isSelected =
+              isSameDate(
+                date,
+                selectedDate,
+              );
+
+            const isToday =
+              isSameDate(date, today);
 
             return (
               <Box
                 key={date.toISOString()}
                 component="button"
                 type="button"
-                onClick={() => onSelectDate(date)}
+                onClick={() =>
+                  onSelectDate(date)
+                }
                 sx={{
                   appearance: "none",
                   width: "100%",
                   minWidth: 0,
                   minHeight: {
-                    xs: 100,
-                    md: 220,
+                    xs: 140,
+                    md: 260,
                   },
                   p: 1.25,
                   border: "1px solid",
@@ -135,7 +272,8 @@ function WeekCalendar({
                   cursor: "pointer",
 
                   "&:hover": {
-                    backgroundColor: "action.hover",
+                    backgroundColor:
+                      "action.hover",
                   },
                 }}
               >
@@ -143,7 +281,8 @@ function WeekCalendar({
                   sx={{
                     display: "flex",
                     alignItems: "center",
-                    justifyContent: "space-between",
+                    justifyContent:
+                      "space-between",
                     gap: 1,
                     mb: 1,
                   }}
@@ -151,7 +290,8 @@ function WeekCalendar({
                   <Typography
                     variant="body2"
                     sx={{
-                      textTransform: "capitalize",
+                      textTransform:
+                        "capitalize",
                       fontWeight: 700,
                     }}
                   >
@@ -165,10 +305,12 @@ function WeekCalendar({
                       borderRadius: "50%",
                       display: "flex",
                       alignItems: "center",
-                      justifyContent: "center",
-                      backgroundColor: isToday
-                        ? "primary.main"
-                        : "transparent",
+                      justifyContent:
+                        "center",
+                      backgroundColor:
+                        isToday
+                          ? "primary.main"
+                          : "transparent",
                       color: isToday
                         ? "primary.contrastText"
                         : "text.primary",
@@ -179,126 +321,120 @@ function WeekCalendar({
                   </Box>
                 </Box>
 
-                {dayEvents.length === 0 && (
-                  <Typography
-                    variant="caption"
-                    color="text.secondary"
-                  >
-                    Ingen aftaler
-                  </Typography>
+                {allDayEvents.length >
+                  0 && (
+                  <Box sx={{ mb: 1 }}>
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      sx={{
+                        display: "block",
+                        mb: 0.5,
+                        fontWeight: 700,
+                        textTransform:
+                          "uppercase",
+                        letterSpacing:
+                          "0.04em",
+                      }}
+                    >
+                      Hele dagen
+                    </Typography>
+
+                    <Box
+                      sx={{
+                        display: "grid",
+                        gap: 0.75,
+                      }}
+                    >
+                      {allDayEvents.map(
+                        (event) => (
+                          <EventCard
+                            key={event.id}
+                            event={event}
+                            showTime={false}
+                            onSelectEvent={
+                              onSelectEvent
+                            }
+                          />
+                        ),
+                      )}
+                    </Box>
+                  </Box>
                 )}
 
-                <Box
-                  sx={{
-                    display: "grid",
-                    gap: 0.75,
-                  }}
-                >
-                  {dayEvents.slice(0, 3).map((event) => {
-                    const primaryOwner =
-                      calendarOwners[event.ownerIds[0]];
+                {allDayEvents.length >
+                  0 &&
+                  timedEvents.length >
+                    0 && (
+                    <Divider
+                      sx={{ mb: 1 }}
+                    />
+                  )}
 
-                    return (
-                      <Box
-                        key={event.id}
-                        role="button"
-                        tabIndex={0}
-                        onClick={(mouseEvent) => {
-                          mouseEvent.stopPropagation();
-                          onSelectEvent(event);
-                        }}
-                        onKeyDown={(keyboardEvent) => {
-                          if (
-                            keyboardEvent.key === "Enter" ||
-                            keyboardEvent.key === " "
-                          ) {
-                            keyboardEvent.preventDefault();
-                            keyboardEvent.stopPropagation();
-                            onSelectEvent(event);
-                          }
-                        }}
-                        sx={{
-                          minWidth: 0,
-                          p: 0.75,
-                          borderRadius: 1,
-                          borderLeft: `4px solid ${primaryOwner.color}`,
-                          backgroundColor: `${primaryOwner.color}14`,
-                          cursor: "pointer",
-
-                          "&:hover": {
-                            backgroundColor: `${primaryOwner.color}24`,
-                          },
-
-                          "&:focus-visible": {
-                            outline: "2px solid",
-                            outlineColor: "primary.main",
-                            outlineOffset: 1,
-                          },
-                        }}
-                      >
-                        <Typography
-                          variant="caption"
-                          sx={{
-                            display: "block",
-                            fontWeight: 700,
-                          }}
-                        >
-                          {formatTime(event)}
-                        </Typography>
-
-                        <Typography
-                          variant="body2"
-                          noWrap
-                          sx={{ fontWeight: 600 }}
-                        >
-                          {event.title}
-                        </Typography>
-
-                        <Box
-                          sx={{
-                            display: "flex",
-                            flexWrap: "wrap",
-                            gap: 0.5,
-                            mt: 0.5,
-                          }}
-                        >
-                          {event.ownerIds.map((ownerId) => {
-                            const owner =
-                              calendarOwners[ownerId];
-
-                            return (
-                              <Chip
-                                key={ownerId}
-                                label={owner.name}
-                                size="small"
-                                sx={{
-                                  height: 20,
-                                  backgroundColor:
-                                    owner.color,
-                                  color: "#ffffff",
-
-                                  "& .MuiChip-label": {
-                                    px: 0.75,
-                                    fontSize: "0.65rem",
-                                  },
-                                }}
-                              />
-                            );
-                          })}
-                        </Box>
-                      </Box>
-                    );
-                  })}
-
-                  {dayEvents.length > 3 && (
+                {timedEvents.length === 0 &&
+                  allDayEvents.length ===
+                    0 && (
                     <Typography
                       variant="caption"
                       color="text.secondary"
                     >
-                      +{dayEvents.length - 3} flere
+                      Ingen aftaler
                     </Typography>
                   )}
-                </Box>
+
+                {timedEvents.length >
+                  0 && (
+                  <Box>
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      sx={{
+                        display: "block",
+                        mb: 0.5,
+                        fontWeight: 700,
+                        textTransform:
+                          "uppercase",
+                        letterSpacing:
+                          "0.04em",
+                      }}
+                    >
+                      Tidspunkter
+                    </Typography>
+
+                    <Box
+                      sx={{
+                        display: "grid",
+                        gap: 0.75,
+                      }}
+                    >
+                      {timedEvents
+                        .slice(0, 3)
+                        .map((event) => (
+                          <EventCard
+                            key={event.id}
+                            event={event}
+                            showTime
+                            onSelectEvent={
+                              onSelectEvent
+                            }
+                          />
+                        ))}
+
+                      {timedEvents.length >
+                        3 && (
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                        >
+                          +
+                          {timedEvents.length -
+                            3}{" "}
+                          flere
+                        </Typography>
+                      )}
+                    </Box>
+                  </Box>
+                )}
               </Box>
             );
           })}

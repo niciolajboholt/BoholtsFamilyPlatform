@@ -1,4 +1,9 @@
-import { Box, ButtonBase, Typography } from "@mui/material";
+import {
+  Box,
+  ButtonBase,
+  Chip,
+  Typography,
+} from "@mui/material";
 
 import { calendarOwners } from "../data/calendarOwners";
 import type {
@@ -16,6 +21,144 @@ interface DayCellProps {
   onSelectEvent: (event: CalendarEvent) => void;
 }
 
+type MultiDayStatus =
+  | "starter"
+  | "continues"
+  | "ends"
+  | null;
+
+function getStartOfDay(date: Date): Date {
+  return new Date(
+    date.getFullYear(),
+    date.getMonth(),
+    date.getDate(),
+    0,
+    0,
+    0,
+    0,
+  );
+}
+
+
+
+function getEventLastVisibleDay(
+  event: CalendarEvent,
+): Date {
+  const eventEnd = new Date(event.end);
+
+  if (event.allDay) {
+    return new Date(
+      eventEnd.getFullYear(),
+      eventEnd.getMonth(),
+      eventEnd.getDate() - 1,
+      0,
+      0,
+      0,
+      0,
+    );
+  }
+
+  const endOfPreviousMillisecond = new Date(
+    eventEnd.getTime() - 1,
+  );
+
+  return getStartOfDay(
+    endOfPreviousMillisecond,
+  );
+}
+
+function isSameDate(
+  firstDate: Date,
+  secondDate: Date,
+): boolean {
+  return (
+    firstDate.getFullYear() ===
+      secondDate.getFullYear() &&
+    firstDate.getMonth() ===
+      secondDate.getMonth() &&
+    firstDate.getDate() ===
+      secondDate.getDate()
+  );
+}
+
+function getMultiDayStatus(
+  event: CalendarEvent,
+  visibleDate: Date,
+): MultiDayStatus {
+  const eventStart = new Date(event.start);
+  const eventEnd = new Date(event.end);
+
+  if (
+    Number.isNaN(eventStart.getTime()) ||
+    Number.isNaN(eventEnd.getTime())
+  ) {
+    return null;
+  }
+
+  const firstVisibleDay =
+    getStartOfDay(eventStart);
+
+  const lastVisibleDay =
+    getEventLastVisibleDay(event);
+
+  if (
+    isSameDate(
+      firstVisibleDay,
+      lastVisibleDay,
+    )
+  ) {
+    return null;
+  }
+
+  const currentDay =
+    getStartOfDay(visibleDate);
+
+  if (
+    isSameDate(
+      currentDay,
+      firstVisibleDay,
+    )
+  ) {
+    return "starter";
+  }
+
+  if (
+    isSameDate(
+      currentDay,
+      lastVisibleDay,
+    )
+  ) {
+    return "ends";
+  }
+
+  if (
+    currentDay > firstVisibleDay &&
+    currentDay < lastVisibleDay
+  ) {
+    return "continues";
+  }
+
+  return null;
+}
+
+function getMultiDayLabel(
+  status: MultiDayStatus,
+): string | null {
+  switch (status) {
+    case "starter":
+      return "Starter";
+
+    case "continues":
+      return "Fortsætter";
+
+    case "ends":
+      return "Slutter";
+
+    default:
+      return null;
+  }
+}
+
 function DayCell({
   date,
   events,
@@ -27,7 +170,9 @@ function DayCell({
 }: DayCellProps) {
   const ownerIds = Array.from(
     new Set(
-      events.flatMap((event) => event.ownerIds),
+      events.flatMap(
+        (event) => event.ownerIds,
+      ),
     ),
   ) as CalendarOwnerId[];
 
@@ -85,7 +230,8 @@ function DayCell({
         <Box
           sx={{
             display: "flex",
-            justifyContent: "space-between",
+            justifyContent:
+              "space-between",
             alignItems: "flex-start",
             gap: 0.5,
           }}
@@ -110,7 +256,9 @@ function DayCell({
               variant="body2"
               sx={{
                 fontWeight:
-                  isToday || isSelected ? 700 : 500,
+                  isToday || isSelected
+                    ? 700
+                    : 500,
               }}
             >
               {date.getDate()}
@@ -141,22 +289,30 @@ function DayCell({
             mt: 1,
           }}
         >
-          {ownerIds.slice(0, 5).map((ownerId) => {
-            const owner = calendarOwners[ownerId];
+          {ownerIds
+            .slice(0, 5)
+            .map((ownerId) => {
+              const owner =
+                calendarOwners[ownerId];
 
-            return (
-              <Box
-                key={ownerId}
-                title={owner.name}
-                sx={{
-                  width: 8,
-                  height: 8,
-                  borderRadius: "50%",
-                  backgroundColor: owner.color,
-                }}
-              />
-            );
-          })}
+              if (!owner) {
+                return null;
+              }
+
+              return (
+                <Box
+                  key={ownerId}
+                  title={owner.name}
+                  sx={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: "50%",
+                    backgroundColor:
+                      owner.color,
+                  }}
+                />
+              );
+            })}
         </Box>
 
         {events.length > 0 && (
@@ -170,64 +326,135 @@ function DayCell({
               gap: 0.4,
             }}
           >
-            {events.slice(0, 2).map((event) => {
-              const firstOwnerId = event.ownerIds[0];
-              const firstOwner =
-                calendarOwners[firstOwnerId];
+            {events
+              .slice(0, 2)
+              .map((event) => {
+                const firstOwnerId =
+                  event.ownerIds[0];
 
-              return (
-                <Box
-                  key={event.id}
-                  role="button"
-                  tabIndex={0}
-                  onClick={(mouseEvent) =>
-                    handleSelectEvent(
-                      event,
+                const firstOwner =
+                  calendarOwners[
+                    firstOwnerId
+                  ];
+
+                const ownerColor =
+                  firstOwner?.color ??
+                  "#607d8b";
+
+                const multiDayStatus =
+                  getMultiDayStatus(
+                    event,
+                    date,
+                  );
+
+                const multiDayLabel =
+                  getMultiDayLabel(
+                    multiDayStatus,
+                  );
+
+                return (
+                  <Box
+                    key={event.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={(
                       mouseEvent,
-                    )
-                  }
-                  onKeyDown={(keyboardEvent) => {
-                    if (
-                      keyboardEvent.key === "Enter" ||
-                      keyboardEvent.key === " "
-                    ) {
-                      keyboardEvent.stopPropagation();
-                      onSelectEvent(event);
+                    ) =>
+                      handleSelectEvent(
+                        event,
+                        mouseEvent,
+                      )
                     }
-                  }}
-                  sx={{
-                    px: 0.75,
-                    py: 0.3,
-                    borderRadius: 0.75,
-                    backgroundColor: `${firstOwner.color}18`,
-                    borderLeft: `3px solid ${firstOwner.color}`,
-                    overflow: "hidden",
-                    cursor: "pointer",
-
-                    "&:hover": {
-                      backgroundColor: `${firstOwner.color}28`,
-                    },
-
-                    "&:focus-visible": {
-                      outline: "2px solid",
-                      outlineColor: "primary.main",
-                      outlineOffset: 1,
-                    },
-                  }}
-                >
-                  <Typography
-                    variant="caption"
-                    noWrap
+                    onKeyDown={(
+                      keyboardEvent,
+                    ) => {
+                      if (
+                        keyboardEvent.key ===
+                          "Enter" ||
+                        keyboardEvent.key ===
+                          " "
+                      ) {
+                        keyboardEvent.preventDefault();
+                        keyboardEvent.stopPropagation();
+                        onSelectEvent(event);
+                      }
+                    }}
                     sx={{
-                      display: "block",
-                      fontWeight: 600,
+                      px: 0.75,
+                      py: 0.4,
+                      borderRadius: 0.75,
+                      backgroundColor:
+                        `${ownerColor}18`,
+                      borderLeft:
+                        `3px solid ${ownerColor}`,
+                      overflow: "hidden",
+                      cursor: "pointer",
+
+                      "&:hover": {
+                        backgroundColor:
+                          `${ownerColor}28`,
+                      },
+
+                      "&:focus-visible": {
+                        outline:
+                          "2px solid",
+                        outlineColor:
+                          "primary.main",
+                        outlineOffset: 1,
+                      },
                     }}
                   >
-                    {event.title}
-                  </Typography>
-                </Box>
-              );
-            })}
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems:
+                          "center",
+                        gap: 0.5,
+                        minWidth: 0,
+                      }}
+                    >
+                      <Typography
+                        variant="caption"
+                        noWrap
+                        sx={{
+                          display: "block",
+                          minWidth: 0,
+                          flex: 1,
+                          fontWeight: 600,
+                        }}
+                      >
+                        {event.title}
+                      </Typography>
+
+                      {multiDayLabel && (
+                        <Chip
+                          label={
+                            multiDayLabel
+                          }
+                          size="small"
+                          variant="outlined"
+                          sx={{
+                            flexShrink: 0,
+                            height: 18,
+                            borderColor:
+                              ownerColor,
+                            color:
+                              ownerColor,
+
+                            "& .MuiChip-label":
+                              {
+                                px: 0.6,
+                                fontSize:
+                                  "0.58rem",
+                                fontWeight: 700,
+                              },
+                          }}
+                        />
+                      )}
+                    </Box>
+                  </Box>
+                );
+              })}
 
             {events.length > 2 && (
               <Typography

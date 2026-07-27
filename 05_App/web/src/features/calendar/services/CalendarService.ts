@@ -2,6 +2,9 @@ import { calendarEvents } from "../data/calendarEvents";
 import type {
   CalendarEvent,
   CalendarOwnerId,
+  CalendarWeekday,
+  RecurrenceFrequency,
+  RecurrenceRule,
 } from "../models/calendarEvent";
 
 export interface CreateCalendarEventInput {
@@ -12,9 +15,37 @@ export interface CreateCalendarEventInput {
   ownerIds: CalendarOwnerId[];
   description?: string;
   location?: string;
+  recurrence?: RecurrenceRule;
 }
 
-const STORAGE_KEY = "boholts-family-calendar-events";
+const STORAGE_KEY =
+  "boholts-family-calendar-events";
+
+const calendarOwnerIds: CalendarOwnerId[] = [
+  "nicolaj",
+  "christine",
+  "alfred",
+  "jens",
+  "family",
+];
+
+const recurrenceFrequencies: RecurrenceFrequency[] =
+  [
+    "daily",
+    "weekly",
+    "monthly",
+    "yearly",
+  ];
+
+const calendarWeekdays: CalendarWeekday[] = [
+  0,
+  1,
+  2,
+  3,
+  4,
+  5,
+  6,
+];
 
 function createEventId(): string {
   return `event-${Date.now()}-${Math.random()
@@ -22,32 +53,308 @@ function createEventId(): string {
     .slice(2, 8)}`;
 }
 
-function isCalendarEvent(value: unknown): value is CalendarEvent {
-  if (typeof value !== "object" || value === null) {
+function isObject(
+  value: unknown,
+): value is Record<string, unknown> {
+  return (
+    typeof value === "object" &&
+    value !== null
+  );
+}
+
+function isValidDateString(
+  value: unknown,
+): value is string {
+  return (
+    typeof value === "string" &&
+    value.trim().length > 0 &&
+    !Number.isNaN(new Date(value).getTime())
+  );
+}
+
+function isCalendarOwnerId(
+  value: unknown,
+): value is CalendarOwnerId {
+  return (
+    typeof value === "string" &&
+    calendarOwnerIds.includes(
+      value as CalendarOwnerId,
+    )
+  );
+}
+
+function isRecurrenceFrequency(
+  value: unknown,
+): value is RecurrenceFrequency {
+  return (
+    typeof value === "string" &&
+    recurrenceFrequencies.includes(
+      value as RecurrenceFrequency,
+    )
+  );
+}
+
+function isCalendarWeekday(
+  value: unknown,
+): value is CalendarWeekday {
+  return (
+    typeof value === "number" &&
+    Number.isInteger(value) &&
+    calendarWeekdays.includes(
+      value as CalendarWeekday,
+    )
+  );
+}
+
+function isPositiveInteger(
+  value: unknown,
+): value is number {
+  return (
+    typeof value === "number" &&
+    Number.isInteger(value) &&
+    value > 0
+  );
+}
+
+function isIntegerInRange(
+  value: unknown,
+  minimum: number,
+  maximum: number,
+): value is number {
+  return (
+    typeof value === "number" &&
+    Number.isInteger(value) &&
+    value >= minimum &&
+    value <= maximum
+  );
+}
+
+function isRecurrenceRule(
+  value: unknown,
+): value is RecurrenceRule {
+  if (!isObject(value)) {
     return false;
   }
 
-  const event = value as Partial<CalendarEvent>;
+  if (
+    !isRecurrenceFrequency(value.frequency) ||
+    !isPositiveInteger(value.interval)
+  ) {
+    return false;
+  }
+
+  if (
+    value.endType !== "never" &&
+    value.endType !== "until" &&
+    value.endType !== "count"
+  ) {
+    return false;
+  }
+
+  if (
+    value.endType === "until" &&
+    !isValidDateString(value.until)
+  ) {
+    return false;
+  }
+
+  if (
+    value.endType === "count" &&
+    !isPositiveInteger(value.count)
+  ) {
+    return false;
+  }
+
+  if (
+    value.until !== undefined &&
+    !isValidDateString(value.until)
+  ) {
+    return false;
+  }
+
+  if (
+    value.count !== undefined &&
+    !isPositiveInteger(value.count)
+  ) {
+    return false;
+  }
+
+  if (
+    value.byWeekdays !== undefined &&
+    (!Array.isArray(value.byWeekdays) ||
+      value.byWeekdays.length === 0 ||
+      !value.byWeekdays.every(
+        isCalendarWeekday,
+      ))
+  ) {
+    return false;
+  }
+
+  if (
+    value.byMonthDay !== undefined &&
+    !isIntegerInRange(
+      value.byMonthDay,
+      1,
+      31,
+    )
+  ) {
+    return false;
+  }
+
+  if (
+    value.byMonth !== undefined &&
+    !isIntegerInRange(
+      value.byMonth,
+      1,
+      12,
+    )
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
+function isCalendarEvent(
+  value: unknown,
+): value is CalendarEvent {
+  if (!isObject(value)) {
+    return false;
+  }
+
+  if (
+    typeof value.id !== "string" ||
+    value.id.trim().length === 0 ||
+    typeof value.title !== "string" ||
+    value.title.trim().length === 0 ||
+    !isValidDateString(value.start) ||
+    !isValidDateString(value.end) ||
+    typeof value.allDay !== "boolean" ||
+    !Array.isArray(value.ownerIds) ||
+    value.ownerIds.length === 0 ||
+    !value.ownerIds.every(isCalendarOwnerId) ||
+    (value.source !== "internal" &&
+      value.source !== "google")
+  ) {
+    return false;
+  }
+
+  if (
+    value.description !== undefined &&
+    typeof value.description !== "string"
+  ) {
+    return false;
+  }
+
+  if (
+    value.location !== undefined &&
+    typeof value.location !== "string"
+  ) {
+    return false;
+  }
+
+  if (
+    value.color !== undefined &&
+    typeof value.color !== "string"
+  ) {
+    return false;
+  }
+
+  if (
+    value.recurrence !== undefined &&
+    !isRecurrenceRule(value.recurrence)
+  ) {
+    return false;
+  }
 
   return (
-    typeof event.id === "string" &&
-    typeof event.title === "string" &&
-    typeof event.start === "string" &&
-    typeof event.end === "string" &&
-    typeof event.allDay === "boolean" &&
-    Array.isArray(event.ownerIds) &&
-    event.ownerIds.every(
-      (ownerId) => typeof ownerId === "string",
-    ) &&
-    (event.source === "internal" ||
-      event.source === "google")
+    new Date(value.end).getTime() >
+    new Date(value.start).getTime()
   );
+}
+
+function validateEventData(
+  event: Omit<
+    CalendarEvent,
+    "id" | "source"
+  >,
+): void {
+  if (!event.title.trim()) {
+    throw new Error(
+      "Aftalen skal have en titel.",
+    );
+  }
+
+  if (!isValidDateString(event.start)) {
+    throw new Error(
+      "Aftalens starttidspunkt er ugyldigt.",
+    );
+  }
+
+  if (!isValidDateString(event.end)) {
+    throw new Error(
+      "Aftalens sluttidspunkt er ugyldigt.",
+    );
+  }
+
+  if (
+    new Date(event.end).getTime() <=
+    new Date(event.start).getTime()
+  ) {
+    throw new Error(
+      "Aftalens sluttidspunkt skal ligge efter starttidspunktet.",
+    );
+  }
+
+  if (event.ownerIds.length === 0) {
+    throw new Error(
+      "Vælg mindst én deltager.",
+    );
+  }
+
+  if (
+    !event.ownerIds.every(isCalendarOwnerId)
+  ) {
+    throw new Error(
+      "Aftalen indeholder en ukendt deltager.",
+    );
+  }
+
+  if (
+    event.recurrence !== undefined &&
+    !isRecurrenceRule(event.recurrence)
+  ) {
+    throw new Error(
+      "Aftalens gentagelsesregel er ugyldig.",
+    );
+  }
+
+  if (
+    event.recurrence?.endType === "until" &&
+    event.recurrence.until
+  ) {
+    const recurrenceEnd = new Date(
+      event.recurrence.until,
+    ).getTime();
+
+    const eventStart = new Date(
+      event.start,
+    ).getTime();
+
+    if (recurrenceEnd < eventStart) {
+      throw new Error(
+        "Gentagelsens slutdato må ikke ligge før aftalens startdato.",
+      );
+    }
+  }
 }
 
 function readStoredEvents(): CalendarEvent[] {
   try {
     const storedValue =
-      window.localStorage.getItem(STORAGE_KEY);
+      window.localStorage.getItem(
+        STORAGE_KEY,
+      );
 
     if (!storedValue) {
       return [];
@@ -60,7 +367,9 @@ function readStoredEvents(): CalendarEvent[] {
       return [];
     }
 
-    return parsedValue.filter(isCalendarEvent);
+    return parsedValue.filter(
+      isCalendarEvent,
+    );
   } catch {
     return [];
   }
@@ -80,14 +389,21 @@ function sortEvents(
 ): CalendarEvent[] {
   return [...events].sort(
     (firstEvent, secondEvent) =>
-      new Date(firstEvent.start).getTime() -
-      new Date(secondEvent.start).getTime(),
+      new Date(
+        firstEvent.start,
+      ).getTime() -
+      new Date(
+        secondEvent.start,
+      ).getTime(),
   );
 }
 
 export class CalendarService {
-  static async getEvents(): Promise<CalendarEvent[]> {
-    const storedEvents = readStoredEvents();
+  static async getEvents(): Promise<
+    CalendarEvent[]
+  > {
+    const storedEvents =
+      readStoredEvents();
 
     return Promise.resolve(
       sortEvents([
@@ -100,13 +416,23 @@ export class CalendarService {
   static async createEvent(
     input: CreateCalendarEventInput,
   ): Promise<CalendarEvent> {
+    validateEventData(input);
+
     const event: CalendarEvent = {
       id: createEventId(),
       source: "internal",
       ...input,
+      title: input.title.trim(),
+      description:
+        input.description?.trim() ||
+        undefined,
+      location:
+        input.location?.trim() ||
+        undefined,
     };
 
-    const storedEvents = readStoredEvents();
+    const storedEvents =
+      readStoredEvents();
 
     saveStoredEvents([
       ...storedEvents,
@@ -125,12 +451,16 @@ export class CalendarService {
       );
     }
 
-    const storedEvents = readStoredEvents();
+    validateEventData(event);
 
-    const eventExists = storedEvents.some(
-      (storedEvent) =>
-        storedEvent.id === event.id,
-    );
+    const storedEvents =
+      readStoredEvents();
+
+    const eventExists =
+      storedEvents.some(
+        (storedEvent) =>
+          storedEvent.id === event.id,
+      );
 
     if (!eventExists) {
       throw new Error(
@@ -138,22 +468,37 @@ export class CalendarService {
       );
     }
 
-    const updatedEvents = storedEvents.map(
-      (storedEvent) =>
-        storedEvent.id === event.id
-          ? event
-          : storedEvent,
-    );
+    const updatedEvent: CalendarEvent = {
+      ...event,
+      title: event.title.trim(),
+      description:
+        event.description?.trim() ||
+        undefined,
+      location:
+        event.location?.trim() ||
+        undefined,
+    };
+
+    const updatedEvents =
+      storedEvents.map(
+        (storedEvent) =>
+          storedEvent.id === event.id
+            ? updatedEvent
+            : storedEvent,
+      );
 
     saveStoredEvents(updatedEvents);
 
-    return Promise.resolve(event);
+    return Promise.resolve(
+      updatedEvent,
+    );
   }
 
   static async deleteEvent(
     eventId: string,
   ): Promise<void> {
-    const storedEvents = readStoredEvents();
+    const storedEvents =
+      readStoredEvents();
 
     const event = storedEvents.find(
       (storedEvent) =>
@@ -172,13 +517,48 @@ export class CalendarService {
       );
     }
 
-    const updatedEvents = storedEvents.filter(
-      (storedEvent) =>
-        storedEvent.id !== eventId,
-    );
+    const updatedEvents =
+      storedEvents.filter(
+        (storedEvent) =>
+          storedEvent.id !== eventId,
+      );
 
     saveStoredEvents(updatedEvents);
 
     return Promise.resolve();
+  }
+
+  static async restoreEvent(
+    event: CalendarEvent,
+  ): Promise<CalendarEvent> {
+    if (event.source !== "internal") {
+      throw new Error(
+        "Kun interne aftaler kan gendannes.",
+      );
+    }
+
+    validateEventData(event);
+
+    const storedEvents =
+      readStoredEvents();
+
+    const eventAlreadyExists =
+      storedEvents.some(
+        (storedEvent) =>
+          storedEvent.id === event.id,
+      );
+
+    if (eventAlreadyExists) {
+      throw new Error(
+        "Aftalen findes allerede i lokal lagring.",
+      );
+    }
+
+    saveStoredEvents([
+      ...storedEvents,
+      event,
+    ]);
+
+    return Promise.resolve(event);
   }
 }

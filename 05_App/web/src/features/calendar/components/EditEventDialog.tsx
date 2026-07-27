@@ -1,4 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlineOutlined";
 import {
@@ -20,10 +24,12 @@ import type {
   CalendarEvent,
   CalendarOwnerId,
 } from "../models/calendarEvent";
+import { findEventConflicts } from "../utils/findEventConflicts";
 
 interface EditEventDialogProps {
   open: boolean;
   event: CalendarEvent | null;
+  events: CalendarEvent[];
   isSaving: boolean;
   onClose: () => void;
   onUpdate: (
@@ -36,7 +42,8 @@ interface EditEventDialogProps {
 
 interface EventFormState {
   title: string;
-  date: string;
+  startDate: string;
+  endDate: string;
   startTime: string;
   endTime: string;
   allDay: boolean;
@@ -45,23 +52,45 @@ interface EventFormState {
   location: string;
 }
 
-function padNumber(value: number): string {
-  return value.toString().padStart(2, "0");
+function padNumber(
+  value: number,
+): string {
+  return value
+    .toString()
+    .padStart(2, "0");
 }
 
-function toDateInputValue(date: Date): string {
+function toDateInputValue(
+  date: Date,
+): string {
   return [
     date.getFullYear(),
-    padNumber(date.getMonth() + 1),
+    padNumber(
+      date.getMonth() + 1,
+    ),
     padNumber(date.getDate()),
   ].join("-");
 }
 
-function toTimeInputValue(date: Date): string {
+function toTimeInputValue(
+  date: Date,
+): string {
   return [
     padNumber(date.getHours()),
     padNumber(date.getMinutes()),
   ].join(":");
+}
+
+function subtractOneDay(
+  date: Date,
+): Date {
+  const result = new Date(date);
+
+  result.setDate(
+    result.getDate() - 1,
+  );
+
+  return result;
 }
 
 function createInitialFormState(
@@ -70,7 +99,8 @@ function createInitialFormState(
   if (!event) {
     return {
       title: "",
-      date: "",
+      startDate: "",
+      endDate: "",
       startTime: "09:00",
       endTime: "10:00",
       allDay: false,
@@ -80,18 +110,47 @@ function createInitialFormState(
     };
   }
 
-  const startDate = new Date(event.start);
-  const endDate = new Date(event.end);
+  const startDate = new Date(
+    event.start,
+  );
+
+  const storedEndDate = new Date(
+    event.end,
+  );
+
+  const visibleEndDate =
+    event.allDay
+      ? subtractOneDay(
+          storedEndDate,
+        )
+      : storedEndDate;
 
   return {
     title: event.title,
-    date: toDateInputValue(startDate),
-    startTime: toTimeInputValue(startDate),
-    endTime: toTimeInputValue(endDate),
+    startDate:
+      toDateInputValue(
+        startDate,
+      ),
+    endDate:
+      toDateInputValue(
+        visibleEndDate,
+      ),
+    startTime:
+      toTimeInputValue(
+        startDate,
+      ),
+    endTime:
+      toTimeInputValue(
+        storedEndDate,
+      ),
     allDay: event.allDay,
-    ownerIds: event.ownerIds,
-    description: event.description ?? "",
-    location: event.location ?? "",
+    ownerIds: [
+      ...event.ownerIds,
+    ],
+    description:
+      event.description ?? "",
+    location:
+      event.location ?? "",
   };
 }
 
@@ -99,118 +158,360 @@ function createDateTime(
   date: string,
   time: string,
 ): string {
-  return new Date(`${date}T${time}:00`).toISOString();
+  return new Date(
+    `${date}T${time}:00`,
+  ).toISOString();
+}
+
+function createAllDayDate(
+  date: string,
+  addDay: boolean,
+): string {
+  const value = new Date(
+    `${date}T00:00:00`,
+  );
+
+  if (addDay) {
+    value.setDate(
+      value.getDate() + 1,
+    );
+  }
+
+  return value.toISOString();
+}
+
+function formatConflictTime(
+  event: CalendarEvent,
+): string {
+  if (event.allDay) {
+    return "Hele dagen";
+  }
+
+  const dateFormatter =
+    new Intl.DateTimeFormat(
+      "da-DK",
+      {
+        day: "numeric",
+        month: "short",
+      },
+    );
+
+  const timeFormatter =
+    new Intl.DateTimeFormat(
+      "da-DK",
+      {
+        hour: "2-digit",
+        minute: "2-digit",
+      },
+    );
+
+  const startDate = new Date(
+    event.start,
+  );
+
+  const endDate = new Date(
+    event.end,
+  );
+
+  const isSameDay =
+    startDate.getFullYear() ===
+      endDate.getFullYear() &&
+    startDate.getMonth() ===
+      endDate.getMonth() &&
+    startDate.getDate() ===
+      endDate.getDate();
+
+  if (isSameDay) {
+    return `${timeFormatter.format(
+      startDate,
+    )}–${timeFormatter.format(
+      endDate,
+    )}`;
+  }
+
+  return `${dateFormatter.format(
+    startDate,
+  )} ${timeFormatter.format(
+    startDate,
+  )} – ${dateFormatter.format(
+    endDate,
+  )} ${timeFormatter.format(
+    endDate,
+  )}`;
 }
 
 function EditEventDialog({
   open,
   event,
+  events,
   isSaving,
   onClose,
   onUpdate,
   onDelete,
 }: EditEventDialogProps) {
-  const [formState, setFormState] =
-    useState<EventFormState>(() =>
-      createInitialFormState(event),
-    );
+  const [
+    formState,
+    setFormState,
+  ] = useState<EventFormState>(
+    () =>
+      createInitialFormState(
+        event,
+      ),
+  );
 
-  const [submitError, setSubmitError] =
-    useState<string | null>(null);
+  const [
+    submitError,
+    setSubmitError,
+  ] = useState<string | null>(
+    null,
+  );
 
-  const [isDeleteConfirmationVisible, setIsDeleteConfirmationVisible] =
-    useState(false);
+  const [
+    isDeleteConfirmationVisible,
+    setIsDeleteConfirmationVisible,
+  ] = useState(false);
 
   useEffect(() => {
     if (!open) {
       return;
     }
 
-    setFormState(createInitialFormState(event));
+    setFormState(
+      createInitialFormState(
+        event,
+      ),
+    );
+
     setSubmitError(null);
-    setIsDeleteConfirmationVisible(false);
+
+    setIsDeleteConfirmationVisible(
+      false,
+    );
   }, [event, open]);
 
-  const validationError = useMemo(() => {
-    if (!formState.title.trim()) {
-      return "Skriv en titel til aftalen.";
-    }
+  const validationError =
+    useMemo(() => {
+      if (
+        !formState.title.trim()
+      ) {
+        return "Skriv en titel til aftalen.";
+      }
 
-    if (!formState.date) {
-      return "Vælg en dato.";
-    }
+      if (
+        !formState.startDate
+      ) {
+        return "Vælg en startdato.";
+      }
 
-    if (formState.ownerIds.length === 0) {
-      return "Vælg mindst én kalender.";
-    }
+      if (
+        !formState.endDate
+      ) {
+        return "Vælg en slutdato.";
+      }
 
-    if (
-      !formState.allDay &&
-      formState.endTime <= formState.startTime
-    ) {
-      return "Sluttidspunktet skal ligge efter starttidspunktet.";
-    }
+      if (
+        formState.endDate <
+        formState.startDate
+      ) {
+        return "Slutdatoen må ikke ligge før startdatoen.";
+      }
 
-    return null;
-  }, [formState]);
+      if (
+        formState.ownerIds
+          .length === 0
+      ) {
+        return "Vælg mindst én kalender.";
+      }
+
+      if (
+        !formState.allDay &&
+        formState.startDate ===
+          formState.endDate &&
+        formState.endTime <=
+          formState.startTime
+      ) {
+        return "Sluttidspunktet skal ligge efter starttidspunktet.";
+      }
+
+      return null;
+    }, [formState]);
+
+  const candidateEvent =
+    useMemo(() => {
+      if (
+        !formState.startDate ||
+        !formState.endDate ||
+        formState.ownerIds
+          .length === 0 ||
+        validationError
+      ) {
+        return null;
+      }
+
+      return {
+        start: formState.allDay
+          ? createAllDayDate(
+              formState.startDate,
+              false,
+            )
+          : createDateTime(
+              formState.startDate,
+              formState.startTime,
+            ),
+
+        end: formState.allDay
+          ? createAllDayDate(
+              formState.endDate,
+              true,
+            )
+          : createDateTime(
+              formState.endDate,
+              formState.endTime,
+            ),
+
+        ownerIds:
+          formState.ownerIds,
+      };
+    }, [
+      formState,
+      validationError,
+    ]);
+
+  const conflictingEvents =
+    useMemo(() => {
+      if (
+        !candidateEvent ||
+        !event
+      ) {
+        return [];
+      }
+
+      return findEventConflicts(
+        candidateEvent,
+        events,
+        event.id,
+      );
+    }, [
+      candidateEvent,
+      event,
+      events,
+    ]);
 
   function handleToggleOwner(
     ownerId: CalendarOwnerId,
   ) {
-    setFormState((currentState) => {
-      const isSelected =
-        currentState.ownerIds.includes(ownerId);
+    setFormState(
+      (currentState) => {
+        const isSelected =
+          currentState.ownerIds.includes(
+            ownerId,
+          );
 
-      return {
+        return {
+          ...currentState,
+
+          ownerIds: isSelected
+            ? currentState.ownerIds.filter(
+                (
+                  currentOwnerId,
+                ) =>
+                  currentOwnerId !==
+                  ownerId,
+              )
+            : [
+                ...currentState.ownerIds,
+                ownerId,
+              ],
+        };
+      },
+    );
+  }
+
+  function handleStartDateChange(
+    value: string,
+  ) {
+    setFormState(
+      (currentState) => ({
         ...currentState,
-        ownerIds: isSelected
-          ? currentState.ownerIds.filter(
-              (currentOwnerId) =>
-                currentOwnerId !== ownerId,
-            )
-          : [...currentState.ownerIds, ownerId],
-      };
-    });
+        startDate: value,
+
+        endDate:
+          !currentState.endDate ||
+          currentState.endDate <
+            value
+            ? value
+            : currentState.endDate,
+      }),
+    );
   }
 
   async function handleSubmit() {
-    if (!event || validationError) {
+    if (
+      !event ||
+      validationError
+    ) {
       return;
     }
 
     setSubmitError(null);
 
-    const start = formState.allDay
-      ? createDateTime(formState.date, "00:00")
-      : createDateTime(
-          formState.date,
-          formState.startTime,
-        );
+    const start =
+      formState.allDay
+        ? createAllDayDate(
+            formState.startDate,
+            false,
+          )
+        : createDateTime(
+            formState.startDate,
+            formState.startTime,
+          );
 
-    const end = formState.allDay
-      ? createDateTime(formState.date, "23:59")
-      : createDateTime(
-          formState.date,
-          formState.endTime,
-        );
+    const end =
+      formState.allDay
+        ? createAllDayDate(
+            formState.endDate,
+            true,
+          )
+        : createDateTime(
+            formState.endDate,
+            formState.endTime,
+          );
 
-    const updatedEvent: CalendarEvent = {
-      ...event,
-      title: formState.title.trim(),
-      start,
-      end,
-      allDay: formState.allDay,
-      ownerIds: formState.ownerIds,
-      description:
-        formState.description.trim() || undefined,
-      location:
-        formState.location.trim() || undefined,
-    };
+    const updatedEvent: CalendarEvent =
+      {
+        ...event,
+
+        title:
+          formState.title.trim(),
+
+        start,
+        end,
+
+        allDay:
+          formState.allDay,
+
+        ownerIds: [
+          ...formState.ownerIds,
+        ],
+
+        description:
+          formState.description.trim() ||
+          undefined,
+
+        location:
+          formState.location.trim() ||
+          undefined,
+      };
 
     try {
-      await onUpdate(updatedEvent);
+      await onUpdate(
+        updatedEvent,
+      );
+
       onClose();
-    } catch (caughtError: unknown) {
+    } catch (
+      caughtError: unknown
+    ) {
       setSubmitError(
         caughtError instanceof Error
           ? caughtError.message
@@ -227,9 +528,14 @@ function EditEventDialog({
     setSubmitError(null);
 
     try {
-      await onDelete(event.id);
+      await onDelete(
+        event.id,
+      );
+
       onClose();
-    } catch (caughtError: unknown) {
+    } catch (
+      caughtError: unknown
+    ) {
       setSubmitError(
         caughtError instanceof Error
           ? caughtError.message
@@ -239,12 +545,17 @@ function EditEventDialog({
   }
 
   const isInternalEvent =
-    event?.source === "internal";
+    event?.source ===
+    "internal";
 
   return (
     <Dialog
       open={open}
-      onClose={isSaving ? undefined : onClose}
+      onClose={
+        isSaving
+          ? undefined
+          : onClose
+      }
       fullWidth
       maxWidth="sm"
     >
@@ -256,15 +567,16 @@ function EditEventDialog({
         <Box
           sx={{
             display: "flex",
-            flexDirection: "column",
+            flexDirection:
+              "column",
             gap: 2,
             pt: 1,
           }}
         >
           {!isInternalEvent && (
             <Alert severity="info">
-              Kun interne aftaler kan redigeres eller
-              slettes.
+              Kun interne aftaler kan
+              redigeres eller slettes.
             </Alert>
           )}
 
@@ -276,47 +588,122 @@ function EditEventDialog({
 
           <TextField
             label="Titel"
-            value={formState.title}
-            disabled={!isInternalEvent || isSaving}
+            value={
+              formState.title
+            }
+            disabled={
+              !isInternalEvent ||
+              isSaving
+            }
             required
             autoFocus
-            onChange={(event) =>
-              setFormState((currentState) => ({
-                ...currentState,
-                title: event.target.value,
-              }))
+            onChange={(changeEvent) =>
+              setFormState(
+                (currentState) => ({
+                  ...currentState,
+
+                  title:
+                    changeEvent.target
+                      .value,
+                }),
+              )
             }
           />
 
-          <TextField
-            label="Dato"
-            type="date"
-            value={formState.date}
-            disabled={!isInternalEvent || isSaving}
-            required
-            slotProps={{
-              inputLabel: {
-                shrink: true,
+          <Box
+            sx={{
+              display: "grid",
+
+              gridTemplateColumns: {
+                xs: "1fr",
+                sm: "1fr 1fr",
               },
+
+              gap: 2,
             }}
-            onChange={(event) =>
-              setFormState((currentState) => ({
-                ...currentState,
-                date: event.target.value,
-              }))
-            }
-          />
+          >
+            <TextField
+              label="Startdato"
+              type="date"
+              value={
+                formState.startDate
+              }
+              disabled={
+                !isInternalEvent ||
+                isSaving
+              }
+              required
+              slotProps={{
+                inputLabel: {
+                  shrink: true,
+                },
+              }}
+              onChange={(changeEvent) =>
+                handleStartDateChange(
+                  changeEvent.target
+                    .value,
+                )
+              }
+            />
+
+            <TextField
+              label="Slutdato"
+              type="date"
+              value={
+                formState.endDate
+              }
+              disabled={
+                !isInternalEvent ||
+                isSaving
+              }
+              required
+              slotProps={{
+                inputLabel: {
+                  shrink: true,
+                },
+
+                htmlInput: {
+                  min:
+                    formState.startDate ||
+                    undefined,
+                },
+              }}
+              onChange={(changeEvent) =>
+                setFormState(
+                  (currentState) => ({
+                    ...currentState,
+
+                    endDate:
+                      changeEvent.target
+                        .value,
+                  }),
+                )
+              }
+            />
+          </Box>
 
           <FormControlLabel
             control={
               <Checkbox
-                checked={formState.allDay}
-                disabled={!isInternalEvent || isSaving}
-                onChange={(event) =>
-                  setFormState((currentState) => ({
-                    ...currentState,
-                    allDay: event.target.checked,
-                  }))
+                checked={
+                  formState.allDay
+                }
+                disabled={
+                  !isInternalEvent ||
+                  isSaving
+                }
+                onChange={(changeEvent) =>
+                  setFormState(
+                    (
+                      currentState,
+                    ) => ({
+                      ...currentState,
+
+                      allDay:
+                        changeEvent.target
+                          .checked,
+                    }),
+                  )
                 }
               />
             }
@@ -327,46 +714,74 @@ function EditEventDialog({
             <Box
               sx={{
                 display: "grid",
+
                 gridTemplateColumns: {
                   xs: "1fr",
                   sm: "1fr 1fr",
                 },
+
                 gap: 2,
               }}
             >
               <TextField
-                label="Start"
+                label="Starttid"
                 type="time"
-                value={formState.startTime}
-                disabled={!isInternalEvent || isSaving}
+                value={
+                  formState.startTime
+                }
+                disabled={
+                  !isInternalEvent ||
+                  isSaving
+                }
+                required
                 slotProps={{
                   inputLabel: {
                     shrink: true,
                   },
                 }}
-                onChange={(event) =>
-                  setFormState((currentState) => ({
-                    ...currentState,
-                    startTime: event.target.value,
-                  }))
+                onChange={(changeEvent) =>
+                  setFormState(
+                    (
+                      currentState,
+                    ) => ({
+                      ...currentState,
+
+                      startTime:
+                        changeEvent.target
+                          .value,
+                    }),
+                  )
                 }
               />
 
               <TextField
-                label="Slut"
+                label="Sluttid"
                 type="time"
-                value={formState.endTime}
-                disabled={!isInternalEvent || isSaving}
+                value={
+                  formState.endTime
+                }
+                disabled={
+                  !isInternalEvent ||
+                  isSaving
+                }
+                required
                 slotProps={{
                   inputLabel: {
                     shrink: true,
                   },
                 }}
-                onChange={(event) =>
-                  setFormState((currentState) => ({
-                    ...currentState,
-                    endTime: event.target.value,
-                  }))
+                onChange={(changeEvent) =>
+                  setFormState(
+                    (
+                      currentState,
+                    ) => ({
+                      ...currentState,
+
+                      endTime:
+                        changeEvent.target
+                          .value,
+                    }),
+                  )
                 }
               />
             </Box>
@@ -380,60 +795,148 @@ function EditEventDialog({
               Kalender
             </Typography>
 
-            {Object.values(calendarOwners).map(
-              (owner) => (
-                <FormControlLabel
-                  key={owner.id}
-                  control={
-                    <Checkbox
-                      checked={formState.ownerIds.includes(
+            {Object.values(
+              calendarOwners,
+            ).map((owner) => (
+              <FormControlLabel
+                key={owner.id}
+                control={
+                  <Checkbox
+                    checked={
+                      formState.ownerIds.includes(
                         owner.id,
-                      )}
-                      disabled={
-                        !isInternalEvent || isSaving
-                      }
-                      onChange={() =>
-                        handleToggleOwner(owner.id)
-                      }
-                    />
-                  }
-                  label={owner.name}
-                />
-              ),
-            )}
+                      )
+                    }
+                    disabled={
+                      !isInternalEvent ||
+                      isSaving
+                    }
+                    onChange={() =>
+                      handleToggleOwner(
+                        owner.id,
+                      )
+                    }
+                  />
+                }
+                label={owner.name}
+              />
+            ))}
           </Box>
+
+          {conflictingEvents.length >
+            0 &&
+            isInternalEvent && (
+              <Alert severity="warning">
+                <Typography
+                  variant="subtitle2"
+                  sx={{
+                    fontWeight: 700,
+                  }}
+                >
+                  Mulig kalenderkonflikt
+                </Typography>
+
+                <Typography
+                  variant="body2"
+                  sx={{ mt: 0.5 }}
+                >
+                  Aftalen overlapper
+                  med:
+                </Typography>
+
+                <Box
+                  component="ul"
+                  sx={{
+                    mt: 0.75,
+                    mb: 0,
+                    pl: 2.5,
+                  }}
+                >
+                  {conflictingEvents.map(
+                    (conflict) => (
+                      <Typography
+                        key={
+                          conflict.id
+                        }
+                        component="li"
+                        variant="body2"
+                      >
+                        {formatConflictTime(
+                          conflict,
+                        )}{" "}
+                        –{" "}
+                        {conflict.title}
+                      </Typography>
+                    ),
+                  )}
+                </Box>
+
+                <Typography
+                  variant="caption"
+                  sx={{
+                    display:
+                      "block",
+                    mt: 1,
+                  }}
+                >
+                  Du kan stadig gemme
+                  ændringerne.
+                </Typography>
+              </Alert>
+            )}
 
           <TextField
             label="Sted"
-            value={formState.location}
-            disabled={!isInternalEvent || isSaving}
-            onChange={(event) =>
-              setFormState((currentState) => ({
-                ...currentState,
-                location: event.target.value,
-              }))
+            value={
+              formState.location
+            }
+            disabled={
+              !isInternalEvent ||
+              isSaving
+            }
+            onChange={(changeEvent) =>
+              setFormState(
+                (currentState) => ({
+                  ...currentState,
+
+                  location:
+                    changeEvent.target
+                      .value,
+                }),
+              )
             }
           />
 
           <TextField
             label="Beskrivelse"
-            value={formState.description}
-            disabled={!isInternalEvent || isSaving}
+            value={
+              formState.description
+            }
+            disabled={
+              !isInternalEvent ||
+              isSaving
+            }
             multiline
             minRows={3}
-            onChange={(event) =>
-              setFormState((currentState) => ({
-                ...currentState,
-                description: event.target.value,
-              }))
+            onChange={(changeEvent) =>
+              setFormState(
+                (currentState) => ({
+                  ...currentState,
+
+                  description:
+                    changeEvent.target
+                      .value,
+                }),
+              )
             }
           />
 
-          {validationError && isInternalEvent && (
-            <Alert severity="warning">
-              {validationError}
-            </Alert>
-          )}
+          {validationError &&
+            isInternalEvent && (
+              <Alert severity="warning">
+                {validationError}
+              </Alert>
+            )}
 
           {isDeleteConfirmationVisible && (
             <Alert
@@ -443,14 +946,18 @@ function EditEventDialog({
                   color="error"
                   size="small"
                   disabled={isSaving}
-                  onClick={() => void handleDelete()}
+                  onClick={() =>
+                    void handleDelete()
+                  }
                 >
                   Bekræft sletning
                 </Button>
               }
             >
-              Aftalen slettes permanent fra denne
-              browser.
+              Aftalen slettes fra denne
+              browser. Den kan
+              efterfølgende gendannes
+              via Fortryd.
             </Alert>
           )}
         </Box>
@@ -460,21 +967,35 @@ function EditEventDialog({
         sx={{
           px: 3,
           pb: 2,
-          justifyContent: "space-between",
+
+          justifyContent:
+            "space-between",
         }}
       >
         <Button
           color="error"
-          startIcon={<DeleteOutlineIcon />}
-          disabled={!isInternalEvent || isSaving}
+          startIcon={
+            <DeleteOutlineIcon />
+          }
+          disabled={
+            !isInternalEvent ||
+            isSaving
+          }
           onClick={() =>
-            setIsDeleteConfirmationVisible(true)
+            setIsDeleteConfirmationVisible(
+              true,
+            )
           }
         >
           Slet
         </Button>
 
-        <Box sx={{ display: "flex", gap: 1 }}>
+        <Box
+          sx={{
+            display: "flex",
+            gap: 1,
+          }}
+        >
           <Button
             disabled={isSaving}
             onClick={onClose}
@@ -487,11 +1008,17 @@ function EditEventDialog({
             disabled={
               !isInternalEvent ||
               isSaving ||
-              Boolean(validationError)
+              Boolean(
+                validationError,
+              )
             }
-            onClick={() => void handleSubmit()}
+            onClick={() =>
+              void handleSubmit()
+            }
           >
-            {isSaving ? "Gemmer..." : "Gem ændringer"}
+            {isSaving
+              ? "Gemmer..."
+              : "Gem ændringer"}
           </Button>
         </Box>
       </DialogActions>
