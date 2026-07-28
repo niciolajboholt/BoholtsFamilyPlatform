@@ -1,11 +1,9 @@
 import {
-  Alert,
   Box,
   Card,
   CardActionArea,
   CardContent,
   Chip,
-  CircularProgress,
   Typography,
 } from "@mui/material";
 
@@ -15,8 +13,6 @@ import type { CalendarEvent } from "../models/calendarEvent";
 interface EventListProps {
   selectedDate: Date;
   events: CalendarEvent[];
-  isLoading: boolean;
-  error: string | null;
   onSelectEvent: (event: CalendarEvent) => void;
 }
 
@@ -46,8 +42,6 @@ function formatTime(
 function EventList({
   selectedDate,
   events,
-  isLoading,
-  error,
   onSelectEvent,
 }: EventListProps) {
   return (
@@ -72,27 +66,7 @@ function EventList({
         </Typography>
       </Box>
 
-      {isLoading && (
-        <Card>
-          <CardContent
-            sx={{
-              p: 4,
-              display: "flex",
-              justifyContent: "center",
-            }}
-          >
-            <CircularProgress />
-          </CardContent>
-        </Card>
-      )}
-
-      {error && (
-        <Alert severity="error">
-          {error}
-        </Alert>
-      )}
-
-      {!isLoading && !error && events.length === 0 && (
+      {events.length === 0 && (
         <Card>
           <CardContent
             sx={{
@@ -114,7 +88,7 @@ function EventList({
         </Card>
       )}
 
-      {!isLoading && !error && events.length > 0 && (
+      {events.length > 0 && (
         <Box
           sx={{
             display: "grid",

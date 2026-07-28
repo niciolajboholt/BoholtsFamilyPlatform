@@ -11,6 +11,7 @@ import {
   Card,
   CardContent,
   Chip,
+  CircularProgress,
   Snackbar,
   Typography,
 } from "@mui/material";
@@ -155,6 +156,7 @@ function CalendarPage() {
 
   const {
     events,
+    hasLoadedEvents,
     isLoading,
     isSaving,
     error,
@@ -162,7 +164,24 @@ function CalendarPage() {
     updateEvent,
     deleteEvent,
     restoreEvent,
+    refreshEvents,
   } = useCalendarEvents();
+
+  const isInitialLoading =
+    isLoading && !hasLoadedEvents;
+  const isRefreshing =
+    isLoading && hasLoadedEvents;
+
+  const hasEventsForSelectedOwner =
+    useMemo(() => {
+      if (selectedOwnerId === "all") {
+        return events.length > 0;
+      }
+
+      return events.some((event) =>
+        event.ownerIds.includes(selectedOwnerId),
+      );
+    }, [events, selectedOwnerId]);
 
   const eventsForSelectedDate =
     useMemo(() => {
@@ -662,6 +681,100 @@ function CalendarPage() {
         </CardContent>
       </Card>
 
+      {isInitialLoading ? (
+        <Card sx={{ mb: 2.5 }}>
+          <CardContent>
+            <Box
+              role="status"
+              sx={{
+                minHeight: 180,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 2,
+              }}
+            >
+              <CircularProgress />
+
+              <Typography>
+                Indlæser kalender…
+              </Typography>
+            </Box>
+          </CardContent>
+        </Card>
+      ) : error && !hasLoadedEvents ? (
+        <Alert
+          severity="error"
+          action={
+            <Button
+              aria-label="Prøv at indlæse kalenderen igen"
+              color="inherit"
+              size="small"
+              disabled={isLoading}
+              onClick={() => {
+                void refreshEvents();
+              }}
+            >
+              Prøv igen
+            </Button>
+          }
+          sx={{ mb: 2.5 }}
+        >
+          Kalenderen kunne ikke indlæses.
+        </Alert>
+      ) : (
+        <>
+          {isRefreshing && (
+            <Box
+              role="status"
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                gap: 1,
+                mb: 1.5,
+              }}
+            >
+              <CircularProgress size={18} />
+
+              <Typography variant="body2">
+                Opdaterer kalender…
+              </Typography>
+            </Box>
+          )}
+
+          {error && (
+            <Alert
+              severity="warning"
+              action={
+                <Button
+                  aria-label="Prøv at indlæse kalenderen igen"
+                  color="inherit"
+                  size="small"
+                  disabled={isLoading}
+                  onClick={() => {
+                    void refreshEvents();
+                  }}
+                >
+                  Prøv igen
+                </Button>
+              }
+              sx={{ mb: 2.5 }}
+            >
+              Kalenderen kunne ikke opdateres. De senest indlæste aftaler vises.
+            </Alert>
+          )}
+
+          {events.length === 0 ? (
+            <Alert severity="info" sx={{ mb: 2.5 }}>
+              Ingen aftaler endnu.
+            </Alert>
+          ) : !hasEventsForSelectedOwner ? (
+            <Alert severity="info" sx={{ mb: 2.5 }}>
+              Ingen aftaler matcher den valgte kalender.
+            </Alert>
+          ) : null}
+
       {calendarView ===
       "month" ? (
         <MonthCalendar
@@ -707,12 +820,12 @@ function CalendarPage() {
         events={
           eventsForSelectedDate
         }
-        isLoading={isLoading}
-        error={error}
         onSelectEvent={
           handleSelectEvent
         }
       />
+        </>
+      )}
 
       <NewEventDialog
         open={isNewEventDialogOpen}

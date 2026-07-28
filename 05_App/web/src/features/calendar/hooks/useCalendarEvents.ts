@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useRef,
   useState,
 } from "react";
 
@@ -12,6 +13,7 @@ import {
 
 interface UseCalendarEventsResult {
   events: CalendarEvent[];
+  hasLoadedEvents: boolean;
   isLoading: boolean;
   isSaving: boolean;
   error: string | null;
@@ -48,6 +50,11 @@ export function useCalendarEvents(): UseCalendarEventsResult {
   const [isLoading, setIsLoading] =
     useState(true);
 
+  const [hasLoadedEvents, setHasLoadedEvents] =
+    useState(false);
+
+  const isRefreshingRef = useRef(false);
+
   const [isSaving, setIsSaving] =
     useState(false);
 
@@ -57,6 +64,11 @@ export function useCalendarEvents(): UseCalendarEventsResult {
 
   const refreshEvents = useCallback(
     async (): Promise<void> => {
+      if (isRefreshingRef.current) {
+        return;
+      }
+
+      isRefreshingRef.current = true;
       setIsLoading(true);
       setError(null);
 
@@ -65,12 +77,14 @@ export function useCalendarEvents(): UseCalendarEventsResult {
           await CalendarService.getEvents();
 
         setEvents(loadedEvents);
+        setHasLoadedEvents(true);
       } catch (caughtError: unknown) {
         setError(
           getErrorMessage(caughtError),
         );
       } finally {
         setIsLoading(false);
+        isRefreshingRef.current = false;
       }
     },
     [],
@@ -85,7 +99,6 @@ export function useCalendarEvents(): UseCalendarEventsResult {
       input: CreateCalendarEventInput,
     ): Promise<CalendarEvent> => {
       setIsSaving(true);
-      setError(null);
 
       try {
         const createdEvent =
@@ -96,13 +109,6 @@ export function useCalendarEvents(): UseCalendarEventsResult {
         await refreshEvents();
 
         return createdEvent;
-      } catch (caughtError: unknown) {
-        const message =
-          getErrorMessage(caughtError);
-
-        setError(message);
-
-        throw caughtError;
       } finally {
         setIsSaving(false);
       }
@@ -115,7 +121,6 @@ export function useCalendarEvents(): UseCalendarEventsResult {
       event: CalendarEvent,
     ): Promise<CalendarEvent> => {
       setIsSaving(true);
-      setError(null);
 
       try {
         const updatedEvent =
@@ -126,13 +131,6 @@ export function useCalendarEvents(): UseCalendarEventsResult {
         await refreshEvents();
 
         return updatedEvent;
-      } catch (caughtError: unknown) {
-        const message =
-          getErrorMessage(caughtError);
-
-        setError(message);
-
-        throw caughtError;
       } finally {
         setIsSaving(false);
       }
@@ -145,7 +143,6 @@ export function useCalendarEvents(): UseCalendarEventsResult {
       eventId: string,
     ): Promise<void> => {
       setIsSaving(true);
-      setError(null);
 
       try {
         await CalendarService.deleteEvent(
@@ -153,13 +150,6 @@ export function useCalendarEvents(): UseCalendarEventsResult {
         );
 
         await refreshEvents();
-      } catch (caughtError: unknown) {
-        const message =
-          getErrorMessage(caughtError);
-
-        setError(message);
-
-        throw caughtError;
       } finally {
         setIsSaving(false);
       }
@@ -172,7 +162,6 @@ export function useCalendarEvents(): UseCalendarEventsResult {
       event: CalendarEvent,
     ): Promise<CalendarEvent> => {
       setIsSaving(true);
-      setError(null);
 
       try {
         const restoredEvent =
@@ -183,13 +172,6 @@ export function useCalendarEvents(): UseCalendarEventsResult {
         await refreshEvents();
 
         return restoredEvent;
-      } catch (caughtError: unknown) {
-        const message =
-          getErrorMessage(caughtError);
-
-        setError(message);
-
-        throw caughtError;
       } finally {
         setIsSaving(false);
       }
@@ -199,6 +181,7 @@ export function useCalendarEvents(): UseCalendarEventsResult {
 
   return {
     events,
+    hasLoadedEvents,
     isLoading,
     isSaving,
     error,
