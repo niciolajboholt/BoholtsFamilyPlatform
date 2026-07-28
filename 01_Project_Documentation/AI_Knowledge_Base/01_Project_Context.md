@@ -14,7 +14,7 @@ Owner:
 Nicolaj Bach Boholt
 
 Maintained by:
-ChatGPT + Codex
+Claude
 
 ---
 
@@ -84,8 +84,7 @@ Versionsstyring
 
 AI-værktøjer
 
-- ChatGPT
-- Codex
+- Claude
 
 Eksterne integrationer
 

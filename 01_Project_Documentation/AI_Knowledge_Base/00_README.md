@@ -14,7 +14,7 @@ Owner:
 Nicolaj Bach Boholt
 
 Maintained by:
-ChatGPT + Codex
+Claude
 
 ---
 
@@ -68,13 +68,13 @@ Projektets historik.
 
 Udviklingshistorik sprint for sprint.
 
-06_ChatGPT_Playbook
+06_Claude_Playbook
 
-Hvordan ChatGPT arbejder i projektet.
+Hvordan Claude arbejder i projektet (erstatter de tidligere 06_ChatGPT_Playbook og 07_Codex_Playbook).
 
 07_Codex_Playbook
 
-Hvordan Codex anvendes.
+Historisk reference — Codex-rollen er nedlagt, se 06_Claude_Playbook.
 
 08_Development_Standards
 

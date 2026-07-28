@@ -14,7 +14,7 @@ Owner:
 Nicolaj Bach Boholt
 
 Maintained by:
-ChatGPT + Codex
+Claude
 
 ---
 
