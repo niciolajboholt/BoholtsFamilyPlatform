@@ -8,19 +8,17 @@ import {
   Alert,
   Box,
   Button,
-  Chip,
   CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
   TextField,
-  Typography,
 } from "@mui/material";
 
-import { calendarOwners } from "../data/calendarOwners";
 import { EventConflictAlert } from "./EventConflictAlert";
 import { EventDateTimeSection } from "./EventDateTimeSection";
+import { EventParticipantsSection } from "./EventParticipantsSection";
 import {
   createAllDayDate,
   createDateTime,
@@ -287,67 +285,13 @@ function NewEventDialog({
             dateFieldsFullWidth
           />
 
-          <Box>
-            <Typography
-              variant="subtitle2"
-              sx={{ mb: 1 }}
-            >
-              Kalender og deltagere
-            </Typography>
-
-            <Box
-              sx={{
-                display: "flex",
-                flexWrap: "wrap",
-                gap: 1,
-              }}
-            >
-              {Object.values(
-                calendarOwners,
-              ).map((owner) => {
-                const isSelected =
-                  form.ownerIds.includes(
-                    owner.id,
-                  );
-
-                return (
-                  <Chip
-                    key={owner.id}
-                    label={owner.name}
-                    clickable={
-                      !isSaving
-                    }
-                    disabled={isSaving}
-                    onClick={() =>
-                      toggleParticipant(
-                        owner.id,
-                      )
-                    }
-                    variant={
-                      isSelected
-                        ? "filled"
-                        : "outlined"
-                    }
-                    sx={{
-                      borderColor:
-                        owner.color,
-
-                      backgroundColor:
-                        isSelected
-                          ? owner.color
-                          : "transparent",
-
-                      color: isSelected
-                        ? "#ffffff"
-                        : owner.color,
-
-                      fontWeight: 600,
-                    }}
-                  />
-                );
-              })}
-            </Box>
-          </Box>
+          <EventParticipantsSection
+            ownerIds={form.ownerIds}
+            disabled={isSaving}
+            onToggleOwner={toggleParticipant}
+            title="Kalender og deltagere"
+            variant="chips"
+          />
 
           {conflictingEvents.length >
             0 && (

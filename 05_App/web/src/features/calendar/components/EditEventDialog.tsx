@@ -9,19 +9,16 @@ import {
   Alert,
   Box,
   Button,
-  Checkbox,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
-  FormControlLabel,
   TextField,
-  Typography,
 } from "@mui/material";
 
-import { calendarOwners } from "../data/calendarOwners";
 import { EventConflictAlert } from "./EventConflictAlert";
 import { EventDateTimeSection } from "./EventDateTimeSection";
+import { EventParticipantsSection } from "./EventParticipantsSection";
 import {
   createAllDayDate,
   createDateTime,
@@ -391,41 +388,13 @@ function EditEventDialog({
             dateFieldsFullWidth={false}
           />
 
-          <Box>
-            <Typography
-              variant="subtitle2"
-              sx={{ mb: 0.5 }}
-            >
-              Kalender
-            </Typography>
-
-            {Object.values(
-              calendarOwners,
-            ).map((owner) => (
-              <FormControlLabel
-                key={owner.id}
-                control={
-                  <Checkbox
-                    checked={
-                      formState.ownerIds.includes(
-                        owner.id,
-                      )
-                    }
-                    disabled={
-                      !isInternalEvent ||
-                      isSaving
-                    }
-                    onChange={() =>
-                      toggleParticipant(
-                        owner.id,
-                      )
-                    }
-                  />
-                }
-                label={owner.name}
-              />
-            ))}
-          </Box>
+          <EventParticipantsSection
+            ownerIds={formState.ownerIds}
+            disabled={!isInternalEvent || isSaving}
+            onToggleOwner={toggleParticipant}
+            title="Kalender"
+            variant="checkboxes"
+          />
 
           {conflictingEvents.length >
             0 &&
