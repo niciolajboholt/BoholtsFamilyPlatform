@@ -32,9 +32,9 @@ import {
 import type { EventFormState } from "../form/eventFormTypes";
 import { useEventConflicts } from "../form/useEventConflicts";
 import { useEventFormState } from "../form/useEventFormState";
+import { useEventValidation } from "../form/useEventValidation";
 import {
   type EventFormValidationMessages,
-  validateEventForm,
 } from "../form/eventFormValidation";
 import type {
   CalendarEvent,
@@ -233,17 +233,15 @@ function EditEventDialog({
     );
   }, [event, open, reset]);
 
-  const validationError =
-    useMemo(() => {
-      const validationErrorCode =
-        validateEventForm(formState);
+  const { validationErrorCode } =
+    useEventValidation(formState);
 
-      return validationErrorCode
-        ? validationMessages[
-            validationErrorCode
-          ]
-        : null;
-    }, [formState]);
+  const validationError =
+    validationErrorCode
+      ? validationMessages[
+          validationErrorCode
+        ]
+      : null;
 
   const {
     conflicts: conflictingEvents,
