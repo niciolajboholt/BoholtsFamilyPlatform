@@ -1,5 +1,7 @@
 import {
+  useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
@@ -178,12 +180,28 @@ function CalendarPage() {
     configurationError: googleCalendarConfigurationError,
     isConnected: isGoogleCalendarConnected,
     wasEverConnected: wasGoogleCalendarEverConnected,
+    isAttemptingSilentReconnect: isAttemptingGoogleSilentReconnect,
     connect: connectGoogleCalendar,
     disconnect: disconnectGoogleCalendar,
   } = useGoogleCalendarConnection();
 
   const [isConnectingGoogleCalendar, setIsConnectingGoogleCalendar] =
     useState(false);
+
+  const wasGoogleCalendarConnectedRef = useRef(isGoogleCalendarConnected);
+
+  useEffect(() => {
+    const wasConnected = wasGoogleCalendarConnectedRef.current;
+    wasGoogleCalendarConnectedRef.current = isGoogleCalendarConnected;
+
+    if (!wasConnected && isGoogleCalendarConnected) {
+      // Covers both a manual connect and Sprint 14's silent reconnect —
+      // either way, the calendar list and events need to catch up now
+      // that Google is reachable.
+      void refreshCalendarSources();
+      void refreshEvents();
+    }
+  }, [isGoogleCalendarConnected, refreshCalendarSources, refreshEvents]);
 
   const isInitialLoading =
     isLoading && !hasLoadedEvents;
@@ -625,6 +643,7 @@ function CalendarPage() {
         configurationError={googleCalendarConfigurationError}
         isConnected={isGoogleCalendarConnected}
         wasEverConnected={wasGoogleCalendarEverConnected}
+        isAttemptingSilentReconnect={isAttemptingGoogleSilentReconnect}
         isBusy={isConnectingGoogleCalendar}
         health={providerHealth.find(
           (health) => health.providerId === "google",

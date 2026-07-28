@@ -56,6 +56,7 @@ function SettingsPage() {
     isConfigured: isGoogleCalendarConfigured,
     isConnected: isGoogleCalendarConnected,
     wasEverConnected: wasGoogleCalendarEverConnected,
+    isAttemptingSilentReconnect: isAttemptingGoogleSilentReconnect,
     connect: connectGoogleCalendar,
     disconnect: disconnectGoogleCalendar,
   } = useGoogleCalendarConnection();
@@ -83,9 +84,11 @@ function SettingsPage() {
     ? "Ikke konfigureret"
     : isGoogleCalendarConnected
       ? "Forbundet"
-      : wasGoogleCalendarEverConnected
-        ? "Ikke forbundet i denne session"
-        : "Ikke forbundet endnu";
+      : isAttemptingGoogleSilentReconnect
+        ? "Genopretter forbindelsen..."
+        : wasGoogleCalendarEverConnected
+          ? "Ikke forbundet i denne session"
+          : "Ikke forbundet endnu";
 
   return (
     <Box sx={{ maxWidth: 900, mx: "auto", pb: 4 }}>
@@ -221,12 +224,16 @@ function SettingsPage() {
                     ? "Afbryd Google Calendar"
                     : "Forbind Google Calendar"
                 }
-                disabled={!isGoogleCalendarConfigured || isGoogleCalendarBusy}
+                disabled={
+                  !isGoogleCalendarConfigured ||
+                  isGoogleCalendarBusy ||
+                  isAttemptingGoogleSilentReconnect
+                }
                 onClick={() => {
                   void handleToggleGoogleCalendar();
                 }}
               >
-                {isGoogleCalendarBusy ? (
+                {isGoogleCalendarBusy || isAttemptingGoogleSilentReconnect ? (
                   <CircularProgress size={20} />
                 ) : (
                   <ChevronRightRounded />

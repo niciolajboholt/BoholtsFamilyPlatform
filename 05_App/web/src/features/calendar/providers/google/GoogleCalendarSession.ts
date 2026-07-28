@@ -68,6 +68,32 @@ function readWasConnected(): boolean {
   }
 }
 
+const silentReconnectTimeoutMs = 4000;
+
+// Races a promise against a timeout without ever rejecting — used so a
+// silent reconnect attempt that Google never responds to (e.g. because it
+// requires an interactive prompt) can't hang the app forever.
+export function raceWithTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  timeoutValue: T,
+): Promise<T> {
+  return new Promise<T>((resolve) => {
+    const timer = setTimeout(() => resolve(timeoutValue), timeoutMs);
+
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      () => {
+        clearTimeout(timer);
+        resolve(timeoutValue);
+      },
+    );
+  });
+}
+
 function loadGoogleIdentityServices(): Promise<void> {
   if (window.google?.accounts.oauth2) {
     return Promise.resolve();
@@ -164,6 +190,57 @@ export class GoogleCalendarSession {
 
       tokenClient.requestAccessToken({ prompt: "consent" });
     });
+  }
+
+  /**
+   * Forsøger at genoprette forbindelsen uden en synlig Google-prompt, ved at
+   * bede om et token med prompt:"" — det lykkes kun, hvis brugeren stadig
+   * har en aktiv Google-session og tidligere har givet samtykke. Fejler den
+   * (ingen session, tredjeparts-cookies blokeret, eller intet svar inden
+   * for tidsgrænsen), forbliver brugeren i den kendte "skal genforbindes"
+   * tilstand fra Sprint 13 — aldrig en fejlbesked, aldrig en hængende UI.
+   */
+  async attemptSilentReconnect(): Promise<boolean> {
+    const config = getGoogleCalendarConfig();
+
+    if (!config.enabled || !config.clientId) {
+      return false;
+    }
+
+    try {
+      await loadGoogleIdentityServices();
+    } catch {
+      return false;
+    }
+
+    const identityServices = window.google?.accounts.oauth2;
+
+    if (!identityServices) {
+      return false;
+    }
+
+    const clientId = config.clientId;
+
+    const attempt = new Promise<boolean>((resolve) => {
+      const tokenClient = identityServices.initTokenClient({
+        client_id: clientId,
+        scope: googleCalendarScopes,
+        callback: (response) => {
+          if (response.access_token) {
+            this.accessToken = response.access_token;
+            markWasConnected();
+            resolve(true);
+            return;
+          }
+
+          resolve(false);
+        },
+      });
+
+      tokenClient.requestAccessToken({ prompt: "" });
+    });
+
+    return raceWithTimeout(attempt, silentReconnectTimeoutMs, false);
   }
 
   disconnect(): void {

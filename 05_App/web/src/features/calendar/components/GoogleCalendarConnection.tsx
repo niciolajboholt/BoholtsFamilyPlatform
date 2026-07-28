@@ -7,6 +7,7 @@ interface GoogleCalendarConnectionProps {
   configurationError?: string;
   isConnected: boolean;
   wasEverConnected: boolean;
+  isAttemptingSilentReconnect: boolean;
   isBusy: boolean;
   health?: CalendarProviderHealth;
   onConnect: () => void;
@@ -23,6 +24,7 @@ export function GoogleCalendarConnection({
   configurationError,
   isConnected,
   wasEverConnected,
+  isAttemptingSilentReconnect,
   isBusy,
   health,
   onConnect,
@@ -45,19 +47,25 @@ export function GoogleCalendarConnection({
     ? health.message ?? "Google Kalender kunne ikke opdateres. Dine lokale kalendere vises stadig."
     : isConnected
       ? "Google Kalender er forbundet. Skrivbare Google-kalendere kan ændres."
-      : wasEverConnected
-        ? "Google Kalender er ikke forbundet i denne session. Genopret forbindelsen for at se dine eksterne aftaler."
-        : "Forbind Google Kalender for at se dine eksterne aftaler.";
+      : isAttemptingSilentReconnect
+        ? "Genopretter forbindelsen til Google Kalender..."
+        : wasEverConnected
+          ? "Google Kalender er ikke forbundet i denne session. Genopret forbindelsen for at se dine eksterne aftaler."
+          : "Forbind Google Kalender for at se dine eksterne aftaler.";
 
-  const connectLabel = isBusy
-    ? isConnected
-      ? "Afbryder..."
-      : "Forbinder..."
-    : isConnected
-      ? "Afbryd"
-      : wasEverConnected
-        ? "Genforbind Google Kalender"
-        : "Forbind Google Kalender";
+  const isActionDisabled = isBusy || isAttemptingSilentReconnect;
+
+  const connectLabel = isAttemptingSilentReconnect
+    ? "Genopretter..."
+    : isBusy
+      ? isConnected
+        ? "Afbryder..."
+        : "Forbinder..."
+      : isConnected
+        ? "Afbryd"
+        : wasEverConnected
+          ? "Genforbind Google Kalender"
+          : "Forbind Google Kalender";
 
   return (
     <Alert
@@ -80,7 +88,7 @@ export function GoogleCalendarConnection({
             <Button
               size="small"
               variant="outlined"
-              disabled={isBusy}
+              disabled={isActionDisabled}
               onClick={onRetry}
             >
               Prøv igen
@@ -89,9 +97,9 @@ export function GoogleCalendarConnection({
           <Button
             size="small"
             variant="outlined"
-            disabled={isBusy}
+            disabled={isActionDisabled}
             startIcon={
-              isBusy ? (
+              isBusy || isAttemptingSilentReconnect ? (
                 <CircularProgress size={14} color="inherit" />
               ) : undefined
             }
