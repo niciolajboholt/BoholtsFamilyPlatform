@@ -5,7 +5,7 @@ export type CalendarOwnerId =
   | "jens"
   | "family";
 
-export type CalendarSource =
+export type CalendarEventSource =
   | "internal"
   | "google";
 
@@ -112,7 +112,7 @@ export interface CalendarEvent {
   end: string;
   allDay: boolean;
   ownerIds: CalendarOwnerId[];
-  source: CalendarSource;
+  source: CalendarEventSource;
   location?: string;
   color?: string;
 

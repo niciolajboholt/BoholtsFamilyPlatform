@@ -6,10 +6,14 @@ import {
 } from "react";
 
 import type { CalendarEvent } from "../models/calendarEvent";
+import type { CreateCalendarEventInput } from "../models/calendarEventInput";
 import {
-  CalendarService,
-  type CreateCalendarEventInput,
-} from "../services/CalendarService";
+  allCalendarEventRange,
+} from "../models/calendarProvider";
+import type { CalendarProvider } from "../providers/CalendarProvider";
+import {
+  calendarProvider,
+} from "../providers/calendarProviderFactory";
 
 interface UseCalendarEventsResult {
   events: CalendarEvent[];
@@ -42,7 +46,9 @@ function getErrorMessage(
   return "Der opstod en ukendt fejl.";
 }
 
-export function useCalendarEvents(): UseCalendarEventsResult {
+export function useCalendarEvents(
+  provider: CalendarProvider = calendarProvider,
+): UseCalendarEventsResult {
   const [events, setEvents] = useState<
     CalendarEvent[]
   >([]);
@@ -74,7 +80,9 @@ export function useCalendarEvents(): UseCalendarEventsResult {
 
       try {
         const loadedEvents =
-          await CalendarService.getEvents();
+          await provider.getEvents(
+            allCalendarEventRange,
+          );
 
         setEvents(loadedEvents);
         setHasLoadedEvents(true);
@@ -87,7 +95,7 @@ export function useCalendarEvents(): UseCalendarEventsResult {
         isRefreshingRef.current = false;
       }
     },
-    [],
+    [provider],
   );
 
   useEffect(() => {
@@ -102,7 +110,7 @@ export function useCalendarEvents(): UseCalendarEventsResult {
 
       try {
         const createdEvent =
-          await CalendarService.createEvent(
+          await provider.createEvent(
             input,
           );
 
@@ -113,7 +121,7 @@ export function useCalendarEvents(): UseCalendarEventsResult {
         setIsSaving(false);
       }
     },
-    [refreshEvents],
+    [provider, refreshEvents],
   );
 
   const updateEvent = useCallback(
@@ -124,7 +132,7 @@ export function useCalendarEvents(): UseCalendarEventsResult {
 
       try {
         const updatedEvent =
-          await CalendarService.updateEvent(
+          await provider.updateEvent(
             event,
           );
 
@@ -135,7 +143,7 @@ export function useCalendarEvents(): UseCalendarEventsResult {
         setIsSaving(false);
       }
     },
-    [refreshEvents],
+    [provider, refreshEvents],
   );
 
   const deleteEvent = useCallback(
@@ -145,7 +153,7 @@ export function useCalendarEvents(): UseCalendarEventsResult {
       setIsSaving(true);
 
       try {
-        await CalendarService.deleteEvent(
+        await provider.deleteEvent(
           eventId,
         );
 
@@ -154,7 +162,7 @@ export function useCalendarEvents(): UseCalendarEventsResult {
         setIsSaving(false);
       }
     },
-    [refreshEvents],
+    [provider, refreshEvents],
   );
 
   const restoreEvent = useCallback(
@@ -165,7 +173,7 @@ export function useCalendarEvents(): UseCalendarEventsResult {
 
       try {
         const restoredEvent =
-          await CalendarService.restoreEvent(
+          await provider.restoreEvent(
             event,
           );
 
@@ -176,7 +184,7 @@ export function useCalendarEvents(): UseCalendarEventsResult {
         setIsSaving(false);
       }
     },
-    [refreshEvents],
+    [provider, refreshEvents],
   );
 
   return {

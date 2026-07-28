@@ -28,8 +28,8 @@ import type {
   CalendarEvent,
   CalendarOwnerId,
 } from "../features/calendar/models/calendarEvent";
+import type { CreateCalendarEventInput } from "../features/calendar/models/calendarEventInput";
 import type { CalendarView } from "../features/calendar/models/calendarView";
-import type { CreateCalendarEventInput } from "../features/calendar/services/CalendarService";
 import { getEventsForDate } from "../features/calendar/utils/getEventsForDate";
 
 type SnackbarSeverity =
