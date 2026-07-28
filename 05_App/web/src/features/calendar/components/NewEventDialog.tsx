@@ -29,13 +29,13 @@ import {
   toDateInputValue,
 } from "../form/eventFormDateUtils";
 import type { EventFormState } from "../form/eventFormTypes";
+import { useEventFormState } from "../form/useEventFormState";
 import {
   type EventFormValidationMessages,
   validateEventForm,
 } from "../form/eventFormValidation";
 import type {
   CalendarEvent,
-  CalendarOwnerId,
 } from "../models/calendarEvent";
 import type { CreateCalendarEventInput } from "../services/CalendarService";
 import { findEventConflicts } from "../utils/findEventConflicts";
@@ -144,11 +144,19 @@ function NewEventDialog({
   onClose,
   onCreate,
 }: NewEventDialogProps) {
-  const [
-    form,
-    setForm,
-  ] = useState<EventFormState>(
-    createInitialState(initialDate),
+  const initialFormState =
+    useMemo(
+      () => createInitialState(initialDate),
+      [initialDate],
+    );
+
+  const {
+    values: form,
+    setField,
+    reset,
+    toggleParticipant,
+  } = useEventFormState(
+    initialFormState,
   );
 
   const [
@@ -163,16 +171,13 @@ function NewEventDialog({
       return;
     }
 
-    setForm(
-      createInitialState(
-        initialDate,
-      ),
-    );
+    reset();
 
     setSubmitError(null);
   }, [
     open,
     initialDate,
+    reset,
   ]);
 
   const validationError =
@@ -242,48 +247,17 @@ function NewEventDialog({
       events,
     ]);
 
-  function toggleOwner(
-    ownerId: CalendarOwnerId,
-  ) {
-    setForm(
-      (currentForm) => {
-        const isSelected =
-          currentForm.ownerIds.includes(
-            ownerId,
-          );
-
-        return {
-          ...currentForm,
-
-          ownerIds: isSelected
-            ? currentForm.ownerIds.filter(
-                (id) =>
-                  id !== ownerId,
-              )
-            : [
-                ...currentForm.ownerIds,
-                ownerId,
-              ],
-        };
-      },
-    );
-  }
-
   function handleStartDateChange(
     startDate: string,
   ) {
-    setForm(
-      (currentForm) => ({
-        ...currentForm,
+    setField("startDate", startDate);
 
+    setField(
+      "endDate",
+      ensureEndDateOnOrAfterStartDate(
         startDate,
-
-        endDate:
-          ensureEndDateOnOrAfterStartDate(
-            startDate,
-            currentForm.endDate,
-          ),
-      }),
+        form.endDate,
+      ),
     );
   }
 
@@ -391,13 +365,9 @@ function NewEventDialog({
             fullWidth
             disabled={isSaving}
             onChange={(event) =>
-              setForm(
-                (currentForm) => ({
-                  ...currentForm,
-
-                  title:
-                    event.target.value,
-                }),
+              setField(
+                "title",
+                event.target.value,
               )
             }
           />
@@ -456,13 +426,9 @@ function NewEventDialog({
                 },
               }}
               onChange={(event) =>
-                setForm(
-                  (currentForm) => ({
-                    ...currentForm,
-
-                    endDate:
-                      event.target.value,
-                  }),
+                setField(
+                  "endDate",
+                  event.target.value,
                 )
               }
             />
@@ -474,14 +440,9 @@ function NewEventDialog({
                 checked={form.allDay}
                 disabled={isSaving}
                 onChange={(event) =>
-                  setForm(
-                    (currentForm) => ({
-                      ...currentForm,
-
-                      allDay:
-                        event.target
-                          .checked,
-                    }),
+                  setField(
+                    "allDay",
+                    event.target.checked,
                   )
                 }
               />
@@ -516,13 +477,9 @@ function NewEventDialog({
                   },
                 }}
                 onChange={(event) =>
-                  setForm(
-                    (currentForm) => ({
-                      ...currentForm,
-
-                      startTime:
-                        event.target.value,
-                    }),
+                  setField(
+                    "startTime",
+                    event.target.value,
                   )
                 }
               />
@@ -541,13 +498,9 @@ function NewEventDialog({
                   },
                 }}
                 onChange={(event) =>
-                  setForm(
-                    (currentForm) => ({
-                      ...currentForm,
-
-                      endTime:
-                        event.target.value,
-                    }),
+                  setField(
+                    "endTime",
+                    event.target.value,
                   )
                 }
               />
@@ -586,7 +539,7 @@ function NewEventDialog({
                     }
                     disabled={isSaving}
                     onClick={() =>
-                      toggleOwner(
+                      toggleParticipant(
                         owner.id,
                       )
                     }
@@ -683,13 +636,9 @@ function NewEventDialog({
             fullWidth
             disabled={isSaving}
             onChange={(event) =>
-              setForm(
-                (currentForm) => ({
-                  ...currentForm,
-
-                  location:
-                    event.target.value,
-                }),
+              setField(
+                "location",
+                event.target.value,
               )
             }
           />
@@ -704,13 +653,9 @@ function NewEventDialog({
             minRows={3}
             disabled={isSaving}
             onChange={(event) =>
-              setForm(
-                (currentForm) => ({
-                  ...currentForm,
-
-                  description:
-                    event.target.value,
-                }),
+              setField(
+                "description",
+                event.target.value,
               )
             }
           />

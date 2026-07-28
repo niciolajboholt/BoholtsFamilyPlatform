@@ -30,13 +30,13 @@ import {
   toTimeInputValue,
 } from "../form/eventFormDateUtils";
 import type { EventFormState } from "../form/eventFormTypes";
+import { useEventFormState } from "../form/useEventFormState";
 import {
   type EventFormValidationMessages,
   validateEventForm,
 } from "../form/eventFormValidation";
 import type {
   CalendarEvent,
-  CalendarOwnerId,
 } from "../models/calendarEvent";
 import { findEventConflicts } from "../utils/findEventConflicts";
 
@@ -192,14 +192,19 @@ function EditEventDialog({
   onUpdate,
   onDelete,
 }: EditEventDialogProps) {
-  const [
-    formState,
-    setFormState,
-  ] = useState<EventFormState>(
-    () =>
-      createInitialFormState(
-        event,
-      ),
+  const initialFormState =
+    useMemo(
+      () => createInitialFormState(event),
+      [event],
+    );
+
+  const {
+    values: formState,
+    setField,
+    reset,
+    toggleParticipant,
+  } = useEventFormState(
+    initialFormState,
   );
 
   const [
@@ -219,18 +224,14 @@ function EditEventDialog({
       return;
     }
 
-    setFormState(
-      createInitialFormState(
-        event,
-      ),
-    );
+    reset();
 
     setSubmitError(null);
 
     setIsDeleteConfirmationVisible(
       false,
     );
-  }, [event, open]);
+  }, [event, open, reset]);
 
   const validationError =
     useMemo(() => {
@@ -305,50 +306,17 @@ function EditEventDialog({
       events,
     ]);
 
-  function handleToggleOwner(
-    ownerId: CalendarOwnerId,
-  ) {
-    setFormState(
-      (currentState) => {
-        const isSelected =
-          currentState.ownerIds.includes(
-            ownerId,
-          );
-
-        return {
-          ...currentState,
-
-          ownerIds: isSelected
-            ? currentState.ownerIds.filter(
-                (
-                  currentOwnerId,
-                ) =>
-                  currentOwnerId !==
-                  ownerId,
-              )
-            : [
-                ...currentState.ownerIds,
-                ownerId,
-              ],
-        };
-      },
-    );
-  }
-
   function handleStartDateChange(
     value: string,
   ) {
-    setFormState(
-      (currentState) => ({
-        ...currentState,
-        startDate: value,
+    setField("startDate", value);
 
-        endDate:
-          ensureEndDateOnOrAfterStartDate(
-            value,
-            currentState.endDate,
-          ),
-      }),
+    setField(
+      "endDate",
+      ensureEndDateOnOrAfterStartDate(
+        value,
+        formState.endDate,
+      ),
     );
   }
 
@@ -505,14 +473,9 @@ function EditEventDialog({
             required
             autoFocus
             onChange={(changeEvent) =>
-              setFormState(
-                (currentState) => ({
-                  ...currentState,
-
-                  title:
-                    changeEvent.target
-                      .value,
-                }),
+              setField(
+                "title",
+                changeEvent.target.value,
               )
             }
           />
@@ -576,14 +539,9 @@ function EditEventDialog({
                 },
               }}
               onChange={(changeEvent) =>
-                setFormState(
-                  (currentState) => ({
-                    ...currentState,
-
-                    endDate:
-                      changeEvent.target
-                        .value,
-                  }),
+                setField(
+                  "endDate",
+                  changeEvent.target.value,
                 )
               }
             />
@@ -600,16 +558,9 @@ function EditEventDialog({
                   isSaving
                 }
                 onChange={(changeEvent) =>
-                  setFormState(
-                    (
-                      currentState,
-                    ) => ({
-                      ...currentState,
-
-                      allDay:
-                        changeEvent.target
-                          .checked,
-                    }),
+                  setField(
+                    "allDay",
+                    changeEvent.target.checked,
                   )
                 }
               />
@@ -647,16 +598,9 @@ function EditEventDialog({
                   },
                 }}
                 onChange={(changeEvent) =>
-                  setFormState(
-                    (
-                      currentState,
-                    ) => ({
-                      ...currentState,
-
-                      startTime:
-                        changeEvent.target
-                          .value,
-                    }),
+                  setField(
+                    "startTime",
+                    changeEvent.target.value,
                   )
                 }
               />
@@ -678,16 +622,9 @@ function EditEventDialog({
                   },
                 }}
                 onChange={(changeEvent) =>
-                  setFormState(
-                    (
-                      currentState,
-                    ) => ({
-                      ...currentState,
-
-                      endTime:
-                        changeEvent.target
-                          .value,
-                    }),
+                  setField(
+                    "endTime",
+                    changeEvent.target.value,
                   )
                 }
               />
@@ -719,7 +656,7 @@ function EditEventDialog({
                       isSaving
                     }
                     onChange={() =>
-                      handleToggleOwner(
+                      toggleParticipant(
                         owner.id,
                       )
                     }
@@ -802,14 +739,9 @@ function EditEventDialog({
               isSaving
             }
             onChange={(changeEvent) =>
-              setFormState(
-                (currentState) => ({
-                  ...currentState,
-
-                  location:
-                    changeEvent.target
-                      .value,
-                }),
+              setField(
+                "location",
+                changeEvent.target.value,
               )
             }
           />
@@ -826,14 +758,9 @@ function EditEventDialog({
             multiline
             minRows={3}
             onChange={(changeEvent) =>
-              setFormState(
-                (currentState) => ({
-                  ...currentState,
-
-                  description:
-                    changeEvent.target
-                      .value,
-                }),
+              setField(
+                "description",
+                changeEvent.target.value,
               )
             }
           />
