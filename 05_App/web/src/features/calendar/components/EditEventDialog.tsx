@@ -14,8 +14,10 @@ import {
   DialogContent,
   DialogTitle,
   TextField,
+  type DialogProps,
 } from "@mui/material";
 
+import { ConfirmDiscardDialog } from "./ConfirmDiscardDialog";
 import { EventConflictAlert } from "./EventConflictAlert";
 import { EventDateTimeSection } from "./EventDateTimeSection";
 import { EventParticipantsSection } from "./EventParticipantsSection";
@@ -30,6 +32,7 @@ import {
 import type { EventFormState } from "../form/eventFormTypes";
 import { useEventConflicts } from "../form/useEventConflicts";
 import { useEventFormState } from "../form/useEventFormState";
+import { useUnsavedChanges } from "../form/useUnsavedChanges";
 import { useEventValidation } from "../form/useEventValidation";
 import {
   type EventFormValidationMessages,
@@ -160,6 +163,11 @@ function EditEventDialog({
     setIsDeleteConfirmationVisible,
   ] = useState(false);
 
+  const [
+    isDiscardConfirmationVisible,
+    setIsDiscardConfirmationVisible,
+  ] = useState(false);
+
   useEffect(() => {
     if (!open) {
       return;
@@ -172,10 +180,17 @@ function EditEventDialog({
     setIsDeleteConfirmationVisible(
       false,
     );
+
+    setIsDiscardConfirmationVisible(false);
   }, [event, open, reset]);
 
   const { validationErrorCode } =
     useEventValidation(formState);
+
+  const { isDirty } = useUnsavedChanges(
+    initialFormState,
+    formState,
+  );
 
   const validationError =
     validationErrorCode
@@ -206,6 +221,34 @@ function EditEventDialog({
         formState.endDate,
       ),
     );
+  }
+
+  function handleCloseRequest() {
+    if (isSaving) {
+      return;
+    }
+
+    if (isDirty) {
+      setIsDiscardConfirmationVisible(true);
+
+      return;
+    }
+
+    onClose();
+  }
+
+  const handleDialogClose: DialogProps["onClose"] =
+    () => {
+      handleCloseRequest();
+    };
+
+  function handleContinueEditing() {
+    setIsDiscardConfirmationVisible(false);
+  }
+
+  function handleDiscardChanges() {
+    setIsDiscardConfirmationVisible(false);
+    onClose();
   }
 
   async function handleSubmit() {
@@ -312,12 +355,13 @@ function EditEventDialog({
     "internal";
 
   return (
+    <>
     <Dialog
       open={open}
       onClose={
         isSaving
           ? undefined
-          : onClose
+          : handleDialogClose
       }
       fullWidth
       maxWidth="sm"
@@ -508,7 +552,7 @@ function EditEventDialog({
         >
           <Button
             disabled={isSaving}
-            onClick={onClose}
+            onClick={handleCloseRequest}
           >
             Annuller
           </Button>
@@ -533,6 +577,13 @@ function EditEventDialog({
         </Box>
       </DialogActions>
     </Dialog>
+
+    <ConfirmDiscardDialog
+      open={isDiscardConfirmationVisible}
+      onContinueEditing={handleContinueEditing}
+      onDiscard={handleDiscardChanges}
+    />
+    </>
   );
 }
 
