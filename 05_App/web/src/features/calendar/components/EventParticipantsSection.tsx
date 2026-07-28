@@ -15,6 +15,7 @@ interface EventParticipantsSectionProps {
   onToggleOwner: (ownerId: CalendarOwnerId) => void;
   title: string;
   variant: "chips" | "checkboxes";
+  errorText?: string | null;
 }
 
 export function EventParticipantsSection({
@@ -23,6 +24,7 @@ export function EventParticipantsSection({
   onToggleOwner,
   title,
   variant,
+  errorText,
 }: EventParticipantsSectionProps) {
   return (
     <Box>
@@ -86,6 +88,17 @@ export function EventParticipantsSection({
             label={owner.name}
           />
         ))
+      )}
+
+      {errorText && (
+        <Typography
+          color="error"
+          variant="caption"
+          role="alert"
+          sx={{ display: "block", mt: 0.5 }}
+        >
+          {errorText}
+        </Typography>
       )}
     </Box>
   );

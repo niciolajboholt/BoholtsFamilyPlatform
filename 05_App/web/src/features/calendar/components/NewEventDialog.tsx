@@ -32,6 +32,7 @@ import { useEventConflicts } from "../form/useEventConflicts";
 import { useEventFormState } from "../form/useEventFormState";
 import { useUnsavedChanges } from "../form/useUnsavedChanges";
 import { useEventValidation } from "../form/useEventValidation";
+import { useEventValidationFeedback } from "../form/useEventValidationFeedback";
 import {
   type EventFormValidationMessages,
 } from "../form/eventFormValidation";
@@ -54,7 +55,9 @@ interface NewEventDialogProps {
 const validationMessages: EventFormValidationMessages = {
   titleRequired: "Skriv en titel på aftalen.",
   startDateRequired: "Vælg en startdato.",
+  startTimeRequired: "Angiv et starttidspunkt.",
   endDateRequired: "Vælg en slutdato.",
+  endTimeRequired: "Angiv et sluttidspunkt.",
   endDateBeforeStartDate:
     "Slutdatoen må ikke ligge før startdatoen.",
   ownerRequired: "Vælg mindst én kalender.",
@@ -116,6 +119,25 @@ function NewEventDialog({
     setIsDiscardConfirmationVisible,
   ] = useState(false);
 
+  const {
+    validationErrorCode,
+    validationErrors,
+    firstInvalidField,
+  } =
+    useEventValidation(form);
+
+  const {
+    fieldRefs,
+    getVisibleError,
+    markFieldFocused,
+    markFieldTouched,
+    resetValidationFeedback,
+    showAllErrorsAndFocusFirst,
+  } = useEventValidationFeedback(
+    validationErrors,
+    firstInvalidField,
+  );
+
   useEffect(() => {
     if (!open) {
       return;
@@ -126,14 +148,14 @@ function NewEventDialog({
     setSubmitError(null);
 
     setIsDiscardConfirmationVisible(false);
+
+    resetValidationFeedback();
   }, [
     open,
     initialDate,
     reset,
+    resetValidationFeedback,
   ]);
-
-  const { validationErrorCode } =
-    useEventValidation(form);
 
   const { isDirty } = useUnsavedChanges(
     initialFormState,
@@ -146,6 +168,16 @@ function NewEventDialog({
           validationErrorCode
         ]
       : null;
+
+  function getVisibleErrorMessage(
+    field: keyof typeof validationErrors,
+  ) {
+    const errorCode = getVisibleError(field);
+
+    return errorCode
+      ? validationMessages[errorCode]
+      : null;
+  }
 
   const {
     conflicts: conflictingEvents,
@@ -199,9 +231,7 @@ function NewEventDialog({
 
   async function handleSubmit() {
     if (validationError) {
-      setSubmitError(
-        validationError,
-      );
+      showAllErrorsAndFocusFirst();
 
       return;
     }
@@ -301,12 +331,19 @@ function NewEventDialog({
             required
             fullWidth
             disabled={isSaving}
+            error={Boolean(
+              getVisibleErrorMessage("title"),
+            )}
+            helperText={getVisibleErrorMessage("title")}
+            inputRef={fieldRefs.title}
             onChange={(event) =>
               setField(
                 "title",
                 event.target.value,
               )
             }
+            onBlur={() => markFieldTouched("title")}
+            onFocus={() => markFieldFocused("title")}
           />
 
           <EventDateTimeSection
@@ -325,6 +362,35 @@ function NewEventDialog({
             onEndTimeChange={(value) =>
               setField("endTime", value)
             }
+            onStartDateBlur={() =>
+              markFieldTouched("startDate")
+            }
+            onStartDateFocus={() =>
+              markFieldFocused("startDate")
+            }
+            onEndDateBlur={() =>
+              markFieldTouched("endDate")
+            }
+            onEndDateFocus={() =>
+              markFieldFocused("endDate")
+            }
+            onStartTimeBlur={() =>
+              markFieldTouched("startTime")
+            }
+            onStartTimeFocus={() =>
+              markFieldFocused("startTime")
+            }
+            onEndTimeBlur={() =>
+              markFieldTouched("endTime")
+            }
+            onEndTimeFocus={() =>
+              markFieldFocused("endTime")
+            }
+            startDateError={getVisibleErrorMessage("startDate")}
+            endDateError={getVisibleErrorMessage("endDate")}
+            startTimeError={getVisibleErrorMessage("startTime")}
+            endTimeError={getVisibleErrorMessage("endTime")}
+            inputRefs={fieldRefs}
             allDayLabel="Hele dagen"
             dateFieldsFullWidth
           />
@@ -332,9 +398,13 @@ function NewEventDialog({
           <EventParticipantsSection
             ownerIds={form.ownerIds}
             disabled={isSaving}
-            onToggleOwner={toggleParticipant}
+            onToggleOwner={(ownerId) => {
+              toggleParticipant(ownerId);
+              markFieldTouched("ownerIds");
+            }}
             title="Kalender og deltagere"
             variant="chips"
+            errorText={getVisibleErrorMessage("ownerIds")}
           />
 
           {conflictingEvents.length >
@@ -377,11 +447,6 @@ function NewEventDialog({
             }
           />
 
-          {validationError && (
-            <Alert severity="warning">
-              {validationError}
-            </Alert>
-          )}
         </Box>
       </DialogContent>
 
@@ -404,10 +469,7 @@ function NewEventDialog({
             void handleSubmit()
           }
           disabled={
-            isSaving ||
-            Boolean(
-              validationError,
-            )
+            isSaving
           }
           startIcon={
             isSaving ? (

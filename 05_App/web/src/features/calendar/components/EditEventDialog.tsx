@@ -34,6 +34,7 @@ import { useEventConflicts } from "../form/useEventConflicts";
 import { useEventFormState } from "../form/useEventFormState";
 import { useUnsavedChanges } from "../form/useUnsavedChanges";
 import { useEventValidation } from "../form/useEventValidation";
+import { useEventValidationFeedback } from "../form/useEventValidationFeedback";
 import {
   type EventFormValidationMessages,
 } from "../form/eventFormValidation";
@@ -58,7 +59,9 @@ interface EditEventDialogProps {
 const validationMessages: EventFormValidationMessages = {
   titleRequired: "Skriv en titel til aftalen.",
   startDateRequired: "Vælg en startdato.",
+  startTimeRequired: "Angiv et starttidspunkt.",
   endDateRequired: "Vælg en slutdato.",
+  endTimeRequired: "Angiv et sluttidspunkt.",
   endDateBeforeStartDate:
     "Slutdatoen må ikke ligge før startdatoen.",
   ownerRequired: "Vælg mindst én kalender.",
@@ -168,6 +171,25 @@ function EditEventDialog({
     setIsDiscardConfirmationVisible,
   ] = useState(false);
 
+  const {
+    validationErrorCode,
+    validationErrors,
+    firstInvalidField,
+  } =
+    useEventValidation(formState);
+
+  const {
+    fieldRefs,
+    getVisibleError,
+    markFieldFocused,
+    markFieldTouched,
+    resetValidationFeedback,
+    showAllErrorsAndFocusFirst,
+  } = useEventValidationFeedback(
+    validationErrors,
+    firstInvalidField,
+  );
+
   useEffect(() => {
     if (!open) {
       return;
@@ -182,10 +204,14 @@ function EditEventDialog({
     );
 
     setIsDiscardConfirmationVisible(false);
-  }, [event, open, reset]);
 
-  const { validationErrorCode } =
-    useEventValidation(formState);
+    resetValidationFeedback();
+  }, [
+    event,
+    open,
+    reset,
+    resetValidationFeedback,
+  ]);
 
   const { isDirty } = useUnsavedChanges(
     initialFormState,
@@ -198,6 +224,16 @@ function EditEventDialog({
           validationErrorCode
         ]
       : null;
+
+  function getVisibleErrorMessage(
+    field: keyof typeof validationErrors,
+  ) {
+    const errorCode = getVisibleError(field);
+
+    return errorCode
+      ? validationMessages[errorCode]
+      : null;
+  }
 
   const {
     conflicts: conflictingEvents,
@@ -256,6 +292,10 @@ function EditEventDialog({
       !event ||
       validationError
     ) {
+      if (validationError) {
+        showAllErrorsAndFocusFirst();
+      }
+
       return;
     }
 
@@ -404,12 +444,19 @@ function EditEventDialog({
             }
             required
             autoFocus
+            error={Boolean(
+              getVisibleErrorMessage("title"),
+            )}
+            helperText={getVisibleErrorMessage("title")}
+            inputRef={fieldRefs.title}
             onChange={(changeEvent) =>
               setField(
                 "title",
                 changeEvent.target.value,
               )
             }
+            onBlur={() => markFieldTouched("title")}
+            onFocus={() => markFieldFocused("title")}
           />
 
           <EventDateTimeSection
@@ -428,6 +475,35 @@ function EditEventDialog({
             onEndTimeChange={(value) =>
               setField("endTime", value)
             }
+            onStartDateBlur={() =>
+              markFieldTouched("startDate")
+            }
+            onStartDateFocus={() =>
+              markFieldFocused("startDate")
+            }
+            onEndDateBlur={() =>
+              markFieldTouched("endDate")
+            }
+            onEndDateFocus={() =>
+              markFieldFocused("endDate")
+            }
+            onStartTimeBlur={() =>
+              markFieldTouched("startTime")
+            }
+            onStartTimeFocus={() =>
+              markFieldFocused("startTime")
+            }
+            onEndTimeBlur={() =>
+              markFieldTouched("endTime")
+            }
+            onEndTimeFocus={() =>
+              markFieldFocused("endTime")
+            }
+            startDateError={getVisibleErrorMessage("startDate")}
+            endDateError={getVisibleErrorMessage("endDate")}
+            startTimeError={getVisibleErrorMessage("startTime")}
+            endTimeError={getVisibleErrorMessage("endTime")}
+            inputRefs={fieldRefs}
             allDayLabel="Heldagsaftale"
             dateFieldsFullWidth={false}
           />
@@ -435,9 +511,13 @@ function EditEventDialog({
           <EventParticipantsSection
             ownerIds={formState.ownerIds}
             disabled={!isInternalEvent || isSaving}
-            onToggleOwner={toggleParticipant}
+            onToggleOwner={(ownerId) => {
+              toggleParticipant(ownerId);
+              markFieldTouched("ownerIds");
+            }}
             title="Kalender"
             variant="checkboxes"
+            errorText={getVisibleErrorMessage("ownerIds")}
           />
 
           {conflictingEvents.length >
@@ -484,13 +564,6 @@ function EditEventDialog({
               )
             }
           />
-
-          {validationError &&
-            isInternalEvent && (
-              <Alert severity="warning">
-                {validationError}
-              </Alert>
-            )}
 
           {isDeleteConfirmationVisible && (
             <Alert
@@ -561,10 +634,7 @@ function EditEventDialog({
             variant="contained"
             disabled={
               !isInternalEvent ||
-              isSaving ||
-              Boolean(
-                validationError,
-              )
+              isSaving
             }
             onClick={() =>
               void handleSubmit()

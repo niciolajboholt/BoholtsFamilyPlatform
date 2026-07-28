@@ -3,10 +3,27 @@ import type { EventFormState } from "./eventFormTypes";
 export type EventFormValidationErrorCode =
   | "titleRequired"
   | "startDateRequired"
+  | "startTimeRequired"
   | "endDateRequired"
+  | "endTimeRequired"
   | "endDateBeforeStartDate"
   | "ownerRequired"
   | "endTimeBeforeStartTime";
+
+export type EventFormValidationField =
+  | "title"
+  | "startDate"
+  | "startTime"
+  | "endDate"
+  | "endTime"
+  | "ownerIds";
+
+export type EventFormValidationErrors = Partial<
+  Record<
+    EventFormValidationField,
+    EventFormValidationErrorCode
+  >
+>;
 
 export type EventFormValidationMessages = Record<
   EventFormValidationErrorCode,
@@ -15,34 +32,50 @@ export type EventFormValidationMessages = Record<
 
 export function validateEventForm(
   form: EventFormState,
-): EventFormValidationErrorCode | null {
+): EventFormValidationErrors {
+  const errors: EventFormValidationErrors = {};
+
   if (!form.title.trim()) {
-    return "titleRequired";
+    errors.title = "titleRequired";
   }
 
   if (!form.startDate) {
-    return "startDateRequired";
+    errors.startDate = "startDateRequired";
+  }
+
+  if (!form.allDay && !form.startTime) {
+    errors.startTime = "startTimeRequired";
   }
 
   if (!form.endDate) {
-    return "endDateRequired";
+    errors.endDate = "endDateRequired";
   }
 
-  if (form.endDate < form.startDate) {
-    return "endDateBeforeStartDate";
+  if (!form.allDay && !form.endTime) {
+    errors.endTime = "endTimeRequired";
   }
 
-  if (form.ownerIds.length === 0) {
-    return "ownerRequired";
+  if (
+    form.startDate &&
+    form.endDate &&
+    form.endDate < form.startDate
+  ) {
+    errors.endDate = "endDateBeforeStartDate";
   }
 
   if (
     !form.allDay &&
     form.startDate === form.endDate &&
+    form.startTime &&
+    form.endTime &&
     form.endTime <= form.startTime
   ) {
-    return "endTimeBeforeStartTime";
+    errors.endTime = "endTimeBeforeStartTime";
   }
 
-  return null;
+  if (form.ownerIds.length === 0) {
+    errors.ownerIds = "ownerRequired";
+  }
+
+  return errors;
 }
