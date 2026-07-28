@@ -51,7 +51,7 @@ export function mapGoogleCalendarEvent(calendarId: string, event: GoogleCalendar
   return { id: encodeGoogleEventId(calendarId, event.id), source: "google", sourceId: encodeGoogleCalendarSourceId(calendarId), title: event.summary || "Google-aftale", start, end, allDay, ownerIds: [], description: event.description, location: event.location };
 }
 
-function toLocalMidnightIso(dateOnly: string | undefined): string | undefined {
+export function toLocalMidnightIso(dateOnly: string | undefined): string | undefined {
   if (!dateOnly) return undefined;
   return new Date(`${dateOnly}T00:00:00`).toISOString();
 }

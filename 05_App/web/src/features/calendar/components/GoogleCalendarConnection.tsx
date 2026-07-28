@@ -1,4 +1,4 @@
-import { Alert, Button, Stack, Typography } from "@mui/material";
+import { Alert, Button, CircularProgress, Stack, Typography } from "@mui/material";
 
 import type { CalendarProviderHealth } from "../models/calendarProviderHealth";
 
@@ -6,6 +6,7 @@ interface GoogleCalendarConnectionProps {
   isConfigured: boolean;
   configurationError?: string;
   isConnected: boolean;
+  wasEverConnected: boolean;
   isBusy: boolean;
   health?: CalendarProviderHealth;
   onConnect: () => void;
@@ -14,13 +15,14 @@ interface GoogleCalendarConnectionProps {
 }
 
 /**
- * PrÃ¦senterer kun forbindelsens status og handlinger. OAuth og Google API er
- * afgrÃ¦nset til provider-laget.
+ * Præsenterer kun forbindelsens status og handlinger. OAuth og Google API er
+ * afgrænset til provider-laget.
  */
 export function GoogleCalendarConnection({
   isConfigured,
   configurationError,
   isConnected,
+  wasEverConnected,
   isBusy,
   health,
   onConnect,
@@ -43,7 +45,19 @@ export function GoogleCalendarConnection({
     ? health.message ?? "Google Kalender kunne ikke opdateres. Dine lokale kalendere vises stadig."
     : isConnected
       ? "Google Kalender er forbundet. Skrivbare Google-kalendere kan ændres."
-      : "Forbind Google Kalender for at se dine eksterne aftaler.";
+      : wasEverConnected
+        ? "Google Kalender er ikke forbundet i denne session. Genopret forbindelsen for at se dine eksterne aftaler."
+        : "Forbind Google Kalender for at se dine eksterne aftaler.";
+
+  const connectLabel = isBusy
+    ? isConnected
+      ? "Afbryder..."
+      : "Forbinder..."
+    : isConnected
+      ? "Afbryd"
+      : wasEverConnected
+        ? "Genforbind Google Kalender"
+        : "Forbind Google Kalender";
 
   return (
     <Alert
@@ -76,9 +90,14 @@ export function GoogleCalendarConnection({
             size="small"
             variant="outlined"
             disabled={isBusy}
+            startIcon={
+              isBusy ? (
+                <CircularProgress size={14} color="inherit" />
+              ) : undefined
+            }
             onClick={isConnected ? onDisconnect : onConnect}
           >
-            {isConnected ? "Afbryd" : "Forbind Google Kalender"}
+            {connectLabel}
           </Button>
         </Stack>
       </Stack>

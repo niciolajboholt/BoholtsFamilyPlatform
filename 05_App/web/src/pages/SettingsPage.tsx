@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 import {
   CalendarMonthRounded,
   ChevronRightRounded,
@@ -13,11 +15,14 @@ import {
   Box,
   Card,
   CardContent,
+  CircularProgress,
   Divider,
   IconButton,
   Switch,
   Typography,
 } from "@mui/material";
+
+import { useGoogleCalendarConnection } from "../features/calendar/hooks/useGoogleCalendarConnection";
 
 const familyMembers = [
   {
@@ -47,6 +52,41 @@ const familyMembers = [
 ];
 
 function SettingsPage() {
+  const {
+    isConfigured: isGoogleCalendarConfigured,
+    isConnected: isGoogleCalendarConnected,
+    wasEverConnected: wasGoogleCalendarEverConnected,
+    connect: connectGoogleCalendar,
+    disconnect: disconnectGoogleCalendar,
+  } = useGoogleCalendarConnection();
+
+  const [isGoogleCalendarBusy, setIsGoogleCalendarBusy] = useState(false);
+
+  async function handleToggleGoogleCalendar(): Promise<void> {
+    if (isGoogleCalendarConnected) {
+      disconnectGoogleCalendar();
+      return;
+    }
+
+    setIsGoogleCalendarBusy(true);
+    try {
+      await connectGoogleCalendar();
+    } catch {
+      // Fejlen håndteres allerede med en tydelig statusbesked på
+      // Kalender-siden; her undlader vi blot at markere som forbundet.
+    } finally {
+      setIsGoogleCalendarBusy(false);
+    }
+  }
+
+  const googleCalendarStatusText = !isGoogleCalendarConfigured
+    ? "Ikke konfigureret"
+    : isGoogleCalendarConnected
+      ? "Forbundet"
+      : wasGoogleCalendarEverConnected
+        ? "Ikke forbundet i denne session"
+        : "Ikke forbundet endnu";
+
   return (
     <Box sx={{ maxWidth: 900, mx: "auto", pb: 4 }}>
       <Box sx={{ mb: 3 }}>
@@ -171,12 +211,26 @@ function SettingsPage() {
                 </Typography>
 
                 <Typography variant="body2" color="text.secondary">
-                  Ikke forbundet endnu
+                  {googleCalendarStatusText}
                 </Typography>
               </Box>
 
-              <IconButton aria-label="Administrer Google Calendar">
-                <ChevronRightRounded />
+              <IconButton
+                aria-label={
+                  isGoogleCalendarConnected
+                    ? "Afbryd Google Calendar"
+                    : "Forbind Google Calendar"
+                }
+                disabled={!isGoogleCalendarConfigured || isGoogleCalendarBusy}
+                onClick={() => {
+                  void handleToggleGoogleCalendar();
+                }}
+              >
+                {isGoogleCalendarBusy ? (
+                  <CircularProgress size={20} />
+                ) : (
+                  <ChevronRightRounded />
+                )}
               </IconButton>
             </Box>
           </CardContent>

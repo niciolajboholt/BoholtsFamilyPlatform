@@ -1,5 +1,4 @@
 import {
-  useEffect,
   useMemo,
   useState,
 } from "react";
@@ -145,24 +144,32 @@ function NewEventDialog({
     firstInvalidField,
   );
 
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
+  const initialDateMs = initialDate.getTime();
 
+  const [resetSignature, setResetSignature] = useState({
+    wasOpen: open,
+    initialDateMs,
+  });
+
+  const justOpened = open && !resetSignature.wasOpen;
+  const dateChangedWhileOpen =
+    open &&
+    resetSignature.wasOpen &&
+    resetSignature.initialDateMs !== initialDateMs;
+
+  if (justOpened || dateChangedWhileOpen) {
     reset();
-
     setSubmitError(null);
-
     setIsDiscardConfirmationVisible(false);
-
     resetValidationFeedback();
-  }, [
-    open,
-    initialDate,
-    reset,
-    resetValidationFeedback,
-  ]);
+  }
+
+  if (
+    resetSignature.wasOpen !== open ||
+    resetSignature.initialDateMs !== initialDateMs
+  ) {
+    setResetSignature({ wasOpen: open, initialDateMs });
+  }
 
   const { isDirty } = useUnsavedChanges(
     initialFormState,

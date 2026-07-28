@@ -124,6 +124,11 @@ export function useCalendarEvents(
   );
 
   useEffect(() => {
+    // refreshEvents' setIsLoading(true)/setError(null) are no-ops on this
+    // first call (isLoading/error already start at true/null above), so
+    // there is no cascading render here. The lint rule can't see that this
+    // is idempotent on mount, only that refreshEvents sets state at all.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void refreshEvents();
   }, [refreshEvents]);
 

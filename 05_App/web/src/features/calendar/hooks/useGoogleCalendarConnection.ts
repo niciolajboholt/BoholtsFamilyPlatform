@@ -6,6 +6,7 @@ interface UseGoogleCalendarConnectionResult {
   isConfigured: boolean;
   configurationError?: string;
   isConnected: boolean;
+  wasEverConnected: boolean;
   connect: () => Promise<void>;
   disconnect: () => void;
 }
@@ -19,20 +20,27 @@ export function useGoogleCalendarConnection(): UseGoogleCalendarConnectionResult
     () => googleCalendarSession.isConnected(),
   );
 
+  const [wasEverConnected, setWasEverConnected] = useState(
+    () => googleCalendarSession.wasEverConnected(),
+  );
+
   const connect = useCallback(async (): Promise<void> => {
     await googleCalendarSession.connect();
     setIsConnected(true);
+    setWasEverConnected(true);
   }, []);
 
   const disconnect = useCallback((): void => {
     googleCalendarSession.disconnect();
     setIsConnected(false);
+    setWasEverConnected(false);
   }, []);
 
   return {
     isConfigured: googleCalendarSession.isConfigured(),
     configurationError: googleCalendarSession.getConfigurationError(),
     isConnected,
+    wasEverConnected,
     connect,
     disconnect,
   };

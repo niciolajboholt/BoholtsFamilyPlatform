@@ -2,13 +2,13 @@
 
 > Status: Active
 
-Version: 1.1
+Version: 1.2
 
 Project:
 Boholts Family Platform
 
 Last Updated:
-2026-07-28
+2026-07-28 (Sprint 13)
 
 Owner:
 Nicolaj Bach Boholt
@@ -31,6 +31,7 @@ Projektet blev besluttet som Apple-first (ADR-006) med Swift/SwiftUI/SwiftData/X
 - **Observation**: Et teknisk vilkår (adgang til udviklingsmaskine/værktøjer) tvang en teknologibeslutning, som aldrig blev formaliseret som ADR.
 - **Konsekvens**: Vision-, produkt- og arkitekturdokumenter forblev Swift-baserede, mens koden blev React-baseret — en stille uoverensstemmelse, der først blev opdaget ved en efterfølgende gennemgang.
 - **Fremtidig regel**: Når et praktisk vilkår tvinger et teknologiskifte, skal det besluttes og dokumenteres eksplicit som en ny eller opdateret ADR samme sprint — ikke efterlades som en implicit afvigelse. Se [04_Project_History](04_Project_History.md) og [12_Project_DNA](12_Project_DNA.md).
+- **Opfølgning (Sprint 13)**: Skiftet er nu formaliseret som ADR-010. Reglen ovenfor er dermed selv fulgt, blot to sprints forsinket i stedet for samme sprint — hvilket bekræfter, hvorfor reglen er værd at holde fast i fremover.
 
 ---
 
@@ -55,6 +56,8 @@ Både den skrivebeskyttede (ADR-008) og skrivende (ADR-009) Google-integration b
 Der findes i dag ingen automatiseret test (unit, integration eller UI), selvom Release Plan (`Development/19_Release_Plan.md`) forudsætter en fuld teststrategi før release.
 
 **Erfaring**: Testdækning bør indføres løbende med ny funktionalitet, ikke eftermonteres lige før en release. Se [08_Development_Standards](08_Development_Standards.md) og [10_Future_Roadmap](10_Future_Roadmap.md).
+
+**Opfølgning (Sprint 13)**: Vitest er nu indført, og de rene Google-mapper-funktioner (hvor de to tidszone-fejl fra Sprint 12.1 lå) har automatiseret regressionsdækning, inkl. en test der aktivt bekræfter, at fejlen ville blive fanget igen, hvis den blev genindført. React-komponenter og hooks har fortsat ingen automatiseret test — kun manuel test.
 
 ---
 

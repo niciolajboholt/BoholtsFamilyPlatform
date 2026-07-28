@@ -294,3 +294,93 @@ Tokenet ligger kun i memory, og reload kræver ny brugerinitieret forbindelse.
 Der er ingen backend, refresh token eller client secret. Attendees,
 recurrence-redigering og vedvarende forbindelse er udskudt. Read-only-kilder
 forbliver synlige, men UI og provider afviser write uden netværkskald.
+
+# ADR-010: Platformskifte fra Swift/SwiftUI til React/TypeScript/PWA
+
+## Status
+
+Accepteret i Sprint 13. Formaliserer et skifte, der reelt skete allerede ved
+projektstart (2026-07-26), men aldrig blev besluttet eksplicit som en ADR.
+
+## Kontekst
+
+ADR-006 (2026-07-24) besluttede en Apple First-strategi med Swift, SwiftUI,
+SwiftData og Xcode som primær teknologistak. Den faktiske implementering, der
+blev påbegyndt to dage senere, er i stedet en React 19 + TypeScript-webapp
+(Vite, Material UI, PWA). Årsagen er praktisk: udviklingsmaskinen var en
+ældre Mac uden adgang til en tilstrækkeligt opdateret Xcode-version til at
+understøtte moderne SwiftUI/SwiftData-udvikling. Uden denne beslutning
+dokumenteret risikerede vision-, produkt- og arkitekturdokumentation
+(baseret på ADR-006) at pege i en anden retning end den faktiske kodebase —
+hvilket vi konkret stødte på under AI Knowledge Base-arbejdet i Sprint 12/13.
+
+## Beslutning
+
+Boholts Family Platform udvikles som en **React 19 + TypeScript Progressive
+Web App**, ikke en native Swift-app. Dette gælder også fremadrettet, ikke kun
+for POC'en.
+
+**Apple First forbliver princippet, men ændrer betydning**: det er en
+oplevelsesstrategi (Apple-brugere skal have den bedst mulige oplevelse), ikke
+et krav om native Apple-teknologi. PWA'en installeres og fungerer på iPhone/
+iPad som på øvrige platforme, og giver dermed en Apple-first-oplevelse uden
+en Apple-only teknologistack.
+
+Arkitekturprincippet fra ADR-006 — klar adskillelse mellem UI, forretnings-
+logik, datamodel og integrationer — videreføres uændret og er allerede
+implementeret via provider-arkitekturen (ADR-007).
+
+## Alternativer overvejet
+
+### Fastholde Swift/SwiftUI og anskaffe nyere Apple-hardware
+
+Afvist for nuværende: ville stoppe udviklingen, mens hardware anskaffes, og
+give et rent Apple-only-produkt uden den web/PWA-fleksibilitet, som allerede
+er bygget og fungerer.
+
+### Formaliser intet, behold ADR-006 som gældende på papiret
+
+Afvist: efterlader dokumentation og kode i strid med hinanden, hvilket
+allerede forvirrede en AI-agent under onboarding (se
+`01_Project_Documentation/AI_Knowledge_Base/09_Lessons_Learned.md`).
+
+## Konsekvenser
+
+### Positivt
+
+* Dokumentation og faktisk kodebase stemmer nu overens.
+* Udvikling kan fortsætte uafhængigt af Apple-specifik udviklingshardware.
+* PWA'en fungerer allerede på tværs af mobil, tablet og desktop.
+* Native Apple-muligheder (widgets, Siri, HomeKit) er ikke opgivet permanent
+  — se "Fremtidig Apple-strategi" nedenfor.
+
+### Negativt
+
+* Nogle Apple-specifikke muligheder fra ADR-006 (widgets, Siri, dybe
+  HomeKit-integrationer) er ikke tilgængelige via PWA på samme niveau som
+  native Swift ville have givet.
+* De Swift/SwiftUI/Xcode-specifikke udviklingsdokumenter
+  (`01_Project_Documentation/Development/13_Xcode_Project_Setup_and_Coding_Standards.md`,
+  `15_Xcode_Projectstruktur_og_Foerste_Implementation.md`,
+  `01_Project_Documentation/Architecture/16_SwiftData_Database_Design.md`)
+  beskriver nu en ikke-forfulgt retning og bør markeres som historiske eller
+  arkiveres i en senere oprydning.
+
+## Fremtidig Apple-strategi
+
+Hvis native Apple-specifikke muligheder (widgets, Apple Watch, dybere
+OS-integration) bliver nødvendige, tilføjes de som en supplerende native
+klient bag samme provider-arkitektur (ADR-007) — ikke som en genskrivning af
+hele platformen. Se `01_Project_Documentation/AI_Knowledge_Base/10_Future_Roadmap.md`,
+Fase 3.
+
+## Relaterede dokumenter
+
+Denne beslutning opdaterer den strategiske retning fra ADR-006, men
+erstatter den ikke historisk — ADR-006 beskriver stadig, hvorfor Apple First
+oprindeligt blev valgt som princip.
+
+* `01_Project_Documentation/AI_Knowledge_Base/04_Project_History.md`
+* `01_Project_Documentation/AI_Knowledge_Base/09_Lessons_Learned.md`
+* `01_Project_Documentation/AI_Knowledge_Base/10_Future_Roadmap.md`
+* `01_Project_Documentation/AI_Knowledge_Base/12_Project_DNA.md`

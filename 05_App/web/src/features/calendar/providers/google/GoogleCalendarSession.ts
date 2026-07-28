@@ -37,6 +37,37 @@ export const googleCalendarScopes = [
 
 let googleIdentityScriptPromise: Promise<void> | null = null;
 
+const wasConnectedStorageKey = "google-calendar-was-connected";
+
+// UI-only hint so the connect button can say "Genforbind" after a reload,
+// instead of "Forbind", for a user who has connected before. This is never
+// the access token itself (still memory-only, see class doc below) — just
+// a boolean breadcrumb, so it carries no security implication.
+function markWasConnected(): void {
+  try {
+    window.localStorage.setItem(wasConnectedStorageKey, "true");
+  } catch {
+    // localStorage may be unavailable (private browsing, disabled storage);
+    // the hint is UX-only, so failing silently is fine.
+  }
+}
+
+function clearWasConnected(): void {
+  try {
+    window.localStorage.removeItem(wasConnectedStorageKey);
+  } catch {
+    // see markWasConnected
+  }
+}
+
+function readWasConnected(): boolean {
+  try {
+    return window.localStorage.getItem(wasConnectedStorageKey) === "true";
+  } catch {
+    return false;
+  }
+}
+
 function loadGoogleIdentityServices(): Promise<void> {
   if (window.google?.accounts.oauth2) {
     return Promise.resolve();
@@ -85,6 +116,10 @@ export class GoogleCalendarSession {
     return this.accessToken !== null;
   }
 
+  wasEverConnected(): boolean {
+    return readWasConnected();
+  }
+
   async connect(): Promise<void> {
     const config = getGoogleCalendarConfig();
 
@@ -115,6 +150,7 @@ export class GoogleCalendarSession {
         callback: (response) => {
           if (response.access_token) {
             this.accessToken = response.access_token;
+            markWasConnected();
             resolve();
             return;
           }
@@ -133,6 +169,7 @@ export class GoogleCalendarSession {
   disconnect(): void {
     const token = this.accessToken;
     this.accessToken = null;
+    clearWasConnected();
 
     if (token && window.google?.accounts.oauth2) {
       window.google.accounts.oauth2.revoke(token, () => undefined);

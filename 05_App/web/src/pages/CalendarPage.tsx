@@ -177,6 +177,7 @@ function CalendarPage() {
     isConfigured: isGoogleCalendarConfigured,
     configurationError: googleCalendarConfigurationError,
     isConnected: isGoogleCalendarConnected,
+    wasEverConnected: wasGoogleCalendarEverConnected,
     connect: connectGoogleCalendar,
     disconnect: disconnectGoogleCalendar,
   } = useGoogleCalendarConnection();
@@ -623,6 +624,7 @@ function CalendarPage() {
         isConfigured={isGoogleCalendarConfigured}
         configurationError={googleCalendarConfigurationError}
         isConnected={isGoogleCalendarConnected}
+        wasEverConnected={wasGoogleCalendarEverConnected}
         isBusy={isConnectingGoogleCalendar}
         health={providerHealth.find(
           (health) => health.providerId === "google",

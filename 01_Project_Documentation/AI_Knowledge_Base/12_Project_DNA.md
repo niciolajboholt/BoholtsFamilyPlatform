@@ -2,13 +2,13 @@
 
 > Status: Active
 
-Version: 1.1
+Version: 1.2
 
 Project:
 Boholts Family Platform
 
 Last Updated:
-2026-07-28
+2026-07-28 (Sprint 13)
 
 Owner:
 Nicolaj Bach Boholt
@@ -64,7 +64,7 @@ Børnefamilier, især familier med mange aktiviteter og flere kalendere at holde
 
 ## Apple-first er en oplevelsesstrategi, ikke en teknologibegrænsning
 
-Projektet startede med Swift/SwiftUI, men skiftede til React/TypeScript/PWA, fordi udviklingsmaskinen (en ældre Mac) ikke havde adgang til en tilstrækkeligt opdateret Xcode-version — se [04_Project_History](04_Project_History.md). Apple-first betyder derfor i praksis, at Apple-brugere skal have den bedste oplevelse, ikke at koden nødvendigvis skal være native Apple-teknologi. Dette bør formaliseres som en ADR, så dokumentation og kode stemmer overens — se [10_Future_Roadmap](10_Future_Roadmap.md).
+Projektet startede med Swift/SwiftUI, men skiftede til React/TypeScript/PWA, fordi udviklingsmaskinen (en ældre Mac) ikke havde adgang til en tilstrækkeligt opdateret Xcode-version — se [04_Project_History](04_Project_History.md). Apple-first betyder derfor i praksis, at Apple-brugere skal have den bedste oplevelse, ikke at koden nødvendigvis skal være native Apple-teknologi. Formaliseret som **ADR-010** i Sprint 13 — se `01_Project_Documentation/Architecture/05_ADR_Architecture_Decisions.md`.
 
 ---
 

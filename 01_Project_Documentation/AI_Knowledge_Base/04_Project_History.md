@@ -2,13 +2,13 @@
 
 > Status: Active
 
-Version: 1.1
+Version: 1.2
 
 Project:
 Boholts Family Platform
 
 Last Updated:
-2026-07-28
+2026-07-28 (Sprint 13)
 
 Owner:
 Nicolaj Bach Boholt
@@ -36,7 +36,7 @@ Den faktiske implementering, der blev påbegyndt 2026-07-26, er en **React 19 + 
 
 Årsagen er praktisk: udviklingsmaskinen var en ældre Mac uden adgang til en tilstrækkeligt opdateret version af Xcode til at understøtte moderne SwiftUI/SwiftData-udvikling. React, TypeScript og PWA blev derfor valgt som et fælles teknologisk fundament, der kunne udvikles fra den tilgængelige maskine (herunder Windows), samtidig med at Apple-first forblev en **oplevelsesstrategi** frem for en teknologisk begrænsning — se [12_Project_DNA](12_Project_DNA.md).
 
-Dette skifte er ikke dokumenteret som en formel ADR-beslutning, og de oprindelige Apple-first-dokumenter er ikke opdateret til at afspejle det. Der er dermed en kendt uoverensstemmelse mellem den strategiske dokumentation (Swift/SwiftUI) og den faktiske kodebase (React/TypeScript), som bør formaliseres som en ADR (se [10_Future_Roadmap](10_Future_Roadmap.md) og [09_Lessons_Learned](09_Lessons_Learned.md)).
+Dette skifte er nu formaliseret som **ADR-010** (Sprint 13), efter i første omgang kun at have levet i praksis uden en formel beslutning bag sig — se `01_Project_Documentation/Architecture/05_ADR_Architecture_Decisions.md` og [09_Lessons_Learned](09_Lessons_Learned.md).
 
 ---
 
@@ -57,6 +57,7 @@ Se [05_Sprint_History](05_Sprint_History.md) for en sprint-for-sprint gennemgang
 - **ADR-007**: Indførelse af `CalendarProvider`-abstraktion, så UI aldrig bindes direkte til en specifik kalenderkilde.
 - **ADR-008**: Google Calendar tilføjes som valgfri, skrivebeskyttet kilde via `CompositeCalendarProvider`, med namespacede kilde-/event-id'er og token kun i hukommelsen.
 - **ADR-009**: Skriveadgang til Google Calendar tilføjes med mindst mulige rettigheder (`calendar.events`, `calendar.calendarlist.readonly`), routet via `sourceId`. Ingen backend, refresh token eller persistent forbindelse endnu.
+- **ADR-010** (Sprint 13): Formaliserer platformskiftet fra Swift/SwiftUI til React/TypeScript/PWA, med Apple First redefineret som oplevelsesstrategi, ikke teknologikrav.
 
 ---
 
