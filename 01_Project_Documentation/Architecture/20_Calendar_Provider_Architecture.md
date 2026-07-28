@@ -80,3 +80,16 @@ kun generiske kalenderkilder og en forbindelsesstatus. OAuth-tokenet holdes
 kun i hukommelsen. Eksisterende localStorage-aftaler uden `sourceId`
 normaliseres i hukommelsen ud fra deres første deltager, uden migration eller
 overskrivning af lagerdata.
+## Sprint 12.1: Google Calendar write foundation
+
+Google events routes via `sourceId` til Google provideren. Google sources er
+kun skrivbare, når CalendarList `accessRole` er `owner` eller `writer`;
+`reader`, `freeBusyReader` og ukendte værdier forbliver
+skrivebeskyttede. Den centrale token-session bruger scopes
+`calendar.events` og `calendar.calendarlist.readonly`, kun i memory.
+
+Create, update og delete mapper den generiske eventmodel til Googles event
+resource. All-day end dates forbliver eksklusive. Der oprettes ikke attendees,
+recurrence eller persistent login. PATCH bruges til update for at bevare
+ukendte Google-felter, og `sendUpdates=none` bruges fordi attendee-support
+ikke findes.

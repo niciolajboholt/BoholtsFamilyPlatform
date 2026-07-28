@@ -273,3 +273,24 @@ Lokale data er fortsat tilgængelige, hvis Google fejler. Eksisterende lokale
 events uden `sourceId` normaliseres i hukommelsen fra første ownerId og falder
 tilbage til `local:family`. Apple Calendar kan senere tilføjes som endnu en
 provider uden Google-afhængigheder i UI'et.
+# ADR-009: Google Calendar write access uses provider-routed frontend token flow
+
+## Status
+
+Accepteret i Sprint 12.1.
+
+## Kontekst og beslutning
+
+Familiekalenderen skal kunne ændre events i Google-kalendere, hvor brugeren
+har write-adgang, uden at sprede Google-typer eller tokens til UI'et. Vi bruger
+de mindst privilegerede scopes `calendar.events` og
+`calendar.calendarlist.readonly`. `CompositeCalendarProvider` router writes
+via `sourceId`; Google source-permission kommer kun fra CalendarList
+`accessRole`.
+
+## Konsekvenser
+
+Tokenet ligger kun i memory, og reload kræver ny brugerinitieret forbindelse.
+Der er ingen backend, refresh token eller client secret. Attendees,
+recurrence-redigering og vedvarende forbindelse er udskudt. Read-only-kilder
+forbliver synlige, men UI og provider afviser write uden netværkskald.

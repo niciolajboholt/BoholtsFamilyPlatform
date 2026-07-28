@@ -30,8 +30,10 @@ declare global {
 }
 
 const googleIdentityScriptUrl = "https://accounts.google.com/gsi/client";
-const calendarReadOnlyScope =
-  "https://www.googleapis.com/auth/calendar.readonly";
+export const googleCalendarScopes = [
+  "https://www.googleapis.com/auth/calendar.events",
+  "https://www.googleapis.com/auth/calendar.calendarlist.readonly",
+].join(" ");
 
 let googleIdentityScriptPromise: Promise<void> | null = null;
 
@@ -109,7 +111,7 @@ export class GoogleCalendarSession {
     await new Promise<void>((resolve, reject) => {
       const tokenClient = identityServices.initTokenClient({
         client_id: clientId,
-        scope: calendarReadOnlyScope,
+        scope: googleCalendarScopes,
         callback: (response) => {
           if (response.access_token) {
             this.accessToken = response.access_token;

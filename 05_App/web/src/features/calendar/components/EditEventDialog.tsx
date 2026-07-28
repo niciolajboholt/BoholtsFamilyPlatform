@@ -174,12 +174,22 @@ function EditEventDialog({
     setIsDiscardConfirmationVisible,
   ] = useState(false);
 
+  const eventSource = event
+    ? calendarSources.find(
+      (source) => source.id === event.sourceId,
+    )
+    : undefined;
+  const isInternalEvent = eventSource?.isReadOnly === false;
+
   const {
     validationErrorCode,
     validationErrors,
     firstInvalidField,
   } =
-    useEventValidation(formState);
+    useEventValidation(
+      formState,
+      eventSource?.providerType !== "google",
+    );
 
   const {
     fieldRefs,
@@ -339,9 +349,9 @@ function EditEventDialog({
         allDay:
           formState.allDay,
 
-        ownerIds: [
-          ...formState.ownerIds,
-        ],
+        ownerIds: event.source === "google"
+          ? []
+          : [...formState.ownerIds],
 
         description:
           formState.description.trim() ||
@@ -393,12 +403,6 @@ function EditEventDialog({
     }
   }
 
-  const isInternalEvent = event
-    ? calendarSources.find(
-      (source) => source.id === event.sourceId,
-    )?.isReadOnly === false
-    : false;
-
   return (
     <>
     <Dialog
@@ -427,8 +431,9 @@ function EditEventDialog({
         >
           {!isInternalEvent && (
             <Alert severity="info">
-              Kun interne aftaler kan
-              redigeres eller slettes.
+              {eventSource?.providerType === "google"
+                ? "Denne Google-kalender er skrivebeskyttet."
+                : "Kun interne aftaler kan redigeres eller slettes."}
             </Alert>
           )}
 
@@ -513,17 +518,19 @@ function EditEventDialog({
             dateFieldsFullWidth={false}
           />
 
-          <EventParticipantsSection
-            ownerIds={formState.ownerIds}
-            disabled={!isInternalEvent || isSaving}
-            onToggleOwner={(ownerId) => {
-              toggleParticipant(ownerId);
-              markFieldTouched("ownerIds");
-            }}
-            title="Kalender"
-            variant="checkboxes"
-            errorText={getVisibleErrorMessage("ownerIds")}
-          />
+          {eventSource?.providerType !== "google" && (
+            <EventParticipantsSection
+              ownerIds={formState.ownerIds}
+              disabled={!isInternalEvent || isSaving}
+              onToggleOwner={(ownerId) => {
+                toggleParticipant(ownerId);
+                markFieldTouched("ownerIds");
+              }}
+              title="Kalender"
+              variant="checkboxes"
+              errorText={getVisibleErrorMessage("ownerIds")}
+            />
+          )}
 
           {conflictingEvents.length >
             0 &&

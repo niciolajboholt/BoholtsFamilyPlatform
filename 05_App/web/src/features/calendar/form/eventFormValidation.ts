@@ -32,6 +32,7 @@ export type EventFormValidationMessages = Record<
 
 export function validateEventForm(
   form: EventFormState,
+  requireOwner = true,
 ): EventFormValidationErrors {
   const errors: EventFormValidationErrors = {};
 
@@ -73,7 +74,7 @@ export function validateEventForm(
     errors.endTime = "endTimeBeforeStartTime";
   }
 
-  if (form.ownerIds.length === 0) {
+  if (requireOwner && form.ownerIds.length === 0) {
     errors.ownerIds = "ownerRequired";
   }
 

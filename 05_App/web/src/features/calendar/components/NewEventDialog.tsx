@@ -13,6 +13,7 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  MenuItem,
   TextField,
   type DialogProps,
 } from "@mui/material";
@@ -39,12 +40,14 @@ import {
 import type {
   CalendarEvent,
 } from "../models/calendarEvent";
+import type { CalendarSource } from "../models/calendarProvider";
 import type { CreateCalendarEventInput } from "../models/calendarEventInput";
 
 interface NewEventDialogProps {
   open: boolean;
   initialDate: Date;
   events: CalendarEvent[];
+  calendarSources: readonly CalendarSource[];
   isSaving: boolean;
   onClose: () => void;
   onCreate: (
@@ -88,6 +91,7 @@ function NewEventDialog({
   open,
   initialDate,
   events,
+  calendarSources,
   isSaving,
   onClose,
   onCreate,
@@ -114,6 +118,9 @@ function NewEventDialog({
     null,
   );
 
+  const [sourceId, setSourceId] = useState("local:family");
+  const selectedSource = calendarSources.find((source) => source.id === sourceId);
+
   const [
     isDiscardConfirmationVisible,
     setIsDiscardConfirmationVisible,
@@ -124,7 +131,7 @@ function NewEventDialog({
     validationErrors,
     firstInvalidField,
   } =
-    useEventValidation(form);
+    useEventValidation(form, selectedSource?.providerType !== "google");
 
   const {
     fieldRefs,
@@ -244,9 +251,8 @@ function NewEventDialog({
         allDay:
           form.allDay,
 
-        ownerIds: [
-          ...form.ownerIds,
-        ],
+        ownerIds: selectedSource?.providerType === "google" ? [] : [...form.ownerIds],
+        sourceId,
 
         start: form.allDay
           ? createAllDayDate(
@@ -318,6 +324,20 @@ function NewEventDialog({
             pt: 1,
           }}
         >
+          <TextField
+            select
+            label="Kalender"
+            value={sourceId}
+            onChange={(event) => setSourceId(event.target.value)}
+            disabled={isSaving}
+            fullWidth
+          >
+            {calendarSources.map((source) => (
+              <MenuItem key={source.id} value={source.id} disabled={source.isReadOnly}>
+                {source.name}{source.isReadOnly ? " (skrivebeskyttet)" : ""}
+              </MenuItem>
+            ))}
+          </TextField>
           {submitError && (
             <Alert severity="error">
               {submitError}
@@ -395,17 +415,19 @@ function NewEventDialog({
             dateFieldsFullWidth
           />
 
-          <EventParticipantsSection
-            ownerIds={form.ownerIds}
-            disabled={isSaving}
-            onToggleOwner={(ownerId) => {
-              toggleParticipant(ownerId);
-              markFieldTouched("ownerIds");
-            }}
-            title="Kalender og deltagere"
-            variant="chips"
-            errorText={getVisibleErrorMessage("ownerIds")}
-          />
+          {selectedSource?.providerType !== "google" && (
+            <EventParticipantsSection
+              ownerIds={form.ownerIds}
+              disabled={isSaving}
+              onToggleOwner={(ownerId) => {
+                toggleParticipant(ownerId);
+                markFieldTouched("ownerIds");
+              }}
+              title="Kalender og deltagere"
+              variant="chips"
+              errorText={getVisibleErrorMessage("ownerIds")}
+            />
+          )}
 
           {conflictingEvents.length >
             0 && (

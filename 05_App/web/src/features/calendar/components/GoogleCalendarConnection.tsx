@@ -42,7 +42,7 @@ export function GoogleCalendarConnection({
   const message = hasReadError
     ? health.message ?? "Google Kalender kunne ikke opdateres. Dine lokale kalendere vises stadig."
     : isConnected
-      ? "Google Kalender er forbundet i skrivebeskyttet tilstand."
+      ? "Google Kalender er forbundet. Skrivbare Google-kalendere kan ændres."
       : "Forbind Google Kalender for at se dine eksterne aftaler.";
 
   return (
