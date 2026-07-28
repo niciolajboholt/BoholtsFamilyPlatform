@@ -8,20 +8,19 @@ import {
   Alert,
   Box,
   Button,
-  Checkbox,
   Chip,
   CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
-  FormControlLabel,
   TextField,
   Typography,
 } from "@mui/material";
 
 import { calendarOwners } from "../data/calendarOwners";
 import { EventConflictAlert } from "./EventConflictAlert";
+import { EventDateTimeSection } from "./EventDateTimeSection";
 import {
   createAllDayDate,
   createDateTime,
@@ -268,140 +267,25 @@ function NewEventDialog({
             }
           />
 
-          <Box
-            sx={{
-              display: "grid",
-
-              gridTemplateColumns: {
-                xs: "1fr",
-                sm: "1fr 1fr",
-              },
-
-              gap: 2,
-            }}
-          >
-            <TextField
-              label="Startdato"
-              type="date"
-              value={
-                form.startDate
-              }
-              required
-              fullWidth
-              disabled={isSaving}
-              slotProps={{
-                inputLabel: {
-                  shrink: true,
-                },
-              }}
-              onChange={(event) =>
-                handleStartDateChange(
-                  event.target.value,
-                )
-              }
-            />
-
-            <TextField
-              label="Slutdato"
-              type="date"
-              value={
-                form.endDate
-              }
-              required
-              fullWidth
-              disabled={isSaving}
-              slotProps={{
-                inputLabel: {
-                  shrink: true,
-                },
-
-                htmlInput: {
-                  min:
-                    form.startDate ||
-                    undefined,
-                },
-              }}
-              onChange={(event) =>
-                setField(
-                  "endDate",
-                  event.target.value,
-                )
-              }
-            />
-          </Box>
-
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={form.allDay}
-                disabled={isSaving}
-                onChange={(event) =>
-                  setField(
-                    "allDay",
-                    event.target.checked,
-                  )
-                }
-              />
+          <EventDateTimeSection
+            form={form}
+            disabled={isSaving}
+            onStartDateChange={handleStartDateChange}
+            onEndDateChange={(value) =>
+              setField("endDate", value)
             }
-            label="Hele dagen"
+            onAllDayChange={(value) =>
+              setField("allDay", value)
+            }
+            onStartTimeChange={(value) =>
+              setField("startTime", value)
+            }
+            onEndTimeChange={(value) =>
+              setField("endTime", value)
+            }
+            allDayLabel="Hele dagen"
+            dateFieldsFullWidth
           />
-
-          {!form.allDay && (
-            <Box
-              sx={{
-                display: "grid",
-
-                gridTemplateColumns: {
-                  xs: "1fr",
-                  sm: "1fr 1fr",
-                },
-
-                gap: 2,
-              }}
-            >
-              <TextField
-                label="Starttid"
-                type="time"
-                value={
-                  form.startTime
-                }
-                required
-                disabled={isSaving}
-                slotProps={{
-                  inputLabel: {
-                    shrink: true,
-                  },
-                }}
-                onChange={(event) =>
-                  setField(
-                    "startTime",
-                    event.target.value,
-                  )
-                }
-              />
-
-              <TextField
-                label="Sluttid"
-                type="time"
-                value={
-                  form.endTime
-                }
-                required
-                disabled={isSaving}
-                slotProps={{
-                  inputLabel: {
-                    shrink: true,
-                  },
-                }}
-                onChange={(event) =>
-                  setField(
-                    "endTime",
-                    event.target.value,
-                  )
-                }
-              />
-            </Box>
-          )}
 
           <Box>
             <Typography

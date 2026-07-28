@@ -21,6 +21,7 @@ import {
 
 import { calendarOwners } from "../data/calendarOwners";
 import { EventConflictAlert } from "./EventConflictAlert";
+import { EventDateTimeSection } from "./EventDateTimeSection";
 import {
   createAllDayDate,
   createDateTime,
@@ -370,156 +371,25 @@ function EditEventDialog({
             }
           />
 
-          <Box
-            sx={{
-              display: "grid",
-
-              gridTemplateColumns: {
-                xs: "1fr",
-                sm: "1fr 1fr",
-              },
-
-              gap: 2,
-            }}
-          >
-            <TextField
-              label="Startdato"
-              type="date"
-              value={
-                formState.startDate
-              }
-              disabled={
-                !isInternalEvent ||
-                isSaving
-              }
-              required
-              slotProps={{
-                inputLabel: {
-                  shrink: true,
-                },
-              }}
-              onChange={(changeEvent) =>
-                handleStartDateChange(
-                  changeEvent.target
-                    .value,
-                )
-              }
-            />
-
-            <TextField
-              label="Slutdato"
-              type="date"
-              value={
-                formState.endDate
-              }
-              disabled={
-                !isInternalEvent ||
-                isSaving
-              }
-              required
-              slotProps={{
-                inputLabel: {
-                  shrink: true,
-                },
-
-                htmlInput: {
-                  min:
-                    formState.startDate ||
-                    undefined,
-                },
-              }}
-              onChange={(changeEvent) =>
-                setField(
-                  "endDate",
-                  changeEvent.target.value,
-                )
-              }
-            />
-          </Box>
-
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={
-                  formState.allDay
-                }
-                disabled={
-                  !isInternalEvent ||
-                  isSaving
-                }
-                onChange={(changeEvent) =>
-                  setField(
-                    "allDay",
-                    changeEvent.target.checked,
-                  )
-                }
-              />
+          <EventDateTimeSection
+            form={formState}
+            disabled={!isInternalEvent || isSaving}
+            onStartDateChange={handleStartDateChange}
+            onEndDateChange={(value) =>
+              setField("endDate", value)
             }
-            label="Heldagsaftale"
+            onAllDayChange={(value) =>
+              setField("allDay", value)
+            }
+            onStartTimeChange={(value) =>
+              setField("startTime", value)
+            }
+            onEndTimeChange={(value) =>
+              setField("endTime", value)
+            }
+            allDayLabel="Heldagsaftale"
+            dateFieldsFullWidth={false}
           />
-
-          {!formState.allDay && (
-            <Box
-              sx={{
-                display: "grid",
-
-                gridTemplateColumns: {
-                  xs: "1fr",
-                  sm: "1fr 1fr",
-                },
-
-                gap: 2,
-              }}
-            >
-              <TextField
-                label="Starttid"
-                type="time"
-                value={
-                  formState.startTime
-                }
-                disabled={
-                  !isInternalEvent ||
-                  isSaving
-                }
-                required
-                slotProps={{
-                  inputLabel: {
-                    shrink: true,
-                  },
-                }}
-                onChange={(changeEvent) =>
-                  setField(
-                    "startTime",
-                    changeEvent.target.value,
-                  )
-                }
-              />
-
-              <TextField
-                label="Sluttid"
-                type="time"
-                value={
-                  formState.endTime
-                }
-                disabled={
-                  !isInternalEvent ||
-                  isSaving
-                }
-                required
-                slotProps={{
-                  inputLabel: {
-                    shrink: true,
-                  },
-                }}
-                onChange={(changeEvent) =>
-                  setField(
-                    "endTime",
-                    changeEvent.target.value,
-                  )
-                }
-              />
-            </Box>
-          )}
 
           <Box>
             <Typography
