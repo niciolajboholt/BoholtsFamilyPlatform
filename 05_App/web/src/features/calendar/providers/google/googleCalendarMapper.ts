@@ -40,9 +40,18 @@ export function mapGoogleCalendarSource(entry: GoogleCalendarListEntry): Calenda
 
 export function mapGoogleCalendarEvent(calendarId: string, event: GoogleCalendarEvent): CalendarEvent | null {
   if (!event.id || event.status === "cancelled" || event.recurringEventId) return null;
-  const start = event.start?.dateTime ?? event.start?.date;
-  const end = event.end?.dateTime ?? event.end?.date;
-  if (!start || !end) return null;
   const allDay = Boolean(event.start?.date && !event.start?.dateTime);
+  const start = allDay
+    ? toLocalMidnightIso(event.start?.date)
+    : event.start?.dateTime;
+  const end = allDay
+    ? toLocalMidnightIso(event.end?.date)
+    : event.end?.dateTime;
+  if (!start || !end) return null;
   return { id: encodeGoogleEventId(calendarId, event.id), source: "google", sourceId: encodeGoogleCalendarSourceId(calendarId), title: event.summary || "Google-aftale", start, end, allDay, ownerIds: [], description: event.description, location: event.location };
+}
+
+function toLocalMidnightIso(dateOnly: string | undefined): string | undefined {
+  if (!dateOnly) return undefined;
+  return new Date(`${dateOnly}T00:00:00`).toISOString();
 }

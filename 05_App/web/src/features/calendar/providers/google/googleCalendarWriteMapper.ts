@@ -27,10 +27,10 @@ export function mapGoogleEventWriteRequest(
   const request: GoogleCalendarEventRequest = {
     summary: event.title.trim(),
     start: event.allDay
-      ? { date: toCalendarDate(event.start) }
+      ? { date: toCalendarDate(start) }
       : { dateTime: start.toISOString() },
     end: event.allDay
-      ? { date: toCalendarDate(event.end) }
+      ? { date: toCalendarDate(end) }
       : { dateTime: end.toISOString() },
   };
 
@@ -40,10 +40,9 @@ export function mapGoogleEventWriteRequest(
   return request;
 }
 
-function toCalendarDate(value: string): string {
-  const match = /^(\d{4}-\d{2}-\d{2})/.exec(value);
-  if (!match) {
-    throw new CalendarProviderError("validation", "Heldagsaftalens dato er ugyldig.");
-  }
-  return match[1];
+function toCalendarDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
