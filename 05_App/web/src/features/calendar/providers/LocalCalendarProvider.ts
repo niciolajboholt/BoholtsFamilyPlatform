@@ -1,4 +1,4 @@
-import { calendarOwners } from "../data/calendarOwners";
+import { localCalendarSources } from "../data/localCalendarSources";
 import type { CalendarEvent } from "../models/calendarEvent";
 import type { CreateCalendarEventInput } from "../models/calendarEventInput";
 import type {
@@ -31,17 +31,7 @@ export class LocalCalendarProvider
   implements CalendarProvider
 {
   async getCalendars(): Promise<CalendarSource[]> {
-    return Object.values(calendarOwners).map(
-      (owner) => ({
-        id: owner.id,
-        name: owner.name,
-        providerType: "local",
-        color: owner.color,
-        isVisible: true,
-        isReadOnly: false,
-        ownerId: owner.id,
-      }),
-    );
+    return localCalendarSources;
   }
 
   async getEvents(

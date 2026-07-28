@@ -6,6 +6,7 @@ import {
 } from "@mui/material";
 
 import { calendarOwners } from "../data/calendarOwners";
+import { getCalendarSourceColor } from "../utils/getCalendarSourceColor";
 import type {
   CalendarEvent,
   CalendarOwnerId,
@@ -353,14 +354,10 @@ function DayCell({
                 const firstOwnerId =
                   event.ownerIds[0];
 
-                const firstOwner =
-                  calendarOwners[
-                    firstOwnerId
-                  ];
-
                 const ownerColor =
-                  firstOwner?.color ??
-                  "#607d8b";
+                  getCalendarSourceColor(
+                    firstOwnerId,
+                  );
 
                 const multiDayStatus =
                   getMultiDayStatus(

@@ -61,3 +61,7 @@ flowchart LR
 ```
 
 I den nuværende model matcher `CalendarEvent.ownerIds` de lokale `CalendarSource.id`-værdier. Filtreringen sker centralt i `CalendarPage`; dialogerne beholder det ufiltrerede event-sæt, så skjulte kalendere fortsat indgår i konfliktkontrol. Når alle kilder er skjult, vises en særskilt tom tilstand med handlingen “Vis alle kalendere”.
+
+## Farver
+
+`CalendarSource.color` er den autoritative farvekilde for kalenderevents. `getCalendarSourceColor` løser en owner/source-id til den lokale CalendarSource-farve og bruger neutral grå fallback for en ukendt kilde. Eventvisninger bruger samme resolver; owner-data beholdes til navn og deltager-UI.

@@ -8,6 +8,7 @@ import {
 } from "@mui/material";
 
 import { calendarOwners } from "../data/calendarOwners";
+import { getCalendarSourceColor } from "../utils/getCalendarSourceColor";
 import type { CalendarEvent } from "../models/calendarEvent";
 
 interface EventListProps {
@@ -151,7 +152,7 @@ function EventCard({
                 variant="body2"
                 sx={{
                   fontWeight: 700,
-                  color: primaryOwner.color,
+                  color: getCalendarSourceColor(event.ownerIds[0]),
                 }}
               >
                 {formatTime(
@@ -209,7 +210,7 @@ function EventCard({
                     label={owner.name}
                     size="small"
                     sx={{
-                      backgroundColor: owner.color,
+                      backgroundColor: getCalendarSourceColor(ownerId),
                       color: "#ffffff",
                       fontWeight: 600,
 

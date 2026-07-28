@@ -9,6 +9,7 @@ import {
 } from "@mui/material";
 
 import { calendarOwners } from "../data/calendarOwners";
+import { getCalendarSourceColor } from "../utils/getCalendarSourceColor";
 import type {
   CalendarEvent,
   CalendarOwnerId,
@@ -86,11 +87,7 @@ function EventCard({
   showTime,
   onSelectEvent,
 }: EventCardProps) {
-  const primaryOwner =
-    calendarOwners[event.ownerIds[0]];
-
-  const ownerColor =
-    primaryOwner?.color ?? "#607d8b";
+  const ownerColor = getCalendarSourceColor(event.ownerIds[0]);
 
   return (
     <ButtonBase
@@ -161,7 +158,7 @@ function EventCard({
               size="small"
               sx={{
                 height: 20,
-                backgroundColor: owner.color,
+                backgroundColor: getCalendarSourceColor(ownerId),
                 color: "#ffffff",
 
                 "& .MuiChip-label": {
