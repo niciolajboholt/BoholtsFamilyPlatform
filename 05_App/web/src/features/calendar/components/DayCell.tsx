@@ -10,6 +10,10 @@ import type {
   CalendarEvent,
   CalendarOwnerId,
 } from "../models/calendarEvent";
+import {
+  getDayActionLabel,
+  getEventActionLabel,
+} from "../utils/calendarAccessibility";
 
 interface DayCellProps {
   date: Date;
@@ -176,20 +180,37 @@ function DayCell({
     ),
   ) as CalendarOwnerId[];
 
-  function handleSelectEvent(
-    event: CalendarEvent,
-    mouseEvent: React.MouseEvent,
-  ) {
-    mouseEvent.stopPropagation();
-    onSelectEvent(event);
-  }
-
   return (
-    <ButtonBase
-      onClick={() => onSelect(date)}
+    <Box
       sx={{
+        position: "relative",
         width: "100%",
         height: "100%",
+      }}
+    >
+      <ButtonBase
+        aria-label={getDayActionLabel(date)}
+        onClick={() => onSelect(date)}
+        sx={{
+          position: "absolute",
+          inset: 0,
+          zIndex: 0,
+          width: "100%",
+          height: "100%",
+          borderRadius: 1.5,
+          "&:focus-visible": {
+            outline: "3px solid",
+            outlineColor: "primary.main",
+            outlineOffset: 2,
+          },
+        }}
+      />
+
+      <Box
+        sx={{
+          position: "relative",
+          zIndex: 1,
+          pointerEvents: "none",
         display: "block",
         textAlign: "left",
         borderRadius: 1.5,
@@ -353,33 +374,12 @@ function DayCell({
                   );
 
                 return (
-                  <Box
+                  <ButtonBase
                     key={event.id}
-                    role="button"
-                    tabIndex={0}
-                    onClick={(
-                      mouseEvent,
-                    ) =>
-                      handleSelectEvent(
-                        event,
-                        mouseEvent,
-                      )
-                    }
-                    onKeyDown={(
-                      keyboardEvent,
-                    ) => {
-                      if (
-                        keyboardEvent.key ===
-                          "Enter" ||
-                        keyboardEvent.key ===
-                          " "
-                      ) {
-                        keyboardEvent.preventDefault();
-                        keyboardEvent.stopPropagation();
-                        onSelectEvent(event);
-                      }
-                    }}
+                    aria-label={getEventActionLabel(event)}
+                    onClick={() => onSelectEvent(event)}
                     sx={{
+                      pointerEvents: "auto",
                       px: 0.75,
                       py: 0.4,
                       borderRadius: 0.75,
@@ -452,7 +452,7 @@ function DayCell({
                         />
                       )}
                     </Box>
-                  </Box>
+                  </ButtonBase>
                 );
               })}
 
@@ -467,7 +467,8 @@ function DayCell({
           </Box>
         )}
       </Box>
-    </ButtonBase>
+    </Box>
+    </Box>
   );
 }
 

@@ -1,5 +1,6 @@
 import {
   Box,
+  ButtonBase,
   Card,
   CardContent,
   Chip,
@@ -14,6 +15,10 @@ import type {
 } from "../models/calendarEvent";
 import { getEventsForDate } from "../utils/getEventsForDate";
 import { getWeekDays } from "../utils/getWeekDays";
+import {
+  getDayActionLabel,
+  getEventActionLabel,
+} from "../utils/calendarAccessibility";
 
 interface WeekCalendarProps {
   selectedDate: Date;
@@ -88,24 +93,13 @@ function EventCard({
     primaryOwner?.color ?? "#607d8b";
 
   return (
-    <Box
-      role="button"
-      tabIndex={0}
-      onClick={(mouseEvent) => {
-        mouseEvent.stopPropagation();
-        onSelectEvent(event);
-      }}
-      onKeyDown={(keyboardEvent) => {
-        if (
-          keyboardEvent.key === "Enter" ||
-          keyboardEvent.key === " "
-        ) {
-          keyboardEvent.preventDefault();
-          keyboardEvent.stopPropagation();
-          onSelectEvent(event);
-        }
-      }}
+    <ButtonBase
+      aria-label={getEventActionLabel(event)}
+      onClick={() => onSelectEvent(event)}
       sx={{
+        position: "relative",
+        zIndex: 1,
+        pointerEvents: "auto",
         minWidth: 0,
         p: 0.75,
         borderRadius: 1,
@@ -179,7 +173,7 @@ function EventCard({
           );
         })}
       </Box>
-    </Box>
+    </ButtonBase>
   );
 }
 
@@ -244,13 +238,9 @@ function WeekCalendar({
             return (
               <Box
                 key={date.toISOString()}
-                component="button"
-                type="button"
-                onClick={() =>
-                  onSelectDate(date)
-                }
                 sx={{
-                  appearance: "none",
+                  position: "relative",
+                  pointerEvents: "none",
                   width: "100%",
                   minWidth: 0,
                   minHeight: {
@@ -266,17 +256,30 @@ function WeekCalendar({
                   backgroundColor: isSelected
                     ? "action.selected"
                     : "background.paper",
-                  color: "text.primary",
-                  font: "inherit",
                   textAlign: "left",
-                  cursor: "pointer",
-
-                  "&:hover": {
-                    backgroundColor:
-                      "action.hover",
-                  },
                 }}
               >
+                <ButtonBase
+                  aria-label={getDayActionLabel(date)}
+                  onClick={() => onSelectDate(date)}
+                  sx={{
+                    position: "absolute",
+                    inset: 0,
+                    zIndex: 0,
+                    width: "100%",
+                    height: "100%",
+                    pointerEvents: "auto",
+                    borderRadius: 2,
+                    "&:hover": {
+                      backgroundColor: "action.hover",
+                    },
+                    "&:focus-visible": {
+                      outline: "3px solid",
+                      outlineColor: "primary.main",
+                      outlineOffset: 2,
+                    },
+                  }}
+                />
                 <Box
                   sx={{
                     display: "flex",

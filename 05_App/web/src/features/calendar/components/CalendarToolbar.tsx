@@ -75,6 +75,11 @@ function CalendarToolbar({
           <Button
             variant="outlined"
             onClick={onPrevious}
+            aria-label={
+              calendarView === "month"
+                ? "Forrige måned"
+                : "Forrige uge"
+            }
           >
             ← Forrige
           </Button>
@@ -103,6 +108,7 @@ function CalendarToolbar({
               <Button
                 size="small"
                 onClick={onToday}
+                aria-label="Gå til i dag"
               >
                 I dag
               </Button>
@@ -117,6 +123,11 @@ function CalendarToolbar({
           <Button
             variant="outlined"
             onClick={onNext}
+            aria-label={
+              calendarView === "month"
+                ? "Næste måned"
+                : "Næste uge"
+            }
           >
             Næste →
           </Button>

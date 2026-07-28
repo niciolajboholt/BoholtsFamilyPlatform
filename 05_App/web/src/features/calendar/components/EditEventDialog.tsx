@@ -443,7 +443,7 @@ function EditEventDialog({
               isSaving
             }
             required
-            autoFocus
+            autoFocus={isInternalEvent}
             error={Boolean(
               getVisibleErrorMessage("title"),
             )}
@@ -626,6 +626,7 @@ function EditEventDialog({
           <Button
             disabled={isSaving}
             onClick={handleCloseRequest}
+            autoFocus={!isInternalEvent}
           >
             Annuller
           </Button>
