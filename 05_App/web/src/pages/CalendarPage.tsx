@@ -42,6 +42,14 @@ interface SnackbarState {
   showUndo: boolean;
 }
 
+function getTodayCalendarDate(): Date {
+  const today = new Date();
+
+  today.setHours(12, 0, 0, 0);
+
+  return today;
+}
+
 function startOfMonth(
   date: Date,
 ): Date {
@@ -89,20 +97,16 @@ function changeWeek(
 }
 
 function CalendarPage() {
-  const initialDate = new Date(
-    "2026-07-27T12:00:00",
-  );
-
   const [
     selectedDate,
     setSelectedDate,
-  ] = useState(initialDate);
+  ] = useState(getTodayCalendarDate);
 
   const [
     visibleDate,
     setVisibleDate,
-  ] = useState(
-    startOfMonth(initialDate),
+  ] = useState(() =>
+    startOfMonth(getTodayCalendarDate()),
   );
 
   const [
@@ -286,14 +290,7 @@ function CalendarPage() {
   }
 
   function handleToday() {
-    const today = new Date();
-
-    today.setHours(
-      12,
-      0,
-      0,
-      0,
-    );
+    const today = getTodayCalendarDate();
 
     setSelectedDate(today);
 
