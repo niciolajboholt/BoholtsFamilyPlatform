@@ -30,6 +30,7 @@ import {
   toTimeInputValue,
 } from "../form/eventFormDateUtils";
 import type { EventFormState } from "../form/eventFormTypes";
+import { useEventConflicts } from "../form/useEventConflicts";
 import { useEventFormState } from "../form/useEventFormState";
 import {
   type EventFormValidationMessages,
@@ -38,7 +39,6 @@ import {
 import type {
   CalendarEvent,
 } from "../models/calendarEvent";
-import { findEventConflicts } from "../utils/findEventConflicts";
 
 interface EditEventDialogProps {
   open: boolean;
@@ -245,66 +245,15 @@ function EditEventDialog({
         : null;
     }, [formState]);
 
-  const candidateEvent =
-    useMemo(() => {
-      if (
-        !formState.startDate ||
-        !formState.endDate ||
-        formState.ownerIds
-          .length === 0 ||
-        validationError
-      ) {
-        return null;
-      }
-
-      return {
-        start: formState.allDay
-          ? createAllDayDate(
-              formState.startDate,
-              false,
-            )
-          : createDateTime(
-              formState.startDate,
-              formState.startTime,
-            ),
-
-        end: formState.allDay
-          ? createAllDayDate(
-              formState.endDate,
-              true,
-            )
-          : createDateTime(
-              formState.endDate,
-              formState.endTime,
-            ),
-
-        ownerIds:
-          formState.ownerIds,
-      };
-    }, [
-      formState,
-      validationError,
-    ]);
-
-  const conflictingEvents =
-    useMemo(() => {
-      if (
-        !candidateEvent ||
-        !event
-      ) {
-        return [];
-      }
-
-      return findEventConflicts(
-        candidateEvent,
-        events,
-        event.id,
-      );
-    }, [
-      candidateEvent,
-      event,
-      events,
-    ]);
+  const {
+    conflicts: conflictingEvents,
+  } = useEventConflicts({
+    form: formState,
+    events,
+    validationError,
+    excludedEventId: event?.id,
+    isEnabled: event !== null,
+  });
 
   function handleStartDateChange(
     value: string,

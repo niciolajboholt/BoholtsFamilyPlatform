@@ -29,6 +29,7 @@ import {
   toDateInputValue,
 } from "../form/eventFormDateUtils";
 import type { EventFormState } from "../form/eventFormTypes";
+import { useEventConflicts } from "../form/useEventConflicts";
 import { useEventFormState } from "../form/useEventFormState";
 import {
   type EventFormValidationMessages,
@@ -38,7 +39,6 @@ import type {
   CalendarEvent,
 } from "../models/calendarEvent";
 import type { CreateCalendarEventInput } from "../services/CalendarService";
-import { findEventConflicts } from "../utils/findEventConflicts";
 
 interface NewEventDialogProps {
   open: boolean;
@@ -192,60 +192,13 @@ function NewEventDialog({
         : null;
     }, [form]);
 
-  const candidateEvent =
-    useMemo(() => {
-      if (
-        !form.startDate ||
-        !form.endDate ||
-        form.ownerIds.length === 0 ||
-        validationError
-      ) {
-        return null;
-      }
-
-      return {
-        start: form.allDay
-          ? createAllDayDate(
-              form.startDate,
-              false,
-            )
-          : createDateTime(
-              form.startDate,
-              form.startTime,
-            ),
-
-        end: form.allDay
-          ? createAllDayDate(
-              form.endDate,
-              true,
-            )
-          : createDateTime(
-              form.endDate,
-              form.endTime,
-            ),
-
-        ownerIds:
-          form.ownerIds,
-      };
-    }, [
-      form,
-      validationError,
-    ]);
-
-  const conflictingEvents =
-    useMemo(() => {
-      if (!candidateEvent) {
-        return [];
-      }
-
-      return findEventConflicts(
-        candidateEvent,
-        events,
-      );
-    }, [
-      candidateEvent,
-      events,
-    ]);
+  const {
+    conflicts: conflictingEvents,
+  } = useEventConflicts({
+    form,
+    events,
+    validationError,
+  });
 
   function handleStartDateChange(
     startDate: string,
