@@ -20,6 +20,20 @@ import {
 } from "@mui/material";
 
 import { calendarOwners } from "../data/calendarOwners";
+import {
+  createAllDayDate,
+  createDateTime,
+  ensureEndDateOnOrAfterStartDate,
+  isSameCalendarDate,
+  subtractOneCalendarDay,
+  toDateInputValue,
+  toTimeInputValue,
+} from "../form/eventFormDateUtils";
+import type { EventFormState } from "../form/eventFormTypes";
+import {
+  type EventFormValidationMessages,
+  validateEventForm,
+} from "../form/eventFormValidation";
 import type {
   CalendarEvent,
   CalendarOwnerId,
@@ -40,58 +54,16 @@ interface EditEventDialogProps {
   ) => Promise<void>;
 }
 
-interface EventFormState {
-  title: string;
-  startDate: string;
-  endDate: string;
-  startTime: string;
-  endTime: string;
-  allDay: boolean;
-  ownerIds: CalendarOwnerId[];
-  description: string;
-  location: string;
-}
-
-function padNumber(
-  value: number,
-): string {
-  return value
-    .toString()
-    .padStart(2, "0");
-}
-
-function toDateInputValue(
-  date: Date,
-): string {
-  return [
-    date.getFullYear(),
-    padNumber(
-      date.getMonth() + 1,
-    ),
-    padNumber(date.getDate()),
-  ].join("-");
-}
-
-function toTimeInputValue(
-  date: Date,
-): string {
-  return [
-    padNumber(date.getHours()),
-    padNumber(date.getMinutes()),
-  ].join(":");
-}
-
-function subtractOneDay(
-  date: Date,
-): Date {
-  const result = new Date(date);
-
-  result.setDate(
-    result.getDate() - 1,
-  );
-
-  return result;
-}
+const validationMessages: EventFormValidationMessages = {
+  titleRequired: "Skriv en titel til aftalen.",
+  startDateRequired: "Vælg en startdato.",
+  endDateRequired: "Vælg en slutdato.",
+  endDateBeforeStartDate:
+    "Slutdatoen må ikke ligge før startdatoen.",
+  ownerRequired: "Vælg mindst én kalender.",
+  endTimeBeforeStartTime:
+    "Sluttidspunktet skal ligge efter starttidspunktet.",
+};
 
 function createInitialFormState(
   event: CalendarEvent | null,
@@ -120,7 +92,7 @@ function createInitialFormState(
 
   const visibleEndDate =
     event.allDay
-      ? subtractOneDay(
+      ? subtractOneCalendarDay(
           storedEndDate,
         )
       : storedEndDate;
@@ -152,32 +124,6 @@ function createInitialFormState(
     location:
       event.location ?? "",
   };
-}
-
-function createDateTime(
-  date: string,
-  time: string,
-): string {
-  return new Date(
-    `${date}T${time}:00`,
-  ).toISOString();
-}
-
-function createAllDayDate(
-  date: string,
-  addDay: boolean,
-): string {
-  const value = new Date(
-    `${date}T00:00:00`,
-  );
-
-  if (addDay) {
-    value.setDate(
-      value.getDate() + 1,
-    );
-  }
-
-  return value.toISOString();
 }
 
 function formatConflictTime(
@@ -213,15 +159,12 @@ function formatConflictTime(
     event.end,
   );
 
-  const isSameDay =
-    startDate.getFullYear() ===
-      endDate.getFullYear() &&
-    startDate.getMonth() ===
-      endDate.getMonth() &&
-    startDate.getDate() ===
-      endDate.getDate();
-
-  if (isSameDay) {
+  if (
+    isSameCalendarDate(
+      startDate,
+      endDate,
+    )
+  ) {
     return `${timeFormatter.format(
       startDate,
     )}–${timeFormatter.format(
@@ -291,49 +234,14 @@ function EditEventDialog({
 
   const validationError =
     useMemo(() => {
-      if (
-        !formState.title.trim()
-      ) {
-        return "Skriv en titel til aftalen.";
-      }
+      const validationErrorCode =
+        validateEventForm(formState);
 
-      if (
-        !formState.startDate
-      ) {
-        return "Vælg en startdato.";
-      }
-
-      if (
-        !formState.endDate
-      ) {
-        return "Vælg en slutdato.";
-      }
-
-      if (
-        formState.endDate <
-        formState.startDate
-      ) {
-        return "Slutdatoen må ikke ligge før startdatoen.";
-      }
-
-      if (
-        formState.ownerIds
-          .length === 0
-      ) {
-        return "Vælg mindst én kalender.";
-      }
-
-      if (
-        !formState.allDay &&
-        formState.startDate ===
-          formState.endDate &&
-        formState.endTime <=
-          formState.startTime
-      ) {
-        return "Sluttidspunktet skal ligge efter starttidspunktet.";
-      }
-
-      return null;
+      return validationErrorCode
+        ? validationMessages[
+            validationErrorCode
+          ]
+        : null;
     }, [formState]);
 
   const candidateEvent =
@@ -436,11 +344,10 @@ function EditEventDialog({
         startDate: value,
 
         endDate:
-          !currentState.endDate ||
-          currentState.endDate <
-            value
-            ? value
-            : currentState.endDate,
+          ensureEndDateOnOrAfterStartDate(
+            value,
+            currentState.endDate,
+          ),
       }),
     );
   }

@@ -21,6 +21,18 @@ import {
 } from "@mui/material";
 
 import { calendarOwners } from "../data/calendarOwners";
+import {
+  createAllDayDate,
+  createDateTime,
+  ensureEndDateOnOrAfterStartDate,
+  isSameCalendarDate,
+  toDateInputValue,
+} from "../form/eventFormDateUtils";
+import type { EventFormState } from "../form/eventFormTypes";
+import {
+  type EventFormValidationMessages,
+  validateEventForm,
+} from "../form/eventFormValidation";
 import type {
   CalendarEvent,
   CalendarOwnerId,
@@ -39,39 +51,22 @@ interface NewEventDialogProps {
   ) => Promise<void>;
 }
 
-interface EventFormState {
-  title: string;
-  startDate: string;
-  endDate: string;
-  startTime: string;
-  endTime: string;
-  allDay: boolean;
-  ownerIds: CalendarOwnerId[];
-  description: string;
-  location: string;
-}
-
-function formatDateInput(
-  date: Date,
-): string {
-  const year = date.getFullYear();
-
-  const month = String(
-    date.getMonth() + 1,
-  ).padStart(2, "0");
-
-  const day = String(
-    date.getDate(),
-  ).padStart(2, "0");
-
-  return `${year}-${month}-${day}`;
-}
+const validationMessages: EventFormValidationMessages = {
+  titleRequired: "Skriv en titel på aftalen.",
+  startDateRequired: "Vælg en startdato.",
+  endDateRequired: "Vælg en slutdato.",
+  endDateBeforeStartDate:
+    "Slutdatoen må ikke ligge før startdatoen.",
+  ownerRequired: "Vælg mindst én kalender.",
+  endTimeBeforeStartTime:
+    "Sluttidspunktet skal ligge efter starttidspunktet.",
+};
 
 function createInitialState(
   initialDate: Date,
 ): EventFormState {
   const date =
-    formatDateInput(initialDate);
+    toDateInputValue(initialDate);
 
   return {
     title: "",
@@ -84,46 +79,6 @@ function createInitialState(
     description: "",
     location: "",
   };
-}
-
-function createDateTime(
-  date: string,
-  time: string,
-): string {
-  return new Date(
-    `${date}T${time}:00`,
-  ).toISOString();
-}
-
-function createAllDayDate(
-  date: string,
-  addDay: boolean,
-): string {
-  const value = new Date(
-    `${date}T00:00:00`,
-  );
-
-  if (addDay) {
-    value.setDate(
-      value.getDate() + 1,
-    );
-  }
-
-  return value.toISOString();
-}
-
-function isSameCalendarDate(
-  firstDate: Date,
-  secondDate: Date,
-): boolean {
-  return (
-    firstDate.getFullYear() ===
-      secondDate.getFullYear() &&
-    firstDate.getMonth() ===
-      secondDate.getMonth() &&
-    firstDate.getDate() ===
-      secondDate.getDate()
-  );
 }
 
 function formatConflictTime(
@@ -222,42 +177,14 @@ function NewEventDialog({
 
   const validationError =
     useMemo(() => {
-      if (!form.title.trim()) {
-        return "Skriv en titel på aftalen.";
-      }
+      const validationErrorCode =
+        validateEventForm(form);
 
-      if (!form.startDate) {
-        return "Vælg en startdato.";
-      }
-
-      if (!form.endDate) {
-        return "Vælg en slutdato.";
-      }
-
-      if (
-        form.endDate <
-        form.startDate
-      ) {
-        return "Slutdatoen må ikke ligge før startdatoen.";
-      }
-
-      if (
-        form.ownerIds.length === 0
-      ) {
-        return "Vælg mindst én kalender.";
-      }
-
-      if (
-        !form.allDay &&
-        form.startDate ===
-          form.endDate &&
-        form.endTime <=
-          form.startTime
-      ) {
-        return "Sluttidspunktet skal ligge efter starttidspunktet.";
-      }
-
-      return null;
+      return validationErrorCode
+        ? validationMessages[
+            validationErrorCode
+          ]
+        : null;
     }, [form]);
 
   const candidateEvent =
@@ -352,11 +279,10 @@ function NewEventDialog({
         startDate,
 
         endDate:
-          !currentForm.endDate ||
-          currentForm.endDate <
-            startDate
-            ? startDate
-            : currentForm.endDate,
+          ensureEndDateOnOrAfterStartDate(
+            startDate,
+            currentForm.endDate,
+          ),
       }),
     );
   }
