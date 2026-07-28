@@ -6,10 +6,12 @@ import {
 } from "@mui/material";
 
 import { calendarOwners } from "../data/calendarOwners";
+import { getCalendarSourceColor } from "../utils/getCalendarSourceColor";
 import type {
   CalendarEvent,
   CalendarOwnerId,
 } from "../models/calendarEvent";
+import type { CalendarSource } from "../models/calendarProvider";
 import {
   getDayActionLabel,
   getEventActionLabel,
@@ -18,6 +20,7 @@ import {
 interface DayCellProps {
   date: Date;
   events: CalendarEvent[];
+  calendarSources: readonly CalendarSource[];
   isCurrentMonth: boolean;
   isSelected: boolean;
   isToday: boolean;
@@ -166,6 +169,7 @@ function getMultiDayLabel(
 function DayCell({
   date,
   events,
+  calendarSources,
   isCurrentMonth,
   isSelected,
   isToday,
@@ -350,17 +354,11 @@ function DayCell({
             {events
               .slice(0, 2)
               .map((event) => {
-                const firstOwnerId =
-                  event.ownerIds[0];
-
-                const firstOwner =
-                  calendarOwners[
-                    firstOwnerId
-                  ];
-
                 const ownerColor =
-                  firstOwner?.color ??
-                  "#607d8b";
+                  getCalendarSourceColor(
+                    event.sourceId,
+                    calendarSources,
+                  );
 
                 const multiDayStatus =
                   getMultiDayStatus(

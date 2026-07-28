@@ -200,3 +200,76 @@ This decision affects:
 * 15_Xcode_Projectstruktur_og_Foerste_Implementation.md
 * 16_SwiftData_Database_Design.md
 * 18_Google_Calendar_Sync_Engine.md
+
+---
+
+# ADR-007: Calendar Provider Abstraction
+
+**Status:** Accepted
+
+**Date:** 2026-07-28
+
+## Context
+
+Kalenderen bruger demo-data og localStorage gennem `CalendarService`. Google Calendar er den første planlagte eksterne integration, og Apple Calendar er en fremtidig mulighed i projektets Apple First-retning. UI-laget må derfor ikke bindes direkte til Google-modeller, OAuth, tokens, calendar IDs eller HTTP-endpoints.
+
+## Decision
+
+Kalenderens dataadgang skal gå gennem det leverandøruafhængige `CalendarProvider`-interface. `LocalCalendarProvider` anvendes først som adapter for den eksisterende `CalendarService`, så lokal/offline funktionalitet, localStorage-data og nuværende UI-kontrakter bevares.
+
+En fremtidig Google- eller Apple-provider skal oversætte sine eksterne data og fejl til samme domænekontrakt, før de når hooks eller React-komponenter.
+
+## Alternatives Considered
+
+### Direkte Google Calendar-integration i UI eller hooks
+
+Afvist, fordi UI så skulle kende Google-specifikke modeller og autentifikation, og fordi lokal data og testdata ville kræve særskilte kodeveje.
+
+### React Context som eneste dependency-injection-mekanisme
+
+Afvist, fordi en eksplicit standardinstans og valgfri provider-parameter i hooken giver den nødvendige testbarhed uden ny global state.
+
+### Omskrivning af den lokale lagring
+
+Afvist, fordi en adapter bevarer den eksisterende storage-key og reducerer risikoen for datatab.
+
+## Consequences
+
+### Positive
+
+* Hooks og UI er uafhængige af konkrete kalenderleverandører.
+* LocalCalendarProvider bevarer den nuværende lokale funktionalitet.
+* Google Calendar kan tilføjes uden at ændre komponenternes dataadgang.
+* Apple Calendar kan implementeres senere bag samme kontrakt.
+* Test- og demo-providers kan injiceres uden UI-ændringer.
+
+### Negative
+
+* Provider-laget tilføjer få ekstra filer og en oversættelse omkring den lokale service.
+* Leverandørspecifikke muligheder implementeres først, når de kan udtrykkes sikkert i det fælles domæne.
+# ADR-008: Google Calendar som skrivebeskyttet, valgfri provider
+
+## Status
+
+Accepteret i Sprint 11.1.
+
+## Kontekst
+
+Familiekalenderen bevarer localStorage som standardkilde, men skal kunne vise
+Google Calendar uden at Google-identiteter eller OAuth-detaljer spreder sig til
+React-komponenter. Google-aftaler har ikke nødvendigvis en lokal deltager.
+
+## Beslutning
+
+Vi anvender `CompositeCalendarProvider` til at samle lokale og valgfrie
+Google-kilder. `CalendarEvent.sourceId` identificerer kalenderkilden, mens
+`ownerIds` kun indeholder familiens deltagere. Google bruger namespacede,
+URL-encoded source- og event-id'er, læses med `calendar.readonly` og er altid
+skrivebeskyttet. OAuth-tokenet er kun i hukommelsen.
+
+## Konsekvenser
+
+Lokale data er fortsat tilgængelige, hvis Google fejler. Eksisterende lokale
+events uden `sourceId` normaliseres i hukommelsen fra første ownerId og falder
+tilbage til `local:family`. Apple Calendar kan senere tilføjes som endnu en
+provider uden Google-afhængigheder i UI'et.

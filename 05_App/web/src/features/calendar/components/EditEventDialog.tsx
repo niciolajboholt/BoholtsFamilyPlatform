@@ -41,11 +41,13 @@ import {
 import type {
   CalendarEvent,
 } from "../models/calendarEvent";
+import type { CalendarSource } from "../models/calendarProvider";
 
 interface EditEventDialogProps {
   open: boolean;
   event: CalendarEvent | null;
   events: CalendarEvent[];
+  calendarSources: readonly CalendarSource[];
   isSaving: boolean;
   onClose: () => void;
   onUpdate: (
@@ -134,6 +136,7 @@ function EditEventDialog({
   open,
   event,
   events,
+  calendarSources,
   isSaving,
   onClose,
   onUpdate,
@@ -390,9 +393,11 @@ function EditEventDialog({
     }
   }
 
-  const isInternalEvent =
-    event?.source ===
-    "internal";
+  const isInternalEvent = event
+    ? calendarSources.find(
+      (source) => source.id === event.sourceId,
+    )?.isReadOnly === false
+    : false;
 
   return (
     <>

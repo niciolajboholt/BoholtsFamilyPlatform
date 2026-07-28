@@ -9,10 +9,12 @@ import {
 } from "@mui/material";
 
 import { calendarOwners } from "../data/calendarOwners";
+import { getCalendarSourceColor } from "../utils/getCalendarSourceColor";
 import type {
   CalendarEvent,
   CalendarOwnerId,
 } from "../models/calendarEvent";
+import type { CalendarSource } from "../models/calendarProvider";
 import { getEventsForDate } from "../utils/getEventsForDate";
 import { getWeekDays } from "../utils/getWeekDays";
 import {
@@ -23,7 +25,8 @@ import {
 interface WeekCalendarProps {
   selectedDate: Date;
   events: CalendarEvent[];
-  selectedOwnerId: CalendarOwnerId | "all";
+  calendarSources: readonly CalendarSource[];
+  selectedOwnerId?: CalendarOwnerId | "all";
   onSelectDate: (date: Date) => void;
   onSelectEvent: (event: CalendarEvent) => void;
 }
@@ -78,19 +81,20 @@ function sortTimedEvents(
 interface EventCardProps {
   event: CalendarEvent;
   showTime: boolean;
+  calendarSources: readonly CalendarSource[];
   onSelectEvent: (event: CalendarEvent) => void;
 }
 
 function EventCard({
   event,
   showTime,
+  calendarSources,
   onSelectEvent,
 }: EventCardProps) {
-  const primaryOwner =
-    calendarOwners[event.ownerIds[0]];
-
-  const ownerColor =
-    primaryOwner?.color ?? "#607d8b";
+  const ownerColor = getCalendarSourceColor(
+    event.sourceId,
+    calendarSources,
+  );
 
   return (
     <ButtonBase
@@ -161,7 +165,7 @@ function EventCard({
               size="small"
               sx={{
                 height: 20,
-                backgroundColor: owner.color,
+                backgroundColor: getCalendarSourceColor(ownerId),
                 color: "#ffffff",
 
                 "& .MuiChip-label": {
@@ -180,7 +184,8 @@ function EventCard({
 function WeekCalendar({
   selectedDate,
   events,
-  selectedOwnerId,
+  calendarSources,
+  selectedOwnerId = "all",
   onSelectDate,
   onSelectEvent,
 }: WeekCalendarProps) {
@@ -355,6 +360,7 @@ function WeekCalendar({
                             key={event.id}
                             event={event}
                             showTime={false}
+                            calendarSources={calendarSources}
                             onSelectEvent={
                               onSelectEvent
                             }
@@ -417,6 +423,7 @@ function WeekCalendar({
                             key={event.id}
                             event={event}
                             showTime
+                            calendarSources={calendarSources}
                             onSelectEvent={
                               onSelectEvent
                             }

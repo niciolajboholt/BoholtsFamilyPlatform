@@ -8,11 +8,14 @@ import {
 } from "@mui/material";
 
 import { calendarOwners } from "../data/calendarOwners";
+import { getCalendarSourceColor } from "../utils/getCalendarSourceColor";
 import type { CalendarEvent } from "../models/calendarEvent";
+import type { CalendarSource } from "../models/calendarProvider";
 
 interface EventListProps {
   selectedDate: Date;
   events: CalendarEvent[];
+  calendarSources: readonly CalendarSource[];
   onSelectEvent: (event: CalendarEvent) => void;
 }
 
@@ -42,6 +45,7 @@ function formatTime(
 function EventList({
   selectedDate,
   events,
+  calendarSources,
   onSelectEvent,
 }: EventListProps) {
   return (
@@ -99,6 +103,7 @@ function EventList({
             <EventCard
               key={event.id}
               event={event}
+              calendarSources={calendarSources}
               onSelectEvent={onSelectEvent}
             />
           ))}
@@ -110,20 +115,24 @@ function EventList({
 
 interface EventCardProps {
   event: CalendarEvent;
+  calendarSources: readonly CalendarSource[];
   onSelectEvent: (event: CalendarEvent) => void;
 }
 
 function EventCard({
   event,
+  calendarSources,
   onSelectEvent,
 }: EventCardProps) {
-  const primaryOwner =
-    calendarOwners[event.ownerIds[0]];
+  const sourceColor = getCalendarSourceColor(
+    event.sourceId,
+    calendarSources,
+  );
 
   return (
     <Card
       sx={{
-        borderLeft: `5px solid ${primaryOwner.color}`,
+        borderLeft: `5px solid ${sourceColor}`,
       }}
     >
       <CardActionArea
@@ -151,7 +160,7 @@ function EventCard({
                 variant="body2"
                 sx={{
                   fontWeight: 700,
-                  color: primaryOwner.color,
+                  color: sourceColor,
                 }}
               >
                 {formatTime(
@@ -209,7 +218,7 @@ function EventCard({
                     label={owner.name}
                     size="small"
                     sx={{
-                      backgroundColor: owner.color,
+                      backgroundColor: getCalendarSourceColor(ownerId),
                       color: "#ffffff",
                       fontWeight: 600,
 

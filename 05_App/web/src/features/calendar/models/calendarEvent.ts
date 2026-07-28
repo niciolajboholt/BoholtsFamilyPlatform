@@ -5,9 +5,11 @@ export type CalendarOwnerId =
   | "jens"
   | "family";
 
-export type CalendarSource =
+export type CalendarEventSource =
   | "internal"
   | "google";
+
+export type CalendarSourceId = string;
 
 export type RecurrenceFrequency =
   | "daily"
@@ -112,7 +114,8 @@ export interface CalendarEvent {
   end: string;
   allDay: boolean;
   ownerIds: CalendarOwnerId[];
-  source: CalendarSource;
+  source: CalendarEventSource;
+  sourceId: CalendarSourceId;
   location?: string;
   color?: string;
 

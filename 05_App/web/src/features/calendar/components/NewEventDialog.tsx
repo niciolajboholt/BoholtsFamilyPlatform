@@ -39,7 +39,7 @@ import {
 import type {
   CalendarEvent,
 } from "../models/calendarEvent";
-import type { CreateCalendarEventInput } from "../services/CalendarService";
+import type { CreateCalendarEventInput } from "../models/calendarEventInput";
 
 interface NewEventDialogProps {
   open: boolean;
