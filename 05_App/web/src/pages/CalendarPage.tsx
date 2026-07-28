@@ -10,23 +10,22 @@ import {
   Button,
   Card,
   CardContent,
-  Chip,
   CircularProgress,
   Snackbar,
   Typography,
 } from "@mui/material";
 
 import CalendarToolbar from "../features/calendar/components/CalendarToolbar";
+import { CalendarSourceFilter } from "../features/calendar/components/CalendarSourceFilter";
 import EditEventDialog from "../features/calendar/components/EditEventDialog";
 import EventList from "../features/calendar/components/EventList";
 import MonthCalendar from "../features/calendar/components/MonthCalendar";
 import NewEventDialog from "../features/calendar/components/NewEventDialog";
 import WeekCalendar from "../features/calendar/components/WeekCalendar";
-import { calendarOwners } from "../features/calendar/data/calendarOwners";
 import { useCalendarEvents } from "../features/calendar/hooks/useCalendarEvents";
+import { useCalendarSources } from "../features/calendar/hooks/useCalendarSources";
 import type {
   CalendarEvent,
-  CalendarOwnerId,
 } from "../features/calendar/models/calendarEvent";
 import type { CreateCalendarEventInput } from "../features/calendar/models/calendarEventInput";
 import type { CalendarView } from "../features/calendar/models/calendarView";
@@ -117,13 +116,6 @@ function CalendarPage() {
     useState<CalendarView>("month");
 
   const [
-    selectedOwnerId,
-    setSelectedOwnerId,
-  ] = useState<
-    CalendarOwnerId | "all"
-  >("all");
-
-  const [
     isNewEventDialogOpen,
     setIsNewEventDialogOpen,
   ] = useState(false);
@@ -167,46 +159,45 @@ function CalendarPage() {
     refreshEvents,
   } = useCalendarEvents();
 
+  const {
+    calendarSources,
+    visibleCalendarSourceIds,
+    isLoading: isLoadingCalendarSources,
+    hasLoadedSources,
+    error: calendarSourcesError,
+    toggleCalendarSource,
+    showAll: showAllCalendarSources,
+    refresh: refreshCalendarSources,
+  } = useCalendarSources();
+
   const isInitialLoading =
     isLoading && !hasLoadedEvents;
+  const isInitialSourceLoading =
+    isLoadingCalendarSources && !hasLoadedSources;
   const isRefreshing =
     isLoading && hasLoadedEvents;
 
-  const hasEventsForSelectedOwner =
+  const visibleEvents =
     useMemo(() => {
-      if (selectedOwnerId === "all") {
-        return events.length > 0;
-      }
+      const visibleSourceIds = new Set(visibleCalendarSourceIds);
 
-      return events.some((event) =>
-        event.ownerIds.includes(selectedOwnerId),
+      return events.filter((event) =>
+        event.ownerIds.some((ownerId) => visibleSourceIds.has(ownerId)),
       );
-    }, [events, selectedOwnerId]);
+    }, [events, visibleCalendarSourceIds]);
 
   const eventsForSelectedDate =
     useMemo(() => {
       const dateEvents =
         getEventsForDate(
-          events,
+          visibleEvents,
           selectedDate,
         );
 
-      if (
-        selectedOwnerId === "all"
-      ) {
-        return dateEvents;
-      }
-
-      return dateEvents.filter(
-        (event) =>
-          event.ownerIds.includes(
-            selectedOwnerId,
-          ),
-      );
+      return dateEvents;
     }, [
-      events,
+      visibleEvents,
       selectedDate,
-      selectedOwnerId,
     ]);
 
   function showSnackbar(
@@ -594,94 +585,19 @@ function CalendarPage() {
         <CardContent
           sx={{ p: 2.5 }}
         >
-          <Typography
-            variant="subtitle1"
-            sx={{
-              fontWeight: 700,
-              mb: 1.5,
-            }}
-          >
-            Vis kalender for
-          </Typography>
-
-          <Box
-            sx={{
-              display: "flex",
-              flexWrap: "wrap",
-              gap: 1,
-            }}
-          >
-            <Chip
-              label="Alle"
-              clickable
-              onClick={() =>
-                setSelectedOwnerId(
-                  "all",
-                )
-              }
-              variant={
-                selectedOwnerId ===
-                "all"
-                  ? "filled"
-                  : "outlined"
-              }
-              color={
-                selectedOwnerId ===
-                "all"
-                  ? "primary"
-                  : "default"
-              }
-            />
-
-            {Object.values(
-              calendarOwners,
-            ).map((owner) => {
-              const isSelected =
-                selectedOwnerId ===
-                owner.id;
-
-              return (
-                <Chip
-                  key={owner.id}
-                  label={owner.name}
-                  clickable
-                  onClick={() =>
-                    setSelectedOwnerId(
-                      owner.id,
-                    )
-                  }
-                  variant={
-                    isSelected
-                      ? "filled"
-                      : "outlined"
-                  }
-                  sx={{
-                    borderColor:
-                      owner.color,
-                    backgroundColor:
-                      isSelected
-                        ? owner.color
-                        : "transparent",
-                    color: isSelected
-                      ? "#ffffff"
-                      : owner.color,
-                    fontWeight: 600,
-
-                    "&:hover": {
-                      backgroundColor:
-                        isSelected
-                          ? owner.color
-                          : `${owner.color}18`,
-                    },
-                  }}
-                />
-              );
-            })}
-          </Box>
+          <CalendarSourceFilter
+            calendarSources={calendarSources}
+            visibleCalendarSourceIds={visibleCalendarSourceIds}
+            isLoading={isLoadingCalendarSources}
+            error={calendarSourcesError}
+            onToggle={toggleCalendarSource}
+            onShowAll={showAllCalendarSources}
+            onRetry={() => { void refreshCalendarSources(); }}
+          />
         </CardContent>
       </Card>
 
-      {isInitialLoading ? (
+      {isInitialLoading || isInitialSourceLoading ? (
         <Card sx={{ mb: 2.5 }}>
           <CardContent>
             <Box
@@ -765,13 +681,17 @@ function CalendarPage() {
             </Alert>
           )}
 
-          {events.length === 0 ? (
+          {visibleCalendarSourceIds.length === 0 ? (
+            <Alert severity="info" sx={{ mb: 2.5 }} action={<Button color="inherit" size="small" onClick={showAllCalendarSources}>Vis alle kalendere</Button>}>
+              Ingen kalendere er valgt.
+            </Alert>
+          ) : events.length === 0 ? (
             <Alert severity="info" sx={{ mb: 2.5 }}>
               Ingen aftaler endnu.
             </Alert>
-          ) : !hasEventsForSelectedOwner ? (
+          ) : visibleEvents.length === 0 ? (
             <Alert severity="info" sx={{ mb: 2.5 }}>
-              Ingen aftaler matcher den valgte kalender.
+              Ingen aftaler matcher de valgte kalendere.
             </Alert>
           ) : null}
 
@@ -784,10 +704,7 @@ function CalendarPage() {
           selectedDate={
             selectedDate
           }
-          events={events}
-          selectedOwnerId={
-            selectedOwnerId
-          }
+          events={visibleEvents}
           onSelectDate={
             handleSelectDate
           }
@@ -800,10 +717,7 @@ function CalendarPage() {
           selectedDate={
             selectedDate
           }
-          events={events}
-          selectedOwnerId={
-            selectedOwnerId
-          }
+          events={visibleEvents}
           onSelectDate={
             handleSelectDate
           }

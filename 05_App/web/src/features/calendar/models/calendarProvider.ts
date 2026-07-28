@@ -16,6 +16,7 @@ export interface CalendarSource {
   color: string;
   isVisible: boolean;
   isReadOnly: boolean;
+  ownerId?: string;
   externalReference?: string;
 }
 

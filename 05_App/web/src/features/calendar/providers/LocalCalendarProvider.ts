@@ -39,6 +39,7 @@ export class LocalCalendarProvider
         color: owner.color,
         isVisible: true,
         isReadOnly: false,
+        ownerId: owner.id,
       }),
     );
   }

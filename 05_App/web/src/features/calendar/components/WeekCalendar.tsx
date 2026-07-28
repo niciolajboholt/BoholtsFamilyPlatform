@@ -23,7 +23,7 @@ import {
 interface WeekCalendarProps {
   selectedDate: Date;
   events: CalendarEvent[];
-  selectedOwnerId: CalendarOwnerId | "all";
+  selectedOwnerId?: CalendarOwnerId | "all";
   onSelectDate: (date: Date) => void;
   onSelectEvent: (event: CalendarEvent) => void;
 }
@@ -180,7 +180,7 @@ function EventCard({
 function WeekCalendar({
   selectedDate,
   events,
-  selectedOwnerId,
+  selectedOwnerId = "all",
   onSelectDate,
   onSelectEvent,
 }: WeekCalendarProps) {

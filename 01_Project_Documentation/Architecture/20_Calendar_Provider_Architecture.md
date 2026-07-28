@@ -47,3 +47,17 @@ Provider-typerne er `local`, `google` og `apple`. Kun `local` er implementeret i
 ## Google-forberedelse
 
 Mappen `providers/google/` er alene en kontraktmæssig reservation. Der er ingen Google SDK, OAuth, API-kald, tokens, miljøvariabler eller simulerede Google-data i Sprint 10.1. En senere `GoogleCalendarProvider` skal oversætte eksterne data og fejl til de samme domæne- og provider-typer, før de forlader provider-laget.
+
+## Kalenderkilder og synlighed
+
+`useCalendarSources` henter kilder gennem provideren. Brugerens lokale valg gemmes separat fra domænekilden under `boholts-family-calendar-source-visibility` som en JSON-liste af skjulte source IDs. Ugyldig JSON eller struktur falder tilbage til alle kendte kilder synlige; fjernede IDs ignoreres, og nye kilder er synlige som standard.
+
+```mermaid
+flowchart LR
+  Provider[CalendarProvider] --> Sources[useCalendarSources]
+  Sources <--> Storage[Visibility localStorage]
+  Sources --> Page[CalendarPage]
+  Page --> Views[Måned, uge og eventliste]
+```
+
+I den nuværende model matcher `CalendarEvent.ownerIds` de lokale `CalendarSource.id`-værdier. Filtreringen sker centralt i `CalendarPage`; dialogerne beholder det ufiltrerede event-sæt, så skjulte kalendere fortsat indgår i konfliktkontrol. Når alle kilder er skjult, vises en særskilt tom tilstand med handlingen “Vis alle kalendere”.

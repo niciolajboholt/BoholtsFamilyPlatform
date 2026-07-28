@@ -20,7 +20,7 @@ interface MonthCalendarProps {
   visibleMonth: Date;
   selectedDate: Date;
   events: CalendarEvent[];
-  selectedOwnerId: CalendarOwnerId | "all";
+  selectedOwnerId?: CalendarOwnerId | "all";
   onSelectDate: (date: Date) => void;
   onSelectEvent: (event: CalendarEvent) => void;
 }
@@ -63,7 +63,7 @@ function MonthCalendar({
   visibleMonth,
   selectedDate,
   events,
-  selectedOwnerId,
+  selectedOwnerId = "all",
   onSelectDate,
   onSelectEvent,
 }: MonthCalendarProps) {
