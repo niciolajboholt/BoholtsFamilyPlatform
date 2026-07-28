@@ -2,19 +2,19 @@
 
 > Status: Active
 
-Version: 1.0
+Version: 2.0
 
 Project:
 Boholts Family Platform
 
 Last Updated:
-2026-07
+2026-07-28
 
 Owner:
 Nicolaj Bach Boholt
 
 Maintained by:
-ChatGPT + Codex
+Claude
 
 ---
 
@@ -28,11 +28,12 @@ Rollerne skal sikre en tydelig arbejdsdeling og en ensartet udviklingsproces.
 
 # Team
 
-Projektet består af tre primære roller:
+Projektet består af to primære roller:
 
 - Nicolaj Bach Boholt
-- ChatGPT
-- Codex
+- Claude
+
+Version 1.0 af dette dokument beskrev en tredelt model (Nicolaj, ChatGPT, Codex). Claude overtager fra version 2.0 begge AI-roller — både arkitektur/planlægning og implementering — som én samlet AI-rolle.
 
 ---
 
@@ -55,43 +56,27 @@ Nicolaj har det endelige ansvar for projektets retning.
 
 ---
 
-# ChatGPT
+# Claude
 
 Rolle:
 
-Solution Architect & Technical Lead
+Solution Architect, Technical Lead & Software Engineer
 
 Ansvar:
 
 - Udarbejder arkitektur.
 - Planlægger sprint.
-- Udarbejder dokumentation.
-- Skriver Codex-opgaver.
+- Udarbejder og vedligeholder dokumentation.
+- Implementerer funktionalitet.
+- Refaktorerer kode.
+- Kører build og validering.
 - Gennemfører code reviews.
 - Kvalitetssikrer leverancer.
 - Identificerer risici.
 - Vedligeholder AI Knowledge Base.
+- Committer, pusher og merger ændringer — men først efter Nicolaj har testet og læst Claudes anbefalinger og godkendt dem.
 
-ChatGPT fungerer som projektets tekniske sparringspartner og sikrer sammenhæng mellem kode, dokumentation og langsigtet arkitektur.
-
----
-
-# Codex
-
-Rolle:
-
-Senior Software Engineer
-
-Ansvar:
-
-- Implementerer funktionalitet.
-- Refaktorerer kode.
-- Opdaterer dokumentation efter instruktion.
-- Kører build og validering.
-- Rapporterer ændringer.
-- Overholder projektets standarder.
-
-Codex foretager ikke produktmæssige beslutninger, men implementerer de godkendte løsninger.
+Claude fungerer som projektets samlede tekniske sparringspartner og udførende kraft og sikrer sammenhæng mellem kode, dokumentation og langsigtet arkitektur.
 
 ---
 
@@ -100,13 +85,12 @@ Codex foretager ikke produktmæssige beslutninger, men implementerer de godkendt
 Udviklingsforløbet følger som udgangspunkt denne proces:
 
 1. Nicolaj beskriver behov eller idé.
-2. ChatGPT analyserer opgaven.
-3. ChatGPT udarbejder arkitektur og implementeringsplan.
-4. ChatGPT skriver en Codex-opgave.
-5. Codex implementerer løsningen.
-6. ChatGPT gennemgår resultatet.
-7. Nicolaj tester funktionaliteten.
-8. Ændringen godkendes og integreres.
+2. Claude analyserer opgaven og udarbejder arkitektur/implementeringsplan.
+3. Claude implementerer løsningen.
+4. Claude rapporterer resultat og anbefalinger.
+5. Nicolaj tester funktionaliteten og læser anbefalingerne.
+6. Nicolaj godkender.
+7. Claude committer, pusher og merger.
 
 ---
 
@@ -116,15 +100,11 @@ Produktbeslutninger
 
 Nicolaj
 
-Arkitektur
+Arkitektur og implementering
 
-ChatGPT
+Claude
 
-Implementering
-
-Codex
-
-Endelig godkendelse
+Endelig godkendelse (før commit/push/merge)
 
 Nicolaj
 
@@ -140,6 +120,7 @@ Projektet bygger på følgende principper:
 - Alle større beslutninger dokumenteres.
 - AI assisterer udviklingen men ejer ikke projektet.
 - Langsigtet vedligeholdbarhed vægtes højest.
+- Claude committer/pusher/merger aldrig uden forudgående test og godkendelse fra Nicolaj.
 
 ---
 
