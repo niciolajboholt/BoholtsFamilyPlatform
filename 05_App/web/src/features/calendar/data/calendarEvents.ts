@@ -9,6 +9,7 @@ export const calendarEvents: CalendarEvent[] = [
     allDay: false,
     ownerIds: ["nicolaj", "alfred"],
     source: "internal",
+    sourceId: "local:nicolaj",
     location: "Skolen",
   },
   {
@@ -20,6 +21,7 @@ export const calendarEvents: CalendarEvent[] = [
     allDay: false,
     ownerIds: ["christine"],
     source: "google",
+    sourceId: "google:demo",
     location: "Tandlægehuset",
   },
   {
@@ -30,6 +32,7 @@ export const calendarEvents: CalendarEvent[] = [
     allDay: false,
     ownerIds: ["alfred"],
     source: "internal",
+    sourceId: "local:alfred",
     location: "Boldbanen",
   },
   {
@@ -40,6 +43,7 @@ export const calendarEvents: CalendarEvent[] = [
     allDay: false,
     ownerIds: ["family"],
     source: "internal",
+    sourceId: "local:family",
   },
   {
     id: "event-5",
@@ -49,5 +53,6 @@ export const calendarEvents: CalendarEvent[] = [
     allDay: true,
     ownerIds: ["jens"],
     source: "internal",
+    sourceId: "local:jens",
   },
 ];

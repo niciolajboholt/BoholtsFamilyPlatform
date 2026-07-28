@@ -19,7 +19,9 @@ export function getVisibleCalendarSourceIds(
   sources: CalendarSource[],
 ): string[] {
   const sourceIds = new Set(sources.map((source) => source.id));
-  const hiddenIds = new Set(readHiddenIds());
+  const hiddenIds = new Set(readHiddenIds().map((id) =>
+    sourceIds.has(id) ? id : `local:${id}`,
+  ));
 
   return [...sourceIds].filter((id) => !hiddenIds.has(id));
 }

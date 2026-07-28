@@ -247,3 +247,29 @@ Afvist, fordi en adapter bevarer den eksisterende storage-key og reducerer risik
 
 * Provider-laget tilføjer få ekstra filer og en oversættelse omkring den lokale service.
 * Leverandørspecifikke muligheder implementeres først, når de kan udtrykkes sikkert i det fælles domæne.
+# ADR-008: Google Calendar som skrivebeskyttet, valgfri provider
+
+## Status
+
+Accepteret i Sprint 11.1.
+
+## Kontekst
+
+Familiekalenderen bevarer localStorage som standardkilde, men skal kunne vise
+Google Calendar uden at Google-identiteter eller OAuth-detaljer spreder sig til
+React-komponenter. Google-aftaler har ikke nødvendigvis en lokal deltager.
+
+## Beslutning
+
+Vi anvender `CompositeCalendarProvider` til at samle lokale og valgfrie
+Google-kilder. `CalendarEvent.sourceId` identificerer kalenderkilden, mens
+`ownerIds` kun indeholder familiens deltagere. Google bruger namespacede,
+URL-encoded source- og event-id'er, læses med `calendar.readonly` og er altid
+skrivebeskyttet. OAuth-tokenet er kun i hukommelsen.
+
+## Konsekvenser
+
+Lokale data er fortsat tilgængelige, hvis Google fejler. Eksisterende lokale
+events uden `sourceId` normaliseres i hukommelsen fra første ownerId og falder
+tilbage til `local:family`. Apple Calendar kan senere tilføjes som endnu en
+provider uden Google-afhængigheder i UI'et.

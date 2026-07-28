@@ -9,6 +9,7 @@ import type {
   CalendarEvent,
   CalendarOwnerId,
 } from "../models/calendarEvent";
+import type { CalendarSource } from "../models/calendarProvider";
 import {
   getCalendarMonth,
   type CalendarMonthDay,
@@ -20,6 +21,7 @@ interface MonthCalendarProps {
   visibleMonth: Date;
   selectedDate: Date;
   events: CalendarEvent[];
+  calendarSources: readonly CalendarSource[];
   selectedOwnerId?: CalendarOwnerId | "all";
   onSelectDate: (date: Date) => void;
   onSelectEvent: (event: CalendarEvent) => void;
@@ -63,6 +65,7 @@ function MonthCalendar({
   visibleMonth,
   selectedDate,
   events,
+  calendarSources,
   selectedOwnerId = "all",
   onSelectDate,
   onSelectEvent,
@@ -143,6 +146,7 @@ function MonthCalendar({
                   key={date.toISOString()}
                   date={date}
                   events={dateEvents}
+                  calendarSources={calendarSources}
                   isCurrentMonth={
                     isCurrentMonth
                   }

@@ -9,6 +9,8 @@ export type CalendarEventSource =
   | "internal"
   | "google";
 
+export type CalendarSourceId = string;
+
 export type RecurrenceFrequency =
   | "daily"
   | "weekly"
@@ -113,6 +115,7 @@ export interface CalendarEvent {
   allDay: boolean;
   ownerIds: CalendarOwnerId[];
   source: CalendarEventSource;
+  sourceId: CalendarSourceId;
   location?: string;
   color?: string;
 

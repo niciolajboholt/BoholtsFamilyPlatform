@@ -19,11 +19,13 @@ import CalendarToolbar from "../features/calendar/components/CalendarToolbar";
 import { CalendarSourceFilter } from "../features/calendar/components/CalendarSourceFilter";
 import EditEventDialog from "../features/calendar/components/EditEventDialog";
 import EventList from "../features/calendar/components/EventList";
+import { GoogleCalendarConnection } from "../features/calendar/components/GoogleCalendarConnection";
 import MonthCalendar from "../features/calendar/components/MonthCalendar";
 import NewEventDialog from "../features/calendar/components/NewEventDialog";
 import WeekCalendar from "../features/calendar/components/WeekCalendar";
 import { useCalendarEvents } from "../features/calendar/hooks/useCalendarEvents";
 import { useCalendarSources } from "../features/calendar/hooks/useCalendarSources";
+import { useGoogleCalendarConnection } from "../features/calendar/hooks/useGoogleCalendarConnection";
 import type {
   CalendarEvent,
 } from "../features/calendar/models/calendarEvent";
@@ -152,6 +154,7 @@ function CalendarPage() {
     isLoading,
     isSaving,
     error,
+    providerHealth,
     createEvent,
     updateEvent,
     deleteEvent,
@@ -170,6 +173,17 @@ function CalendarPage() {
     refresh: refreshCalendarSources,
   } = useCalendarSources();
 
+  const {
+    isConfigured: isGoogleCalendarConfigured,
+    configurationError: googleCalendarConfigurationError,
+    isConnected: isGoogleCalendarConnected,
+    connect: connectGoogleCalendar,
+    disconnect: disconnectGoogleCalendar,
+  } = useGoogleCalendarConnection();
+
+  const [isConnectingGoogleCalendar, setIsConnectingGoogleCalendar] =
+    useState(false);
+
   const isInitialLoading =
     isLoading && !hasLoadedEvents;
   const isInitialSourceLoading =
@@ -181,9 +195,7 @@ function CalendarPage() {
     useMemo(() => {
       const visibleSourceIds = new Set(visibleCalendarSourceIds);
 
-      return events.filter((event) =>
-        event.ownerIds.some((ownerId) => visibleSourceIds.has(ownerId)),
-      );
+      return events.filter((event) => visibleSourceIds.has(event.sourceId));
     }, [events, visibleCalendarSourceIds]);
 
   const eventsForSelectedDate =
@@ -211,6 +223,32 @@ function CalendarPage() {
       message,
       showUndo,
     });
+  }
+
+  async function handleConnectGoogleCalendar(): Promise<void> {
+    setIsConnectingGoogleCalendar(true);
+
+    try {
+      await connectGoogleCalendar();
+      await Promise.all([
+        refreshCalendarSources(),
+        refreshEvents(),
+      ]);
+      showSnackbar("success", "Google Kalender er forbundet.");
+    } catch {
+      showSnackbar("error", "Google Kalender kunne ikke forbindes.");
+    } finally {
+      setIsConnectingGoogleCalendar(false);
+    }
+  }
+
+  function handleDisconnectGoogleCalendar(): void {
+    disconnectGoogleCalendar();
+    void Promise.all([
+      refreshCalendarSources(),
+      refreshEvents(),
+    ]);
+    showSnackbar("success", "Google Kalender er afbrudt.");
   }
 
   function handleCloseSnackbar(
@@ -581,6 +619,24 @@ function CalendarPage() {
         }
       />
 
+      <GoogleCalendarConnection
+        isConfigured={isGoogleCalendarConfigured}
+        configurationError={googleCalendarConfigurationError}
+        isConnected={isGoogleCalendarConnected}
+        isBusy={isConnectingGoogleCalendar}
+        health={providerHealth.find(
+          (health) => health.providerId === "google",
+        )}
+        onConnect={() => {
+          void handleConnectGoogleCalendar();
+        }}
+        onDisconnect={handleDisconnectGoogleCalendar}
+        onRetry={() => {
+          void refreshEvents();
+          void refreshCalendarSources();
+        }}
+      />
+
       <Card sx={{ mb: 2.5 }}>
         <CardContent
           sx={{ p: 2.5 }}
@@ -705,6 +761,7 @@ function CalendarPage() {
             selectedDate
           }
           events={visibleEvents}
+          calendarSources={calendarSources}
           onSelectDate={
             handleSelectDate
           }
@@ -718,6 +775,7 @@ function CalendarPage() {
             selectedDate
           }
           events={visibleEvents}
+          calendarSources={calendarSources}
           onSelectDate={
             handleSelectDate
           }
@@ -734,6 +792,7 @@ function CalendarPage() {
         events={
           eventsForSelectedDate
         }
+        calendarSources={calendarSources}
         onSelectEvent={
           handleSelectEvent
         }
@@ -756,6 +815,7 @@ function CalendarPage() {
         open={selectedEvent !== null}
         event={selectedEvent}
         events={events}
+        calendarSources={calendarSources}
         isSaving={isSaving}
         onClose={handleCloseEditDialog}
         onUpdate={handleUpdateEvent}

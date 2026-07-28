@@ -231,6 +231,10 @@ function isCalendarEvent(
     return false;
   }
 
+  if (value.sourceId !== undefined && typeof value.sourceId !== "string") {
+    return false;
+  }
+
   if (
     value.description !== undefined &&
     typeof value.description !== "string"
@@ -268,7 +272,7 @@ function isCalendarEvent(
 function validateEventData(
   event: Omit<
     CalendarEvent,
-    "id" | "source"
+    "id" | "source" | "sourceId"
   >,
 ): void {
   if (!event.title.trim()) {
@@ -359,9 +363,10 @@ function readStoredEvents(): CalendarEvent[] {
       return [];
     }
 
-    return parsedValue.filter(
-      isCalendarEvent,
-    );
+    return parsedValue.filter(isCalendarEvent).map((event) => ({
+      ...event,
+      sourceId: event.sourceId || `local:${event.ownerIds[0] ?? "family"}`,
+    }));
   } catch {
     return [];
   }
@@ -413,6 +418,7 @@ export class CalendarService {
     const event: CalendarEvent = {
       id: createEventId(),
       source: "internal",
+      sourceId: input.sourceId ?? `local:${input.ownerIds[0] ?? "family"}`,
       ...input,
       title: input.title.trim(),
       description:

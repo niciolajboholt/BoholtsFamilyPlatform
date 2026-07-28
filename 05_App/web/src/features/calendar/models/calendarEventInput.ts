@@ -9,6 +9,7 @@ export interface CreateCalendarEventInput {
   end: string;
   allDay: boolean;
   ownerIds: CalendarOwnerId[];
+  sourceId?: string;
   description?: string;
   location?: string;
   recurrence?: RecurrenceRule;

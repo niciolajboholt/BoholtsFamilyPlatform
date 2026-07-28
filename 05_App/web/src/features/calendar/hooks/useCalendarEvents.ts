@@ -14,6 +14,7 @@ import type { CalendarProvider } from "../providers/CalendarProvider";
 import {
   calendarProvider,
 } from "../providers/calendarProviderFactory";
+import type { CalendarProviderHealth } from "../models/calendarProviderHealth";
 
 interface UseCalendarEventsResult {
   events: CalendarEvent[];
@@ -21,6 +22,7 @@ interface UseCalendarEventsResult {
   isLoading: boolean;
   isSaving: boolean;
   error: string | null;
+  providerHealth: CalendarProviderHealth[];
   createEvent: (
     input: CreateCalendarEventInput,
   ) => Promise<CalendarEvent>;
@@ -34,6 +36,24 @@ interface UseCalendarEventsResult {
     event: CalendarEvent,
   ) => Promise<CalendarEvent>;
   refreshEvents: () => Promise<void>;
+}
+
+interface CalendarProviderHealthReporter {
+  getProviderHealth(): CalendarProviderHealth[];
+}
+
+function getProviderHealth(
+  provider: CalendarProvider,
+): CalendarProviderHealth[] {
+  if (
+    "getProviderHealth" in provider &&
+    typeof provider.getProviderHealth === "function"
+  ) {
+    return (provider as CalendarProviderHealthReporter)
+      .getProviderHealth();
+  }
+
+  return [{ providerId: "local", status: "ready" }];
 }
 
 function getErrorMessage(
@@ -68,6 +88,10 @@ export function useCalendarEvents(
     string | null
   >(null);
 
+  const [providerHealth, setProviderHealth] = useState<
+    CalendarProviderHealth[]
+  >(() => getProviderHealth(provider));
+
   const refreshEvents = useCallback(
     async (): Promise<void> => {
       if (isRefreshingRef.current) {
@@ -85,6 +109,7 @@ export function useCalendarEvents(
           );
 
         setEvents(loadedEvents);
+        setProviderHealth(getProviderHealth(provider));
         setHasLoadedEvents(true);
       } catch (caughtError: unknown) {
         setError(
@@ -153,8 +178,14 @@ export function useCalendarEvents(
       setIsSaving(true);
 
       try {
+        const event = events.find(
+          (currentEvent) =>
+            currentEvent.id === eventId,
+        );
+
         await provider.deleteEvent(
           eventId,
+          event?.sourceId,
         );
 
         await refreshEvents();
@@ -162,7 +193,7 @@ export function useCalendarEvents(
         setIsSaving(false);
       }
     },
-    [provider, refreshEvents],
+    [events, provider, refreshEvents],
   );
 
   const restoreEvent = useCallback(
@@ -193,6 +224,7 @@ export function useCalendarEvents(
     isLoading,
     isSaving,
     error,
+    providerHealth,
     createEvent,
     updateEvent,
     deleteEvent,

@@ -11,6 +11,7 @@ import type {
   CalendarEvent,
   CalendarOwnerId,
 } from "../models/calendarEvent";
+import type { CalendarSource } from "../models/calendarProvider";
 import {
   getDayActionLabel,
   getEventActionLabel,
@@ -19,6 +20,7 @@ import {
 interface DayCellProps {
   date: Date;
   events: CalendarEvent[];
+  calendarSources: readonly CalendarSource[];
   isCurrentMonth: boolean;
   isSelected: boolean;
   isToday: boolean;
@@ -167,6 +169,7 @@ function getMultiDayLabel(
 function DayCell({
   date,
   events,
+  calendarSources,
   isCurrentMonth,
   isSelected,
   isToday,
@@ -351,12 +354,10 @@ function DayCell({
             {events
               .slice(0, 2)
               .map((event) => {
-                const firstOwnerId =
-                  event.ownerIds[0];
-
                 const ownerColor =
                   getCalendarSourceColor(
-                    firstOwnerId,
+                    event.sourceId,
+                    calendarSources,
                   );
 
                 const multiDayStatus =

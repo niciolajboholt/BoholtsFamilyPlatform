@@ -14,6 +14,7 @@ import type {
   CalendarEvent,
   CalendarOwnerId,
 } from "../models/calendarEvent";
+import type { CalendarSource } from "../models/calendarProvider";
 import { getEventsForDate } from "../utils/getEventsForDate";
 import { getWeekDays } from "../utils/getWeekDays";
 import {
@@ -24,6 +25,7 @@ import {
 interface WeekCalendarProps {
   selectedDate: Date;
   events: CalendarEvent[];
+  calendarSources: readonly CalendarSource[];
   selectedOwnerId?: CalendarOwnerId | "all";
   onSelectDate: (date: Date) => void;
   onSelectEvent: (event: CalendarEvent) => void;
@@ -79,15 +81,20 @@ function sortTimedEvents(
 interface EventCardProps {
   event: CalendarEvent;
   showTime: boolean;
+  calendarSources: readonly CalendarSource[];
   onSelectEvent: (event: CalendarEvent) => void;
 }
 
 function EventCard({
   event,
   showTime,
+  calendarSources,
   onSelectEvent,
 }: EventCardProps) {
-  const ownerColor = getCalendarSourceColor(event.ownerIds[0]);
+  const ownerColor = getCalendarSourceColor(
+    event.sourceId,
+    calendarSources,
+  );
 
   return (
     <ButtonBase
@@ -177,6 +184,7 @@ function EventCard({
 function WeekCalendar({
   selectedDate,
   events,
+  calendarSources,
   selectedOwnerId = "all",
   onSelectDate,
   onSelectEvent,
@@ -352,6 +360,7 @@ function WeekCalendar({
                             key={event.id}
                             event={event}
                             showTime={false}
+                            calendarSources={calendarSources}
                             onSelectEvent={
                               onSelectEvent
                             }
@@ -414,6 +423,7 @@ function WeekCalendar({
                             key={event.id}
                             event={event}
                             showTime
+                            calendarSources={calendarSources}
                             onSelectEvent={
                               onSelectEvent
                             }

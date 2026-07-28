@@ -22,7 +22,10 @@ export interface CalendarProvider {
   updateEvent(
     event: CalendarEvent,
   ): Promise<CalendarEvent>;
-  deleteEvent(eventId: string): Promise<void>;
+  deleteEvent(
+    eventId: string,
+    sourceId?: string,
+  ): Promise<void>;
   restoreEvent(
     event: CalendarEvent,
   ): Promise<CalendarEvent>;

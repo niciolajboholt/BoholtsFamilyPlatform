@@ -2,6 +2,13 @@ import type {
   CalendarProviderType,
 } from "../models/calendarProvider";
 import type { CalendarProvider } from "./CalendarProvider";
+import { CompositeCalendarProvider } from "./CompositeCalendarProvider";
+import { GoogleCalendarProvider } from "./google/GoogleCalendarProvider";
+import { getGoogleCalendarConfig } from "./google/googleCalendarConfig";
+import { GoogleCalendarSession } from "./google/GoogleCalendarSession";
+
+export const googleCalendarSession =
+  new GoogleCalendarSession();
 import { LocalCalendarProvider } from "./LocalCalendarProvider";
 
 export function createCalendarProvider(
@@ -23,4 +30,18 @@ export function createCalendarProvider(
  * som argument i tests uden at bruge global state eller React Context.
  */
 export const calendarProvider =
-  createCalendarProvider("local");
+  (() => {
+    const localProvider = createCalendarProvider("local");
+    const googleConfig = getGoogleCalendarConfig();
+
+    if (!googleConfig.enabled) {
+      return localProvider;
+    }
+
+    return new CompositeCalendarProvider({
+      local: localProvider,
+      google: new GoogleCalendarProvider(
+        googleCalendarSession,
+      ),
+    });
+  })();

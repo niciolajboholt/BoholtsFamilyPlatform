@@ -65,3 +65,18 @@ I den nuværende model matcher `CalendarEvent.ownerIds` de lokale `CalendarSourc
 ## Farver
 
 `CalendarSource.color` er den autoritative farvekilde for kalenderevents. `getCalendarSourceColor` løser en owner/source-id til den lokale CalendarSource-farve og bruger neutral grå fallback for en ukendt kilde. Eventvisninger bruger samme resolver; owner-data beholdes til navn og deltager-UI.
+## Sprint 11.1: Google Calendar som skrivebeskyttet kilde
+
+Kalenderen kan sammensætte den eksisterende `LocalCalendarProvider` og en
+valgfri `GoogleCalendarProvider` gennem `CompositeCalendarProvider`.
+`CalendarEvent.sourceId` er den autoritative reference til en kalenderkilde:
+lokale kilder bruger `local:<ownerId>`, og Google-kilder bruger
+`google:<calendarId>`. `ownerIds` beskriver fortsat kun familiens personer;
+Google-aftaler har derfor en tom deltagerliste.
+
+Google-data er skrivebeskyttede og bruger namespacede event-id'er. Google
+Calendar API- og OAuth-detaljer er afgrænset til provider-laget. UI'et bruger
+kun generiske kalenderkilder og en forbindelsesstatus. OAuth-tokenet holdes
+kun i hukommelsen. Eksisterende localStorage-aftaler uden `sourceId`
+normaliseres i hukommelsen ud fra deres første deltager, uden migration eller
+overskrivning af lagerdata.
