@@ -94,7 +94,8 @@ export class CompositeCalendarProvider
   createEvent(
     input: CreateCalendarEventInput,
   ): Promise<CalendarEvent> {
-    return this.providers.local.createEvent(input);
+    return this.getProviderForSource(input.sourceId)
+      .createEvent(input);
   }
 
   updateEvent(
@@ -122,14 +123,10 @@ export class CompositeCalendarProvider
   private getProviderForSource(
     sourceId?: string,
   ): CalendarProvider {
-    if (
-      sourceId?.startsWith("google:") &&
-      this.providers.google
-    ) {
-      return this.providers.google;
-    }
-
-    return this.providers.local;
+    if (!sourceId) return this.providers.local;
+    if (sourceId?.startsWith("local:")) return this.providers.local;
+    if (sourceId?.startsWith("google:") && this.providers.google) return this.providers.google;
+    throw new CalendarProviderError("not-found", "Kalenderkilden findes ikke længere.");
   }
 
   private setGoogleReadError(error: unknown): void {

@@ -804,6 +804,7 @@ function CalendarPage() {
         open={isNewEventDialogOpen}
         initialDate={selectedDate}
         events={events}
+        calendarSources={calendarSources}
         isSaving={isSaving}
         onClose={() =>
           setIsNewEventDialogOpen(false)

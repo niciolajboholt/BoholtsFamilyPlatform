@@ -9,9 +9,12 @@ import {
   mapGoogleCalendarEvent,
   mapGoogleCalendarSource,
 } from "./googleCalendarMapper";
+import { decodeGoogleEventId, decodeGoogleCalendarSourceId } from "./googleCalendarIds";
+import { mapGoogleEventWriteRequest } from "./googleCalendarWriteMapper";
 
 export class GoogleCalendarProvider implements CalendarProvider {
   private readonly api: GoogleCalendarApi;
+  private calendarSources: CalendarSource[] = [];
 
   constructor(
     session: GoogleCalendarSession,
@@ -24,9 +27,11 @@ export class GoogleCalendarProvider implements CalendarProvider {
   async getCalendars(): Promise<CalendarSource[]> {
     const calendars = await this.api.listCalendars();
 
-    return calendars
+    const sources = calendars
       .map(mapGoogleCalendarSource)
       .filter((source): source is CalendarSource => source !== null);
+    this.calendarSources = sources;
+    return sources;
   }
 
   async getEvents(
@@ -56,8 +61,46 @@ export class GoogleCalendarProvider implements CalendarProvider {
 
     return eventsByCalendar.flat();
   }
-  async createEvent(input: CreateCalendarEventInput): Promise<CalendarEvent> { void input; throw new CalendarProviderError("authorization", "Google Kalender er skrivebeskyttet."); }
-  async updateEvent(event: CalendarEvent): Promise<CalendarEvent> { void event; throw new CalendarProviderError("authorization", "Google Kalender er skrivebeskyttet."); }
-  async deleteEvent(eventId: string): Promise<void> { void eventId; throw new CalendarProviderError("authorization", "Google Kalender er skrivebeskyttet."); }
+
+  async createEvent(input: CreateCalendarEventInput): Promise<CalendarEvent> {
+    const sourceId = input.sourceId;
+    if (!sourceId) throw new CalendarProviderError("validation", "Vælg en Google-kalender.");
+    const calendarId = decodeGoogleCalendarSourceId(sourceId);
+    await this.assertWritableSource(sourceId);
+    const created = await this.api.createEvent(calendarId, mapGoogleEventWriteRequest(input));
+    return this.mapWrittenEvent(calendarId, created);
+  }
+
+  async updateEvent(event: CalendarEvent): Promise<CalendarEvent> {
+    if (event.source !== "google") throw new CalendarProviderError("validation", "Aftalen er ikke en Google-aftale.");
+    await this.assertWritableSource(event.sourceId);
+    const { calendarId, eventId } = decodeGoogleEventId(event.id);
+    if (calendarId !== decodeGoogleCalendarSourceId(event.sourceId)) throw new CalendarProviderError("validation", "Google-aftalen tilhører en anden kalender.");
+    const updated = await this.api.updateEvent(calendarId, eventId, mapGoogleEventWriteRequest(event));
+    return this.mapWrittenEvent(calendarId, updated);
+  }
+
+  async deleteEvent(eventId: string, sourceId?: string): Promise<void> {
+    if (!sourceId) throw new CalendarProviderError("validation", "Google-kalender mangler.");
+    await this.assertWritableSource(sourceId);
+    const { calendarId, eventId: googleEventId } = decodeGoogleEventId(eventId);
+    if (calendarId !== decodeGoogleCalendarSourceId(sourceId)) throw new CalendarProviderError("validation", "Google-aftalen tilhører en anden kalender.");
+    await this.api.deleteEvent(calendarId, googleEventId);
+  }
   async restoreEvent(event: CalendarEvent): Promise<CalendarEvent> { void event; throw new CalendarProviderError("authorization", "Google Kalender er skrivebeskyttet."); }
+
+  private async assertWritableSource(sourceId: string): Promise<void> {
+    const sources = this.calendarSources.length > 0
+      ? this.calendarSources
+      : await this.getCalendars();
+    const source = sources.find((candidate) => candidate.id === sourceId);
+    if (!source) throw new CalendarProviderError("not-found", "Google-kalenderen findes ikke længere.");
+    if (source.isReadOnly) throw new CalendarProviderError("authorization", "Denne Google-kalender er skrivebeskyttet.");
+  }
+
+  private mapWrittenEvent(calendarId: string, event: import("./googleCalendarTypes").GoogleCalendarEvent): CalendarEvent {
+    const mapped = mapGoogleCalendarEvent(calendarId, event);
+    if (!mapped) throw new CalendarProviderError("unknown", "Google Kalender sendte en ugyldig aftale.");
+    return mapped;
+  }
 }

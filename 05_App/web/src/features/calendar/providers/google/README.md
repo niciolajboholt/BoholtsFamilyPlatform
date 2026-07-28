@@ -41,3 +41,15 @@ forbindelse. Det eneste scope er
   eller genforbindelse virker som angivet i UI'et.
 - Logout: Google-sources, -events og fejl fjernes; lokale data og
   visibility-storage bevares.
+## Sprint 12.1: Skriveadgang
+
+Google-forbindelsen anmoder nu om `calendar.events` til create, update og
+delete samt `calendar.calendarlist.readonly` for at indlæse kalenderlisten.
+Kun calendar-list entries med write-adgang (`owner` eller `writer`) bliver
+skrivbare i UI'et. Read-only-kalendere
+kan stadig ses og filtreres, men kan ikke vælges ved oprettelse.
+
+Write-kald bruger `sendUpdates=none`, sender ikke lokale `ownerIds` som
+attendees og gemmer fortsat aldrig tokenet. Update bruger PATCH med kun de
+felter, appen ejer, så ukendte Google-eventfelter ikke overskrives. Recurring
+Google-events er bevidst ikke skrivbare i denne sprint.

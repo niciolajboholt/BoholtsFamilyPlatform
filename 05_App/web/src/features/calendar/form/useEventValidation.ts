@@ -25,10 +25,11 @@ const validationFieldOrder: EventFormValidationField[] = [
 
 export function useEventValidation(
   form: EventFormState,
+  requireOwner = true,
 ): UseEventValidationResult {
   const validationErrors = useMemo(
-    () => validateEventForm(form),
-    [form],
+    () => validateEventForm(form, requireOwner),
+    [form, requireOwner],
   );
 
   const firstInvalidField =
