@@ -2,13 +2,13 @@
 
 > Status: Active
 
-Version: 1.6
+Version: 1.7
 
 Project:
 Boholts Family Platform
 
 Last Updated:
-2026-07-29 (Sprint 16-planlægning)
+2026-07-29 (ekstern audit-stabiliseringsmilepæl tilføjet)
 
 Owner:
 Nicolaj Bach Boholt
@@ -29,6 +29,47 @@ Dette dokument samler den planlagte udviklingsretning fra `Product/07_Product_Ro
 Fase 1 (Proof of Concept) er delvist gennemført: familieoverblik, kalendervisning, og opret/redigér/slet af aftaler findes. Google Calendar-integration er gennemført med både læse- og skriveadgang samt stille genoprettelse ved appstart (ud over hvad Fase 1 oprindeligt krævede). Sprint 13 tilføjede automatiseret test (Vitest) og formaliserede platformstrategien som ADR-10. Sprint 15 gjorde familiemedlemmer til dynamisk, redigerbar data (navn, relation, farve, tilføj/slet) i stedet for en fast liste. Se [05_Sprint_History](05_Sprint_History.md).
 
 Ikke inkluderet endnu, som forudsat i Release Plan: login, deling mellem brugere, push-notifikationer, widgets.
+
+---
+
+## Stabiliseringsmilepæl — ekstern audit (2026-07-29)
+
+**Status: I gang. Blokerer nye feature-sprints (inkl. resten af Sprint 16), indtil Fase 0 og 1 er gennemført.**
+
+En ekstern, uafhængig audit (Codex, revision 2, 2026-07-29) gennemgik `main`, `develop` (commit `9647722`) og den daværende lokale Sprint 16-arbejdstilstand. Samlet konklusion: **NO-GO** til release, med 17 konkrete fund (F-01 til F-17), hvoraf 5 vurderes kritiske/blokerende. Den fulde rapport samt en uafhængig vurdering og eksekveringsplan er udarbejdet uden for repoet sammen med Nicolaj; denne sektion er det autoritative uddrag i Knowledge Base, så begge AI-agenter arbejder fra samme grundlag.
+
+**Vigtigste fund**: forkert default branch/`main` uden webapp (F-01), Sprint 16 fejler lint/build pga. 3 ubrugte imports (F-02), kalenderen låser permanent i React Strict Mode-dev (F-03), PWA/offline er kun installeret, ikke konfigureret (F-04), Google-hentning bruger ugyldige RFC3339-år og er ineffektiv (F-05), ingen fælles "single source of truth" mellem lokale og Google-events (F-06), ingen CI (F-07), manglende release-/sikkerhedsgrundlag (F-08), kun single-device (F-09), samt en række mellem-fund (F-10 til F-17: mock-UI på dashboard, manglende localStorage-migration/backup, `reassignOwner` glemmer at omskrive `sourceId` ved medlemssletning, ufærdig recurrence, forældet dokumentation, manglende kravsporbarhed, delvis a11y/UX, encoding-fejl).
+
+**Koordinering mellem agenter**: Fase 0 og 1 udføres på to selvstændige branches forgrenet fra denne opdaterede `develop`, én pr. AI-agent, for at undgå at redigere de samme filer samtidig. Se Decision_Log for branch-tildeling. Hver opgave nedenfor committes enkeltvis og merges kun når `lint`/`build`/`test` er grønne.
+
+### Fase 0 — Stabilisering (mekaniske rettelser, ingen arkitekturbeslutning nødvendig)
+
+1. `index.html`: `lang="en"` → `lang="da"`, titel "web" → retvisende titel (F-16).
+2. Ret UTF-8-encodingfejl `indlÃ¦ses` → `indlæses` i `GoogleCalendarApi.ts` og `GoogleCalendarSession.ts` (F-17).
+3. Fjern eller færdiggør de 3 ubrugte imports i `CalendarPage.tsx` (`useRecurrenceExceptions`, `CalendarEventRange`, `expandRecurringEvents`), så `lint`/`build` er grønne igen (F-02).
+4. Gør `useCalendarSources.ts` og `useCalendarEvents.ts` idempotente under React Strict Mode — erstat det delte "in progress"-ref med `AbortController`/generation-id, så et nyt mount ikke blokeres af det forrige. Test i faktisk `npm run dev`, ikke kun preview (F-03).
+
+### Fase 1 — Repo- og CI-hygiejne
+
+1. Opret `.github/workflows/ci.yml`: `npm ci` → lint → build → test på push/PR (F-07).
+2. Ret `local:family`-select-state og den tilhørende MUI-advarsel (F-03, del 2).
+3. Ret `CalendarService.reassignOwner()` (ca. linje 560), så både `ownerIds` og `sourceId` omskrives atomisk ved medlemssletning. Tilføj regressionstest (F-12).
+4. Beslut branch-strategi: merge en valideret `develop` til `main` (anbefalet), eller skift default branch bevidst. Opdatér `README.md`/`PROJECT_STATUS.md` så de matcher den faktiske React-stack, ikke SwiftUI/SwiftData (F-01, F-14).
+
+### Fase 2 — Beslutningspunkter (afklares før videre kodning)
+
+- Datamodel: localStorage → IndexedDB, event-identitet, tombstones til slettede poster, konfliktpolitik (F-06, F-11).
+- Google-sync: gyldigt, begrænset tidsvindue plus `nextSyncToken`/inkrementel sync, fælles source-cache mellem hooks (F-05).
+- Dashboard/mock-UI: bind `HomePage.tsx` til rigtige data, eller fjern ikke-implementerede handlinger (Indkøbsliste, Opgaver, "Ny aftale") tydeligt (F-10).
+
+### Fase 3 — Milepæle (afhænger af Fase 2's beslutninger)
+
+- PWA: manifest, service worker, offline-scope defineret af datamodel-beslutningen (F-04).
+- Recurrence: begræns til understøttet delmængde, eller færdiggør `byWeekdays`/`byMonthDay`/`byMonth` i selve ekspansionen — hænger sammen med Sprint 16 ovenfor (F-13).
+- Komponent-/hook-tests i Strict Mode, 3-5 kritiske Playwright-flows, krav-ID'er og sporbarhedsmatrix (F-07 del 2, F-15).
+- Google-livetest med dedikeret testkonto samt fysisk iPhone/Safari/VoiceOver-test (kræver fysisk adgang, kan ikke gøres af en AI-agent alene).
+
+**Sporbarhed**: opret ét GitHub Issue pr. fund-ID (F-01 til F-17), så hver commit/PR kan referere `Fixes F-xx`.
 
 ---
 
