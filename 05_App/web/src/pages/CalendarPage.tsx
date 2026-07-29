@@ -184,12 +184,7 @@ function CalendarPage() {
     isConnected: isGoogleCalendarConnected,
     wasEverConnected: wasGoogleCalendarEverConnected,
     isAttemptingSilentReconnect: isAttemptingGoogleSilentReconnect,
-    connect: connectGoogleCalendar,
-    disconnect: disconnectGoogleCalendar,
   } = useGoogleCalendarConnection();
-
-  const [isConnectingGoogleCalendar, setIsConnectingGoogleCalendar] =
-    useState(false);
 
   const wasGoogleCalendarConnectedRef = useRef(isGoogleCalendarConnected);
 
@@ -245,32 +240,6 @@ function CalendarPage() {
       message,
       showUndo,
     });
-  }
-
-  async function handleConnectGoogleCalendar(): Promise<void> {
-    setIsConnectingGoogleCalendar(true);
-
-    try {
-      await connectGoogleCalendar();
-      await Promise.all([
-        refreshCalendarSources(),
-        refreshEvents(),
-      ]);
-      showSnackbar("success", "Google Kalender er forbundet.");
-    } catch {
-      showSnackbar("error", "Google Kalender kunne ikke forbindes.");
-    } finally {
-      setIsConnectingGoogleCalendar(false);
-    }
-  }
-
-  function handleDisconnectGoogleCalendar(): void {
-    disconnectGoogleCalendar();
-    void Promise.all([
-      refreshCalendarSources(),
-      refreshEvents(),
-    ]);
-    showSnackbar("success", "Google Kalender er afbrudt.");
   }
 
   function handleCloseSnackbar(
@@ -647,14 +616,9 @@ function CalendarPage() {
         isConnected={isGoogleCalendarConnected}
         wasEverConnected={wasGoogleCalendarEverConnected}
         isAttemptingSilentReconnect={isAttemptingGoogleSilentReconnect}
-        isBusy={isConnectingGoogleCalendar}
         health={providerHealth.find(
           (health) => health.providerId === "google",
         )}
-        onConnect={() => {
-          void handleConnectGoogleCalendar();
-        }}
-        onDisconnect={handleDisconnectGoogleCalendar}
         onRetry={() => {
           void refreshEvents();
           void refreshCalendarSources();

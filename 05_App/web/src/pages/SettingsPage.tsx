@@ -87,8 +87,8 @@ function SettingsPage() {
     try {
       await connectGoogleCalendar();
     } catch {
-      // Fejlen håndteres allerede med en tydelig statusbesked på
-      // Kalender-siden; her undlader vi blot at markere som forbundet.
+      // Fejlen undlader blot at markere som forbundet — Kalender-siden
+      // viser fortsat "ikke forbundet", som er tilstrækkelig feedback.
     } finally {
       setIsGoogleCalendarBusy(false);
     }

@@ -8,16 +8,13 @@ interface GoogleCalendarConnectionProps {
   isConnected: boolean;
   wasEverConnected: boolean;
   isAttemptingSilentReconnect: boolean;
-  isBusy: boolean;
   health?: CalendarProviderHealth;
-  onConnect: () => void;
-  onDisconnect: () => void;
   onRetry: () => void;
 }
 
 /**
- * Præsenterer kun forbindelsens status og handlinger. OAuth og Google API er
- * afgrænset til provider-laget.
+ * Viser kun forbindelsens status — selve forbind/afbryd-handlingen sker fra
+ * Indstillinger. OAuth og Google API er afgrænset til provider-laget.
  */
 export function GoogleCalendarConnection({
   isConfigured,
@@ -25,10 +22,7 @@ export function GoogleCalendarConnection({
   isConnected,
   wasEverConnected,
   isAttemptingSilentReconnect,
-  isBusy,
   health,
-  onConnect,
-  onDisconnect,
   onRetry,
 }: GoogleCalendarConnectionProps) {
   if (!isConfigured) {
@@ -50,22 +44,8 @@ export function GoogleCalendarConnection({
       : isAttemptingSilentReconnect
         ? "Genopretter forbindelsen til Google Kalender..."
         : wasEverConnected
-          ? "Google Kalender er ikke forbundet i denne session. Genopret forbindelsen for at se dine eksterne aftaler."
-          : "Forbind Google Kalender for at se dine eksterne aftaler.";
-
-  const isActionDisabled = isBusy || isAttemptingSilentReconnect;
-
-  const connectLabel = isAttemptingSilentReconnect
-    ? "Genopretter..."
-    : isBusy
-      ? isConnected
-        ? "Afbryder..."
-        : "Forbinder..."
-      : isConnected
-        ? "Afbryd"
-        : wasEverConnected
-          ? "Genforbind Google Kalender"
-          : "Forbind Google Kalender";
+          ? "Google Kalender er ikke forbundet i denne session. Genopret forbindelsen under Indstillinger."
+          : "Forbind Google Kalender under Indstillinger for at se dine eksterne aftaler.";
 
   return (
     <Alert
@@ -81,33 +61,21 @@ export function GoogleCalendarConnection({
         }}
       >
         <Typography variant="body2">
+          {isAttemptingSilentReconnect && (
+            <CircularProgress
+              size={12}
+              color="inherit"
+              sx={{ mr: 1, verticalAlign: "middle" }}
+            />
+          )}
           {message}
         </Typography>
-        <Stack direction="row" spacing={1}>
-          {hasReadError && health?.canRetry && (
-            <Button
-              size="small"
-              variant="outlined"
-              disabled={isActionDisabled}
-              onClick={onRetry}
-            >
-              Prøv igen
-            </Button>
-          )}
-          <Button
-            size="small"
-            variant="outlined"
-            disabled={isActionDisabled}
-            startIcon={
-              isBusy || isAttemptingSilentReconnect ? (
-                <CircularProgress size={14} color="inherit" />
-              ) : undefined
-            }
-            onClick={isConnected ? onDisconnect : onConnect}
-          >
-            {connectLabel}
+
+        {hasReadError && health?.canRetry && (
+          <Button size="small" variant="outlined" onClick={onRetry}>
+            Prøv igen
           </Button>
-        </Stack>
+        )}
       </Stack>
     </Alert>
   );
