@@ -8,13 +8,12 @@ import {
   Typography,
 } from "@mui/material";
 
-import { calendarOwners } from "../data/calendarOwners";
-import { getCalendarSourceColor } from "../utils/getCalendarSourceColor";
+import type { CalendarOwner } from "../data/calendarOwners";
+import { getEventOwnerColor } from "../utils/getEventOwnerColor";
 import type {
   CalendarEvent,
   CalendarOwnerId,
 } from "../models/calendarEvent";
-import type { CalendarSource } from "../models/calendarProvider";
 import { getEventsForDate } from "../utils/getEventsForDate";
 import { getWeekDays } from "../utils/getWeekDays";
 import {
@@ -25,7 +24,7 @@ import {
 interface WeekCalendarProps {
   selectedDate: Date;
   events: CalendarEvent[];
-  calendarSources: readonly CalendarSource[];
+  members: readonly CalendarOwner[];
   selectedOwnerId?: CalendarOwnerId | "all";
   onSelectDate: (date: Date) => void;
   onSelectEvent: (event: CalendarEvent) => void;
@@ -81,20 +80,17 @@ function sortTimedEvents(
 interface EventCardProps {
   event: CalendarEvent;
   showTime: boolean;
-  calendarSources: readonly CalendarSource[];
+  members: readonly CalendarOwner[];
   onSelectEvent: (event: CalendarEvent) => void;
 }
 
 function EventCard({
   event,
   showTime,
-  calendarSources,
+  members,
   onSelectEvent,
 }: EventCardProps) {
-  const ownerColor = getCalendarSourceColor(
-    event.sourceId,
-    calendarSources,
-  );
+  const ownerColor = getEventOwnerColor(event, members);
 
   return (
     <ButtonBase
@@ -151,8 +147,9 @@ function EventCard({
         }}
       >
         {event.ownerIds.map((ownerId) => {
-          const owner =
-            calendarOwners[ownerId];
+          const owner = members.find(
+            (candidate) => candidate.id === ownerId,
+          );
 
           if (!owner) {
             return null;
@@ -165,7 +162,7 @@ function EventCard({
               size="small"
               sx={{
                 height: 20,
-                backgroundColor: getCalendarSourceColor(ownerId),
+                backgroundColor: owner.color,
                 color: "#ffffff",
 
                 "& .MuiChip-label": {
@@ -184,7 +181,7 @@ function EventCard({
 function WeekCalendar({
   selectedDate,
   events,
-  calendarSources,
+  members,
   selectedOwnerId = "all",
   onSelectDate,
   onSelectEvent,
@@ -360,7 +357,7 @@ function WeekCalendar({
                             key={event.id}
                             event={event}
                             showTime={false}
-                            calendarSources={calendarSources}
+                            members={members}
                             onSelectEvent={
                               onSelectEvent
                             }
@@ -423,7 +420,7 @@ function WeekCalendar({
                             key={event.id}
                             event={event}
                             showTime
-                            calendarSources={calendarSources}
+                            members={members}
                             onSelectEvent={
                               onSelectEvent
                             }

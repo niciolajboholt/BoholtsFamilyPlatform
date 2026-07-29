@@ -7,15 +7,16 @@ import {
   Typography,
 } from "@mui/material";
 
-import { calendarOwners } from "../data/calendarOwners";
-import { getCalendarSourceColor } from "../utils/getCalendarSourceColor";
+import type { CalendarOwner } from "../data/calendarOwners";
+import { getEventOwnerColor } from "../utils/getEventOwnerColor";
 import type { CalendarEvent } from "../models/calendarEvent";
-import type { CalendarSource } from "../models/calendarProvider";
+
+const unknownOwnerColor = "#607d8b";
 
 interface EventListProps {
   selectedDate: Date;
   events: CalendarEvent[];
-  calendarSources: readonly CalendarSource[];
+  members: readonly CalendarOwner[];
   onSelectEvent: (event: CalendarEvent) => void;
 }
 
@@ -45,7 +46,7 @@ function formatTime(
 function EventList({
   selectedDate,
   events,
-  calendarSources,
+  members,
   onSelectEvent,
 }: EventListProps) {
   return (
@@ -103,7 +104,7 @@ function EventList({
             <EventCard
               key={event.id}
               event={event}
-              calendarSources={calendarSources}
+              members={members}
               onSelectEvent={onSelectEvent}
             />
           ))}
@@ -115,19 +116,16 @@ function EventList({
 
 interface EventCardProps {
   event: CalendarEvent;
-  calendarSources: readonly CalendarSource[];
+  members: readonly CalendarOwner[];
   onSelectEvent: (event: CalendarEvent) => void;
 }
 
 function EventCard({
   event,
-  calendarSources,
+  members,
   onSelectEvent,
 }: EventCardProps) {
-  const sourceColor = getCalendarSourceColor(
-    event.sourceId,
-    calendarSources,
-  );
+  const sourceColor = getEventOwnerColor(event, members);
 
   return (
     <Card
@@ -210,15 +208,17 @@ function EventCard({
               }}
             >
               {event.ownerIds.map((ownerId) => {
-                const owner = calendarOwners[ownerId];
+                const owner = members.find(
+                  (candidate) => candidate.id === ownerId,
+                );
 
                 return (
                   <Chip
-                    key={owner.id}
-                    label={owner.name}
+                    key={ownerId}
+                    label={owner?.name ?? ownerId}
                     size="small"
                     sx={{
-                      backgroundColor: getCalendarSourceColor(ownerId),
+                      backgroundColor: owner?.color ?? unknownOwnerColor,
                       color: "#ffffff",
                       fontWeight: 600,
 

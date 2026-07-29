@@ -27,6 +27,7 @@ import NewEventDialog from "../features/calendar/components/NewEventDialog";
 import WeekCalendar from "../features/calendar/components/WeekCalendar";
 import { useCalendarEvents } from "../features/calendar/hooks/useCalendarEvents";
 import { useCalendarSources } from "../features/calendar/hooks/useCalendarSources";
+import { useFamilyMembers } from "../features/calendar/hooks/useFamilyMembers";
 import { useGoogleCalendarConnection } from "../features/calendar/hooks/useGoogleCalendarConnection";
 import type {
   CalendarEvent,
@@ -174,6 +175,8 @@ function CalendarPage() {
     showAll: showAllCalendarSources,
     refresh: refreshCalendarSources,
   } = useCalendarSources();
+
+  const { members } = useFamilyMembers();
 
   const {
     isConfigured: isGoogleCalendarConfigured,
@@ -782,7 +785,7 @@ function CalendarPage() {
             selectedDate
           }
           events={visibleEvents}
-          calendarSources={calendarSources}
+          members={members}
           onSelectDate={
             handleSelectDate
           }
@@ -796,7 +799,7 @@ function CalendarPage() {
             selectedDate
           }
           events={visibleEvents}
-          calendarSources={calendarSources}
+          members={members}
           onSelectDate={
             handleSelectDate
           }
@@ -813,7 +816,7 @@ function CalendarPage() {
         events={
           eventsForSelectedDate
         }
-        calendarSources={calendarSources}
+        members={members}
         onSelectEvent={
           handleSelectEvent
         }
@@ -826,6 +829,7 @@ function CalendarPage() {
         initialDate={selectedDate}
         events={events}
         calendarSources={calendarSources}
+        members={members}
         isSaving={isSaving}
         onClose={() =>
           setIsNewEventDialogOpen(false)
@@ -838,6 +842,7 @@ function CalendarPage() {
         event={selectedEvent}
         events={events}
         calendarSources={calendarSources}
+        members={members}
         isSaving={isSaving}
         onClose={handleCloseEditDialog}
         onUpdate={handleUpdateEvent}

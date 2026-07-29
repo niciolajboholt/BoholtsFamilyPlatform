@@ -1,9 +1,9 @@
-export type CalendarOwnerId =
-  | "nicolaj"
-  | "christine"
-  | "alfred"
-  | "jens"
-  | "family";
+// Family members are dynamic, user-managed data (see useFamilyMembers /
+// familyMembersStorage) — not a fixed set known at compile time. "family"
+// remains a reserved id for the shared/whole-family pseudo-member.
+export type CalendarOwnerId = string;
+
+export const familyPseudoMemberId: CalendarOwnerId = "family";
 
 export type CalendarEventSource =
   | "internal"

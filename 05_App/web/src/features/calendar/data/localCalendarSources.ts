@@ -1,17 +1,5 @@
-import { calendarOwners } from "./calendarOwners";
+import { getFamilyMembers } from "../preferences/familyMembersStorage";
 import type { CalendarSource } from "../models/calendarProvider";
-
-const ownerCalendarSources: CalendarSource[] = Object.values(
-  calendarOwners,
-).map((owner) => ({
-  id: `local:${owner.id}`,
-  name: owner.name,
-  providerType: "local",
-  color: owner.color,
-  isVisible: true,
-  isReadOnly: false,
-  ownerId: owner.id,
-}));
 
 /**
  * Den historiske demoaftale med `source: "google"` bevares som en skrivebeskyttet
@@ -28,7 +16,21 @@ const legacyGoogleDemoSource: CalendarSource = {
   externalReference: "demo",
 };
 
-export const localCalendarSources: CalendarSource[] = [
-  ...ownerCalendarSources,
-  legacyGoogleDemoSource,
-];
+// Computed per call, not once at module load — family members are now
+// dynamic (Sprint 15), so a newly added/removed member must be reflected
+// immediately without a full page reload.
+export function getLocalCalendarSources(): CalendarSource[] {
+  const ownerCalendarSources: CalendarSource[] = getFamilyMembers().map(
+    (owner) => ({
+      id: `local:${owner.id}`,
+      name: owner.name,
+      providerType: "local",
+      color: owner.color,
+      isVisible: true,
+      isReadOnly: false,
+      ownerId: owner.id,
+    }),
+  );
+
+  return [...ownerCalendarSources, legacyGoogleDemoSource];
+}

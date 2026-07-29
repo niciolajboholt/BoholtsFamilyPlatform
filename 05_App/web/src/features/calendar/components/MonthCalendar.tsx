@@ -5,11 +5,11 @@ import {
   Typography,
 } from "@mui/material";
 
+import type { CalendarOwner } from "../data/calendarOwners";
 import type {
   CalendarEvent,
   CalendarOwnerId,
 } from "../models/calendarEvent";
-import type { CalendarSource } from "../models/calendarProvider";
 import {
   getCalendarMonth,
   type CalendarMonthDay,
@@ -21,7 +21,7 @@ interface MonthCalendarProps {
   visibleMonth: Date;
   selectedDate: Date;
   events: CalendarEvent[];
-  calendarSources: readonly CalendarSource[];
+  members: readonly CalendarOwner[];
   selectedOwnerId?: CalendarOwnerId | "all";
   onSelectDate: (date: Date) => void;
   onSelectEvent: (event: CalendarEvent) => void;
@@ -65,7 +65,7 @@ function MonthCalendar({
   visibleMonth,
   selectedDate,
   events,
-  calendarSources,
+  members,
   selectedOwnerId = "all",
   onSelectDate,
   onSelectEvent,
@@ -146,7 +146,7 @@ function MonthCalendar({
                   key={date.toISOString()}
                   date={date}
                   events={dateEvents}
-                  calendarSources={calendarSources}
+                  members={members}
                   isCurrentMonth={
                     isCurrentMonth
                   }

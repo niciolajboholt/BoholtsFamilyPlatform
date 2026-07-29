@@ -41,12 +41,14 @@ import type {
 } from "../models/calendarEvent";
 import type { CalendarSource } from "../models/calendarProvider";
 import type { CreateCalendarEventInput } from "../models/calendarEventInput";
+import type { CalendarOwner } from "../data/calendarOwners";
 
 interface NewEventDialogProps {
   open: boolean;
   initialDate: Date;
   events: CalendarEvent[];
   calendarSources: readonly CalendarSource[];
+  members: readonly CalendarOwner[];
   isSaving: boolean;
   onClose: () => void;
   onCreate: (
@@ -91,6 +93,7 @@ function NewEventDialog({
   initialDate,
   events,
   calendarSources,
+  members,
   isSaving,
   onClose,
   onCreate,
@@ -425,6 +428,7 @@ function NewEventDialog({
           {selectedSource?.providerType !== "google" && (
             <EventParticipantsSection
               ownerIds={form.ownerIds}
+              members={members}
               disabled={isSaving}
               onToggleOwner={(ownerId) => {
                 toggleParticipant(ownerId);

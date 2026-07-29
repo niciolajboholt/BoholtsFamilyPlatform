@@ -7,19 +7,12 @@ import type {
   RecurrenceRule,
 } from "../models/calendarEvent";
 import type { CreateCalendarEventInput } from "../models/calendarEventInput";
+import { getFamilyMemberIds } from "../preferences/familyMembersStorage";
 
 export type { CreateCalendarEventInput } from "../models/calendarEventInput";
 
 const STORAGE_KEY =
   "boholts-family-calendar-events";
-
-const calendarOwnerIds: CalendarOwnerId[] = [
-  "nicolaj",
-  "christine",
-  "alfred",
-  "jens",
-  "family",
-];
 
 const recurrenceFrequencies: RecurrenceFrequency[] =
   [
@@ -69,9 +62,7 @@ function isCalendarOwnerId(
 ): value is CalendarOwnerId {
   return (
     typeof value === "string" &&
-    calendarOwnerIds.includes(
-      value as CalendarOwnerId,
-    )
+    getFamilyMemberIds().includes(value)
   );
 }
 
@@ -558,5 +549,33 @@ export class CalendarService {
     ]);
 
     return Promise.resolve(event);
+  }
+
+  /**
+   * Bruges når et familiemedlem slettes (Sprint 15): flytter alle deres
+   * lokalt gemte aftaler til et andet medlem (typisk "family") i stedet for
+   * at lade dem pege på et medlem, der ikke længere findes. Demo-aftalerne
+   * i calendarEvents.ts er statiske og ikke omfattet.
+   */
+  static async reassignOwner(
+    fromOwnerId: string,
+    toOwnerId: string,
+  ): Promise<void> {
+    const storedEvents = readStoredEvents();
+
+    const updatedEvents = storedEvents.map((event) =>
+      event.ownerIds.includes(fromOwnerId)
+        ? {
+            ...event,
+            ownerIds: event.ownerIds.map((ownerId) =>
+              ownerId === fromOwnerId ? toOwnerId : ownerId,
+            ),
+          }
+        : event,
+    );
+
+    saveStoredEvents(updatedEvents);
+
+    return Promise.resolve();
   }
 }

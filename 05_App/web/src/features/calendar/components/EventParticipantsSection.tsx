@@ -6,11 +6,12 @@ import {
   Typography,
 } from "@mui/material";
 
-import { calendarOwners } from "../data/calendarOwners";
+import type { CalendarOwner } from "../data/calendarOwners";
 import type { CalendarOwnerId } from "../models/calendarEvent";
 
 interface EventParticipantsSectionProps {
   ownerIds: CalendarOwnerId[];
+  members: readonly CalendarOwner[];
   disabled: boolean;
   onToggleOwner: (ownerId: CalendarOwnerId) => void;
   title: string;
@@ -20,6 +21,7 @@ interface EventParticipantsSectionProps {
 
 export function EventParticipantsSection({
   ownerIds,
+  members,
   disabled,
   onToggleOwner,
   title,
@@ -45,7 +47,7 @@ export function EventParticipantsSection({
             gap: 1,
           }}
         >
-          {Object.values(calendarOwners).map(
+          {members.map(
             (owner) => {
               const isSelected = ownerIds.includes(owner.id);
 
@@ -75,7 +77,7 @@ export function EventParticipantsSection({
           )}
         </Box>
       ) : (
-        Object.values(calendarOwners).map((owner) => (
+        members.map((owner) => (
           <FormControlLabel
             key={owner.id}
             control={

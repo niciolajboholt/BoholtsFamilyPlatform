@@ -41,12 +41,14 @@ import type {
   CalendarEvent,
 } from "../models/calendarEvent";
 import type { CalendarSource } from "../models/calendarProvider";
+import type { CalendarOwner } from "../data/calendarOwners";
 
 interface EditEventDialogProps {
   open: boolean;
   event: CalendarEvent | null;
   events: CalendarEvent[];
   calendarSources: readonly CalendarSource[];
+  members: readonly CalendarOwner[];
   isSaving: boolean;
   onClose: () => void;
   onUpdate: (
@@ -136,6 +138,7 @@ function EditEventDialog({
   event,
   events,
   calendarSources,
+  members,
   isSaving,
   onClose,
   onUpdate,
@@ -525,6 +528,7 @@ function EditEventDialog({
           {eventSource?.providerType !== "google" && (
             <EventParticipantsSection
               ownerIds={formState.ownerIds}
+              members={members}
               disabled={!isInternalEvent || isSaving}
               onToggleOwner={(ownerId) => {
                 toggleParticipant(ownerId);

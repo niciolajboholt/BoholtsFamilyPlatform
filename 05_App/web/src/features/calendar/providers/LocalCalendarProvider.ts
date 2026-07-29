@@ -1,4 +1,4 @@
-import { localCalendarSources } from "../data/localCalendarSources";
+import { getLocalCalendarSources } from "../data/localCalendarSources";
 import type { CalendarEvent } from "../models/calendarEvent";
 import type { CreateCalendarEventInput } from "../models/calendarEventInput";
 import type {
@@ -31,7 +31,7 @@ export class LocalCalendarProvider
   implements CalendarProvider
 {
   async getCalendars(): Promise<CalendarSource[]> {
-    return localCalendarSources;
+    return getLocalCalendarSources();
   }
 
   async getEvents(

@@ -1,5 +1,6 @@
 import { useState } from "react";
 
+import AddIcon from "@mui/icons-material/Add";
 import {
   CalendarMonthRounded,
   ChevronRightRounded,
@@ -13,6 +14,7 @@ import {
 import {
   Avatar,
   Box,
+  Button,
   Card,
   CardContent,
   CircularProgress,
@@ -22,36 +24,48 @@ import {
   Typography,
 } from "@mui/material";
 
+import { FamilyMemberDialog } from "../features/calendar/components/FamilyMemberDialog";
+import type { CalendarOwner } from "../features/calendar/data/calendarOwners";
+import { useFamilyMembers } from "../features/calendar/hooks/useFamilyMembers";
 import { useGoogleCalendarConnection } from "../features/calendar/hooks/useGoogleCalendarConnection";
 
-const familyMembers = [
-  {
-    name: "Nicolaj",
-    role: "Forælder",
-    initials: "N",
-    color: "#2E7D32",
-  },
-  {
-    name: "Christine",
-    role: "Forælder",
-    initials: "C",
-    color: "#C06C84",
-  },
-  {
-    name: "Alfred",
-    role: "Barn",
-    initials: "A",
-    color: "#D99832",
-  },
-  {
-    name: "Jens",
-    role: "Barn",
-    initials: "J",
-    color: "#4D7EA8",
-  },
-];
+function getInitials(name: string): string {
+  return name.trim().slice(0, 1).toUpperCase() || "?";
+}
 
 function SettingsPage() {
+  const {
+    members,
+    addMember,
+    updateMember,
+    deleteMember,
+  } = useFamilyMembers();
+
+  const [editingMember, setEditingMember] = useState<CalendarOwner | null>(
+    null,
+  );
+  const [isMemberDialogOpen, setIsMemberDialogOpen] = useState(false);
+
+  function handleOpenAddMember() {
+    setEditingMember(null);
+    setIsMemberDialogOpen(true);
+  }
+
+  function handleOpenEditMember(member: CalendarOwner) {
+    setEditingMember(member);
+    setIsMemberDialogOpen(true);
+  }
+
+  function handleSaveMember(
+    input: Parameters<typeof addMember>[0],
+  ) {
+    if (editingMember) {
+      updateMember(editingMember.id, input);
+    } else {
+      addMember(input);
+    }
+  }
+
   const {
     isConfigured: isGoogleCalendarConfigured,
     isConnected: isGoogleCalendarConnected,
@@ -107,26 +121,37 @@ function SettingsPage() {
               sx={{
                 display: "flex",
                 alignItems: "center",
+                justifyContent: "space-between",
                 gap: 1.5,
                 mb: 2.5,
               }}
             >
-              <Avatar sx={{ bgcolor: "primary.main" }}>
-                <FamilyRestroomRounded />
-              </Avatar>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+                <Avatar sx={{ bgcolor: "primary.main" }}>
+                  <FamilyRestroomRounded />
+                </Avatar>
 
-              <Box>
-                <Typography variant="h6">Familien</Typography>
+                <Box>
+                  <Typography variant="h6">Familien</Typography>
 
-                <Typography variant="body2" color="text.secondary">
-                  Administrer familiens profiler
-                </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Administrer familiens profiler
+                  </Typography>
+                </Box>
               </Box>
+
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={handleOpenAddMember}
+              >
+                Tilføj familiemedlem
+              </Button>
             </Box>
 
             <Box sx={{ display: "grid", gap: 0 }}>
-              {familyMembers.map((member, index) => (
-                <Box key={member.name}>
+              {members.map((member, index) => (
+                <Box key={member.id}>
                   <Box
                     sx={{
                       display: "flex",
@@ -143,7 +168,7 @@ function SettingsPage() {
                         fontWeight: 700,
                       }}
                     >
-                      {member.initials}
+                      {getInitials(member.name)}
                     </Avatar>
 
                     <Box sx={{ flexGrow: 1 }}>
@@ -152,21 +177,32 @@ function SettingsPage() {
                       </Typography>
 
                       <Typography variant="body2" color="text.secondary">
-                        {member.role}
+                        {member.relation ?? "Delt profil"}
                       </Typography>
                     </Box>
 
-                    <IconButton aria-label={`Rediger ${member.name}`}>
+                    <IconButton
+                      aria-label={`Rediger ${member.name}`}
+                      onClick={() => handleOpenEditMember(member)}
+                    >
                       <ChevronRightRounded />
                     </IconButton>
                   </Box>
 
-                  {index < familyMembers.length - 1 && <Divider />}
+                  {index < members.length - 1 && <Divider />}
                 </Box>
               ))}
             </Box>
           </CardContent>
         </Card>
+
+        <FamilyMemberDialog
+          open={isMemberDialogOpen}
+          member={editingMember}
+          onClose={() => setIsMemberDialogOpen(false)}
+          onSave={handleSaveMember}
+          onDelete={deleteMember}
+        />
 
         <Card>
           <CardContent sx={{ p: 3 }}>
