@@ -2,13 +2,13 @@
 
 > Status: Active
 
-Version: 1.4
+Version: 1.5
 
 Project:
 Boholts Family Platform
 
 Last Updated:
-2026-07-28 (Sprint 14 afsluttet)
+2026-07-28 (Sprint 15-planlægning)
 
 Owner:
 Nicolaj Bach Boholt
@@ -32,9 +32,29 @@ Ikke inkluderet endnu, som forudsat i Release Plan: login, deling mellem brugere
 
 ---
 
+## Sprint 15 — Planlagt: Personlige farver pr. familiemedlem
+
+**Status: Planned.**
+
+**Baggrund**: En fuld farve-model pr. familiemedlem findes allerede i `calendarOwners.ts` (Nicolaj, Christine, Alfred, Jens, samt en delt "family"-farve), men bruges inkonsekvent:
+
+- **Bug fundet**: `EventList.tsx` og `WeekCalendar.tsx` slår farve op via `getCalendarSourceColor(ownerId)` — en funktion beregnet til kalender*kilder* (local/google), ikke personer. Opslaget rammer aldrig rigtigt, så alle ejer-chips falder tilbage til standard-grå. `DayCell.tsx` og `EventParticipantsSection.tsx` gør det allerede korrekt (læser `calendarOwners[ownerId].color` direkte).
+- **Duplikeret data**: `SettingsPage.tsx` har sit eget hardcodede `familyMembers`-array med de samme farver kopieret ind manuelt, i stedet for at læse fra `calendarOwners.ts`. Risiko for at de driver fra hinanden, hvis én rettes uden den anden.
+- **Event-kort/bjælker** farves i dag efter kalender*kilde* (lokal vs. Google), ikke efter person — så selv efter bug-rettelsen vil selve begivenhedens farve stadig ikke afspejle, hvem den tilhører.
+
+**Sprintindhold**:
+1. Ret farveopslaget i `EventList.tsx` og `WeekCalendar.tsx` til at bruge `calendarOwners[ownerId].color` (samme mønster som `DayCell.tsx`).
+2. Fjern det duplikerede `familyMembers`-array i `SettingsPage.tsx`; læs fra `calendarOwners.ts` i stedet, så der er ét sted at vedligeholde farverne.
+3. Udvid event-kort/bjælker (`EventList`, `WeekCalendar`, `DayCell`) til at bruge ejerens farve, ikke kun kildens: én ejer → personens farve; "family" eller flere ejere → den delte family-farve (`#6D597A`), som allerede findes præcis til dette formål.
+4. Ingen ny farve-vælger-UI denne sprint — fast palette, som i dag. Brugerdefinerede farver er et separat, senere scope, hvis det ønskes.
+
+**Kritiske filer**: `calendarOwners.ts` (uændret, allerede korrekt), `EventList.tsx`, `WeekCalendar.tsx`, `DayCell.tsx`, `SettingsPage.tsx`.
+
+---
+
 ## Fase 2 — MVP
 
-- Personlige farver pr. familiemedlem.
+- ~~Personlige farver pr. familiemedlem~~ — se Sprint 15 ovenfor.
 - Familie-tidslinje.
 - Konfliktvisning.
 - Notifikationer.
