@@ -111,7 +111,7 @@ function loadGoogleIdentityServices(): Promise<void> {
     script.onload = () => resolve();
     script.onerror = () => reject(new CalendarProviderError(
       "network",
-      "Google Kalender kunne ikke indlÃ¦ses.",
+      "Google Kalender kunne ikke indlæses.",
     ));
     document.head.append(script);
   });

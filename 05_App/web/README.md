@@ -1,75 +1,53 @@
-# React + TypeScript + Vite
+# Boholts Familieapp – web
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Den aktive klient til Boholts Family Platform. Appen er bygget med React,
+TypeScript, Vite og Material UI og er optimeret til mobil brug.
 
-Currently, two official plugins are available:
+## Kom i gang
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+Brug Node.js `24.15.0` eller nyere i Node 24-serien.
 
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
+```bash
+npm ci
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Vite viser derefter den lokale adresse i terminalen.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Kommandoer
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
+```bash
+npm run dev      # lokal udviklingsserver
+npm run lint     # ESLint
+npm run build    # TypeScript-kontrol og produktionsbuild
+npm test         # Vitest
+npm run preview  # lokal visning af produktionsbuild
 ```
+
+## Google Calendar-konfiguration
+
+Opret `.env.local` ud fra `.env.example`:
+
+```dotenv
+VITE_GOOGLE_CALENDAR_ENABLED=true
+VITE_GOOGLE_CLIENT_ID=your-google-web-client-id.apps.googleusercontent.com
+```
+
+`.env.local` må ikke committes. Google-tokenet opbevares kun i hukommelsen og
+forsvinder, når browsersessionen afsluttes.
+
+## Centrale kodeområder
+
+- `src/pages` – appens sider.
+- `src/features/calendar` – modeller, hooks, providers, services og UI.
+- `src/features/calendar/providers/google` – Google Calendar-adapteren.
+- `src/features/calendar/preferences` – lokale brugerindstillinger.
+- `src/test` – fælles testopsætning.
+
+## Kendte afgrænsninger
+
+- PWA-afhængigheden er installeret, men offline-cache og installérbarhed er ikke
+  færdigkonfigureret.
+- Lokale data er fortsat browser- og enhedsafhængige.
+- Gentagne aftaler er ikke færdigimplementeret.
+- Google-sessionen bruger ikke backend eller refresh-token.
