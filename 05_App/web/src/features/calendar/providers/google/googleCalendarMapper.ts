@@ -39,7 +39,7 @@ export function mapGoogleCalendarSource(entry: GoogleCalendarListEntry): Calenda
 }
 
 export function mapGoogleCalendarEvent(calendarId: string, event: GoogleCalendarEvent): CalendarEvent | null {
-  if (!event.id || event.status === "cancelled" || event.recurringEventId) return null;
+  if (!event.id || event.status === "cancelled") return null;
   const allDay = Boolean(event.start?.date && !event.start?.dateTime);
   const start = allDay
     ? toLocalMidnightIso(event.start?.date)
@@ -48,7 +48,11 @@ export function mapGoogleCalendarEvent(calendarId: string, event: GoogleCalendar
     ? toLocalMidnightIso(event.end?.date)
     : event.end?.dateTime;
   if (!start || !end) return null;
-  return { id: encodeGoogleEventId(calendarId, event.id), source: "google", sourceId: encodeGoogleCalendarSourceId(calendarId), title: event.summary || "Google-aftale", start, end, allDay, ownerIds: [], description: event.description, location: event.location };
+  // event.recurringEventId er sat på hver enkelt forekomst af en Google-
+  // gentagelse (Google udfolder selv serien pga. singleEvents: "true" i
+  // GoogleCalendarApi.listEvents) — mappes til recurrenceMasterId, samme
+  // felt som lokale udfoldede forekomster bruger (expandRecurringEvents).
+  return { id: encodeGoogleEventId(calendarId, event.id), source: "google", sourceId: encodeGoogleCalendarSourceId(calendarId), title: event.summary || "Google-aftale", start, end, allDay, ownerIds: [], description: event.description, location: event.location, recurrenceMasterId: event.recurringEventId };
 }
 
 export function toLocalMidnightIso(dateOnly: string | undefined): string | undefined {

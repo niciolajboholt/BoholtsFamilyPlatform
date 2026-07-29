@@ -21,6 +21,7 @@ import { ConfirmDiscardDialog } from "./ConfirmDiscardDialog";
 import { EventConflictAlert } from "./EventConflictAlert";
 import { EventDateTimeSection } from "./EventDateTimeSection";
 import { EventParticipantsSection } from "./EventParticipantsSection";
+import { EventRecurrenceSection } from "./EventRecurrenceSection";
 import {
   createAllDayDate,
   createDateTime,
@@ -36,6 +37,12 @@ import { useEventValidationFeedback } from "../form/useEventValidationFeedback";
 import {
   type EventFormValidationMessages,
 } from "../form/eventFormValidation";
+import {
+  defaultRecurrenceFormValue,
+  getRecurrenceFormValidationError,
+  recurrenceFormValueToRule,
+  type RecurrenceFormValue,
+} from "../form/recurrenceFormValue";
 import type {
   CalendarEvent,
 } from "../models/calendarEvent";
@@ -123,6 +130,11 @@ function NewEventDialog({
   const [sourceId, setSourceId] = useState("local:family");
   const selectedSource = calendarSources.find((source) => source.id === sourceId);
 
+  const [recurrence, setRecurrence] = useState<RecurrenceFormValue>(
+    defaultRecurrenceFormValue,
+  );
+  const recurrenceError = getRecurrenceFormValidationError(recurrence);
+
   const [
     isDiscardConfirmationVisible,
     setIsDiscardConfirmationVisible,
@@ -165,6 +177,7 @@ function NewEventDialog({
     setSubmitError(null);
     setIsDiscardConfirmationVisible(false);
     resetValidationFeedback();
+    setRecurrence(defaultRecurrenceFormValue);
   }
 
   if (
@@ -253,6 +266,22 @@ function NewEventDialog({
       return;
     }
 
+    if (selectedSource?.providerType !== "google" && recurrenceError) {
+      setSubmitError(recurrenceError);
+
+      return;
+    }
+
+    const start = form.allDay
+      ? createAllDayDate(
+          form.startDate,
+          false,
+        )
+      : createDateTime(
+          form.startDate,
+          form.startTime,
+        );
+
     const input: CreateCalendarEventInput =
       {
         title:
@@ -264,15 +293,7 @@ function NewEventDialog({
         ownerIds: selectedSource?.providerType === "google" ? [] : [...form.ownerIds],
         sourceId,
 
-        start: form.allDay
-          ? createAllDayDate(
-              form.startDate,
-              false,
-            )
-          : createDateTime(
-              form.startDate,
-              form.startTime,
-            ),
+        start,
 
         end: form.allDay
           ? createAllDayDate(
@@ -291,6 +312,11 @@ function NewEventDialog({
         location:
           form.location.trim() ||
           undefined,
+
+        recurrence:
+          selectedSource?.providerType === "google"
+            ? undefined
+            : recurrenceFormValueToRule(recurrence, start),
       };
 
     try {
@@ -424,6 +450,16 @@ function NewEventDialog({
             allDayLabel="Hele dagen"
             dateFieldsFullWidth
           />
+
+          {selectedSource?.providerType !== "google" && (
+            <EventRecurrenceSection
+              value={recurrence}
+              eventStartDate={form.startDate}
+              disabled={isSaving}
+              errorMessage={recurrenceError}
+              onChange={setRecurrence}
+            />
+          )}
 
           {selectedSource?.providerType !== "google" && (
             <EventParticipantsSection

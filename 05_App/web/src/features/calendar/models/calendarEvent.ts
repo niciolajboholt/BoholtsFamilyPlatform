@@ -31,6 +31,39 @@ export type RecurrenceEndType =
   | "until"
   | "count";
 
+/**
+ * Kun relevant for `frequency: "monthly"`.
+ *
+ * dayOfMonth = samme datotal hver måned (fx "den 15."), styret af byMonthDay
+ * dayOfWeek  = en bestemt ugedag i en bestemt position, styret af
+ *              byOrdinalWeekday (fx "den 3. mandag" eller "sidste fredag")
+ */
+export type RecurrenceMonthlyPattern =
+  | "dayOfMonth"
+  | "dayOfWeek";
+
+/**
+ * Position for en ugedag inden for måneden.
+ *
+ * 1-4 = første til fjerde forekomst
+ * -1  = sidste forekomst
+ */
+export type WeekdayOrdinal =
+  | 1
+  | 2
+  | 3
+  | 4
+  | -1;
+
+export interface OrdinalWeekday {
+  /**
+   * Én eller flere positioner for samme ugedag — fx `[1, -1]` for "første og
+   * sidste fredag i måneden". De fleste mønstre bruger kun én position.
+   */
+  ordinals: WeekdayOrdinal[];
+  weekday: CalendarWeekday;
+}
+
 export interface RecurrenceRule {
   /**
    * Hvor ofte aftalen gentages.
@@ -90,7 +123,20 @@ export interface RecurrenceRule {
   byWeekdays?: CalendarWeekday[];
 
   /**
-   * Månedsdag for månedlige gentagelser.
+   * Styrer, hvilket månedligt mønster der bruges — kun relevant, når
+   * frequency er "monthly". Udelades/"dayOfMonth" betyder byMonthDay.
+   */
+  monthlyPattern?: RecurrenceMonthlyPattern;
+
+  /**
+   * Ugedag-i-position for månedlig gentagelse, når monthlyPattern er
+   * "dayOfWeek" (fx "den 3. mandag" eller "sidste fredag").
+   */
+  byOrdinalWeekday?: OrdinalWeekday;
+
+  /**
+   * Månedsdag for månedlige gentagelser, når monthlyPattern er "dayOfMonth"
+   * (eller udeladt).
    *
    * Eksempel:
    * 15 = den 15. i måneden
@@ -125,4 +171,18 @@ export interface CalendarEvent {
    * En aftale uden recurrence er en almindelig enkeltstående aftale.
    */
   recurrence?: RecurrenceRule;
+
+  /**
+   * Sat udelukkende på afledte forekomster af en gentagen aftale (aldrig på
+   * selve den lagrede/mester-aftale). Peger på mester-aftalens id — lokalt
+   * (expandRecurringEvents) eller Google (event.recurringEventId).
+   */
+  recurrenceMasterId?: string;
+
+  /**
+   * Sat udelukkende på afledte forekomster. Forekomstens oprindelige,
+   * uændrede starttidspunkt — bruges som nøgle til undtagelser, selv hvis
+   * forekomstens faktiske tid efterfølgende er ændret.
+   */
+  recurrenceOccurrenceStart?: string;
 }

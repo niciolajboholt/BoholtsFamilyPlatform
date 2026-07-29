@@ -3,11 +3,14 @@ import type {
   CalendarEvent,
   CalendarOwnerId,
   CalendarWeekday,
+  OrdinalWeekday,
   RecurrenceFrequency,
   RecurrenceRule,
+  WeekdayOrdinal,
 } from "../models/calendarEvent";
 import type { CreateCalendarEventInput } from "../models/calendarEventInput";
 import { getFamilyMemberIds } from "../preferences/familyMembersStorage";
+import { deleteRecurrenceExceptionsForMaster } from "../preferences/recurrenceExceptionsStorage";
 
 export type { CreateCalendarEventInput } from "../models/calendarEventInput";
 
@@ -31,6 +34,8 @@ const calendarWeekdays: CalendarWeekday[] = [
   5,
   6,
 ];
+
+const weekdayOrdinals: WeekdayOrdinal[] = [1, 2, 3, 4, -1];
 
 function createEventId(): string {
   return `event-${Date.now()}-${Math.random()
@@ -112,6 +117,30 @@ function isIntegerInRange(
   );
 }
 
+function isWeekdayOrdinal(
+  value: unknown,
+): value is WeekdayOrdinal {
+  return (
+    typeof value === "number" &&
+    weekdayOrdinals.includes(value as WeekdayOrdinal)
+  );
+}
+
+function isOrdinalWeekday(
+  value: unknown,
+): value is OrdinalWeekday {
+  if (!isObject(value)) {
+    return false;
+  }
+
+  return (
+    Array.isArray(value.ordinals) &&
+    value.ordinals.length > 0 &&
+    value.ordinals.every(isWeekdayOrdinal) &&
+    isCalendarWeekday(value.weekday)
+  );
+}
+
 function isRecurrenceRule(
   value: unknown,
 ): value is RecurrenceRule {
@@ -169,6 +198,21 @@ function isRecurrenceRule(
       !value.byWeekdays.every(
         isCalendarWeekday,
       ))
+  ) {
+    return false;
+  }
+
+  if (
+    value.monthlyPattern !== undefined &&
+    value.monthlyPattern !== "dayOfMonth" &&
+    value.monthlyPattern !== "dayOfWeek"
+  ) {
+    return false;
+  }
+
+  if (
+    value.byOrdinalWeekday !== undefined &&
+    !isOrdinalWeekday(value.byOrdinalWeekday)
   ) {
     return false;
   }
@@ -513,6 +557,13 @@ export class CalendarService {
       );
 
     saveStoredEvents(updatedEvents);
+
+    // Sletning af en hel gentagelsesrække skal ikke efterlade forældreløse
+    // undtagelser (Sprint 16) — de peger på et mester-id, der ikke længere
+    // findes.
+    if (event.recurrence) {
+      deleteRecurrenceExceptionsForMaster(eventId);
+    }
 
     return Promise.resolve();
   }

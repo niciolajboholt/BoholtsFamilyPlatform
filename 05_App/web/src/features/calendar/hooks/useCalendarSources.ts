@@ -49,12 +49,17 @@ export function useCalendarSources(
   }, [provider]);
 
   useEffect(() => {
+    // isLoadingRef bevidst IKKE brugt her (kun i refresh()): under StrictMode
+    // dobbelt-kører React denne effekt (mount → cleanup → mount igen). Den
+    // delte ref ville få det andet, reelle forsøg til fejlagtigt at
+    // "bail" ud, mens det første forsøgs svar alligevel ignoreres af
+    // isCurrent-tjekket herunder — resultatet var at hverken isLoading
+    // eller hasLoadedSources nogensinde blev opdateret, og siden blev
+    // hængende på "Indlæser kalendere…" for evigt. isCurrent alene er
+    // korrekt og tilstrækkeligt til at ignorere det forladte første forsøg.
     let isCurrent = true;
 
     async function loadSources() {
-      if (isLoadingRef.current) return;
-
-      isLoadingRef.current = true;
       setIsLoading(true);
       setError(null);
 
@@ -70,7 +75,6 @@ export function useCalendarSources(
         if (isCurrent) setError("Kalenderkilder kunne ikke indlæses.");
       } finally {
         if (isCurrent) setIsLoading(false);
-        isLoadingRef.current = false;
       }
     }
 

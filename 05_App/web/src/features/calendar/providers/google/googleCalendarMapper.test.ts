@@ -140,7 +140,7 @@ describe("mapGoogleCalendarEvent", () => {
     expect(mapGoogleCalendarEvent(calendarId, event)).toBeNull();
   });
 
-  it("filters out a recurring event instance", () => {
+  it("maps a recurring event instance and tags it with recurrenceMasterId (Sprint 16)", () => {
     const event: GoogleCalendarEvent = {
       id: "instance1",
       recurringEventId: "series1",
@@ -148,7 +148,22 @@ describe("mapGoogleCalendarEvent", () => {
       end: { dateTime: "2026-07-31T10:00:00Z" },
     };
 
-    expect(mapGoogleCalendarEvent(calendarId, event)).toBeNull();
+    const mapped = mapGoogleCalendarEvent(calendarId, event);
+
+    expect(mapped).not.toBeNull();
+    expect(mapped?.recurrenceMasterId).toBe("series1");
+  });
+
+  it("does not set recurrenceMasterId for a non-recurring event", () => {
+    const event: GoogleCalendarEvent = {
+      id: "single1",
+      start: { dateTime: "2026-07-31T09:00:00Z" },
+      end: { dateTime: "2026-07-31T10:00:00Z" },
+    };
+
+    const mapped = mapGoogleCalendarEvent(calendarId, event);
+
+    expect(mapped?.recurrenceMasterId).toBeUndefined();
   });
 
   it("filters out an event missing an id", () => {
