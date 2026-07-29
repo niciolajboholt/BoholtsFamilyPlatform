@@ -2,13 +2,27 @@ import type {
   CalendarWeekday,
   RecurrenceEndType,
   RecurrenceFrequency,
+  RecurrenceMonthlyPattern,
   RecurrenceRule,
+  WeekdayOrdinal,
 } from "../models/calendarEvent";
+
+export type RecurrencePresetOption =
+  | "none"
+  | "daily"
+  | "weekly"
+  | "monthly"
+  | "yearly"
+  | "custom";
 
 export interface RecurrenceFormValue {
   frequency: RecurrenceFrequency | "none";
   interval: number;
   byWeekdays: CalendarWeekday[];
+  monthlyPattern: RecurrenceMonthlyPattern;
+  byMonthDay: number;
+  ordinal: WeekdayOrdinal;
+  ordinalWeekday: CalendarWeekday;
   endType: RecurrenceEndType;
   until: string;
   count: number;
@@ -18,6 +32,10 @@ export const defaultRecurrenceFormValue: RecurrenceFormValue = {
   frequency: "none",
   interval: 1,
   byWeekdays: [],
+  monthlyPattern: "dayOfMonth",
+  byMonthDay: 1,
+  ordinal: 1,
+  ordinalWeekday: 1,
   endType: "never",
   until: "",
   count: 1,
@@ -37,7 +55,7 @@ export const weekdayShortLabels: Record<CalendarWeekday, string> = {
   6: "L",
 };
 
-const weekdayFullNames: Record<CalendarWeekday, string> = {
+export const weekdayFullNames: Record<CalendarWeekday, string> = {
   0: "søndag",
   1: "mandag",
   2: "tirsdag",
@@ -55,6 +73,16 @@ const weekdayAbbreviations: Record<CalendarWeekday, string> = {
   4: "tor",
   5: "fre",
   6: "lør",
+};
+
+export const weekdayOrdinalOptions: WeekdayOrdinal[] = [1, 2, 3, 4, -1];
+
+export const weekdayOrdinalLabels: Record<WeekdayOrdinal, string> = {
+  1: "1.",
+  2: "2.",
+  3: "3.",
+  4: "4.",
+  [-1]: "Sidste",
 };
 
 function padNumber(value: number): string {
@@ -98,6 +126,37 @@ export function getDefaultRecurrenceUntil(eventStartDate: string): string {
   return `${date.getFullYear()}-${padNumber(date.getMonth() + 1)}-${padNumber(date.getDate())}`;
 }
 
+// Rimelige standardværdier for byMonthDay/ordinal/ordinalWeekday, udledt af
+// aftalens egen startdato — bruges når en gentagelse slås til, eller når
+// brugeren skifter frekvens/mønster i "Tilpas"-dialogen.
+export function getRecurrenceDefaultsForStartDate(
+  eventStartDate: string,
+): Pick<
+  RecurrenceFormValue,
+  "byWeekdays" | "byMonthDay" | "ordinal" | "ordinalWeekday"
+> {
+  const startDate = parseEventStartDate(eventStartDate);
+
+  if (Number.isNaN(startDate.getTime())) {
+    return {
+      byWeekdays: [],
+      byMonthDay: 1,
+      ordinal: 1,
+      ordinalWeekday: 1,
+    };
+  }
+
+  const weekday = startDate.getDay() as CalendarWeekday;
+  const dayOfMonth = startDate.getDate();
+
+  return {
+    byWeekdays: [weekday],
+    byMonthDay: dayOfMonth,
+    ordinal: (Math.min(4, Math.ceil(dayOfMonth / 7)) as WeekdayOrdinal),
+    ordinalWeekday: weekday,
+  };
+}
+
 export function recurrenceRuleToFormValue(
   rule: RecurrenceRule | undefined,
 ): RecurrenceFormValue {
@@ -109,15 +168,16 @@ export function recurrenceRuleToFormValue(
     frequency: rule.frequency,
     interval: rule.interval,
     byWeekdays: rule.byWeekdays ? [...rule.byWeekdays] : [],
+    monthlyPattern: rule.monthlyPattern ?? "dayOfMonth",
+    byMonthDay: rule.byMonthDay ?? 1,
+    ordinal: rule.byOrdinalWeekday?.ordinal ?? 1,
+    ordinalWeekday: rule.byOrdinalWeekday?.weekday ?? 1,
     endType: rule.endType,
     until: rule.until ? rule.until.slice(0, 10) : "",
     count: rule.count ?? 1,
   };
 }
 
-// byMonthDay/byMonth udledes bevidst af aftalens startdato i stedet for at
-// være egne UI-felter (månedlig/årlig gentagelse holdes simpel) —
-// modellen understøtter fortsat en enkelt månedsdag/måned pr. regel.
 export function recurrenceFormValueToRule(
   value: RecurrenceFormValue,
   eventStartDate: string,
@@ -151,8 +211,17 @@ export function recurrenceFormValueToRule(
           : undefined;
   }
 
-  if (value.frequency === "monthly" && !Number.isNaN(startDate.getTime())) {
-    rule.byMonthDay = startDate.getDate();
+  if (value.frequency === "monthly") {
+    rule.monthlyPattern = value.monthlyPattern;
+
+    if (value.monthlyPattern === "dayOfWeek") {
+      rule.byOrdinalWeekday = {
+        ordinal: value.ordinal,
+        weekday: value.ordinalWeekday,
+      };
+    } else {
+      rule.byMonthDay = value.byMonthDay;
+    }
   }
 
   if (value.frequency === "yearly" && !Number.isNaN(startDate.getTime())) {
@@ -189,6 +258,17 @@ export function getRecurrenceFormValidationError(
   }
 
   return null;
+}
+
+function describeMonthlyPattern(value: RecurrenceFormValue): string {
+  if (value.monthlyPattern === "dayOfWeek") {
+    const ordinalLabel = weekdayOrdinalLabels[value.ordinal].toLowerCase();
+    const weekdayName = weekdayFullNames[value.ordinalWeekday];
+
+    return `den ${ordinalLabel} ${weekdayName}`;
+  }
+
+  return `den ${value.byMonthDay}.`;
 }
 
 export function describeRecurrenceFormValue(
@@ -245,8 +325,8 @@ export function describeRecurrenceFormValue(
     case "monthly":
       frequencyText =
         value.interval === 1
-          ? "Gentages hver måned"
-          : `Gentages hver ${value.interval}. måned`;
+          ? `Gentages hver måned ${describeMonthlyPattern(value)}`
+          : `Gentages hver ${value.interval}. måned ${describeMonthlyPattern(value)}`;
       break;
 
     case "yearly":
@@ -265,4 +345,52 @@ export function describeRecurrenceFormValue(
         : "";
 
   return frequencyText + endText;
+}
+
+// Bestemmer hvilket "hurtigvalg" (Apple-stil dropdown) den aktuelle værdi
+// svarer til — "custom" hvis den afviger fra alle de simple standardmønstre
+// (fx interval > 1, flere ugedage, "ugedag i måneden"-mønster, eller en
+// sluttilstand forskellig fra "aldrig").
+export function getRecurrencePresetOption(
+  value: RecurrenceFormValue,
+  eventStartDate: string,
+): RecurrencePresetOption {
+  if (value.frequency === "none") {
+    return "none";
+  }
+
+  if (value.interval !== 1 || value.endType !== "never") {
+    return "custom";
+  }
+
+  const startDate = parseEventStartDate(eventStartDate);
+
+  switch (value.frequency) {
+    case "daily":
+      return "daily";
+
+    case "weekly": {
+      const startWeekday = Number.isNaN(startDate.getTime())
+        ? undefined
+        : (startDate.getDay() as CalendarWeekday);
+
+      return value.byWeekdays.length === 1 &&
+        value.byWeekdays[0] === startWeekday
+        ? "weekly"
+        : "custom";
+    }
+
+    case "monthly":
+      return value.monthlyPattern === "dayOfMonth" &&
+        !Number.isNaN(startDate.getTime()) &&
+        value.byMonthDay === startDate.getDate()
+        ? "monthly"
+        : "custom";
+
+    case "yearly":
+      return "yearly";
+
+    default:
+      return "custom";
+  }
 }

@@ -275,6 +275,69 @@ describe("expandRecurringEvents", () => {
     ]);
   });
 
+  it("expands a monthly 'Nth weekday of month' pattern (3rd Monday)", () => {
+    const event = buildEvent({
+      recurrence: {
+        frequency: "monthly",
+        interval: 1,
+        endType: "count",
+        count: 3,
+        monthlyPattern: "dayOfWeek",
+        byOrdinalWeekday: { ordinal: 3, weekday: 1 },
+      },
+    });
+
+    const result = expandRecurringEvents([event], wideRange, []);
+
+    expect(result.map((occurrence) => occurrence.start.slice(0, 10))).toEqual([
+      "2026-08-17",
+      "2026-09-21",
+      "2026-10-19",
+    ]);
+  });
+
+  it("expands a monthly 'last weekday of month' pattern (last Friday)", () => {
+    const event = buildEvent({
+      recurrence: {
+        frequency: "monthly",
+        interval: 1,
+        endType: "count",
+        count: 3,
+        monthlyPattern: "dayOfWeek",
+        byOrdinalWeekday: { ordinal: -1, weekday: 5 },
+      },
+    });
+
+    const result = expandRecurringEvents([event], wideRange, []);
+
+    expect(result.map((occurrence) => occurrence.start.slice(0, 10))).toEqual([
+      "2026-08-28",
+      "2026-09-25",
+      "2026-10-30",
+    ]);
+  });
+
+  it("respects the interval for a monthly 'Nth weekday' pattern (every other month)", () => {
+    const event = buildEvent({
+      recurrence: {
+        frequency: "monthly",
+        interval: 2,
+        endType: "count",
+        count: 3,
+        monthlyPattern: "dayOfWeek",
+        byOrdinalWeekday: { ordinal: 2, weekday: 2 },
+      },
+    });
+
+    const result = expandRecurringEvents([event], wideRange, []);
+
+    expect(result.map((occurrence) => occurrence.start.slice(0, 10))).toEqual([
+      "2026-08-11",
+      "2026-10-13",
+      "2026-12-08",
+    ]);
+  });
+
   it("excludes occurrences entirely outside the requested range", () => {
     const event = buildEvent({
       recurrence: { frequency: "daily", interval: 1, endType: "count", count: 10 },

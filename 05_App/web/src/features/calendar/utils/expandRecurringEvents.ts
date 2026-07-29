@@ -57,6 +57,39 @@ function toMondayFirstOffset(weekday: CalendarWeekday): number {
   return weekday === 0 ? 6 : weekday - 1;
 }
 
+// Finder den N'te forekomst af en ugedag i en given måned (fx "3. mandag"),
+// eller den sidste forekomst (ordinal -1, fx "sidste fredag"). year/month
+// tillader overløb (fx month=13) — Date-konstruktøren normaliserer det
+// automatisk til det korrekte år.
+function getNthWeekdayOfMonth(
+  year: number,
+  month: number,
+  weekday: CalendarWeekday,
+  ordinal: number,
+): Date {
+  if (ordinal === -1) {
+    const lastDayOfMonth = new Date(year, month + 1, 0);
+    const offsetFromLastDay =
+      (lastDayOfMonth.getDay() - weekday + 7) % 7;
+
+    return new Date(
+      lastDayOfMonth.getFullYear(),
+      lastDayOfMonth.getMonth(),
+      lastDayOfMonth.getDate() - offsetFromLastDay,
+    );
+  }
+
+  const firstDayOfMonth = new Date(year, month, 1);
+  const offsetFromFirstDay =
+    (weekday - firstDayOfMonth.getDay() + 7) % 7;
+
+  return new Date(
+    firstDayOfMonth.getFullYear(),
+    firstDayOfMonth.getMonth(),
+    1 + offsetFromFirstDay + (ordinal - 1) * 7,
+  );
+}
+
 // Genererer kandidat-forekomstdatoer i kronologisk rækkefølge, i lokal
 // kalendertid. For ugentlig gentagelse med valgte ugedage (byWeekdays)
 // udfoldes HVER valgt ugedag inden for hver inkluderet uge (fx "hver
@@ -108,6 +141,21 @@ function* generateCandidateAnchors(
           yield candidate;
         }
       }
+    }
+  } else if (
+    frequency === "monthly" &&
+    recurrence.monthlyPattern === "dayOfWeek" &&
+    recurrence.byOrdinalWeekday
+  ) {
+    const { ordinal, weekday } = recurrence.byOrdinalWeekday;
+
+    for (let index = 0; ; index += 1) {
+      yield getNthWeekdayOfMonth(
+        originalStart.getFullYear(),
+        originalStart.getMonth() + interval * index,
+        weekday,
+        ordinal,
+      );
     }
   } else {
     for (let index = 0; ; index += 1) {
