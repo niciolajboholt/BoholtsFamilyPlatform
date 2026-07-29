@@ -35,7 +35,7 @@ function toProviderError(response: Response): CalendarProviderError {
 
   return new CalendarProviderError(
     "network",
-    "Google Kalender kunne ikke indlÃ¦ses.",
+    "Google Kalender kunne ikke indlæses.",
   );
 }
 
@@ -147,7 +147,7 @@ export class GoogleCalendarApi {
       } catch (error: unknown) {
         throw new CalendarProviderError(
           "network",
-          "Google Kalender kunne ikke indlÃ¦ses.",
+          "Google Kalender kunne ikke indlæses.",
           { cause: error },
         );
       }
