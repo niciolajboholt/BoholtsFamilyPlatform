@@ -15,13 +15,17 @@ export type RecurrencePresetOption =
   | "yearly"
   | "custom";
 
+// "firstAndLast" er et UI-bekvemmeligheds-valg — det udfoldes til
+// ordinals: [1, -1] på selve reglen, ikke en separat model-koncept.
+export type OrdinalSelection = WeekdayOrdinal | "firstAndLast";
+
 export interface RecurrenceFormValue {
   frequency: RecurrenceFrequency | "none";
   interval: number;
   byWeekdays: CalendarWeekday[];
   monthlyPattern: RecurrenceMonthlyPattern;
   byMonthDay: number;
-  ordinal: WeekdayOrdinal;
+  ordinal: OrdinalSelection;
   ordinalWeekday: CalendarWeekday;
   endType: RecurrenceEndType;
   until: string;
@@ -75,14 +79,22 @@ const weekdayAbbreviations: Record<CalendarWeekday, string> = {
   6: "lør",
 };
 
-export const weekdayOrdinalOptions: WeekdayOrdinal[] = [1, 2, 3, 4, -1];
+export const weekdayOrdinalOptions: OrdinalSelection[] = [
+  1,
+  2,
+  3,
+  4,
+  -1,
+  "firstAndLast",
+];
 
-export const weekdayOrdinalLabels: Record<WeekdayOrdinal, string> = {
+export const weekdayOrdinalLabels: Record<OrdinalSelection, string> = {
   1: "1.",
   2: "2.",
   3: "3.",
   4: "4.",
   [-1]: "Sidste",
+  firstAndLast: "Første & sidste",
 };
 
 function padNumber(value: number): string {
@@ -170,7 +182,13 @@ export function recurrenceRuleToFormValue(
     byWeekdays: rule.byWeekdays ? [...rule.byWeekdays] : [],
     monthlyPattern: rule.monthlyPattern ?? "dayOfMonth",
     byMonthDay: rule.byMonthDay ?? 1,
-    ordinal: rule.byOrdinalWeekday?.ordinal ?? 1,
+    ordinal: rule.byOrdinalWeekday
+      ? rule.byOrdinalWeekday.ordinals.length === 2 &&
+        rule.byOrdinalWeekday.ordinals.includes(1) &&
+        rule.byOrdinalWeekday.ordinals.includes(-1)
+        ? "firstAndLast"
+        : rule.byOrdinalWeekday.ordinals[0]
+      : 1,
     ordinalWeekday: rule.byOrdinalWeekday?.weekday ?? 1,
     endType: rule.endType,
     until: rule.until ? rule.until.slice(0, 10) : "",
@@ -216,7 +234,8 @@ export function recurrenceFormValueToRule(
 
     if (value.monthlyPattern === "dayOfWeek") {
       rule.byOrdinalWeekday = {
-        ordinal: value.ordinal,
+        ordinals:
+          value.ordinal === "firstAndLast" ? [1, -1] : [value.ordinal],
         weekday: value.ordinalWeekday,
       };
     } else {
@@ -262,8 +281,13 @@ export function getRecurrenceFormValidationError(
 
 function describeMonthlyPattern(value: RecurrenceFormValue): string {
   if (value.monthlyPattern === "dayOfWeek") {
-    const ordinalLabel = weekdayOrdinalLabels[value.ordinal].toLowerCase();
     const weekdayName = weekdayFullNames[value.ordinalWeekday];
+
+    if (value.ordinal === "firstAndLast") {
+      return `den første og sidste ${weekdayName}`;
+    }
+
+    const ordinalLabel = weekdayOrdinalLabels[value.ordinal].toLowerCase();
 
     return `den ${ordinalLabel} ${weekdayName}`;
   }

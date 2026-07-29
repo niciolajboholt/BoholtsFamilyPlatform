@@ -231,9 +231,10 @@ export function RecurrenceDialog({
                     fullWidth
                     onChange={(event) =>
                       updateDraft({
-                        ordinal: Number(
-                          event.target.value,
-                        ) as WeekdayOrdinal,
+                        ordinal:
+                          event.target.value === "firstAndLast"
+                            ? "firstAndLast"
+                            : (Number(event.target.value) as WeekdayOrdinal),
                       })
                     }
                   >

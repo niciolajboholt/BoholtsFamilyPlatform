@@ -56,7 +56,11 @@ export type WeekdayOrdinal =
   | -1;
 
 export interface OrdinalWeekday {
-  ordinal: WeekdayOrdinal;
+  /**
+   * Én eller flere positioner for samme ugedag — fx `[1, -1]` for "første og
+   * sidste fredag i måneden". De fleste mønstre bruger kun én position.
+   */
+  ordinals: WeekdayOrdinal[];
   weekday: CalendarWeekday;
 }
 

@@ -147,15 +147,39 @@ function* generateCandidateAnchors(
     recurrence.monthlyPattern === "dayOfWeek" &&
     recurrence.byOrdinalWeekday
   ) {
-    const { ordinal, weekday } = recurrence.byOrdinalWeekday;
+    const { ordinals, weekday } = recurrence.byOrdinalWeekday;
+
+    // Sorteres kronologisk inden for måneden (fx [1, -1] = "første og
+    // sidste fredag") — positive ordinaler i rækkefølge, "sidste" (-1)
+    // altid til sidst, da den pr. definition falder efter enhver positiv
+    // position i samme måned.
+    const sortedOrdinals = [...ordinals].sort(
+      (first, second) =>
+        (first === -1 ? Number.MAX_SAFE_INTEGER : first) -
+        (second === -1 ? Number.MAX_SAFE_INTEGER : second),
+    );
 
     for (let index = 0; ; index += 1) {
-      yield getNthWeekdayOfMonth(
-        originalStart.getFullYear(),
-        originalStart.getMonth() + interval * index,
-        weekday,
-        ordinal,
-      );
+      const month = originalStart.getMonth() + interval * index;
+      let previousCandidateTime: number | null = null;
+
+      for (const ordinal of sortedOrdinals) {
+        const candidate = getNthWeekdayOfMonth(
+          originalStart.getFullYear(),
+          month,
+          weekday,
+          ordinal,
+        );
+
+        // Forsvar mod en teoretisk dublet (fx "4." og "sidste" rammer
+        // samme dato i en måned med præcis 4 forekomster af ugedagen).
+        if (candidate.getTime() === previousCandidateTime) {
+          continue;
+        }
+
+        previousCandidateTime = candidate.getTime();
+        yield candidate;
+      }
     }
   } else {
     for (let index = 0; ; index += 1) {

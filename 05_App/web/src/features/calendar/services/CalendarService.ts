@@ -134,7 +134,9 @@ function isOrdinalWeekday(
   }
 
   return (
-    isWeekdayOrdinal(value.ordinal) &&
+    Array.isArray(value.ordinals) &&
+    value.ordinals.length > 0 &&
+    value.ordinals.every(isWeekdayOrdinal) &&
     isCalendarWeekday(value.weekday)
   );
 }

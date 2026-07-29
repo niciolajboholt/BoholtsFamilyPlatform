@@ -283,7 +283,7 @@ describe("expandRecurringEvents", () => {
         endType: "count",
         count: 3,
         monthlyPattern: "dayOfWeek",
-        byOrdinalWeekday: { ordinal: 3, weekday: 1 },
+        byOrdinalWeekday: { ordinals: [3], weekday: 1 },
       },
     });
 
@@ -304,7 +304,7 @@ describe("expandRecurringEvents", () => {
         endType: "count",
         count: 3,
         monthlyPattern: "dayOfWeek",
-        byOrdinalWeekday: { ordinal: -1, weekday: 5 },
+        byOrdinalWeekday: { ordinals: [-1], weekday: 5 },
       },
     });
 
@@ -325,7 +325,7 @@ describe("expandRecurringEvents", () => {
         endType: "count",
         count: 3,
         monthlyPattern: "dayOfWeek",
-        byOrdinalWeekday: { ordinal: 2, weekday: 2 },
+        byOrdinalWeekday: { ordinals: [2], weekday: 2 },
       },
     });
 
@@ -335,6 +335,30 @@ describe("expandRecurringEvents", () => {
       "2026-08-11",
       "2026-10-13",
       "2026-12-08",
+    ]);
+  });
+
+  it("expands a monthly 'first and last weekday of month' pattern in one rule", () => {
+    const event = buildEvent({
+      recurrence: {
+        frequency: "monthly",
+        interval: 1,
+        endType: "count",
+        count: 4,
+        monthlyPattern: "dayOfWeek",
+        byOrdinalWeekday: { ordinals: [1, -1], weekday: 5 },
+      },
+    });
+
+    const result = expandRecurringEvents([event], wideRange, []);
+
+    // Første og sidste fredag i august, derefter første og sidste fredag i
+    // september — kronologisk sorteret inden for hver måned.
+    expect(result.map((occurrence) => occurrence.start.slice(0, 10))).toEqual([
+      "2026-08-07",
+      "2026-08-28",
+      "2026-09-04",
+      "2026-09-25",
     ]);
   });
 
