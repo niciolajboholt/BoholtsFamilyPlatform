@@ -2,13 +2,13 @@
 
 > Status: Active
 
-Version: 1.1
+Version: 1.2
 
 Project:
 Boholts Family Platform
 
 Last Updated:
-2026-07-28
+2026-07-28 (Sprint 14)
 
 Owner:
 Nicolaj Bach Boholt
@@ -87,12 +87,33 @@ Formålet var at gøre event-dialogerne (opret/redigér) vedligeholdbare ved at 
 - Mindst mulige rettigheder: scopes `calendar.events` og `calendar.calendarlist.readonly`.
 - `CompositeCalendarProvider` router writes via `sourceId`; skriverettighed afgøres udelukkende af CalendarList `accessRole`.
 - Bevidst udskudt: deltagere (attendees), redigering af gentagne events, og en persistent (ikke memory-only) Google-forbindelse.
+- **Efterfølgende rettelser (samme dag, ved kodegennemgang)**: To tidszone-fejl fundet og rettet i heldagsaftale-håndteringen — skriv-siden sendte en dato en dag for tidligt til Google, og læse-siden viste Google-heldagsaftaler på én dag for meget. Begge skyldtes at UTC-baseret datoparsing blev blandet med appens lokal-midnat-konvention. Rettet i `googleCalendarWriteMapper.ts`/`googleCalendarMapper.ts`.
+
+---
+
+## Sprint 13 — Stabilisering og kvalitet (2026-07-28)
+
+- De 3 kendte lint-fejl (`react-hooks/set-state-in-effect`) rettet: dialog-nulstilling flyttet fra effects til render-fasen (`NewEventDialog`, `EditEventDialog`); en målrettet, begrundet undertrykkelse for opstarts-hentningen i `useCalendarEvents`.
+- Vitest indført som testramme. 29 tests for de rene Google-mapper-funktioner, inkl. regressionstest for de to tidszone-fejl fra Sprint 12.1.
+- **ADR-010**: formaliserer platformskiftet fra Swift/SwiftUI til React/TypeScript/PWA — se `01_Project_Documentation/Architecture/05_ADR_Architecture_Decisions.md`.
+- Google-forbindelsens UX forbedret: "Genforbind"-tekst efter sessionsafbrud (via et ikke-følsomt localStorage-hint), synlig "forbinder"-tilstand, og SettingsPage's tidligere hardcodede/forkerte forbindelseskort rettet til at vise reel status.
+
+---
+
+## Sprint 14 — Stille genoprettelse af Google-forbindelsen (2026-07-28)
+
+- `GoogleCalendarSession.attemptSilentReconnect()`: forsøger et usynligt token-genkald (`prompt: ""`) ved appstart, hvis brugeren har forbundet før. Kappet af en 4-sekunders tidsgrænse via en selvstændig, testet `raceWithTimeout`-hjælpefunktion, så det aldrig kan hænge UI'et.
+- Falder korrekt tilbage til Sprint 13's "Genforbind"-flow, hvis det stille forsøg ikke lykkes.
+- Ny "Genopretter forbindelsen..."-status i både `GoogleCalendarConnection` og SettingsPage.
+- 3 nye tests for `raceWithTimeout` (32 tests i alt).
+- **Kendt begrænsning**: Google's klientbibliotek kan falde tilbage til et pop op-vindue, hvis den fuldt stille vej ikke er tilgængelig — og browsere blokerer pop op-vinduer, der ikke er udløst af et brugerklik. I så fald sker der intet galt (falder blot tilbage til "Genforbind"), men reel succesrate afhænger af brugerens aktive Google-session og er ikke fuldt verificerbar uden en rigtig konto.
+- Bevidst fravalgt: en backend/refresh-token-løsning — vurderet uforholdsmæssig for en app med 2-4 brugere (se [10_Future_Roadmap](10_Future_Roadmap.md)).
 
 ---
 
 ## Status ved seneste opdatering
 
-Alt ovenstående er merget ind i `develop`. Ingen af de planlagte Fase 2–4-funktioner (se [10_Future_Roadmap](10_Future_Roadmap.md)) er påbegyndt endnu. Der findes ingen automatiseret testsuite på nuværende tidspunkt — se [08_Development_Standards](08_Development_Standards.md).
+Sprint 0 til 14 er merget ind i `develop`. Ingen af de planlagte Fase 2–4-funktioner (se [10_Future_Roadmap](10_Future_Roadmap.md)) er påbegyndt endnu. Vitest er indført (Sprint 13), men dækker kun de rene Google-mapper-funktioner — React-komponenter/hooks har fortsat ingen automatiseret test. Se [08_Development_Standards](08_Development_Standards.md).
 
 ---
 
