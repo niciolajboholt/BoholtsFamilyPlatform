@@ -1,5 +1,6 @@
 import type {
   CalendarEvent,
+  CalendarWeekday,
   RecurrenceFrequency,
   RecurrenceRule,
 } from "../models/calendarEvent";
@@ -21,7 +22,9 @@ function buildExceptionKey(
 
 // Rykker startdatoen frem til den N'te forekomst, i lokal kalendertid (ikke
 // millisekund-aritmetik) — undgår sommertids-forskydning, samme princip som
-// getStartOfDay/getStartOfNextDay i getEventsForDate.ts.
+// getStartOfDay/getStartOfNextDay i getEventsForDate.ts. Bruges til alle
+// frekvenser undtagen ugentlig med flere valgte ugedage (se
+// generateCandidateAnchors).
 function advanceOccurrenceDate(
   originalStart: Date,
   frequency: RecurrenceFrequency,
@@ -44,6 +47,72 @@ function advanceOccurrenceDate(
       return new Date(year + steps, month, day);
     default:
       return new Date(year, month, day);
+  }
+}
+
+// JavaScripts søndag-først-nummerering (0=søn..6=lør) konverteret til et
+// mandag-først offset (0=man..6=søn), til at placere en ugedag inden for en
+// mandags-forankret uge.
+function toMondayFirstOffset(weekday: CalendarWeekday): number {
+  return weekday === 0 ? 6 : weekday - 1;
+}
+
+// Genererer kandidat-forekomstdatoer i kronologisk rækkefølge, i lokal
+// kalendertid. For ugentlig gentagelse med valgte ugedage (byWeekdays)
+// udfoldes HVER valgt ugedag inden for hver inkluderet uge (fx "hver
+// tirsdag og torsdag") — ikke kun aftalens egen ugedag. Uger uden for
+// intervallet ("hver anden uge") springes over via weekIndex * interval.
+function* generateCandidateAnchors(
+  originalStart: Date,
+  recurrence: RecurrenceRule,
+): Generator<Date, void, undefined> {
+  const { frequency, interval } = recurrence;
+
+  if (
+    frequency === "weekly" &&
+    recurrence.byWeekdays &&
+    recurrence.byWeekdays.length > 0
+  ) {
+    const weekdays = [...recurrence.byWeekdays].sort((a, b) => a - b);
+
+    const startOfDay = new Date(
+      originalStart.getFullYear(),
+      originalStart.getMonth(),
+      originalStart.getDate(),
+    );
+
+    const anchorWeekMonday = new Date(
+      startOfDay.getFullYear(),
+      startOfDay.getMonth(),
+      startOfDay.getDate() - toMondayFirstOffset(originalStart.getDay() as CalendarWeekday),
+    );
+
+    for (let weekIndex = 0; ; weekIndex += 1) {
+      const weekMonday = new Date(
+        anchorWeekMonday.getFullYear(),
+        anchorWeekMonday.getMonth(),
+        anchorWeekMonday.getDate() + weekIndex * interval * 7,
+      );
+
+      for (const weekday of weekdays) {
+        const candidate = new Date(
+          weekMonday.getFullYear(),
+          weekMonday.getMonth(),
+          weekMonday.getDate() + toMondayFirstOffset(weekday),
+        );
+
+        // Ugedage tidligere i mester-aftalens egen uge, end selve
+        // startdatoen, tæller ikke som en forekomst (serien er ikke
+        // begyndt endnu) — først fra og med startdatoen.
+        if (candidate.getTime() >= startOfDay.getTime()) {
+          yield candidate;
+        }
+      }
+    }
+  } else {
+    for (let index = 0; ; index += 1) {
+      yield advanceOccurrenceDate(originalStart, frequency, interval, index);
+    }
   }
 }
 
@@ -78,22 +147,32 @@ function expandSingleEvent(
       : null;
 
   const occurrences: CalendarEvent[] = [];
+  let anchorNumber = 0;
 
-  for (let index = 0; index < MAX_OCCURRENCES; index += 1) {
-    if (
-      recurrence.endType === "count" &&
-      recurrence.count !== undefined &&
-      index >= recurrence.count
-    ) {
+  for (const occurrenceAnchor of generateCandidateAnchors(
+    originalStart,
+    recurrence,
+  )) {
+    anchorNumber += 1;
+
+    // Sikkerhedsgrænse mod uendelige løkker — tæller alle betragtede
+    // kandidater, ikke kun de accepterede, så en tom/ugyldig regel aldrig
+    // kan hænge.
+    if (anchorNumber > MAX_OCCURRENCES) {
       break;
     }
 
-    const occurrenceAnchor = advanceOccurrenceDate(
-      originalStart,
-      recurrence.frequency,
-      recurrence.interval,
-      index,
-    );
+    // `count` refererer til forekomstens globale rækkefølge i serien
+    // (1., 2., 3. ...), uafhængigt af hvilket synligt datointerval der
+    // aktuelt vises — derfor tælles anchorNumber, ikke antallet af
+    // forekomster der rent faktisk falder inden for range.
+    if (
+      recurrence.endType === "count" &&
+      recurrence.count !== undefined &&
+      anchorNumber > recurrence.count
+    ) {
+      break;
+    }
 
     const occurrenceStart = event.allDay
       ? occurrenceAnchor
@@ -111,9 +190,10 @@ function expandSingleEvent(
       break;
     }
 
-    // occurrenceStart stiger monotont med index for alle fire frekvenser,
-    // så det er sikkert at stoppe helt (break), ikke kun springe over
-    // (continue), når den første forekomst efter rangeEnd er nået.
+    // occurrenceStart stiger monotont med anchorNumber for alle
+    // understøttede mønstre, så det er sikkert at stoppe helt (break),
+    // ikke kun springe over (continue), når den første forekomst efter
+    // rangeEnd er nået.
     if (occurrenceStart > rangeEnd) {
       break;
     }

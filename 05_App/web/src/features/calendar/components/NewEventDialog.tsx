@@ -454,6 +454,7 @@ function NewEventDialog({
           {selectedSource?.providerType !== "google" && (
             <EventRecurrenceSection
               value={recurrence}
+              eventStartDate={form.startDate}
               disabled={isSaving}
               errorMessage={recurrenceError}
               onChange={setRecurrence}

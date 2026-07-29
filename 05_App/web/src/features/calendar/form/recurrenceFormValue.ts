@@ -8,6 +8,7 @@ import type {
 export interface RecurrenceFormValue {
   frequency: RecurrenceFrequency | "none";
   interval: number;
+  byWeekdays: CalendarWeekday[];
   endType: RecurrenceEndType;
   until: string;
   count: number;
@@ -16,10 +17,86 @@ export interface RecurrenceFormValue {
 export const defaultRecurrenceFormValue: RecurrenceFormValue = {
   frequency: "none",
   interval: 1,
+  byWeekdays: [],
   endType: "never",
   until: "",
   count: 1,
 };
+
+// Mandag-først rækkefølge (til visning) — modellens CalendarWeekday bruger
+// JavaScripts søndag-først-nummerering (0 = søndag).
+export const weekdayDisplayOrder: CalendarWeekday[] = [1, 2, 3, 4, 5, 6, 0];
+
+export const weekdayShortLabels: Record<CalendarWeekday, string> = {
+  0: "S",
+  1: "M",
+  2: "T",
+  3: "O",
+  4: "T",
+  5: "F",
+  6: "L",
+};
+
+const weekdayFullNames: Record<CalendarWeekday, string> = {
+  0: "søndag",
+  1: "mandag",
+  2: "tirsdag",
+  3: "onsdag",
+  4: "torsdag",
+  5: "fredag",
+  6: "lørdag",
+};
+
+const weekdayAbbreviations: Record<CalendarWeekday, string> = {
+  0: "søn",
+  1: "man",
+  2: "tir",
+  3: "ons",
+  4: "tor",
+  5: "fre",
+  6: "lør",
+};
+
+function padNumber(value: number): string {
+  return value.toString().padStart(2, "0");
+}
+
+// eventStartDate kommer enten som en bar "YYYY-MM-DD" (fra det levende
+// formular-felt, til forhåndsvisning før gem) eller en fuld ISO-instant
+// (fra handleSubmit, efter createDateTime/createAllDayDate). En bar dato
+// skal tolkes som lokal midnat, ikke UTC-midnat — ellers kan ugedagen blive
+// forkert, samme fejlklasse som blev rettet i Sprint 12.1.
+export function parseEventStartDate(eventStartDate: string): Date {
+  return eventStartDate.includes("T")
+    ? new Date(eventStartDate)
+    : new Date(`${eventStartDate}T00:00:00`);
+}
+
+function formatDanishDate(dateOnly: string): string {
+  const date = new Date(`${dateOnly}T00:00:00`);
+
+  if (Number.isNaN(date.getTime())) {
+    return dateOnly;
+  }
+
+  const weekday = weekdayAbbreviations[date.getDay() as CalendarWeekday];
+
+  return `${weekday} ${padNumber(date.getDate())}-${padNumber(date.getMonth() + 1)}-${date.getFullYear()}`;
+}
+
+// Seks måneder frem er kun en rimelig standardværdi for "Indtil"-datoen, når
+// brugeren netop har slået gentagelse til — ikke en model-begrænsning.
+export function getDefaultRecurrenceUntil(eventStartDate: string): string {
+  const date = parseEventStartDate(eventStartDate);
+
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  date.setMonth(date.getMonth() + 6);
+
+  return `${date.getFullYear()}-${padNumber(date.getMonth() + 1)}-${padNumber(date.getDate())}`;
+}
 
 export function recurrenceRuleToFormValue(
   rule: RecurrenceRule | undefined,
@@ -31,16 +108,16 @@ export function recurrenceRuleToFormValue(
   return {
     frequency: rule.frequency,
     interval: rule.interval,
+    byWeekdays: rule.byWeekdays ? [...rule.byWeekdays] : [],
     endType: rule.endType,
     until: rule.until ? rule.until.slice(0, 10) : "",
     count: rule.count ?? 1,
   };
 }
 
-// byWeekdays/byMonthDay/byMonth udledes bevidst af aftalens startdato i
-// stedet for at være egne UI-felter (holder gentagelses-UI'et simpelt i
-// Sprint 16) — modellen understøtter fortsat flere ugedage, hvis det
-// ønskes senere.
+// byMonthDay/byMonth udledes bevidst af aftalens startdato i stedet for at
+// være egne UI-felter (månedlig/årlig gentagelse holdes simpel) —
+// modellen understøtter fortsat en enkelt månedsdag/måned pr. regel.
 export function recurrenceFormValueToRule(
   value: RecurrenceFormValue,
   eventStartDate: string,
@@ -49,7 +126,7 @@ export function recurrenceFormValueToRule(
     return undefined;
   }
 
-  const startDate = new Date(eventStartDate);
+  const startDate = parseEventStartDate(eventStartDate);
 
   const rule: RecurrenceRule = {
     frequency: value.frequency,
@@ -65,8 +142,13 @@ export function recurrenceFormValueToRule(
     rule.count = value.count;
   }
 
-  if (value.frequency === "weekly" && !Number.isNaN(startDate.getTime())) {
-    rule.byWeekdays = [startDate.getDay() as CalendarWeekday];
+  if (value.frequency === "weekly") {
+    rule.byWeekdays =
+      value.byWeekdays.length > 0
+        ? [...value.byWeekdays]
+        : !Number.isNaN(startDate.getTime())
+          ? [startDate.getDay() as CalendarWeekday]
+          : undefined;
   }
 
   if (value.frequency === "monthly" && !Number.isNaN(startDate.getTime())) {
@@ -91,6 +173,10 @@ export function getRecurrenceFormValidationError(
     return "Intervallet skal være mindst 1.";
   }
 
+  if (value.frequency === "weekly" && value.byWeekdays.length === 0) {
+    return "Vælg mindst én ugedag.";
+  }
+
   if (value.endType === "until" && !value.until) {
     return "Vælg en slutdato for gentagelsen.";
   }
@@ -103,4 +189,80 @@ export function getRecurrenceFormValidationError(
   }
 
   return null;
+}
+
+export function describeRecurrenceFormValue(
+  value: RecurrenceFormValue,
+  eventStartDate: string,
+): string {
+  if (value.frequency === "none") {
+    return "Gentages ikke";
+  }
+
+  let frequencyText: string;
+
+  switch (value.frequency) {
+    case "daily":
+      frequencyText =
+        value.interval === 1
+          ? "Gentages hver dag"
+          : `Gentages hver ${value.interval}. dag`;
+      break;
+
+    case "weekly": {
+      const parsedStartDate = parseEventStartDate(eventStartDate);
+      const startWeekday = Number.isNaN(parsedStartDate.getTime())
+        ? undefined
+        : (parsedStartDate.getDay() as CalendarWeekday);
+
+      const days =
+        value.byWeekdays.length > 0
+          ? value.byWeekdays
+          : startWeekday !== undefined
+            ? [startWeekday]
+            : [];
+
+      const sortedDays = [...days].sort(
+        (first, second) =>
+          weekdayDisplayOrder.indexOf(first) -
+          weekdayDisplayOrder.indexOf(second),
+      );
+
+      const dayNames = sortedDays.map((day) => weekdayFullNames[day]);
+
+      const dayList =
+        dayNames.length > 1
+          ? `${dayNames.slice(0, -1).join(", ")} og ${dayNames[dayNames.length - 1]}`
+          : (dayNames[0] ?? "");
+
+      frequencyText =
+        value.interval === 1
+          ? `Gentages hver uge om ${dayList}`
+          : `Gentages hver ${value.interval}. uge om ${dayList}`;
+      break;
+    }
+
+    case "monthly":
+      frequencyText =
+        value.interval === 1
+          ? "Gentages hver måned"
+          : `Gentages hver ${value.interval}. måned`;
+      break;
+
+    case "yearly":
+      frequencyText =
+        value.interval === 1
+          ? "Gentages hvert år"
+          : `Gentages hvert ${value.interval}. år`;
+      break;
+  }
+
+  const endText =
+    value.endType === "until" && value.until
+      ? ` · Indtil ${formatDanishDate(value.until)}`
+      : value.endType === "count"
+        ? ` · ${value.count} gange`
+        : "";
+
+  return frequencyText + endText;
 }

@@ -208,6 +208,73 @@ describe("expandRecurringEvents", () => {
     expect(modifiedOccurrence?.location).toBe("Hjemme");
   });
 
+  it("expands a weekly recurrence across multiple selected weekdays", () => {
+    // 2026-08-03 er en mandag. byWeekdays vælger tirsdag(2) og torsdag(4).
+    const event = buildEvent({
+      recurrence: {
+        frequency: "weekly",
+        interval: 1,
+        endType: "count",
+        count: 4,
+        byWeekdays: [2, 4],
+      },
+    });
+
+    const result = expandRecurringEvents([event], wideRange, []);
+
+    expect(result.map((occurrence) => occurrence.start.slice(0, 10))).toEqual([
+      "2026-08-04",
+      "2026-08-06",
+      "2026-08-11",
+      "2026-08-13",
+    ]);
+  });
+
+  it("does not emit a selected weekday that falls before the series' own start date in its first week", () => {
+    // 2026-08-06 er en torsdag. byWeekdays vælger mandag(1, tidligere samme
+    // uge, skal springes over) og torsdag(4, == startdatoen).
+    const event = buildEvent({
+      start: "2026-08-06T09:00:00.000",
+      end: "2026-08-06T10:00:00.000",
+      recurrence: {
+        frequency: "weekly",
+        interval: 1,
+        endType: "count",
+        count: 3,
+        byWeekdays: [1, 4],
+      },
+    });
+
+    const result = expandRecurringEvents([event], wideRange, []);
+
+    expect(result.map((occurrence) => occurrence.start.slice(0, 10))).toEqual([
+      "2026-08-06",
+      "2026-08-10",
+      "2026-08-13",
+    ]);
+  });
+
+  it("respects the interval for a multi-weekday weekly recurrence (every other week)", () => {
+    const event = buildEvent({
+      recurrence: {
+        frequency: "weekly",
+        interval: 2,
+        endType: "count",
+        count: 4,
+        byWeekdays: [1, 3],
+      },
+    });
+
+    const result = expandRecurringEvents([event], wideRange, []);
+
+    expect(result.map((occurrence) => occurrence.start.slice(0, 10))).toEqual([
+      "2026-08-03",
+      "2026-08-05",
+      "2026-08-17",
+      "2026-08-19",
+    ]);
+  });
+
   it("excludes occurrences entirely outside the requested range", () => {
     const event = buildEvent({
       recurrence: { frequency: "daily", interval: 1, endType: "count", count: 10 },

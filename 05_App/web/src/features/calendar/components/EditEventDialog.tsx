@@ -628,6 +628,7 @@ function EditEventDialog({
           {eventSource?.providerType !== "google" && canEditRecurrenceRule && (
             <EventRecurrenceSection
               value={recurrence}
+              eventStartDate={formState.startDate}
               disabled={!isInternalEvent || isSaving}
               errorMessage={recurrenceError}
               onChange={setRecurrence}

@@ -1,132 +1,107 @@
-import { Alert, Box, MenuItem, TextField } from "@mui/material";
+import { useState } from "react";
 
-import type { RecurrenceEndType, RecurrenceFrequency } from "../models/calendarEvent";
-import type { RecurrenceFormValue } from "../form/recurrenceFormValue";
+import CloseRounded from "@mui/icons-material/CloseRounded";
+import RepeatRounded from "@mui/icons-material/RepeatRounded";
+import { Alert, Box, Button, IconButton, Typography } from "@mui/material";
 
-const frequencyOptions: { value: RecurrenceFrequency | "none"; label: string }[] = [
-  { value: "none", label: "Gentages ikke" },
-  { value: "daily", label: "Dagligt" },
-  { value: "weekly", label: "Ugentligt" },
-  { value: "monthly", label: "Månedligt" },
-  { value: "yearly", label: "Årligt" },
-];
-
-const endTypeOptions: { value: RecurrenceEndType; label: string }[] = [
-  { value: "never", label: "Aldrig" },
-  { value: "until", label: "På en dato" },
-  { value: "count", label: "Efter et antal gange" },
-];
+import { RecurrenceDialog } from "./RecurrenceDialog";
+import {
+  defaultRecurrenceFormValue,
+  describeRecurrenceFormValue,
+  getDefaultRecurrenceUntil,
+  parseEventStartDate,
+  type RecurrenceFormValue,
+} from "../form/recurrenceFormValue";
 
 interface EventRecurrenceSectionProps {
   value: RecurrenceFormValue;
+  eventStartDate: string;
   disabled: boolean;
   errorMessage: string | null;
-}
-
-export interface EventRecurrenceSectionChangeProps {
   onChange: (value: RecurrenceFormValue) => void;
 }
 
 export function EventRecurrenceSection({
   value,
+  eventStartDate,
   disabled,
   errorMessage,
   onChange,
-}: EventRecurrenceSectionProps & EventRecurrenceSectionChangeProps) {
+}: EventRecurrenceSectionProps) {
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const isRecurring = value.frequency !== "none";
+
+  function handleOpenDialog() {
+    if (isRecurring) {
+      setIsDialogOpen(true);
+      return;
+    }
+
+    // Fornuftig standardværdi, når "Tilbagevendende" slås til første gang —
+    // ugentligt, på aftalens egen ugedag, med "Indtil" seks måneder frem.
+    const parsedStartDate = parseEventStartDate(eventStartDate);
+    const startWeekday = Number.isNaN(parsedStartDate.getTime())
+      ? undefined
+      : (parsedStartDate.getDay() as 0 | 1 | 2 | 3 | 4 | 5 | 6);
+
+    onChange({
+      ...defaultRecurrenceFormValue,
+      frequency: "weekly",
+      byWeekdays: startWeekday !== undefined ? [startWeekday] : [],
+      endType: "until",
+      until: getDefaultRecurrenceUntil(eventStartDate),
+    });
+
+    setIsDialogOpen(true);
+  }
+
+  function handleRemoveRecurrence() {
+    onChange(defaultRecurrenceFormValue);
+  }
+
   return (
-    <Box sx={{ display: "grid", gap: 2 }}>
-      <TextField
-        select
-        label="Gentages"
-        value={value.frequency}
-        disabled={disabled}
-        fullWidth
-        onChange={(event) =>
-          onChange({
-            ...value,
-            frequency: event.target.value as RecurrenceFrequency | "none",
-          })
-        }
-      >
-        {frequencyOptions.map((option) => (
-          <MenuItem key={option.value} value={option.value}>
-            {option.label}
-          </MenuItem>
-        ))}
-      </TextField>
+    <Box sx={{ display: "grid", gap: 1 }}>
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+        <Button
+          variant={isRecurring ? "contained" : "outlined"}
+          color={isRecurring ? "primary" : "inherit"}
+          startIcon={<RepeatRounded />}
+          disabled={disabled}
+          onClick={handleOpenDialog}
+        >
+          Tilbagevendende
+        </Button>
 
-      {value.frequency !== "none" && (
-        <>
-          <TextField
-            label="Interval"
-            type="number"
-            value={value.interval}
+        {isRecurring && (
+          <IconButton
+            aria-label="Fjern tilbagevendende aftale"
+            size="small"
             disabled={disabled}
-            fullWidth
-            helperText="Fx 2 = hver anden gang."
-            slotProps={{ htmlInput: { min: 1 } }}
-            onChange={(event) =>
-              onChange({
-                ...value,
-                interval: Number(event.target.value) || 1,
-              })
-            }
-          />
-
-          <TextField
-            select
-            label="Slutter"
-            value={value.endType}
-            disabled={disabled}
-            fullWidth
-            onChange={(event) =>
-              onChange({
-                ...value,
-                endType: event.target.value as RecurrenceEndType,
-              })
-            }
+            onClick={handleRemoveRecurrence}
           >
-            {endTypeOptions.map((option) => (
-              <MenuItem key={option.value} value={option.value}>
-                {option.label}
-              </MenuItem>
-            ))}
-          </TextField>
+            <CloseRounded fontSize="small" />
+          </IconButton>
+        )}
+      </Box>
 
-          {value.endType === "until" && (
-            <TextField
-              label="Slutdato"
-              type="date"
-              value={value.until}
-              disabled={disabled}
-              fullWidth
-              slotProps={{ inputLabel: { shrink: true } }}
-              onChange={(event) =>
-                onChange({ ...value, until: event.target.value })
-              }
-            />
-          )}
-
-          {value.endType === "count" && (
-            <TextField
-              label="Antal gange"
-              type="number"
-              value={value.count}
-              disabled={disabled}
-              fullWidth
-              slotProps={{ htmlInput: { min: 1 } }}
-              onChange={(event) =>
-                onChange({
-                  ...value,
-                  count: Number(event.target.value) || 1,
-                })
-              }
-            />
-          )}
-
-          {errorMessage && <Alert severity="error">{errorMessage}</Alert>}
-        </>
+      {isRecurring && (
+        <Typography variant="body2" color="text.secondary">
+          {describeRecurrenceFormValue(value, eventStartDate)}
+        </Typography>
       )}
+
+      {errorMessage && <Alert severity="error">{errorMessage}</Alert>}
+
+      <RecurrenceDialog
+        open={isDialogOpen}
+        value={value}
+        eventStartDate={eventStartDate}
+        onCancel={() => setIsDialogOpen(false)}
+        onApply={(nextValue) => {
+          onChange(nextValue);
+          setIsDialogOpen(false);
+        }}
+      />
     </Box>
   );
 }
