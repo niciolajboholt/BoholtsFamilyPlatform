@@ -8,6 +8,7 @@ import type {
 } from "../models/calendarEvent";
 import type { CreateCalendarEventInput } from "../models/calendarEventInput";
 import { getFamilyMemberIds } from "../preferences/familyMembersStorage";
+import { deleteRecurrenceExceptionsForMaster } from "../preferences/recurrenceExceptionsStorage";
 
 export type { CreateCalendarEventInput } from "../models/calendarEventInput";
 
@@ -513,6 +514,13 @@ export class CalendarService {
       );
 
     saveStoredEvents(updatedEvents);
+
+    // Sletning af en hel gentagelsesrække skal ikke efterlade forældreløse
+    // undtagelser (Sprint 16) — de peger på et mester-id, der ikke længere
+    // findes.
+    if (event.recurrence) {
+      deleteRecurrenceExceptionsForMaster(eventId);
+    }
 
     return Promise.resolve();
   }

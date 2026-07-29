@@ -29,11 +29,14 @@ import { useCalendarEvents } from "../features/calendar/hooks/useCalendarEvents"
 import { useCalendarSources } from "../features/calendar/hooks/useCalendarSources";
 import { useFamilyMembers } from "../features/calendar/hooks/useFamilyMembers";
 import { useGoogleCalendarConnection } from "../features/calendar/hooks/useGoogleCalendarConnection";
+import { useRecurrenceExceptions } from "../features/calendar/hooks/useRecurrenceExceptions";
 import type {
   CalendarEvent,
 } from "../features/calendar/models/calendarEvent";
 import type { CreateCalendarEventInput } from "../features/calendar/models/calendarEventInput";
+import type { CalendarEventRange } from "../features/calendar/models/calendarProvider";
 import type { CalendarView } from "../features/calendar/models/calendarView";
+import { expandRecurringEvents } from "../features/calendar/utils/expandRecurringEvents";
 import { getEventsForDate } from "../features/calendar/utils/getEventsForDate";
 
 type SnackbarSeverity =
@@ -99,6 +102,51 @@ function changeWeek(
   result.setHours(12, 0, 0, 0);
 
   return result;
+}
+
+// Rundhåndet interval omkring det synlige tidsrum (uge- eller måneds-gitter
+// kan række ~1 uge ind i nabomåneder) — bruges kun til at afgrænse
+// gentagelses-udfoldning, ikke til præcis dag-visning (det gør
+// getEventsForDate/getEventsForWeek stadig nedstrøms).
+function getVisibleRange(
+  visibleDate: Date,
+  calendarView: CalendarView,
+): CalendarEventRange {
+  if (calendarView === "week") {
+    const start = new Date(visibleDate);
+    start.setDate(start.getDate() - 7);
+    start.setHours(0, 0, 0, 0);
+
+    const end = new Date(visibleDate);
+    end.setDate(end.getDate() + 14);
+    end.setHours(0, 0, 0, 0);
+
+    return {
+      start: start.toISOString(),
+      end: end.toISOString(),
+    };
+  }
+
+  const start = new Date(
+    visibleDate.getFullYear(),
+    visibleDate.getMonth(),
+    1,
+  );
+  start.setDate(start.getDate() - 7);
+  start.setHours(0, 0, 0, 0);
+
+  const end = new Date(
+    visibleDate.getFullYear(),
+    visibleDate.getMonth() + 1,
+    1,
+  );
+  end.setDate(end.getDate() + 7);
+  end.setHours(0, 0, 0, 0);
+
+  return {
+    start: start.toISOString(),
+    end: end.toISOString(),
+  };
 }
 
 function CalendarPage() {
@@ -178,6 +226,8 @@ function CalendarPage() {
 
   const { members } = useFamilyMembers();
 
+  const recurrenceExceptions = useRecurrenceExceptions();
+
   const {
     isConfigured: isGoogleCalendarConfigured,
     configurationError: googleCalendarConfigurationError,
@@ -208,12 +258,29 @@ function CalendarPage() {
   const isRefreshing =
     isLoading && hasLoadedEvents;
 
+  const visibleRange = useMemo(
+    () => getVisibleRange(visibleDate, calendarView),
+    [visibleDate, calendarView],
+  );
+
+  const expandedEvents = useMemo(
+    () =>
+      expandRecurringEvents(
+        events,
+        visibleRange,
+        recurrenceExceptions.exceptions,
+      ),
+    [events, visibleRange, recurrenceExceptions.exceptions],
+  );
+
   const visibleEvents =
     useMemo(() => {
       const visibleSourceIds = new Set(visibleCalendarSourceIds);
 
-      return events.filter((event) => visibleSourceIds.has(event.sourceId));
-    }, [events, visibleCalendarSourceIds]);
+      return expandedEvents.filter((event) =>
+        visibleSourceIds.has(event.sourceId),
+      );
+    }, [expandedEvents, visibleCalendarSourceIds]);
 
   const eventsForSelectedDate =
     useMemo(() => {
@@ -811,6 +878,8 @@ function CalendarPage() {
         onClose={handleCloseEditDialog}
         onUpdate={handleUpdateEvent}
         onDelete={handleDeleteEvent}
+        onUpdateOccurrence={recurrenceExceptions.modifyOccurrence}
+        onDeleteOccurrence={recurrenceExceptions.cancelOccurrence}
       />
 
       <Snackbar

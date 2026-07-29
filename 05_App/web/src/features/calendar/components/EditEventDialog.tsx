@@ -12,6 +12,7 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  MenuItem,
   TextField,
   type DialogProps,
 } from "@mui/material";
@@ -20,6 +21,7 @@ import { ConfirmDiscardDialog } from "./ConfirmDiscardDialog";
 import { EventConflictAlert } from "./EventConflictAlert";
 import { EventDateTimeSection } from "./EventDateTimeSection";
 import { EventParticipantsSection } from "./EventParticipantsSection";
+import { EventRecurrenceSection } from "./EventRecurrenceSection";
 import {
   createAllDayDate,
   createDateTime,
@@ -37,11 +39,20 @@ import { useEventValidationFeedback } from "../form/useEventValidationFeedback";
 import {
   type EventFormValidationMessages,
 } from "../form/eventFormValidation";
+import {
+  getRecurrenceFormValidationError,
+  recurrenceFormValueToRule,
+  recurrenceRuleToFormValue,
+  type RecurrenceFormValue,
+} from "../form/recurrenceFormValue";
 import type {
   CalendarEvent,
 } from "../models/calendarEvent";
 import type { CalendarSource } from "../models/calendarProvider";
+import type { RecurrenceExceptionOverride } from "../preferences/recurrenceExceptionsStorage";
 import type { CalendarOwner } from "../data/calendarOwners";
+
+type EditScope = "occurrence" | "series";
 
 interface EditEventDialogProps {
   open: boolean;
@@ -57,6 +68,15 @@ interface EditEventDialogProps {
   onDelete: (
     eventId: string,
   ) => Promise<void>;
+  onUpdateOccurrence: (
+    masterEventId: string,
+    occurrenceStart: string,
+    override: RecurrenceExceptionOverride,
+  ) => void;
+  onDeleteOccurrence: (
+    masterEventId: string,
+    occurrenceStart: string,
+  ) => void;
 }
 
 const validationMessages: EventFormValidationMessages = {
@@ -143,11 +163,35 @@ function EditEventDialog({
   onClose,
   onUpdate,
   onDelete,
+  onUpdateOccurrence,
+  onDeleteOccurrence,
 }: EditEventDialogProps) {
+  // En udfoldet forekomst af en lokal gentagelsesrække (Sprint 16) — Google-
+  // forekomster har intet valg her, jf. planen: de redigeres/slettes altid
+  // som netop den ene Google-forekomst, uændret ift. eksisterende flow.
+  const isRecurringLocalOccurrence =
+    Boolean(event?.recurrenceMasterId) && event?.source === "internal";
+
+  const [editScope, setEditScope] = useState<EditScope>("occurrence");
+
+  const masterEvent = event?.recurrenceMasterId
+    ? (events.find(
+        (candidate) => candidate.id === event.recurrenceMasterId,
+      ) ?? null)
+    : null;
+
+  const effectiveEvent =
+    isRecurringLocalOccurrence && editScope === "series"
+      ? masterEvent
+      : event;
+
+  const canEditRecurrenceRule =
+    !isRecurringLocalOccurrence || editScope === "series";
+
   const initialFormState =
     useMemo(
-      () => createInitialFormState(event),
-      [event],
+      () => createInitialFormState(effectiveEvent),
+      [effectiveEvent],
     );
 
   const {
@@ -176,12 +220,17 @@ function EditEventDialog({
     setIsDiscardConfirmationVisible,
   ] = useState(false);
 
-  const eventSource = event
+  const eventSource = effectiveEvent
     ? calendarSources.find(
-      (source) => source.id === event.sourceId,
+      (source) => source.id === effectiveEvent.sourceId,
     )
     : undefined;
   const isInternalEvent = eventSource?.isReadOnly === false;
+
+  const [recurrence, setRecurrence] = useState<RecurrenceFormValue>(() =>
+    recurrenceRuleToFormValue(effectiveEvent?.recurrence),
+  );
+  const recurrenceError = getRecurrenceFormValidationError(recurrence);
 
   const {
     validationErrorCode,
@@ -206,31 +255,40 @@ function EditEventDialog({
   );
 
   const eventId = event?.id ?? null;
+  // editScope indgår i nøglen, så et skift mellem "denne forekomst" og
+  // "hele rækken" nulstiller formularen til den relevante datakilde
+  // (occurrence vs. masterEvent), på samme måde som et helt nyt event gør.
+  const resetKey = `${eventId ?? "none"}::${editScope}`;
 
   const [resetSignature, setResetSignature] = useState({
     wasOpen: open,
-    eventId,
+    resetKey,
   });
 
   const justOpened = open && !resetSignature.wasOpen;
-  const eventChangedWhileOpen =
+  const targetChangedWhileOpen =
     open &&
     resetSignature.wasOpen &&
-    resetSignature.eventId !== eventId;
+    resetSignature.resetKey !== resetKey;
 
-  if (justOpened || eventChangedWhileOpen) {
+  if (justOpened || targetChangedWhileOpen) {
     reset();
     setSubmitError(null);
     setIsDeleteConfirmationVisible(false);
     setIsDiscardConfirmationVisible(false);
     resetValidationFeedback();
+    setRecurrence(recurrenceRuleToFormValue(effectiveEvent?.recurrence));
+
+    if (justOpened) {
+      setEditScope("occurrence");
+    }
   }
 
   if (
     resetSignature.wasOpen !== open ||
-    resetSignature.eventId !== eventId
+    resetSignature.resetKey !== resetKey
   ) {
-    setResetSignature({ wasOpen: open, eventId });
+    setResetSignature({ wasOpen: open, resetKey });
   }
 
   const { isDirty } = useUnsavedChanges(
@@ -261,7 +319,7 @@ function EditEventDialog({
     form: formState,
     events,
     validationError,
-    excludedEventId: event?.id,
+    excludedEventId: event?.recurrenceMasterId ?? event?.id,
     isEnabled: event !== null,
   });
 
@@ -309,12 +367,18 @@ function EditEventDialog({
 
   async function handleSubmit() {
     if (
-      !event ||
+      !effectiveEvent ||
       validationError
     ) {
       if (validationError) {
         showAllErrorsAndFocusFirst();
       }
+
+      return;
+    }
+
+    if (canEditRecurrenceRule && recurrenceError) {
+      setSubmitError(recurrenceError);
 
       return;
     }
@@ -343,36 +407,46 @@ function EditEventDialog({
             formState.endTime,
           );
 
-    const updatedEvent: CalendarEvent =
-      {
-        ...event,
-
-        title:
-          formState.title.trim(),
-
-        start,
-        end,
-
-        allDay:
-          formState.allDay,
-
-        ownerIds: event.source === "google"
+    const editedFields = {
+      title: formState.title.trim(),
+      start,
+      end,
+      allDay: formState.allDay,
+      ownerIds:
+        effectiveEvent.source === "google"
           ? []
           : [...formState.ownerIds],
-
-        description:
-          formState.description.trim() ||
-          undefined,
-
-        location:
-          formState.location.trim() ||
-          undefined,
-      };
+      description:
+        formState.description.trim() || undefined,
+      location: formState.location.trim() || undefined,
+    };
 
     try {
-      await onUpdate(
-        updatedEvent,
-      );
+      if (
+        isRecurringLocalOccurrence &&
+        editScope === "occurrence" &&
+        event?.recurrenceMasterId &&
+        event.recurrenceOccurrenceStart
+      ) {
+        // "Denne forekomst" — skriver en undtagelse i stedet for at kalde
+        // onUpdate, som ville fejle (occurrence-id'et er syntetisk og
+        // findes ikke i lagringen).
+        onUpdateOccurrence(
+          event.recurrenceMasterId,
+          event.recurrenceOccurrenceStart,
+          editedFields,
+        );
+      } else {
+        const updatedEvent: CalendarEvent = {
+          ...effectiveEvent,
+          ...editedFields,
+          recurrence: canEditRecurrenceRule
+            ? recurrenceFormValueToRule(recurrence, start)
+            : effectiveEvent.recurrence,
+        };
+
+        await onUpdate(updatedEvent);
+      }
 
       onClose();
     } catch (
@@ -387,16 +461,26 @@ function EditEventDialog({
   }
 
   async function handleDelete() {
-    if (!event) {
+    if (!effectiveEvent) {
       return;
     }
 
     setSubmitError(null);
 
     try {
-      await onDelete(
-        event.id,
-      );
+      if (
+        isRecurringLocalOccurrence &&
+        editScope === "occurrence" &&
+        event?.recurrenceMasterId &&
+        event.recurrenceOccurrenceStart
+      ) {
+        onDeleteOccurrence(
+          event.recurrenceMasterId,
+          event.recurrenceOccurrenceStart,
+        );
+      } else {
+        await onDelete(effectiveEvent.id);
+      }
 
       onClose();
     } catch (
@@ -442,6 +526,22 @@ function EditEventDialog({
                 ? "Denne Google-kalender er skrivebeskyttet."
                 : "Kun interne aftaler kan redigeres eller slettes."}
             </Alert>
+          )}
+
+          {isRecurringLocalOccurrence && (
+            <TextField
+              select
+              label="Gælder for"
+              value={editScope}
+              disabled={!isInternalEvent || isSaving}
+              fullWidth
+              onChange={(changeEvent) =>
+                setEditScope(changeEvent.target.value as EditScope)
+              }
+            >
+              <MenuItem value="occurrence">Kun denne forekomst</MenuItem>
+              <MenuItem value="series">Hele rækken</MenuItem>
+            </TextField>
           )}
 
           {submitError && (
@@ -524,6 +624,15 @@ function EditEventDialog({
             allDayLabel="Heldagsaftale"
             dateFieldsFullWidth={false}
           />
+
+          {eventSource?.providerType !== "google" && canEditRecurrenceRule && (
+            <EventRecurrenceSection
+              value={recurrence}
+              disabled={!isInternalEvent || isSaving}
+              errorMessage={recurrenceError}
+              onChange={setRecurrence}
+            />
+          )}
 
           {eventSource?.providerType !== "google" && (
             <EventParticipantsSection

@@ -125,4 +125,18 @@ export interface CalendarEvent {
    * En aftale uden recurrence er en almindelig enkeltstående aftale.
    */
   recurrence?: RecurrenceRule;
+
+  /**
+   * Sat udelukkende på afledte forekomster af en gentagen aftale (aldrig på
+   * selve den lagrede/mester-aftale). Peger på mester-aftalens id — lokalt
+   * (expandRecurringEvents) eller Google (event.recurringEventId).
+   */
+  recurrenceMasterId?: string;
+
+  /**
+   * Sat udelukkende på afledte forekomster. Forekomstens oprindelige,
+   * uændrede starttidspunkt — bruges som nøgle til undtagelser, selv hvis
+   * forekomstens faktiske tid efterfølgende er ændret.
+   */
+  recurrenceOccurrenceStart?: string;
 }
