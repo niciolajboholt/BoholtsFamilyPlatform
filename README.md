@@ -6,13 +6,14 @@ aftaler og kalenderkilder i én mobilvenlig webapp.
 ## Aktuel status
 
 - React-webappen udvikles på `develop`.
-- Sprint 0–15 er gennemført.
+- Sprint 0–16 er gennemført, inklusive gentagne aftaler (recurrence) og valg
+  af hvilke Google-kalendere der skal medtages ved forbindelse.
 - Google Calendar kan læses og skrives via en brugerautoriseret session.
-- Stabiliseringsmilepælen fra den eksterne audit er i gang.
-- Sprint 16 om gentagne aftaler er pauset, indtil stabiliseringen er godkendt.
+- Stabiliseringsmilepælen fra den eksterne audit (2026-07-29) er i gang; se
+  [10_Future_Roadmap.md](01_Project_Documentation/AI_Knowledge_Base/10_Future_Roadmap.md)
+  for status på de enkelte fund (F-01 til F-17).
 
-Se [PROJECT_STATUS.md](PROJECT_STATUS.md) for den aktuelle leverancestatus og
-[AI Knowledge Base](01_Project_Documentation/AI_Knowledge_Base/00_README.md)
+Se [AI Knowledge Base](01_Project_Documentation/AI_Knowledge_Base/00_README.md)
 for projektets historik, arkitektur og beslutninger.
 
 ## Teknologi

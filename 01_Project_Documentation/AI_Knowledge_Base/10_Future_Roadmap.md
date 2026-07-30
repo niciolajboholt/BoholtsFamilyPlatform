@@ -2,13 +2,13 @@
 
 > Status: Active
 
-Version: 1.7
+Version: 1.8
 
 Project:
 Boholts Family Platform
 
 Last Updated:
-2026-07-29 (ekstern audit-stabiliseringsmilepæl tilføjet)
+2026-07-30 (audit-fund F-01, F-05, F-07, F-12, F-14, F-16 (delvist), F-17 løst eller udført)
 
 Owner:
 Nicolaj Bach Boholt
@@ -34,7 +34,7 @@ Ikke inkluderet endnu, som forudsat i Release Plan: login, deling mellem brugere
 
 ## Stabiliseringsmilepæl — ekstern audit (2026-07-29)
 
-**Status: I gang. Blokerer nye feature-sprints (inkl. resten af Sprint 16), indtil Fase 0 og 1 er gennemført.**
+**Status: Fase 0 og 1 er gennemført (2026-07-30) — blokeringen af nye feature-sprints er ophævet. Fase 2 (arkitekturbeslutninger: datamodel, Google-sync, dashboard-mock) og Fase 3 (PWA, fysisk a11y-test, kravsporbarhedsmatrix) er fortsat åbne og kræver beslutninger fra Nicolaj, før de kodes.**
 
 En ekstern, uafhængig audit (Codex, revision 2, 2026-07-29) gennemgik `main`, `develop` (commit `9647722`) og den daværende lokale Sprint 16-arbejdstilstand. Samlet konklusion: **NO-GO** til release, med 17 konkrete fund (F-01 til F-17), hvoraf 5 vurderes kritiske/blokerende. Den fulde rapport samt en uafhængig vurdering og eksekveringsplan er udarbejdet uden for repoet sammen med Nicolaj; denne sektion er det autoritative uddrag i Knowledge Base, så begge AI-agenter arbejder fra samme grundlag.
 
@@ -44,22 +44,22 @@ En ekstern, uafhængig audit (Codex, revision 2, 2026-07-29) gennemgik `main`, `
 
 ### Fase 0 — Stabilisering (mekaniske rettelser, ingen arkitekturbeslutning nødvendig)
 
-1. `index.html`: `lang="en"` → `lang="da"`, titel "web" → retvisende titel (F-16).
-2. Ret UTF-8-encodingfejl `indlÃ¦ses` → `indlæses` i `GoogleCalendarApi.ts` og `GoogleCalendarSession.ts` (F-17).
+1. ~~`index.html`: `lang="en"` → `lang="da"`, titel "web" → retvisende titel (F-16).~~ **Løst (2026-07-29, PR #22)**: `lang="da"` og titlen "Boholts Familieapp" er på plads. Den bredere a11y/UX-verifikation (tastaturnavigation, fokus, farve som eneste informationsbærer, fysisk iPhone/Safari/VoiceOver-test) i issue F-16 er fortsat åben — kræver fysisk adgang, jf. Fase 3.
+2. ~~Ret UTF-8-encodingfejl `indlÃ¦ses` → `indlæses` i `GoogleCalendarApi.ts` og `GoogleCalendarSession.ts` (F-17).~~ **Løst (2026-07-29, PR #22)**: ingen mojibake tilbage i de nævnte filer.
 3. ~~Fjern eller færdiggør de 3 ubrugte imports i `CalendarPage.tsx` (`useRecurrenceExceptions`, `CalendarEventRange`, `expandRecurringEvents`), så `lint`/`build` er grønne igen (F-02).~~ **Løst ved Sprint 16-merge (2026-07-29)**: alle tre bruges reelt (gentagelses-udfoldning), ingen ubrugte imports tilbage — `lint`/`build` bekræftet grønne på `develop` efter merge.
 4. ~~Gør `useCalendarSources.ts` og `useCalendarEvents.ts` idempotente under React Strict Mode — erstat det delte "in progress"-ref med `AbortController`/generation-id, så et nyt mount ikke blokeres af det forrige. Test i faktisk `npm run dev`, ikke kun preview (F-03).~~ **Løst ved Sprint 16-merge (2026-07-29)**: fundet under browser-test af Sprint 16 — `useCalendarSources.ts`s delte `isLoadingRef`-guard i mount-effekten kolliderede med StrictMode's dobbelt-kørsel og en separat `isCurrent`-annulleringsflag, så begge forsøg endte med at kassere deres eget resultat, og kalenderen hang permanent på "Indlæser kalendere…". Rettet ved kun at bruge `isLoadingRef` i den manuelle `refresh()`, og lade mount-effekten styre sig via sin egen `isCurrent`-lukning. Verificeret i faktisk `npm run dev`, ikke kun build. `useCalendarEvents.ts` blev gennemgået specifikt af samme grund og vurderet ikke berørt: dens mount-effekt har ingen tilsvarende `isCurrent`-annullering, så dens `isRefreshingRef`-guard forhindrer blot et dublet-kald uden at kassere det første forsøgs resultat — bekræftet empirisk gennem gentagne browser-test, ingen ændring nødvendig.
 
 ### Fase 1 — Repo- og CI-hygiejne
 
-1. Opret `.github/workflows/ci.yml`: `npm ci` → lint → build → test på push/PR (F-07).
-2. Ret `local:family`-select-state og den tilhørende MUI-advarsel (F-03, del 2).
-3. Ret `CalendarService.reassignOwner()` (ca. linje 560), så både `ownerIds` og `sourceId` omskrives atomisk ved medlemssletning. Tilføj regressionstest (F-12).
-4. Beslut branch-strategi: merge en valideret `develop` til `main` (anbefalet), eller skift default branch bevidst. Opdatér `README.md`/`PROJECT_STATUS.md` så de matcher den faktiske React-stack, ikke SwiftUI/SwiftData (F-01, F-14).
+1. ~~Opret `.github/workflows/ci.yml`: `npm ci` → lint → build → test på push/PR (F-07).~~ **Løst (2026-07-29, PR #22)**: workflowet findes, kører på push/PR mod `main`/`develop`, med separate trin for install/lint/build/test.
+2. ~~Ret `local:family`-select-state og den tilhørende MUI-advarsel (F-03, del 2).~~ **Løst (2026-07-29, PR #22)**: `NewEventDialog` initialiserer nu gyldigt med `local:family`.
+3. ~~Ret `CalendarService.reassignOwner()` (ca. linje 560), så både `ownerIds` og `sourceId` omskrives atomisk ved medlemssletning. Tilføj regressionstest (F-12).~~ **Løst (2026-07-29, PR #22)**: begge felter omskrives atomisk, med regressionstest.
+4. ~~Beslut branch-strategi: merge en valideret `develop` til `main` (anbefalet), eller skift default branch bevidst. Opdatér `README.md`/`PROJECT_STATUS.md` så de matcher den faktiske React-stack, ikke SwiftUI/SwiftData (F-01, F-14).~~ **Løst (2026-07-30)**: `README.md` opdateret til at afspejle Sprint 0–16 og den igangværende stabilisering (det ikke-eksisterende `PROJECT_STATUS.md`-link er fjernet til fordel for Knowledge Base'en); en valideret `develop` (grøn lint/build/test) merget til `main`, som nu er en releasable default branch.
 
 ### Fase 2 — Beslutningspunkter (afklares før videre kodning)
 
 - Datamodel: localStorage → IndexedDB, event-identitet, tombstones til slettede poster, konfliktpolitik (F-06, F-11).
-- Google-sync: gyldigt, begrænset tidsvindue plus `nextSyncToken`/inkrementel sync, fælles source-cache mellem hooks (F-05).
+- Google-sync: ~~gyldigt, begrænset tidsvindue~~ **(løst 2026-07-30)**: `useCalendarEvents` brugte `allCalendarEventRange` = ECMAScripts dato-yderpunkter (år -271821 til +275760) sendt direkte som `timeMin`/`timeMax` til Google-API'et. Erstattet af `getDefaultCalendarEventRange()` (nu ±1/2 år), med en medfølgende rettelse i `LocalCalendarProvider`, så en lokal gentagende aftales mesterrekord ikke længere falder ud af det snævrere vindue. `nextSyncToken`/inkrementel sync og fælles source-cache mellem hooks er fortsat åbne, større arkitekturbeslutninger (F-05).
 - Dashboard/mock-UI: bind `HomePage.tsx` til rigtige data, eller fjern ikke-implementerede handlinger (Indkøbsliste, Opgaver, "Ny aftale") tydeligt (F-10).
 
 ### Fase 3 — Milepæle (afhænger af Fase 2's beslutninger)
