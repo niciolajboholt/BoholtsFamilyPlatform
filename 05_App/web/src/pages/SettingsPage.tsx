@@ -34,7 +34,7 @@ import {
   clearExcludedGoogleCalendars,
   setExcludedGoogleCalendars,
 } from "../features/calendar/preferences/googleCalendarExclusionStorage";
-import { calendarProvider } from "../features/calendar/providers/calendarProviderFactory";
+import { listAllGoogleCalendars } from "../features/calendar/providers/calendarProviderFactory";
 
 function getInitials(name: string): string {
   return name.trim().slice(0, 1).toUpperCase() || "?";
@@ -99,11 +99,9 @@ function SettingsPage() {
     setFetchGoogleCalendarsError(null);
 
     try {
-      const sources = await calendarProvider.getCalendars();
+      const sources = await listAllGoogleCalendars();
 
-      setGoogleCalendarsForSelection(
-        sources.filter((source) => source.providerType === "google"),
-      );
+      setGoogleCalendarsForSelection(sources);
     } catch {
       setFetchGoogleCalendarsError(
         "Dine Google-kalendere kunne ikke hentes.",

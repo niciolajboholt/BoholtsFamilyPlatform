@@ -1,5 +1,6 @@
 import type {
   CalendarProviderType,
+  CalendarSource,
 } from "../models/calendarProvider";
 import type { CalendarProvider } from "./CalendarProvider";
 import { CompositeCalendarProvider } from "./CompositeCalendarProvider";
@@ -25,6 +26,11 @@ export function createCalendarProvider(
   }
 }
 
+const googleCalendarProvider =
+  getGoogleCalendarConfig().enabled
+    ? new GoogleCalendarProvider(googleCalendarSession)
+    : null;
+
 /**
  * Appens aktuelle provider vælges ét sted. Hooks kan stadig få en provider
  * som argument i tests uden at bruge global state eller React Context.
@@ -32,16 +38,25 @@ export function createCalendarProvider(
 export const calendarProvider =
   (() => {
     const localProvider = createCalendarProvider("local");
-    const googleConfig = getGoogleCalendarConfig();
 
-    if (!googleConfig.enabled) {
+    if (!googleCalendarProvider) {
       return localProvider;
     }
 
     return new CompositeCalendarProvider({
       local: localProvider,
-      google: new GoogleCalendarProvider(
-        googleCalendarSession,
-      ),
+      google: googleCalendarProvider,
     });
   })();
+
+/**
+ * Henter ALLE Google-kalendere, uanset eksklusionsvalg — bruges kun af
+ * "Vælg Google-kalendere"-dialogen (se GoogleCalendarProvider.listAllCalendars).
+ * Almindelig kalenderdata skal fortsat gå gennem `calendarProvider`, som
+ * respekterer eksklusion.
+ */
+export function listAllGoogleCalendars(): Promise<CalendarSource[]> {
+  return googleCalendarProvider
+    ? googleCalendarProvider.listAllCalendars()
+    : Promise.resolve([]);
+}

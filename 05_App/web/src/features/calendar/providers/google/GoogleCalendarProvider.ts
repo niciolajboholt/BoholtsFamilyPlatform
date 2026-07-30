@@ -37,6 +37,21 @@ export class GoogleCalendarProvider implements CalendarProvider {
     return sources;
   }
 
+  /**
+   * Ligesom getCalendars(), men uden eksklusionsfiltrering — brugt af
+   * "Vælg Google-kalendere"-dialogen, som skal kunne vise og fravælge/
+   * genvælge ALLE kalendere, også dem der allerede er ekskluderet fra en
+   * tidligere runde. getCalendars() må fortsat filtrere, da den bruges til
+   * den faktiske kalendervisning i resten af appen.
+   */
+  async listAllCalendars(): Promise<CalendarSource[]> {
+    const calendars = await this.api.listCalendars();
+
+    return calendars
+      .map(mapGoogleCalendarSource)
+      .filter((source): source is CalendarSource => source !== null);
+  }
+
   async getEvents(
     range: CalendarEventRange,
   ): Promise<CalendarEvent[]> {
