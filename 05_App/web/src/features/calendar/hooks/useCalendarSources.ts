@@ -27,61 +27,44 @@ export function useCalendarSources(
   const [isLoading, setIsLoading] = useState(true);
   const [hasLoadedSources, setHasLoadedSources] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const isLoadingRef = useRef(false);
+  const requestGenerationRef = useRef(0);
 
   const refresh = useCallback(async (): Promise<void> => {
-    if (isLoadingRef.current) return;
+    const requestGeneration = ++requestGenerationRef.current;
 
-    isLoadingRef.current = true;
     setIsLoading(true);
     setError(null);
 
     try {
       const sources = await provider.getCalendars();
+
+      if (requestGeneration !== requestGenerationRef.current) return;
+
       setCalendarSources(sources);
       setVisibleCalendarSourceIds(getVisibleCalendarSourceIds(sources));
+      setHasLoadedSources(true);
     } catch {
-      setError("Kalenderkilder kunne ikke indlæses.");
+      if (requestGeneration === requestGenerationRef.current) {
+        setError("Kalenderkilder kunne ikke indlæses.");
+      }
     } finally {
-      setIsLoading(false);
-      isLoadingRef.current = false;
+      if (requestGeneration === requestGenerationRef.current) {
+        setIsLoading(false);
+      }
     }
   }, [provider]);
 
   useEffect(() => {
-    // isLoadingRef bevidst IKKE brugt her (kun i refresh()): under StrictMode
-    // dobbelt-kører React denne effekt (mount → cleanup → mount igen). Den
-    // delte ref ville få det andet, reelle forsøg til fejlagtigt at
-    // "bail" ud, mens det første forsøgs svar alligevel ignoreres af
-    // isCurrent-tjekket herunder — resultatet var at hverken isLoading
-    // eller hasLoadedSources nogensinde blev opdateret, og siden blev
-    // hængende på "Indlæser kalendere…" for evigt. isCurrent alene er
-    // korrekt og tilstrækkeligt til at ignorere det forladte første forsøg.
-    let isCurrent = true;
+    // Initial loading is an external provider synchronization. The hook starts
+    // in loading state, so the synchronous loading/error updates are
+    // idempotent on mount.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void refresh();
 
-    async function loadSources() {
-      setIsLoading(true);
-      setError(null);
-
-      try {
-        const sources = await provider.getCalendars();
-
-        if (!isCurrent) return;
-
-        setCalendarSources(sources);
-        setVisibleCalendarSourceIds(getVisibleCalendarSourceIds(sources));
-        setHasLoadedSources(true);
-      } catch {
-        if (isCurrent) setError("Kalenderkilder kunne ikke indlæses.");
-      } finally {
-        if (isCurrent) setIsLoading(false);
-      }
-    }
-
-    void loadSources();
-
-    return () => { isCurrent = false; };
-  }, [provider]);
+    return () => {
+      requestGenerationRef.current += 1;
+    };
+  }, [refresh]);
 
   const updateVisibility = useCallback((visibleIds: string[]) => {
     setVisibleCalendarSourceIds(visibleIds);

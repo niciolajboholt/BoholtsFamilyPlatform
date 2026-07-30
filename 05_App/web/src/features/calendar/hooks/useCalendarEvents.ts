@@ -79,7 +79,7 @@ export function useCalendarEvents(
   const [hasLoadedEvents, setHasLoadedEvents] =
     useState(false);
 
-  const isRefreshingRef = useRef(false);
+  const requestGenerationRef = useRef(0);
 
   const [isSaving, setIsSaving] =
     useState(false);
@@ -94,11 +94,7 @@ export function useCalendarEvents(
 
   const refreshEvents = useCallback(
     async (): Promise<void> => {
-      if (isRefreshingRef.current) {
-        return;
-      }
-
-      isRefreshingRef.current = true;
+      const requestGeneration = ++requestGenerationRef.current;
       setIsLoading(true);
       setError(null);
 
@@ -108,16 +104,23 @@ export function useCalendarEvents(
             allCalendarEventRange,
           );
 
+        if (requestGeneration !== requestGenerationRef.current) {
+          return;
+        }
+
         setEvents(loadedEvents);
         setProviderHealth(getProviderHealth(provider));
         setHasLoadedEvents(true);
       } catch (caughtError: unknown) {
-        setError(
-          getErrorMessage(caughtError),
-        );
+        if (requestGeneration === requestGenerationRef.current) {
+          setError(
+            getErrorMessage(caughtError),
+          );
+        }
       } finally {
-        setIsLoading(false);
-        isRefreshingRef.current = false;
+        if (requestGeneration === requestGenerationRef.current) {
+          setIsLoading(false);
+        }
       }
     },
     [provider],
@@ -130,6 +133,10 @@ export function useCalendarEvents(
     // is idempotent on mount, only that refreshEvents sets state at all.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void refreshEvents();
+
+    return () => {
+      requestGenerationRef.current += 1;
+    };
   }, [refreshEvents]);
 
   const createEvent = useCallback(

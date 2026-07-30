@@ -127,8 +127,11 @@ function NewEventDialog({
     null,
   );
 
-  const [sourceId, setSourceId] = useState("local:family");
-  const selectedSource = calendarSources.find((source) => source.id === sourceId);
+  const [requestedSourceId, setRequestedSourceId] = useState("local:family");
+  const selectedSource =
+    calendarSources.find((source) => source.id === requestedSourceId) ??
+    calendarSources.find((source) => !source.isReadOnly);
+  const sourceId = selectedSource?.id ?? "";
 
   const [recurrence, setRecurrence] = useState<RecurrenceFormValue>(
     defaultRecurrenceFormValue,
@@ -364,7 +367,7 @@ function NewEventDialog({
             select
             label="Kalender"
             value={sourceId}
-            onChange={(event) => setSourceId(event.target.value)}
+            onChange={(event) => setRequestedSourceId(event.target.value)}
             disabled={isSaving}
             fullWidth
           >
@@ -538,7 +541,7 @@ function NewEventDialog({
             void handleSubmit()
           }
           disabled={
-            isSaving
+            isSaving || !selectedSource
           }
           startIcon={
             isSaving ? (

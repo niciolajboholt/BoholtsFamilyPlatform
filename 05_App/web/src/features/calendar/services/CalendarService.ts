@@ -613,17 +613,24 @@ export class CalendarService {
     toOwnerId: string,
   ): Promise<void> {
     const storedEvents = readStoredEvents();
+    const fromSourceId = `local:${fromOwnerId}`;
+    const toSourceId = `local:${toOwnerId}`;
 
-    const updatedEvents = storedEvents.map((event) =>
-      event.ownerIds.includes(fromOwnerId)
-        ? {
-            ...event,
-            ownerIds: event.ownerIds.map((ownerId) =>
-              ownerId === fromOwnerId ? toOwnerId : ownerId,
-            ),
-          }
-        : event,
-    );
+    const updatedEvents = storedEvents.map((event) => {
+      const ownerIds = event.ownerIds.includes(fromOwnerId)
+        ? [...new Set(event.ownerIds.map((ownerId) =>
+            ownerId === fromOwnerId ? toOwnerId : ownerId,
+          ))]
+        : event.ownerIds;
+      const sourceId =
+        event.sourceId === fromSourceId
+          ? toSourceId
+          : event.sourceId;
+
+      return ownerIds !== event.ownerIds || sourceId !== event.sourceId
+        ? { ...event, ownerIds, sourceId }
+        : event;
+    });
 
     saveStoredEvents(updatedEvents);
 
