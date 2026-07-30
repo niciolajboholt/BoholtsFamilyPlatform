@@ -46,8 +46,8 @@ En ekstern, uafhængig audit (Codex, revision 2, 2026-07-29) gennemgik `main`, `
 
 1. `index.html`: `lang="en"` → `lang="da"`, titel "web" → retvisende titel (F-16).
 2. Ret UTF-8-encodingfejl `indlÃ¦ses` → `indlæses` i `GoogleCalendarApi.ts` og `GoogleCalendarSession.ts` (F-17).
-3. Fjern eller færdiggør de 3 ubrugte imports i `CalendarPage.tsx` (`useRecurrenceExceptions`, `CalendarEventRange`, `expandRecurringEvents`), så `lint`/`build` er grønne igen (F-02).
-4. Gør `useCalendarSources.ts` og `useCalendarEvents.ts` idempotente under React Strict Mode — erstat det delte "in progress"-ref med `AbortController`/generation-id, så et nyt mount ikke blokeres af det forrige. Test i faktisk `npm run dev`, ikke kun preview (F-03).
+3. ~~Fjern eller færdiggør de 3 ubrugte imports i `CalendarPage.tsx` (`useRecurrenceExceptions`, `CalendarEventRange`, `expandRecurringEvents`), så `lint`/`build` er grønne igen (F-02).~~ **Løst ved Sprint 16-merge (2026-07-29)**: alle tre bruges reelt (gentagelses-udfoldning), ingen ubrugte imports tilbage — `lint`/`build` bekræftet grønne på `develop` efter merge.
+4. ~~Gør `useCalendarSources.ts` og `useCalendarEvents.ts` idempotente under React Strict Mode — erstat det delte "in progress"-ref med `AbortController`/generation-id, så et nyt mount ikke blokeres af det forrige. Test i faktisk `npm run dev`, ikke kun preview (F-03).~~ **Løst ved Sprint 16-merge (2026-07-29)**: fundet under browser-test af Sprint 16 — `useCalendarSources.ts`s delte `isLoadingRef`-guard i mount-effekten kolliderede med StrictMode's dobbelt-kørsel og en separat `isCurrent`-annulleringsflag, så begge forsøg endte med at kassere deres eget resultat, og kalenderen hang permanent på "Indlæser kalendere…". Rettet ved kun at bruge `isLoadingRef` i den manuelle `refresh()`, og lade mount-effekten styre sig via sin egen `isCurrent`-lukning. Verificeret i faktisk `npm run dev`, ikke kun build. `useCalendarEvents.ts` blev gennemgået specifikt af samme grund og vurderet ikke berørt: dens mount-effekt har ingen tilsvarende `isCurrent`-annullering, så dens `isRefreshingRef`-guard forhindrer blot et dublet-kald uden at kassere det første forsøgs resultat — bekræftet empirisk gennem gentagne browser-test, ingen ændring nødvendig.
 
 ### Fase 1 — Repo- og CI-hygiejne
 
@@ -65,7 +65,7 @@ En ekstern, uafhængig audit (Codex, revision 2, 2026-07-29) gennemgik `main`, `
 ### Fase 3 — Milepæle (afhænger af Fase 2's beslutninger)
 
 - PWA: manifest, service worker, offline-scope defineret af datamodel-beslutningen (F-04).
-- Recurrence: begræns til understøttet delmængde, eller færdiggør `byWeekdays`/`byMonthDay`/`byMonth` i selve ekspansionen — hænger sammen med Sprint 16 ovenfor (F-13).
+- ~~Recurrence: begræns til understøttet delmængde, eller færdiggør `byWeekdays`/`byMonthDay`/`byMonth` i selve ekspansionen — hænger sammen med Sprint 16 ovenfor (F-13).~~ **Løst ved Sprint 16-merge (2026-07-29)**: `byWeekdays` (flere ugedage pr. regel, fx "hver tirsdag og torsdag"), `byMonthDay` (datotal-gitter, samt en ny ordinal ugedag-i-måneden-variant inkl. "Første & sidste") er fuldt implementeret i selve `expandRecurringEvents.ts`-udfoldningen, ikke kun i modellen. `byMonth` for årlig gentagelse er ikke en selvstændigt aflæst variabel i udfoldningen, men resultatet er korrekt, fordi årlig gentagelse regner videre fra den oprindelige aftales egen måned/dag.
 - Komponent-/hook-tests i Strict Mode, 3-5 kritiske Playwright-flows, krav-ID'er og sporbarhedsmatrix (F-07 del 2, F-15).
 - Google-livetest med dedikeret testkonto samt fysisk iPhone/Safari/VoiceOver-test (kræver fysisk adgang, kan ikke gøres af en AI-agent alene).
 
@@ -79,25 +79,9 @@ Personlige farver, redigerbare familiemedlemmer (navn, relation, farve) og tilf�
 
 ---
 
-## Sprint 16 — Planlagt: Gentagne aftaler
+## Sprint 16 — Gennemført: Gentagne aftaler
 
-**Status: Planned.**
-
-**Ønske fra Nicolaj (2026-07-29)**: to fremtidige funktioner blev bedt om forberedt til planlægning samtidig — gentagne aftaler ("gentagende aftaler") og understøttelse af flere Google-kalendre/konti (fx Christines egen konto, ud over Nicolajs). Efter undersøgelse af begge anbefales det at adskille dem: gentagne aftaler som Sprint 16, flere Google-konti som et separat, senere sprint med egen ADR — se begrundelse under "Flere Google-konti pr. familie" nedenfor.
-
-**Baggrund**: En gentagelses-datamodel findes allerede fuldt defineret — `RecurrenceRule`, `RecurrenceFrequency`, `RecurrenceEndType` og `CalendarWeekday` i `models/calendarEvent.ts`, samt fuld validering (`isRecurrenceFrequency`, `isRecurrenceRule`) i `CalendarService.ts`. Men der findes **ingen UI** til at sætte en gentagelsesregel, og **ingen kode nogen steder** der "udfolder" (expanderer) en gentagelsesregel til konkrete forekomster i kalendervisningerne (`getEventsForDate.ts`, `getEventsForWeek.ts`, `MonthCalendar`, `WeekCalendar`, `DayCell`, dialogerne). Modellen er med andre ord 100% klar i data-laget, men 0% synlig for brugeren — bekræftet ved gennemsøgning af hele `src`.
-
-**Sprintindhold** (forslag, kan justeres inden sprinten sættes i gang):
-1. UI til at sætte en gentagelsesregel i `NewEventDialog`/`EditEventDialog`: frekvens (dagligt/ugentligt/månedligt/årligt), interval, og hvornår gentagelsen slutter (aldrig/til dato/antal gange). Modellen understøtter allerede `byWeekdays`/`byMonthDay`/`byMonth`, men disse kan udelades af selve UI'en i første omgang for at holde omfanget nede — kun de simple, hyppigst brugte mønstre medtages.
-2. En ren occurrence-expansion-funktion: givet en `CalendarEvent` med `recurrence` og et datointerval (den viste uge/måned), returnér de konkrete forekomster i intervallet. Google-events med gentagelse filtreres i dag bevidst fra ved læsning (Sprint 11.1) — denne sprint bør enten genoverveje det, eller eksplicit fastlægge at kun lokale gentagne events understøttes for nu.
-3. Redigering/sletning af én enkelt forekomst kræver et valg ("kun denne" vs. "alle") og formentlig en ny data-struktur til undtagelser fra en gentagelsesregel — dette er sprintens mest kompleksitets-tunge del og bør afklares med Nicolaj, inden sprinten sættes i gang.
-4. Tests for expansion-logikken (en ren funktion, let at teste isoleret — samme tilgang som mapper-testene fra Sprint 13).
-
-**Kritiske filer**: `models/calendarEvent.ts` (uændret, allerede korrekt), `services/CalendarService.ts`, ny fil til occurrence-expansion (fx `utils/expandRecurrence.ts`), `NewEventDialog.tsx`/`EditEventDialog.tsx`, `getEventsForDate.ts`/`getEventsForWeek.ts`, kalendervisningerne.
-
-**Åbne spørgsmål, der bør afklares med Nicolaj inden sprinten sættes i gang**:
-- Skal Google-events med gentagelse fortsat filtreres fra ved læsning, eller skal de nu udfoldes?
-- Skal redigering af "kun denne forekomst" understøttes fra start, eller kan sprintens første version nøjes med at redigere/slette hele gentagelsesrækken ad gangen (simplere, men mindre fleksibelt)?
+**Status: Merget til `develop` (2026-07-29).** Fuldt Apple Calendar-stil gentagelsesmønster (ugentligt med flere ugedage, månedligt datotal eller ugedag-i-position inkl. "Første & sidste"), enkelt-forekomst-redigering/-sletning, og Google-gentagelser vises nu også. Se [05_Sprint_History](05_Sprint_History.md) for detaljer.
 
 ---
 
