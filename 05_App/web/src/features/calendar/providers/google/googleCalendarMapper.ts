@@ -34,8 +34,8 @@ function toGoogleCalendarAccessRole(
 }
 
 export function mapGoogleCalendarSource(entry: GoogleCalendarListEntry): CalendarSource | null {
-  if (!entry.id) return null;
-  return { id: encodeGoogleCalendarSourceId(entry.id), name: entry.summary || "Google Kalender", providerType: "google", color: /^#[0-9a-f]{6}$/i.test(entry.backgroundColor ?? "") ? entry.backgroundColor! : fallbackColor, isVisible: true, isReadOnly: !isGoogleCalendarWritable(entry.accessRole), externalReference: entry.id };
+  if (!entry.id || !entry.summary) return null;
+  return { id: encodeGoogleCalendarSourceId(entry.id), name: entry.summary, providerType: "google", color: /^#[0-9a-f]{6}$/i.test(entry.backgroundColor ?? "") ? entry.backgroundColor! : fallbackColor, isVisible: true, isReadOnly: !isGoogleCalendarWritable(entry.accessRole), externalReference: entry.id };
 }
 
 export function mapGoogleCalendarEvent(calendarId: string, event: GoogleCalendarEvent): CalendarEvent | null {
