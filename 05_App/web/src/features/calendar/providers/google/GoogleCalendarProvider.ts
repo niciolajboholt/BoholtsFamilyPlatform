@@ -11,6 +11,7 @@ import {
 } from "./googleCalendarMapper";
 import { decodeGoogleEventId, decodeGoogleCalendarSourceId } from "./googleCalendarIds";
 import { mapGoogleEventWriteRequest } from "./googleCalendarWriteMapper";
+import { getExcludedGoogleCalendarIds } from "../../preferences/googleCalendarExclusionStorage";
 
 export class GoogleCalendarProvider implements CalendarProvider {
   private readonly api: GoogleCalendarApi;
@@ -26,8 +27,10 @@ export class GoogleCalendarProvider implements CalendarProvider {
 
   async getCalendars(): Promise<CalendarSource[]> {
     const calendars = await this.api.listCalendars();
+    const excludedIds = new Set(getExcludedGoogleCalendarIds());
 
     const sources = calendars
+      .filter((calendar) => !calendar.id || !excludedIds.has(calendar.id))
       .map(mapGoogleCalendarSource)
       .filter((source): source is CalendarSource => source !== null);
     this.calendarSources = sources;
@@ -38,9 +41,10 @@ export class GoogleCalendarProvider implements CalendarProvider {
     range: CalendarEventRange,
   ): Promise<CalendarEvent[]> {
     const calendars = await this.api.listCalendars();
+    const excludedIds = new Set(getExcludedGoogleCalendarIds());
     const eventsByCalendar = await Promise.all(
       calendars
-        .filter((calendar) => Boolean(calendar.id))
+        .filter((calendar) => Boolean(calendar.id) && !excludedIds.has(calendar.id!))
         .map(async (calendar) => {
           const calendarId = calendar.id!;
           const events = await this.api.listEvents(

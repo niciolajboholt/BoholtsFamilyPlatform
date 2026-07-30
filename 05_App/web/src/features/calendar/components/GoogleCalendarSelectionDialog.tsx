@@ -24,7 +24,7 @@ interface GoogleCalendarSelectionDialogProps {
   error: string | null;
   onRetry: () => void;
   onSkip: () => void;
-  onConfirm: (hiddenSourceIds: string[]) => void;
+  onConfirm: (excludedGoogleCalendarIds: string[]) => void;
 }
 
 export function GoogleCalendarSelectionDialog({
@@ -68,11 +68,15 @@ export function GoogleCalendarSelectionDialog({
   }
 
   function handleConfirm() {
-    const hiddenSourceIds = calendars
-      .map((calendar) => calendar.id)
-      .filter((id) => !checkedIds.has(id));
+    // externalReference er kalenderens rå Google-id — det er dét,
+    // eksklusionslisten gemmer, ikke det kodede sourceId (som afhænger af,
+    // om kalenderen overhovedet bliver hentet igen).
+    const excludedGoogleCalendarIds = calendars
+      .filter((calendar) => !checkedIds.has(calendar.id))
+      .map((calendar) => calendar.externalReference)
+      .filter((id): id is string => Boolean(id));
 
-    onConfirm(hiddenSourceIds);
+    onConfirm(excludedGoogleCalendarIds);
   }
 
   return (
@@ -82,8 +86,9 @@ export function GoogleCalendarSelectionDialog({
       <DialogContent>
         <Box sx={{ display: "grid", gap: 2, pt: 1 }}>
           <DialogContentText>
-            Hvilke af dine Google-kalendere skal vises i familie-appen? Du kan
-            altid ændre det senere under "Vis kalendere" på Kalender-siden.
+            Hvilke af dine Google-kalendere skal bringes med ind i
+            familie-appen? Fravalgte kalendere hentes slet ikke — afbryd og
+            forbind igen, hvis du vil ombestemme dig senere.
           </DialogContentText>
 
           {isLoading && (

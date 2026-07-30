@@ -30,7 +30,10 @@ import type { CalendarOwner } from "../features/calendar/data/calendarOwners";
 import { useFamilyMembers } from "../features/calendar/hooks/useFamilyMembers";
 import { useGoogleCalendarConnection } from "../features/calendar/hooks/useGoogleCalendarConnection";
 import type { CalendarSource } from "../features/calendar/models/calendarProvider";
-import { hideCalendarSources } from "../features/calendar/preferences/calendarSourceVisibilityStorage";
+import {
+  clearExcludedGoogleCalendars,
+  excludeGoogleCalendars,
+} from "../features/calendar/preferences/googleCalendarExclusionStorage";
 import { calendarProvider } from "../features/calendar/providers/calendarProviderFactory";
 
 function getInitials(name: string): string {
@@ -113,6 +116,12 @@ function SettingsPage() {
   async function handleToggleGoogleCalendar(): Promise<void> {
     if (isGoogleCalendarConnected) {
       disconnectGoogleCalendar();
+
+      // En (gen)forbindelse — evt. med en anden konto — bør starte forfra
+      // med alle kalendere til rådighed, ikke arve en tidligere kontos
+      // fravalg.
+      clearExcludedGoogleCalendars();
+
       return;
     }
 
@@ -133,8 +142,10 @@ function SettingsPage() {
     }
   }
 
-  function handleConfirmCalendarSelection(hiddenSourceIds: string[]) {
-    hideCalendarSources(hiddenSourceIds);
+  function handleConfirmCalendarSelection(
+    excludedGoogleCalendarIds: string[],
+  ) {
+    excludeGoogleCalendars(excludedGoogleCalendarIds);
     setIsCalendarSelectionOpen(false);
   }
 
