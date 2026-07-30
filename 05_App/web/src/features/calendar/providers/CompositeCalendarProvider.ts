@@ -58,7 +58,13 @@ export class CompositeCalendarProvider
         status: "ready",
       });
 
-      return [...localCalendars, ...googleCalendars];
+      // Demo-kalenderen ("google:demo") er kun en pladsholder for brugere,
+      // der endnu ikke har forbundet en rigtig Google-konto. Så snart en
+      // rigtig forbindelse faktisk svarer, er den overflødig og skal væk.
+      return [
+        ...localCalendars.filter((source) => source.id !== "google:demo"),
+        ...googleCalendars,
+      ];
     } catch (error: unknown) {
       this.setGoogleReadError(error);
       return localCalendars;
