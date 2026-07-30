@@ -8,7 +8,7 @@ import {
 import type { CalendarEvent } from "../models/calendarEvent";
 import type { CreateCalendarEventInput } from "../models/calendarEventInput";
 import {
-  allCalendarEventRange,
+  getDefaultCalendarEventRange,
 } from "../models/calendarProvider";
 import type { CalendarProvider } from "../providers/CalendarProvider";
 import {
@@ -101,7 +101,7 @@ export function useCalendarEvents(
       try {
         const loadedEvents =
           await provider.getEvents(
-            allCalendarEventRange,
+            getDefaultCalendarEventRange(),
           );
 
         if (requestGeneration !== requestGenerationRef.current) {

@@ -11,10 +11,19 @@ import {
 import type { CalendarProvider } from "./CalendarProvider";
 import { toCalendarProviderError } from "./calendarProviderErrors";
 
-function isEventWithinRange(
+export function isEventWithinRange(
   event: CalendarEvent,
   range: CalendarEventRange,
 ): boolean {
+  // En gentagende aftales start/slut repræsenterer kun den allerførste
+  // forekomst — en serie der startede før `range.start` kan sagtens have
+  // fremtidige forekomster inden for range. Selve afgrænsningen af hvilke
+  // forekomster der vises, sker først senere i expandRecurringEvents, så
+  // mesterbegivenheden skal altid med igennem her.
+  if (event.recurrence) {
+    return true;
+  }
+
   return (
     new Date(event.start).getTime() <
       new Date(range.end).getTime() &&

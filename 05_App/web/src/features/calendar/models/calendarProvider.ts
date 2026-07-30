@@ -25,7 +25,24 @@ export interface CalendarEventRange {
   end: string;
 }
 
-export const allCalendarEventRange: CalendarEventRange = {
-  start: "-271821-04-20T00:00:00.000Z",
-  end: "+275760-09-13T00:00:00.000Z",
-};
+/**
+ * Standardvindue for at hente aftaler: begrænset og gyldigt for Googles
+ * `timeMin`/`timeMax` (RFC3339-tidspunkter), i modsætning til den tidligere
+ * konstant der brugte ECMAScripts dato-yderpunkter (år -271821 til +275760)
+ * — ugyldige/urimelige år som blev sendt direkte til Google Calendar-API'et.
+ * Beregnes ud fra det aktuelle tidspunkt, så vinduet altid er "nu ± et par år".
+ */
+export function getDefaultCalendarEventRange(
+  referenceDate: Date = new Date(),
+): CalendarEventRange {
+  const start = new Date(referenceDate);
+  start.setFullYear(start.getFullYear() - 1);
+
+  const end = new Date(referenceDate);
+  end.setFullYear(end.getFullYear() + 2);
+
+  return {
+    start: start.toISOString(),
+    end: end.toISOString(),
+  };
+}
