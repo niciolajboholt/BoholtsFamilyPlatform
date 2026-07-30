@@ -25,9 +25,13 @@ import {
 } from "@mui/material";
 
 import { FamilyMemberDialog } from "../features/calendar/components/FamilyMemberDialog";
+import { GoogleCalendarSelectionDialog } from "../features/calendar/components/GoogleCalendarSelectionDialog";
 import type { CalendarOwner } from "../features/calendar/data/calendarOwners";
 import { useFamilyMembers } from "../features/calendar/hooks/useFamilyMembers";
 import { useGoogleCalendarConnection } from "../features/calendar/hooks/useGoogleCalendarConnection";
+import type { CalendarSource } from "../features/calendar/models/calendarProvider";
+import { hideCalendarSources } from "../features/calendar/preferences/calendarSourceVisibilityStorage";
+import { calendarProvider } from "../features/calendar/providers/calendarProviderFactory";
 
 function getInitials(name: string): string {
   return name.trim().slice(0, 1).toUpperCase() || "?";
@@ -77,6 +81,35 @@ function SettingsPage() {
 
   const [isGoogleCalendarBusy, setIsGoogleCalendarBusy] = useState(false);
 
+  const [isCalendarSelectionOpen, setIsCalendarSelectionOpen] =
+    useState(false);
+  const [googleCalendarsForSelection, setGoogleCalendarsForSelection] =
+    useState<CalendarSource[]>([]);
+  const [isFetchingGoogleCalendars, setIsFetchingGoogleCalendars] =
+    useState(false);
+  const [fetchGoogleCalendarsError, setFetchGoogleCalendarsError] = useState<
+    string | null
+  >(null);
+
+  async function fetchGoogleCalendarsForSelection(): Promise<void> {
+    setIsFetchingGoogleCalendars(true);
+    setFetchGoogleCalendarsError(null);
+
+    try {
+      const sources = await calendarProvider.getCalendars();
+
+      setGoogleCalendarsForSelection(
+        sources.filter((source) => source.providerType === "google"),
+      );
+    } catch {
+      setFetchGoogleCalendarsError(
+        "Dine Google-kalendere kunne ikke hentes.",
+      );
+    } finally {
+      setIsFetchingGoogleCalendars(false);
+    }
+  }
+
   async function handleToggleGoogleCalendar(): Promise<void> {
     if (isGoogleCalendarConnected) {
       disconnectGoogleCalendar();
@@ -86,12 +119,27 @@ function SettingsPage() {
     setIsGoogleCalendarBusy(true);
     try {
       await connectGoogleCalendar();
+
+      // Lige efter en vellykket, interaktiv forbindelse — ikke ved Sprint
+      // 14's stille genoprettelse ved appstart, som slet ikke rører denne
+      // handler — spørger vi, hvilke af de fundne kalendere der skal vises.
+      setIsCalendarSelectionOpen(true);
+      void fetchGoogleCalendarsForSelection();
     } catch {
       // Fejlen undlader blot at markere som forbundet — Kalender-siden
       // viser fortsat "ikke forbundet", som er tilstrækkelig feedback.
     } finally {
       setIsGoogleCalendarBusy(false);
     }
+  }
+
+  function handleConfirmCalendarSelection(hiddenSourceIds: string[]) {
+    hideCalendarSources(hiddenSourceIds);
+    setIsCalendarSelectionOpen(false);
+  }
+
+  function handleSkipCalendarSelection() {
+    setIsCalendarSelectionOpen(false);
   }
 
   const googleCalendarStatusText = !isGoogleCalendarConfigured
@@ -362,6 +410,18 @@ function SettingsPage() {
           </CardContent>
         </Card>
       </Box>
+
+      <GoogleCalendarSelectionDialog
+        open={isCalendarSelectionOpen}
+        calendars={googleCalendarsForSelection}
+        isLoading={isFetchingGoogleCalendars}
+        error={fetchGoogleCalendarsError}
+        onRetry={() => {
+          void fetchGoogleCalendarsForSelection();
+        }}
+        onSkip={handleSkipCalendarSelection}
+        onConfirm={handleConfirmCalendarSelection}
+      />
     </Box>
   );
 }
