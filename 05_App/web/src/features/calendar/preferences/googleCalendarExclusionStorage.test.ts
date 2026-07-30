@@ -3,8 +3,8 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import {
   clearExcludedGoogleCalendars,
-  excludeGoogleCalendars,
   getExcludedGoogleCalendarIds,
+  setExcludedGoogleCalendars,
 } from "./googleCalendarExclusionStorage";
 
 describe("googleCalendarExclusionStorage", () => {
@@ -17,28 +17,35 @@ describe("googleCalendarExclusionStorage", () => {
   });
 
   it("round-trips excluded calendar ids", () => {
-    excludeGoogleCalendars(["da.danish#holiday@group.v.calendar.google.com"]);
+    setExcludedGoogleCalendars(["da.danish#holiday@group.v.calendar.google.com"]);
 
     expect(getExcludedGoogleCalendarIds()).toEqual([
       "da.danish#holiday@group.v.calendar.google.com",
     ]);
   });
 
-  it("accumulates across multiple calls without duplicating", () => {
-    excludeGoogleCalendars(["holidays@group.v.calendar.google.com"]);
-    excludeGoogleCalendars([
-      "holidays@group.v.calendar.google.com",
-      "weeknumbers@group.v.calendar.google.com",
-    ]);
+  it("replaces the previous exclusion list rather than accumulating", () => {
+    setExcludedGoogleCalendars(["holidays@group.v.calendar.google.com"]);
+    setExcludedGoogleCalendars(["weeknumbers@group.v.calendar.google.com"]);
 
-    expect(getExcludedGoogleCalendarIds().sort()).toEqual([
-      "holidays@group.v.calendar.google.com",
+    expect(getExcludedGoogleCalendarIds()).toEqual([
       "weeknumbers@group.v.calendar.google.com",
     ]);
   });
 
+  it("de-duplicates ids within a single call", () => {
+    setExcludedGoogleCalendars([
+      "holidays@group.v.calendar.google.com",
+      "holidays@group.v.calendar.google.com",
+    ]);
+
+    expect(getExcludedGoogleCalendarIds()).toEqual([
+      "holidays@group.v.calendar.google.com",
+    ]);
+  });
+
   it("clearExcludedGoogleCalendars empties the list", () => {
-    excludeGoogleCalendars(["holidays@group.v.calendar.google.com"]);
+    setExcludedGoogleCalendars(["holidays@group.v.calendar.google.com"]);
     clearExcludedGoogleCalendars();
 
     expect(getExcludedGoogleCalendarIds()).toEqual([]);

@@ -16,6 +16,21 @@ import {
 } from "@mui/material";
 
 import type { CalendarSource } from "../models/calendarProvider";
+import { getExcludedGoogleCalendarIds } from "../preferences/googleCalendarExclusionStorage";
+
+function getInitiallyCheckedIds(calendars: CalendarSource[]): Set<string> {
+  const excludedIds = new Set(getExcludedGoogleCalendarIds());
+
+  return new Set(
+    calendars
+      .filter(
+        (calendar) =>
+          !calendar.externalReference ||
+          !excludedIds.has(calendar.externalReference),
+      )
+      .map((calendar) => calendar.id),
+  );
+}
 
 interface GoogleCalendarSelectionDialogProps {
   open: boolean;
@@ -36,21 +51,23 @@ export function GoogleCalendarSelectionDialog({
   onSkip,
   onConfirm,
 }: GoogleCalendarSelectionDialogProps) {
-  // Alle kalendere er markeret som udgangspunkt — samme standard som resten
-  // af appen bruger for nyopdagede kilder. Nulstilles i render-fasen (ikke
+  // Forudmarkeres ud fra allerede gemte fravalg — dialogen genbruges både
+  // ved første forbindelse (intet fravalgt endnu, så alt er markeret) og
+  // senere for at redigere et eksisterende valg, hvor tidligere fravalgte
+  // kalendere skal vises som afkrydsede fra. Nulstilles i render-fasen (ikke
   // en useEffect), samme mønster som fx FamilyMemberDialog, hver gang
   // dialogen åbnes eller den hentede kalenderliste ændrer sig.
   const resetKey = open
     ? calendars.map((calendar) => calendar.id).join(",")
     : "closed";
   const [lastResetKey, setLastResetKey] = useState(resetKey);
-  const [checkedIds, setCheckedIds] = useState<Set<string>>(
-    () => new Set(calendars.map((calendar) => calendar.id)),
+  const [checkedIds, setCheckedIds] = useState<Set<string>>(() =>
+    getInitiallyCheckedIds(calendars),
   );
 
   if (resetKey !== lastResetKey) {
     setLastResetKey(resetKey);
-    setCheckedIds(new Set(calendars.map((calendar) => calendar.id)));
+    setCheckedIds(getInitiallyCheckedIds(calendars));
   }
 
   function toggleCalendar(sourceId: string) {
@@ -87,8 +104,9 @@ export function GoogleCalendarSelectionDialog({
         <Box sx={{ display: "grid", gap: 2, pt: 1 }}>
           <DialogContentText>
             Hvilke af dine Google-kalendere skal bringes med ind i
-            familie-appen? Fravalgte kalendere hentes slet ikke — afbryd og
-            forbind igen, hvis du vil ombestemme dig senere.
+            familie-appen? Fravalgte kalendere hentes slet ikke. Du kan altid
+            ændre dit valg igen senere via synkroniseringsknappen under
+            Kalenderforbindelser.
           </DialogContentText>
 
           {isLoading && (

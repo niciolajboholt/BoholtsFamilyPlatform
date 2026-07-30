@@ -25,12 +25,16 @@ export function getExcludedGoogleCalendarIds(): string[] {
   return readExcludedIds();
 }
 
-export function excludeGoogleCalendars(calendarIds: readonly string[]): void {
-  const excludedIds = new Set([...readExcludedIds(), ...calendarIds]);
-
+/**
+ * Erstatter hele fravalgslisten — dialogen, der kalder denne, viser altid
+ * kalenderens fulde, aktuelle tilstand (både tidligere og nye fravalg), så
+ * en delvis tilføjelse ville efterlade tidligere fravalgte kalendere låst
+ * fast, selvom brugeren har markeret dem igen.
+ */
+export function setExcludedGoogleCalendars(calendarIds: readonly string[]): void {
   window.localStorage.setItem(
     STORAGE_KEY,
-    JSON.stringify([...excludedIds]),
+    JSON.stringify([...new Set(calendarIds)]),
   );
 }
 

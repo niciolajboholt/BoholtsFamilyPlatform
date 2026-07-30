@@ -32,7 +32,7 @@ import { useGoogleCalendarConnection } from "../features/calendar/hooks/useGoogl
 import type { CalendarSource } from "../features/calendar/models/calendarProvider";
 import {
   clearExcludedGoogleCalendars,
-  excludeGoogleCalendars,
+  setExcludedGoogleCalendars,
 } from "../features/calendar/preferences/googleCalendarExclusionStorage";
 import { calendarProvider } from "../features/calendar/providers/calendarProviderFactory";
 
@@ -113,6 +113,11 @@ function SettingsPage() {
     }
   }
 
+  function openCalendarSelectionDialog() {
+    setIsCalendarSelectionOpen(true);
+    void fetchGoogleCalendarsForSelection();
+  }
+
   async function handleToggleGoogleCalendar(): Promise<void> {
     if (isGoogleCalendarConnected) {
       disconnectGoogleCalendar();
@@ -132,8 +137,7 @@ function SettingsPage() {
       // Lige efter en vellykket, interaktiv forbindelse — ikke ved Sprint
       // 14's stille genoprettelse ved appstart, som slet ikke rører denne
       // handler — spørger vi, hvilke af de fundne kalendere der skal vises.
-      setIsCalendarSelectionOpen(true);
-      void fetchGoogleCalendarsForSelection();
+      openCalendarSelectionDialog();
     } catch {
       // Fejlen undlader blot at markere som forbundet — Kalender-siden
       // viser fortsat "ikke forbundet", som er tilstrækkelig feedback.
@@ -145,7 +149,7 @@ function SettingsPage() {
   function handleConfirmCalendarSelection(
     excludedGoogleCalendarIds: string[],
   ) {
-    excludeGoogleCalendars(excludedGoogleCalendarIds);
+    setExcludedGoogleCalendars(excludedGoogleCalendarIds);
     setIsCalendarSelectionOpen(false);
   }
 
@@ -294,14 +298,21 @@ function SettingsPage() {
                 py: 1.5,
               }}
             >
-              <Avatar
-                sx={{
-                  bgcolor: "background.default",
-                  color: "text.primary",
-                }}
+              <IconButton
+                aria-label="Administrer Google-kalendere"
+                disabled={!isGoogleCalendarConnected}
+                onClick={openCalendarSelectionDialog}
+                sx={{ p: 0 }}
               >
-                <SyncRounded />
-              </Avatar>
+                <Avatar
+                  sx={{
+                    bgcolor: "background.default",
+                    color: "text.primary",
+                  }}
+                >
+                  <SyncRounded />
+                </Avatar>
+              </IconButton>
 
               <Box sx={{ flexGrow: 1 }}>
                 <Typography sx={{ fontWeight: 600 }}>
