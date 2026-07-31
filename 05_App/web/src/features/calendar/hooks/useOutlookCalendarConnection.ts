@@ -8,6 +8,9 @@ interface UseOutlookCalendarConnectionResult {
   isConnected: boolean;
   wasEverConnected: boolean;
   isAttemptingSilentReconnect: boolean;
+  // Midlertidig fejlsøgnings-oplysning (Sprint 18) — se
+  // OutlookCalendarSession.getLastRedirectDiagnostic.
+  redirectDiagnostic: string | null;
   connect: () => Promise<void>;
   disconnect: () => void;
 }
@@ -28,6 +31,10 @@ export function useOutlookCalendarConnection(): UseOutlookCalendarConnectionResu
 
   const [isAttemptingSilentReconnect, setIsAttemptingSilentReconnect] =
     useState(false);
+
+  const [redirectDiagnostic, setRedirectDiagnostic] = useState<string | null>(
+    null,
+  );
 
   const connect = useCallback(async (): Promise<void> => {
     // Navigerer væk fra appen ved succes (se OutlookCalendarSession.connect)
@@ -62,6 +69,8 @@ export function useOutlookCalendarConnection(): UseOutlookCalendarConnectionResu
       // OutlookCalendarSession.ensureInitialized) — hvis det ikke var
       // tilfældet, forsøges en stille genopkobling, samme mønster som
       // Sprint 14's Google-genopkobling.
+      setRedirectDiagnostic(outlookCalendarSession.getLastRedirectDiagnostic());
+
       if (outlookCalendarSession.isConnected()) {
         setIsConnected(true);
         setWasEverConnected(true);
@@ -98,6 +107,7 @@ export function useOutlookCalendarConnection(): UseOutlookCalendarConnectionResu
     isConnected,
     wasEverConnected,
     isAttemptingSilentReconnect,
+    redirectDiagnostic,
     connect,
     disconnect,
   };

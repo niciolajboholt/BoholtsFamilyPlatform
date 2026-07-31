@@ -38,6 +38,14 @@ function readWasConnected(): boolean {
 
 const silentReconnectTimeoutMs = 4000;
 
+function describeError(error: unknown): string {
+  if (error instanceof Error) {
+    const errorCode = (error as { errorCode?: string }).errorCode;
+    return errorCode ? `${error.message} (${errorCode})` : error.message;
+  }
+  return String(error);
+}
+
 let msalInstancePromise: Promise<PublicClientApplication> | null = null;
 
 function getMsalInstance(clientId: string): Promise<PublicClientApplication> {
@@ -82,12 +90,22 @@ export class OutlookCalendarSession {
 
   private initializationPromise: Promise<void> | null = null;
 
+  // Midlertidig fejlsøgnings-oplysning (Sprint 18) — hjælper med at se,
+  // hvorfor et redirect-login ikke blev fanget op, uden at skulle ramme det
+  // rigtige splitsekund i en skærmoptagelse. Fjernes igen, når Outlook-
+  // forbindelsen er verificeret at virke pålideligt.
+  private lastRedirectDiagnostic: string | null = null;
+
   isConfigured(): boolean {
     return getOutlookCalendarConfig().enabled;
   }
 
   getConfigurationError(): string | undefined {
     return getOutlookCalendarConfig().configurationError;
+  }
+
+  getLastRedirectDiagnostic(): string | null {
+    return this.lastRedirectDiagnostic;
   }
 
   getAccessToken(): string | null {
@@ -117,13 +135,15 @@ export class OutlookCalendarSession {
 
     if (!this.initializationPromise) {
       const clientId = config.clientId;
+      const hadHashOnLoad = window.location.hash.length > 0;
 
       this.initializationPromise = (async () => {
         let msalInstance: PublicClientApplication;
 
         try {
           msalInstance = await getMsalInstance(clientId);
-        } catch {
+        } catch (error: unknown) {
+          this.lastRedirectDiagnostic = `MSAL kunne ikke startes: ${describeError(error)}`;
           return;
         }
 
@@ -134,10 +154,13 @@ export class OutlookCalendarSession {
             msalInstance.setActiveAccount(result.account);
             this.accessToken = result.accessToken;
             markWasConnected();
+            this.lastRedirectDiagnostic = null;
+          } else if (hadHashOnLoad) {
+            this.lastRedirectDiagnostic =
+              "Siden havde et login-svar i adressen, men MSAL afsluttede uden et adgangstoken.";
           }
-        } catch {
-          // En fejlet omdirigerings-håndtering efterlader blot brugeren i
-          // "ikke forbundet"-tilstand — samme fejlniveau som et afvist login.
+        } catch (error: unknown) {
+          this.lastRedirectDiagnostic = `Login-svaret kunne ikke behandles: ${describeError(error)}`;
         }
       })();
     }

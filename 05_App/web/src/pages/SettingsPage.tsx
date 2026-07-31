@@ -120,6 +120,7 @@ function SettingsPage() {
     isConnected: isOutlookCalendarConnected,
     wasEverConnected: wasOutlookCalendarEverConnected,
     isAttemptingSilentReconnect: isAttemptingOutlookSilentReconnect,
+    redirectDiagnostic: outlookRedirectDiagnostic,
     connect: connectOutlookCalendar,
     disconnect: disconnectOutlookCalendar,
   } = useOutlookCalendarConnection();
@@ -485,6 +486,12 @@ function SettingsPage() {
                 void handleToggleOutlookCalendar();
               }}
             />
+
+            {outlookRedirectDiagnostic && (
+              <Alert severity="warning" sx={{ mt: 1.5 }}>
+                {outlookRedirectDiagnostic}
+              </Alert>
+            )}
           </CardContent>
         </Card>
 
