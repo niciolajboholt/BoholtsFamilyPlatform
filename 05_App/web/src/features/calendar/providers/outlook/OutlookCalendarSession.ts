@@ -48,7 +48,10 @@ function describeError(error: unknown): string {
 
 let msalInstancePromise: Promise<PublicClientApplication> | null = null;
 
-function getMsalInstance(clientId: string): Promise<PublicClientApplication> {
+function getMsalInstance(
+  clientId: string,
+  tenantId: string | undefined,
+): Promise<PublicClientApplication> {
   if (msalInstancePromise) {
     return msalInstancePromise;
   }
@@ -57,9 +60,11 @@ function getMsalInstance(clientId: string): Promise<PublicClientApplication> {
     const instance = new PublicClientApplication({
       auth: {
         clientId,
-        // "common" tillader både personlige Microsoft-konti (fx Outlook.com)
-        // og arbejds-/skolekonti — fornuftigt standardvalg for en familieapp.
-        authority: "https://login.microsoftonline.com/common",
+        // "common" tillader personlige Microsoft-konti + enhver organisation
+        // — men en "Single tenant only"-app-registrering (fx en arbejds-
+        // /skolekonto-app) MÅ ikke bruge /common (Microsoft afviser med
+        // AADSTS50194) og skal i stedet bruge sit eget tenant-id her.
+        authority: `https://login.microsoftonline.com/${tenantId ?? "common"}`,
         redirectUri: window.location.origin,
       },
       cache: {
@@ -141,7 +146,7 @@ export class OutlookCalendarSession {
         let msalInstance: PublicClientApplication;
 
         try {
-          msalInstance = await getMsalInstance(clientId);
+          msalInstance = await getMsalInstance(clientId, config.tenantId);
         } catch (error: unknown) {
           this.lastRedirectDiagnostic = `MSAL kunne ikke startes: ${describeError(error)}`;
           return;
@@ -189,7 +194,7 @@ export class OutlookCalendarSession {
     let msalInstance: PublicClientApplication;
 
     try {
-      msalInstance = await getMsalInstance(config.clientId);
+      msalInstance = await getMsalInstance(config.clientId, config.tenantId);
     } catch (error: unknown) {
       throw new CalendarProviderError(
         "unavailable",
@@ -220,7 +225,7 @@ export class OutlookCalendarSession {
     let msalInstance: PublicClientApplication;
 
     try {
-      msalInstance = await getMsalInstance(config.clientId);
+      msalInstance = await getMsalInstance(config.clientId, config.tenantId);
     } catch {
       return false;
     }
