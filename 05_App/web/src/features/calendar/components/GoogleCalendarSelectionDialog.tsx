@@ -12,11 +12,18 @@ import {
   DialogContentText,
   DialogTitle,
   FormControlLabel,
-  FormGroup,
+  MenuItem,
+  Select,
+  Typography,
 } from "@mui/material";
 
+import { useFamilyMembers } from "../hooks/useFamilyMembers";
+import type { CalendarOwnerId } from "../models/calendarEvent";
 import type { CalendarSource } from "../models/calendarProvider";
 import { getExcludedGoogleCalendarIds } from "../preferences/googleCalendarExclusionStorage";
+import { getOwnerIdForGoogleCalendar } from "../preferences/calendarMemberMappingStorage";
+
+const unassignedValue = "";
 
 function getInitiallyCheckedIds(calendars: CalendarSource[]): Set<string> {
   const excludedIds = new Set(getExcludedGoogleCalendarIds());
@@ -32,6 +39,25 @@ function getInitiallyCheckedIds(calendars: CalendarSource[]): Set<string> {
   );
 }
 
+function getInitialMemberAssignments(
+  calendars: CalendarSource[],
+): Record<string, CalendarOwnerId | typeof unassignedValue> {
+  const assignments: Record<string, CalendarOwnerId | typeof unassignedValue> = {};
+
+  for (const calendar of calendars) {
+    assignments[calendar.id] = calendar.externalReference
+      ? (getOwnerIdForGoogleCalendar(calendar.externalReference) ?? unassignedValue)
+      : unassignedValue;
+  }
+
+  return assignments;
+}
+
+export interface GoogleCalendarMemberAssignment {
+  googleCalendarId: string;
+  ownerId: CalendarOwnerId | null;
+}
+
 interface GoogleCalendarSelectionDialogProps {
   open: boolean;
   calendars: CalendarSource[];
@@ -39,7 +65,10 @@ interface GoogleCalendarSelectionDialogProps {
   error: string | null;
   onRetry: () => void;
   onSkip: () => void;
-  onConfirm: (excludedGoogleCalendarIds: string[]) => void;
+  onConfirm: (
+    excludedGoogleCalendarIds: string[],
+    memberAssignments: GoogleCalendarMemberAssignment[],
+  ) => void;
 }
 
 export function GoogleCalendarSelectionDialog({
@@ -51,6 +80,7 @@ export function GoogleCalendarSelectionDialog({
   onSkip,
   onConfirm,
 }: GoogleCalendarSelectionDialogProps) {
+  const { members } = useFamilyMembers();
   // Forudmarkeres ud fra allerede gemte fravalg — dialogen genbruges både
   // ved første forbindelse (intet fravalgt endnu, så alt er markeret) og
   // senere for at redigere et eksisterende valg, hvor tidligere fravalgte
@@ -64,10 +94,14 @@ export function GoogleCalendarSelectionDialog({
   const [checkedIds, setCheckedIds] = useState<Set<string>>(() =>
     getInitiallyCheckedIds(calendars),
   );
+  const [memberAssignments, setMemberAssignments] = useState(() =>
+    getInitialMemberAssignments(calendars),
+  );
 
   if (resetKey !== lastResetKey) {
     setLastResetKey(resetKey);
     setCheckedIds(getInitiallyCheckedIds(calendars));
+    setMemberAssignments(getInitialMemberAssignments(calendars));
   }
 
   function toggleCalendar(sourceId: string) {
@@ -84,16 +118,27 @@ export function GoogleCalendarSelectionDialog({
     });
   }
 
+  function assignCalendarMember(sourceId: string, ownerId: string) {
+    setMemberAssignments((current) => ({ ...current, [sourceId]: ownerId }));
+  }
+
   function handleConfirm() {
-    // externalReference er kalenderens rå Google-id — det er dét,
-    // eksklusionslisten gemmer, ikke det kodede sourceId (som afhænger af,
-    // om kalenderen overhovedet bliver hentet igen).
+    // externalReference er kalenderens rå Google-id — det er dét, både
+    // eksklusionslisten og familie-tildelingen gemmer, ikke det kodede
+    // sourceId (som afhænger af, om kalenderen overhovedet bliver hentet igen).
     const excludedGoogleCalendarIds = calendars
       .filter((calendar) => !checkedIds.has(calendar.id))
       .map((calendar) => calendar.externalReference)
       .filter((id): id is string => Boolean(id));
 
-    onConfirm(excludedGoogleCalendarIds);
+    const memberMappings: GoogleCalendarMemberAssignment[] = calendars
+      .filter((calendar) => Boolean(calendar.externalReference))
+      .map((calendar) => ({
+        googleCalendarId: calendar.externalReference!,
+        ownerId: memberAssignments[calendar.id] || null,
+      }));
+
+    onConfirm(excludedGoogleCalendarIds, memberMappings);
   }
 
   return (
@@ -139,24 +184,56 @@ export function GoogleCalendarSelectionDialog({
           )}
 
           {!isLoading && !error && calendars.length > 0 && (
-            <FormGroup>
+            <Box sx={{ display: "grid", gap: 1 }}>
               {calendars.map((calendar) => (
-                <FormControlLabel
+                <Box
                   key={calendar.id}
-                  control={
-                    <Checkbox
-                      checked={checkedIds.has(calendar.id)}
-                      onChange={() => toggleCalendar(calendar.id)}
-                      sx={{
-                        color: calendar.color,
-                        "&.Mui-checked": { color: calendar.color },
-                      }}
-                    />
-                  }
-                  label={calendar.name}
-                />
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1,
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <FormControlLabel
+                    sx={{ flexGrow: 1, mr: 0 }}
+                    control={
+                      <Checkbox
+                        checked={checkedIds.has(calendar.id)}
+                        onChange={() => toggleCalendar(calendar.id)}
+                        sx={{
+                          color: calendar.color,
+                          "&.Mui-checked": { color: calendar.color },
+                        }}
+                      />
+                    }
+                    label={calendar.name}
+                  />
+
+                  <Select
+                    size="small"
+                    displayEmpty
+                    value={memberAssignments[calendar.id] ?? unassignedValue}
+                    onChange={(event) =>
+                      assignCalendarMember(calendar.id, event.target.value)
+                    }
+                    sx={{ minWidth: 150 }}
+                  >
+                    <MenuItem value={unassignedValue}>
+                      <Typography color="text.secondary">
+                        Ingen tildeling
+                      </Typography>
+                    </MenuItem>
+
+                    {members.map((member) => (
+                      <MenuItem key={member.id} value={member.id}>
+                        {member.name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </Box>
               ))}
-            </FormGroup>
+            </Box>
           )}
         </Box>
       </DialogContent>

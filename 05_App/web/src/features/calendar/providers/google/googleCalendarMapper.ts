@@ -1,4 +1,5 @@
-import type { CalendarEvent } from "../../models/calendarEvent";
+import type { CalendarOwner } from "../../data/calendarOwners";
+import type { CalendarEvent, CalendarOwnerId } from "../../models/calendarEvent";
 import type { CalendarSource } from "../../models/calendarProvider";
 import type {
   GoogleCalendarAccessRole,
@@ -33,12 +34,26 @@ function toGoogleCalendarAccessRole(
   }
 }
 
-export function mapGoogleCalendarSource(entry: GoogleCalendarListEntry): CalendarSource | null {
+/**
+ * `mappedOwner` er sat, hvis denne kalender er tildelt et familiemedlem
+ * (Audit-uafhængig, se ADR-014) — kalenderen viser da medlemmets navn og
+ * farve i stedet for Googles egne, så den ser ud og opfører sig som en af
+ * appens egne familiekalendre. Selve tildelingen slås op af kalderen
+ * (GoogleCalendarProvider), ikke her — så denne funktion forbliver ren.
+ */
+export function mapGoogleCalendarSource(
+  entry: GoogleCalendarListEntry,
+  mappedOwner?: CalendarOwner,
+): CalendarSource | null {
   if (!entry.id || !entry.summary) return null;
-  return { id: encodeGoogleCalendarSourceId(entry.id), name: entry.summary, providerType: "google", color: /^#[0-9a-f]{6}$/i.test(entry.backgroundColor ?? "") ? entry.backgroundColor! : fallbackColor, isVisible: true, isReadOnly: !isGoogleCalendarWritable(entry.accessRole), externalReference: entry.id };
+  return { id: encodeGoogleCalendarSourceId(entry.id), name: mappedOwner?.name ?? entry.summary, providerType: "google", color: mappedOwner?.color ?? (/^#[0-9a-f]{6}$/i.test(entry.backgroundColor ?? "") ? entry.backgroundColor! : fallbackColor), isVisible: true, isReadOnly: !isGoogleCalendarWritable(entry.accessRole), externalReference: entry.id };
 }
 
-export function mapGoogleCalendarEvent(calendarId: string, event: GoogleCalendarEvent): CalendarEvent | null {
+export function mapGoogleCalendarEvent(
+  calendarId: string,
+  event: GoogleCalendarEvent,
+  mappedOwnerId?: CalendarOwnerId,
+): CalendarEvent | null {
   if (!event.id || event.status === "cancelled") return null;
   const allDay = Boolean(event.start?.date && !event.start?.dateTime);
   const start = allDay
@@ -52,7 +67,7 @@ export function mapGoogleCalendarEvent(calendarId: string, event: GoogleCalendar
   // gentagelse (Google udfolder selv serien pga. singleEvents: "true" i
   // GoogleCalendarApi.listEvents) — mappes til recurrenceMasterId, samme
   // felt som lokale udfoldede forekomster bruger (expandRecurringEvents).
-  return { id: encodeGoogleEventId(calendarId, event.id), source: "google", sourceId: encodeGoogleCalendarSourceId(calendarId), title: event.summary || "Google-aftale", start, end, allDay, ownerIds: [], description: event.description, location: event.location, recurrenceMasterId: event.recurringEventId };
+  return { id: encodeGoogleEventId(calendarId, event.id), source: "google", sourceId: encodeGoogleCalendarSourceId(calendarId), title: event.summary || "Google-aftale", start, end, allDay, ownerIds: mappedOwnerId ? [mappedOwnerId] : [], description: event.description, location: event.location, recurrenceMasterId: event.recurringEventId };
 }
 
 export function toLocalMidnightIso(dateOnly: string | undefined): string | undefined {

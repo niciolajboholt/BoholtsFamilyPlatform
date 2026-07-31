@@ -30,11 +30,16 @@ import {
 } from "@mui/material";
 
 import { FamilyMemberDialog } from "../features/calendar/components/FamilyMemberDialog";
+import type { GoogleCalendarMemberAssignment } from "../features/calendar/components/GoogleCalendarSelectionDialog";
 import { GoogleCalendarSelectionDialog } from "../features/calendar/components/GoogleCalendarSelectionDialog";
 import type { CalendarOwner } from "../features/calendar/data/calendarOwners";
 import { useFamilyMembers } from "../features/calendar/hooks/useFamilyMembers";
 import { useGoogleCalendarConnection } from "../features/calendar/hooks/useGoogleCalendarConnection";
 import type { CalendarSource } from "../features/calendar/models/calendarProvider";
+import {
+  clearCalendarMemberMappings,
+  setCalendarMemberMapping,
+} from "../features/calendar/preferences/calendarMemberMappingStorage";
 import {
   createDataBackup,
   restoreDataBackup,
@@ -131,8 +136,9 @@ function SettingsPage() {
 
       // En (gen)forbindelse — evt. med en anden konto — bør starte forfra
       // med alle kalendere til rådighed, ikke arve en tidligere kontos
-      // fravalg.
+      // fravalg eller familie-tildelinger.
       clearExcludedGoogleCalendars();
+      clearCalendarMemberMappings();
 
       return;
     }
@@ -155,8 +161,14 @@ function SettingsPage() {
 
   function handleConfirmCalendarSelection(
     excludedGoogleCalendarIds: string[],
+    memberAssignments: GoogleCalendarMemberAssignment[],
   ) {
     setExcludedGoogleCalendars(excludedGoogleCalendarIds);
+
+    for (const assignment of memberAssignments) {
+      setCalendarMemberMapping(assignment.googleCalendarId, assignment.ownerId);
+    }
+
     setIsCalendarSelectionOpen(false);
   }
 
