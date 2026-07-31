@@ -497,7 +497,7 @@ Hvis appen senere får brug for en rigtig backend (fælles database i stedet for
 - Output-mappe: `dist`
 - Miljøvariabler sættes i Cloudflare Pages' dashboard, ikke i repoet: `VITE_GOOGLE_CALENDAR_ENABLED`, `VITE_GOOGLE_CLIENT_ID`.
 
-**SPA-routing**: appen bruger `BrowserRouter` (rigtige URL-stier som `/calendar`, `/settings`, ikke hash-baseret routing). En `_redirects`-fil (`/* /index.html 200`) er tilføjet i `05_App/web/public/`, så alle stier falder tilbage til `index.html` i stedet for at give 404 ved direkte navigation eller genindlæsning.
+**SPA-routing**: appen bruger `BrowserRouter` (rigtige URL-stier som `/calendar`, `/settings`, ikke hash-baseret routing). Cloudflares dashboard tilbyder i dag et *Workers*-baseret Git-flow (`npx wrangler deploy`) fremfor det klassiske *Pages*-flow, denne ADR oprindeligt blev skrevet til — begge ender med samme resultat, men konfigureres forskelligt. SPA-fallback håndteres derfor af `not_found_handling: "single-page-application"` i `05_App/web/wrangler.jsonc`, ikke af en `_redirects`-fil: et første forsøg med både `_redirects` og `wrangler.jsonc` samtidig fejlede reelt i produktion ("Infinite loop detected in this rule"), fordi Cloudflares nyere asset-serveringslag opfatter `/* /index.html 200` som en selv-triggerende regel, når `not_found_handling` allerede løser det samme. `_redirects`-filen er derfor fjernet igen.
 
 **Google OAuth**: Google Cloud Console-klientens "Authorized JavaScript origins" skal opdateres til at inkludere den nye production-URL (`https://<projekt>.pages.dev`), ellers fejler Google-login på den deployede adresse. `localhost` forbliver også en gyldig origin, så lokal udvikling er upåvirket.
 
