@@ -1,3 +1,6 @@
+import type { ReactNode } from "react";
+import { useMemo } from "react";
+
 import {
   AddRounded,
   CalendarMonthRounded,
@@ -20,55 +23,127 @@ import {
   Typography,
 } from "@mui/material";
 
-const familyMembers = [
-  {
-    name: "Nicolaj",
-    initials: "N",
-    color: "#2E7D32",
-    status: "Arbejde indtil 16:00",
-  },
-  {
-    name: "Christine",
-    initials: "C",
-    color: "#C06C84",
-    status: "Henter Alfred",
-  },
-  {
-    name: "Alfred",
-    initials: "A",
-    color: "#D99832",
-    status: "Skole",
-  },
-  {
-    name: "Jens",
-    initials: "J",
-    color: "#4D7EA8",
-    status: "Børnehave",
-  },
+import { useCalendarEvents } from "../features/calendar/hooks/useCalendarEvents";
+import { useFamilyMembers } from "../features/calendar/hooks/useFamilyMembers";
+import { useRecurrenceExceptions } from "../features/calendar/hooks/useRecurrenceExceptions";
+import { familyPseudoMemberId } from "../features/calendar/models/calendarEvent";
+import type { CalendarEvent } from "../features/calendar/models/calendarEvent";
+import { expandRecurringEvents } from "../features/calendar/utils/expandRecurringEvents";
+import { getEventsForDate } from "../features/calendar/utils/getEventsForDate";
+
+// Hvor langt frem "Næste aftale" kigger for at finde en kommende
+// forekomst — også af gentagne aftaler, som først udfoldes inden for dette
+// vindue (se expandRecurringEvents).
+const dashboardLookaheadDays = 14;
+
+interface QuickAction {
+  title: string;
+  icon: ReactNode;
+  isComingSoon: boolean;
+}
+
+const quickActions: QuickAction[] = [
+  { title: "Ny aftale", icon: <AddRounded />, isComingSoon: false },
+  { title: "Indkøbsliste", icon: <ShoppingCartOutlined />, isComingSoon: true },
+  { title: "Opgaver", icon: <CheckCircleOutlineRounded />, isComingSoon: true },
 ];
 
-const quickActions = [
-  {
-    title: "Ny aftale",
-    icon: <AddRounded />,
-  },
-  {
-    title: "Indkøbsliste",
-    icon: <ShoppingCartOutlined />,
-  },
-  {
-    title: "Opgaver",
-    icon: <CheckCircleOutlineRounded />,
-  },
-];
+function getInitials(name: string): string {
+  return name.trim().slice(0, 1).toUpperCase() || "?";
+}
+
+function formatEventTime(value: string, allDay: boolean): string {
+  if (allDay) return "Hele dagen";
+
+  return new Intl.DateTimeFormat("da-DK", {
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value));
+}
+
+function formatEventTimeRange(event: CalendarEvent): string {
+  if (event.allDay) return "Hele dagen";
+
+  return `${formatEventTime(event.start, false)}–${formatEventTime(event.end, false)}`;
+}
+
+function formatRelativeDayLabel(date: Date): string {
+  const today = new Date();
+  const startOfToday = new Date(
+    today.getFullYear(),
+    today.getMonth(),
+    today.getDate(),
+  );
+  const startOfTarget = new Date(
+    date.getFullYear(),
+    date.getMonth(),
+    date.getDate(),
+  );
+  const diffDays = Math.round(
+    (startOfTarget.getTime() - startOfToday.getTime()) / (24 * 60 * 60 * 1000),
+  );
+
+  if (diffDays === 0) return "I dag";
+  if (diffDays === 1) return "I morgen";
+
+  return new Intl.DateTimeFormat("da-DK", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  }).format(date);
+}
 
 function HomePage() {
   const navigate = useNavigate();
+  const { members } = useFamilyMembers();
+  const { events } = useCalendarEvents();
+  const recurrenceExceptions = useRecurrenceExceptions();
+
   const currentDate = new Intl.DateTimeFormat("da-DK", {
     weekday: "long",
     day: "numeric",
     month: "long",
   }).format(new Date());
+
+  const { nextEvent, todaysEvents } = useMemo(() => {
+    const now = new Date();
+    const rangeEnd = new Date(now);
+    rangeEnd.setDate(rangeEnd.getDate() + dashboardLookaheadDays);
+
+    const expandedEvents = expandRecurringEvents(
+      events,
+      { start: now.toISOString(), end: rangeEnd.toISOString() },
+      recurrenceExceptions.exceptions,
+    );
+
+    const upcomingEvents = expandedEvents
+      .filter((event) => new Date(event.end).getTime() > now.getTime())
+      .sort(
+        (first, second) =>
+          new Date(first.start).getTime() - new Date(second.start).getTime(),
+      );
+
+    return {
+      nextEvent: upcomingEvents[0] ?? null,
+      todaysEvents: getEventsForDate(expandedEvents, now),
+    };
+  }, [events, recurrenceExceptions.exceptions]);
+
+  const individualMembers = members.filter(
+    (member) => member.id !== familyPseudoMemberId,
+  );
+
+  function getMemberStatus(memberId: string): string {
+    const memberEvent = todaysEvents.find(
+      (event) =>
+        event.ownerIds.includes(memberId) ||
+        event.ownerIds.includes(familyPseudoMemberId),
+    );
+
+    return memberEvent
+      ? `${formatEventTime(memberEvent.start, memberEvent.allDay)} ${memberEvent.title}`
+      : "Ingen aftaler i dag";
+  }
 
   return (
     <Box sx={{ maxWidth: 900, mx: "auto", pb: 4 }}>
@@ -108,7 +183,9 @@ function HomePage() {
                   Næste aftale
                 </Typography>
 
-                <Typography variant="h5">Familietid</Typography>
+                <Typography variant="h5">
+                  {nextEvent ? nextEvent.title : "Ingen kommende aftaler"}
+                </Typography>
               </Box>
 
               <Avatar
@@ -122,15 +199,22 @@ function HomePage() {
               </Avatar>
             </Box>
 
-            <Typography color="text.secondary">
-              I dag · 17:00–19:00
-            </Typography>
+            {nextEvent && (
+              <>
+                <Typography color="text.secondary">
+                  {formatRelativeDayLabel(new Date(nextEvent.start))} ·{" "}
+                  {formatEventTimeRange(nextEvent)}
+                </Typography>
 
-            <Chip
-              icon={<FamilyRestroomRounded />}
-              label="Hele familien"
-              sx={{ mt: 1.5 }}
-            />
+                {nextEvent.ownerIds.includes(familyPseudoMemberId) && (
+                  <Chip
+                    icon={<FamilyRestroomRounded />}
+                    label="Hele familien"
+                    sx={{ mt: 1.5 }}
+                  />
+                )}
+              </>
+            )}
 
             <Box>
               <Button
@@ -151,21 +235,26 @@ function HomePage() {
               I dag
             </Typography>
 
-            <Box sx={{ mb: 2 }}>
-              <Typography sx={{ fontWeight: 600 }}>08:00</Typography>
-
+            {todaysEvents.length === 0 ? (
               <Typography color="text.secondary">
-                Aflevering i skole og børnehave
+                Ingen aftaler i dag.
               </Typography>
-            </Box>
+            ) : (
+              todaysEvents.map((event, index) => (
+                <Box
+                  key={event.id}
+                  sx={{ mb: index < todaysEvents.length - 1 ? 2 : 0 }}
+                >
+                  <Typography sx={{ fontWeight: 600 }}>
+                    {formatEventTime(event.start, event.allDay)}
+                  </Typography>
 
-            <Box>
-              <Typography sx={{ fontWeight: 600 }}>17:00</Typography>
-
-              <Typography color="text.secondary">
-                Familietid
-              </Typography>
-            </Box>
+                  <Typography color="text.secondary">
+                    {event.title}
+                  </Typography>
+                </Box>
+              ))
+            )}
           </CardContent>
         </Card>
 
@@ -205,9 +294,9 @@ function HomePage() {
                 gap: 2,
               }}
             >
-              {familyMembers.map((member) => (
+              {individualMembers.map((member) => (
                 <Box
-                  key={member.name}
+                  key={member.id}
                   sx={{
                     display: "flex",
                     flexDirection: "column",
@@ -224,7 +313,7 @@ function HomePage() {
                       fontWeight: 700,
                     }}
                   >
-                    {member.initials}
+                    {getInitials(member.name)}
                   </Avatar>
 
                   <Box>
@@ -237,7 +326,7 @@ function HomePage() {
                       color="text.secondary"
                       sx={{ display: "block" }}
                     >
-                      {member.status}
+                      {getMemberStatus(member.id)}
                     </Typography>
                   </Box>
                 </Box>
@@ -267,6 +356,7 @@ function HomePage() {
                 fullWidth
                 variant="outlined"
                 startIcon={action.icon}
+                disabled={action.isComingSoon}
                 onClick={() => {
                   if (action.title === "Ny aftale") {
                     navigate("/calendar");
@@ -279,6 +369,10 @@ function HomePage() {
                 }}
               >
                 {action.title}
+
+                {action.isComingSoon && (
+                  <Chip label="Snart" size="small" sx={{ ml: "auto" }} />
+                )}
               </Button>
             ))}
           </Box>
