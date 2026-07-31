@@ -5,7 +5,8 @@ export interface OutlookCalendarConfig {
 }
 
 export function getOutlookCalendarConfig(): OutlookCalendarConfig {
-  const enabled = import.meta.env.VITE_OUTLOOK_CALENDAR_ENABLED === "true";
+  const enabled =
+    import.meta.env.VITE_OUTLOOK_CALENDAR_ENABLED?.trim().toLowerCase() === "true";
   const clientId = import.meta.env.VITE_OUTLOOK_CLIENT_ID?.trim();
 
   if (!enabled) {

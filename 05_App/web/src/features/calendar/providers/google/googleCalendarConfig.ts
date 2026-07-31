@@ -5,7 +5,8 @@ export interface GoogleCalendarConfig {
 }
 
 export function getGoogleCalendarConfig(): GoogleCalendarConfig {
-  const enabled = import.meta.env.VITE_GOOGLE_CALENDAR_ENABLED === "true";
+  const enabled =
+    import.meta.env.VITE_GOOGLE_CALENDAR_ENABLED?.trim().toLowerCase() === "true";
   const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim();
 
   if (!enabled) {
