@@ -77,24 +77,23 @@ export function FamilyMemberDialog({
 
   const trimmedName = name.trim();
   const nameError =
-    !isFamilyPseudoMember && isNameTouched && trimmedName.length === 0
-      ? "Skriv et navn."
-      : null;
+    isNameTouched && trimmedName.length === 0 ? "Skriv et navn." : null;
 
   function handleSave() {
-    if (!isFamilyPseudoMember && trimmedName.length === 0) {
+    if (trimmedName.length === 0) {
       setIsNameTouched(true);
       return;
     }
 
     onSave({
-      name: isFamilyPseudoMember ? (member?.name ?? "Familien") : trimmedName,
+      name: trimmedName,
       relation: isFamilyPseudoMember
         ? undefined
         : relation === ""
           ? undefined
           : relation,
       color,
+      isPlaceholderName: false,
     });
     onClose();
   }
@@ -120,25 +119,22 @@ export function FamilyMemberDialog({
           <Box sx={{ display: "grid", gap: 2, pt: 1 }}>
             {isFamilyPseudoMember && (
               <Alert severity="info">
-                "Familien" er en delt profil til fælles aftaler. Kun farven
-                kan ændres — navnet kan ikke ændres, og profilen kan ikke
-                slettes.
+                Dette er den delte profil til fælles aftaler. Navn og farve
+                kan ændres, men profilen kan ikke slettes.
               </Alert>
             )}
 
-            {!isFamilyPseudoMember && (
-              <TextField
-                label="Navn"
-                value={name}
-                autoFocus
-                required
-                fullWidth
-                error={Boolean(nameError)}
-                helperText={nameError}
-                onChange={(event) => setName(event.target.value)}
-                onBlur={() => setIsNameTouched(true)}
-              />
-            )}
+            <TextField
+              label="Navn"
+              value={name}
+              autoFocus
+              required
+              fullWidth
+              error={Boolean(nameError)}
+              helperText={nameError}
+              onChange={(event) => setName(event.target.value)}
+              onBlur={() => setIsNameTouched(true)}
+            />
 
             {!isFamilyPseudoMember && (
               <TextField

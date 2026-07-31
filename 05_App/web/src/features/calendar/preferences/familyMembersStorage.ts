@@ -32,7 +32,9 @@ function isValidMember(value: unknown): value is CalendarOwner {
     typeof candidate.name === "string" &&
     candidate.name.trim().length > 0 &&
     typeof candidate.color === "string" &&
-    (candidate.relation === undefined || isValidRelation(candidate.relation))
+    (candidate.relation === undefined || isValidRelation(candidate.relation)) &&
+    (candidate.isPlaceholderName === undefined ||
+      typeof candidate.isPlaceholderName === "boolean")
   );
 }
 
@@ -83,4 +85,12 @@ export function saveFamilyMembers(members: CalendarOwner[]): void {
 
 export function getFamilyMemberIds(): string[] {
   return getFamilyMembers().map((member) => member.id);
+}
+
+// A brand-new install never has this key written yet — this is also, by
+// construction, the "has the user completed first-launch onboarding?"
+// signal (Sprint 17), since onboarding's only job is to write it for the
+// first time (whether via the real form or "Spring over").
+export function hasCompletedFamilySetup(): boolean {
+  return readStoredMembers() !== null;
 }

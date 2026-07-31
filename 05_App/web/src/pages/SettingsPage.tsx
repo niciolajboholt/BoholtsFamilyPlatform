@@ -30,7 +30,10 @@ import {
 } from "@mui/material";
 
 import { FamilyMemberDialog } from "../features/calendar/components/FamilyMemberDialog";
-import type { GoogleCalendarMemberAssignment } from "../features/calendar/components/GoogleCalendarSelectionDialog";
+import type {
+  GoogleCalendarMemberAssignment,
+  GoogleCalendarNameOverride,
+} from "../features/calendar/components/GoogleCalendarSelectionDialog";
 import { GoogleCalendarSelectionDialog } from "../features/calendar/components/GoogleCalendarSelectionDialog";
 import type { CalendarOwner } from "../features/calendar/data/calendarOwners";
 import { useFamilyMembers } from "../features/calendar/hooks/useFamilyMembers";
@@ -162,11 +165,26 @@ function SettingsPage() {
   function handleConfirmCalendarSelection(
     excludedGoogleCalendarIds: string[],
     memberAssignments: GoogleCalendarMemberAssignment[],
+    nameOverrides: GoogleCalendarNameOverride[],
   ) {
     setExcludedGoogleCalendars(excludedGoogleCalendarIds);
 
     for (const assignment of memberAssignments) {
       setCalendarMemberMapping(assignment.googleCalendarId, assignment.ownerId);
+    }
+
+    for (const override of nameOverrides) {
+      const currentMember = members.find(
+        (member) => member.id === override.ownerId,
+      );
+      if (!currentMember) continue;
+
+      updateMember(override.ownerId, {
+        name: override.newName,
+        relation: currentMember.relation,
+        color: currentMember.color,
+        isPlaceholderName: false,
+      });
     }
 
     setIsCalendarSelectionOpen(false);

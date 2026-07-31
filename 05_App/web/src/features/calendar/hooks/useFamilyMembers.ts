@@ -12,6 +12,7 @@ export interface FamilyMemberInput {
   name: string;
   relation?: CalendarOwner["relation"];
   color: string;
+  isPlaceholderName?: boolean;
 }
 
 const combiningDiacriticalMarks = /[̀-ͯ]/g;

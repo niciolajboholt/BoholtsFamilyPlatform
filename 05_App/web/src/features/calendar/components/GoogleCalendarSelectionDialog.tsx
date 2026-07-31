@@ -58,6 +58,11 @@ export interface GoogleCalendarMemberAssignment {
   ownerId: CalendarOwnerId | null;
 }
 
+export interface GoogleCalendarNameOverride {
+  ownerId: CalendarOwnerId;
+  newName: string;
+}
+
 interface GoogleCalendarSelectionDialogProps {
   open: boolean;
   calendars: CalendarSource[];
@@ -68,6 +73,7 @@ interface GoogleCalendarSelectionDialogProps {
   onConfirm: (
     excludedGoogleCalendarIds: string[],
     memberAssignments: GoogleCalendarMemberAssignment[],
+    nameOverrides: GoogleCalendarNameOverride[],
   ) => void;
 }
 
@@ -97,11 +103,30 @@ export function GoogleCalendarSelectionDialog({
   const [memberAssignments, setMemberAssignments] = useState(() =>
     getInitialMemberAssignments(calendars),
   );
+  // Keyed by calendar.id — whether to replace an assigned member's still-
+  // placeholder name (e.g. "Far") with this Google calendar's real name.
+  // Defaults to true (checked) whenever the condition applies; absence of
+  // a key just falls back to that default, so no separate init pass needed.
+  const [nameOverrideChoices, setNameOverrideChoices] = useState<
+    Record<string, boolean>
+  >({});
 
   if (resetKey !== lastResetKey) {
     setLastResetKey(resetKey);
     setCheckedIds(getInitiallyCheckedIds(calendars));
     setMemberAssignments(getInitialMemberAssignments(calendars));
+    setNameOverrideChoices({});
+  }
+
+  function getNameOverrideCandidate(calendar: CalendarSource) {
+    const ownerId = memberAssignments[calendar.id];
+    if (!ownerId) return null;
+
+    const member = members.find((candidate) => candidate.id === ownerId);
+    if (!member?.isPlaceholderName) return null;
+    if (!calendar.name || calendar.name === member.name) return null;
+
+    return member;
   }
 
   function toggleCalendar(sourceId: string) {
@@ -138,7 +163,17 @@ export function GoogleCalendarSelectionDialog({
         ownerId: memberAssignments[calendar.id] || null,
       }));
 
-    onConfirm(excludedGoogleCalendarIds, memberMappings);
+    const nameOverrides: GoogleCalendarNameOverride[] = calendars
+      .filter((calendar) => {
+        const candidate = getNameOverrideCandidate(calendar);
+        return candidate && (nameOverrideChoices[calendar.id] ?? true);
+      })
+      .map((calendar) => ({
+        ownerId: memberAssignments[calendar.id],
+        newName: calendar.name,
+      }));
+
+    onConfirm(excludedGoogleCalendarIds, memberMappings, nameOverrides);
   }
 
   return (
@@ -231,6 +266,35 @@ export function GoogleCalendarSelectionDialog({
                       </MenuItem>
                     ))}
                   </Select>
+
+                  {(() => {
+                    const overrideCandidate = getNameOverrideCandidate(calendar);
+                    if (!overrideCandidate) return null;
+
+                    return (
+                      <FormControlLabel
+                        sx={{ width: "100%", ml: 0 }}
+                        control={
+                          <Checkbox
+                            size="small"
+                            checked={nameOverrideChoices[calendar.id] ?? true}
+                            onChange={(event) =>
+                              setNameOverrideChoices((current) => ({
+                                ...current,
+                                [calendar.id]: event.target.checked,
+                              }))
+                            }
+                          />
+                        }
+                        label={
+                          <Typography variant="body2" color="text.secondary">
+                            Brug "{calendar.name}" som navn for "
+                            {overrideCandidate.name}"?
+                          </Typography>
+                        }
+                      />
+                    );
+                  })()}
                 </Box>
               ))}
             </Box>

@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+
 import {
   CalendarMonthRounded,
   HomeRounded,
@@ -15,11 +17,48 @@ import {
 } from "@mui/material";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 
+import { FamilySetupOnboarding } from "../features/calendar/components/FamilySetupOnboarding";
+import { familyPseudoMemberId } from "../features/calendar/models/calendarEvent";
+import {
+  getFamilyMembers,
+  hasCompletedFamilySetup,
+} from "../features/calendar/preferences/familyMembersStorage";
+
 const routes = ["/", "/calendar", "/settings"];
+
+function readFamilyName(): string {
+  return (
+    getFamilyMembers().find((member) => member.id === familyPseudoMemberId)
+      ?.name ?? "Familien"
+  );
+}
 
 function AppLayout() {
   const location = useLocation();
   const navigate = useNavigate();
+
+  const [isFirstLaunch, setIsFirstLaunch] = useState(
+    () => !hasCompletedFamilySetup(),
+  );
+  // Not sourced from useFamilyMembers() — that hook's state is only read
+  // once at mount, so it would still show the pre-onboarding placeholder
+  // name after onDone() fires, since AppLayout itself never remounts.
+  const [familyName, setFamilyName] = useState(() => readFamilyName());
+
+  useEffect(() => {
+    document.title = `${familyName} Familieapp`;
+  }, [familyName]);
+
+  if (isFirstLaunch) {
+    return (
+      <FamilySetupOnboarding
+        onDone={() => {
+          setFamilyName(readFamilyName());
+          setIsFirstLaunch(false);
+        }}
+      />
+    );
+  }
 
   const currentIndex = Math.max(routes.indexOf(location.pathname), 0);
 
@@ -64,12 +103,12 @@ function AppLayout() {
                 fontWeight: 800,
               }}
             >
-              B
+              {familyName.trim().slice(0, 1).toUpperCase() || "?"}
             </Box>
 
             <Box>
               <Typography variant="h6" sx={{ lineHeight: 1.1 }}>
-                Boholts Familie
+                {familyName}
               </Typography>
 
               <Typography variant="caption" color="text.secondary">

@@ -587,3 +587,51 @@ Ville betyde, at Google-kilder viste Googles egne navne/farver (fx "nicolajbach1
 * ADR-008 (Google Calendar, skrivebeskyttet)
 * ADR-009 (Google Calendar, skriveadgang)
 * ADR-011 (single-device)
+
+---
+
+# ADR-015: Generiske standardværdier + førstegangs-familieopsætning i stedet for hardcodede familienavne
+
+## Status
+
+Accepteret 2026-07-31.
+
+## Kontekst
+
+Efter v1.0 gik i produktion, var familiemedlemmerne stadig hardcodet til de rigtige Boholt-navne (Nicolaj/Christine/Alfred/Jens) direkte i seed-dataet (`calendarOwners.ts`). Enhver ny, tom installation "arvede" derfor automatisk Nicolajs egen families rigtige navne uden nogen opsætning — uholdbart, hvis appen skal kunne tages i brug af en anden familie. Nicolaj ønskede, at en ny bruger ved første åbning selv kan navngive sin familie og sine familiemedlemmer, med generiske standardværdier (Far/Mor/Barn 1/Barn 2) som udgangspunkt, og at appens egen branding (AppBar-overskrift, sidetitel) afspejler det valgte familienavn.
+
+## Beslutning
+
+1. Seed-dataet i `calendarOwners.ts` er ændret fra rigtige navne til generiske placeholders (Far/Mor/Barn 1/Barn 2/Familien), hver markeret med et nyt `isPlaceholderName: true`-felt på `CalendarOwner`.
+2. En ny komponent, `FamilySetupOnboarding.tsx`, vises ved første åbning — afgjort af, om `localStorage["boholts-family-members"]` nogensinde er blevet skrevet (`hasCompletedFamilySetup()` i `familyMembersStorage.ts`). Ingen ny storage-nøgle var nødvendig: det at intet endnu er gemt ER selve "er dette en ny bruger?"-signalet.
+3. `AppLayout.tsx` (den fælles wrapper for alle ruter) erstatter — ikke overlejrer — hele sit indhold med onboarding-komponenten, indtil opsætningen er gennemført. Dette er bevidst, fordi `useFamilyMembers()` ikke er en delt Context, kun en `localStorage`-bakket `useState` pr. komponent-instans; havde onboarding i stedet været en Dialog ovenpå en allerede monteret side, ville siden bagved have beholdt sin gamle, allerede-læste medlemsliste i hukommelsen efter onboarding lukkede.
+4. Familie-pseudomedlemmets navn ("Familien" i dag) kan nu redigeres — den tidligere spærring i `FamilyMemberDialog.tsx` er fjernet — og det navn driver nu også AppBar-overskriften og fanetitlen (`document.title`), ikke kun den interne, delte kalender.
+5. Når en Google-kalender tildeles et familiemedlem, hvis navn stadig er en uændret placeholder (`GoogleCalendarSelectionDialog.tsx`), tilbydes brugeren at overskrive placeholder-navnet med Googles rigtige kalendernavn (forudkrydset, kan fravælges).
+
+## Alternativer overvejet
+
+### Behold hardcodede Boholt-navne, tilføj kun en "omdøb senere"-mulighed i Indstillinger
+
+Afvist: løser ikke det første indtryk — en ny bruger ville stadig se en fremmed families rigtige navne i UI'en, indtil de aktivt opsøgte Indstillinger for at rette det.
+
+### Del PWA-manifestets navn/hjemmeskærm-ikon dynamisk med det valgte familienavn
+
+Ikke muligt uden en build-per-familie: `vite-plugin-pwa`s manifest genereres statisk ved build-time. Accepteret begrænsning — kun AppBar og fanetitel (kørselstid) kan gøres dynamiske; hjemmeskærm-ikonets navn forbliver "Boholts Familieapp".
+
+## Konsekvenser
+
+### Positivt
+
+* En ny installation kan tages i brug af en hvilken som helst familie uden kodeændringer.
+* Ingen ny storage-nøgle eller state-arkitektur nødvendig — genbruger eksisterende `familyMembersStorage.ts`/`useFamilyMembers`-mønstre.
+* Google-navn-overskrivningen reducerer manuelt opsætningsarbejde efter Google-forbindelse.
+
+### Negativt
+
+* AppBar-familienavnet opdateres ikke live, hvis familienavnet redigeres senere via Indstillinger (kræver en sideopdatering/ny navigation) — konsistent med appens eksisterende, ikke-delte state-model, men en kendt begrænsning.
+* Hjemmeskærm-ikonets navn forbliver statisk "Boholts Familieapp" uanset det valgte familienavn.
+
+## Relaterede dokumenter
+
+* ADR-012 (lokal datamodel/storage-strategi)
+* ADR-014 (Google-kalendere tildelt familiemedlemmer)
