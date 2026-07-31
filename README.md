@@ -9,7 +9,8 @@ aftaler og kalenderkilder i én mobilvenlig webapp.
 - Sprint 0–16 er gennemført, inklusive gentagne aftaler (recurrence) og valg
   af hvilke Google-kalendere der skal medtages ved forbindelse.
 - Google Calendar kan læses og skrives via en brugerautoriseret session.
-- Stabiliseringsmilepælen fra den eksterne audit (2026-07-29) er i gang; se
+- Stabiliseringsmilepælen fra den eksterne audit (2026-07-29) er gennemført
+  (15 af 17 fund løst eller udført); se
   [10_Future_Roadmap.md](01_Project_Documentation/AI_Knowledge_Base/10_Future_Roadmap.md)
   for status på de enkelte fund (F-01 til F-17).
 
@@ -23,8 +24,8 @@ for projektets historik, arkitektur og beslutninger.
 - Material UI
 - Vitest
 - Google Calendar API
-- PWA-afhængighed er installeret; manifest, service worker og offlinepolitik er
-  endnu ikke færdigkonfigureret.
+- PWA: manifest og service worker er konfigureret (`vite-plugin-pwa`); Google
+  Calendar-kald og OAuth caches aldrig, se ADR-013.
 
 Platformskiftet fra SwiftUI til React/PWA er dokumenteret i ADR-010 i
 [arkitekturbeslutningerne](01_Project_Documentation/Architecture/05_ADR_Architecture_Decisions.md).
@@ -62,6 +63,26 @@ VITE_GOOGLE_CLIENT_ID=your-google-web-client-id.apps.googleusercontent.com
 
 Hemmeligheder og tokens må ikke committes. OAuth-tokenet opbevares kun i
 browserhukommelsen; appen har endnu ingen backend eller refresh-token.
+
+## Deployment
+
+Appen deployes til [Cloudflare Pages](https://pages.cloudflare.com/), forbundet
+direkte til dette GitHub-repo med automatisk deploy ved push til `main`. Se
+ADR-013 for begrundelsen (skalerbarhed på gratis-planen, ingen begrænsning mod
+kommerciel brug, og en naturlig vej til en fremtidig backend via Cloudflare
+Workers/D1, hvis det bliver relevant).
+
+Build-indstillinger i Cloudflare Pages' dashboard:
+
+- **Rodmappe**: `05_App/web`
+- **Build-kommando**: `npm run build`
+- **Output-mappe**: `dist`
+- **Miljøvariabler**: `VITE_GOOGLE_CALENDAR_ENABLED`, `VITE_GOOGLE_CLIENT_ID`
+  (samme værdier som i `.env.local`, sættes i dashboardet — committes aldrig)
+
+Efter første deploy skal production-URL'en (`https://<projekt>.pages.dev`)
+tilføjes som "Authorized JavaScript origin" på Google OAuth-klienten i Google
+Cloud Console, ellers fejler Google-login på den deployede adresse.
 
 ## Repository-strategi
 
