@@ -465,3 +465,71 @@ Med single-device bekræftet som gældende model (ADR-011), er de svære, distri
 
 * `01_Project_Documentation/AI_Knowledge_Base/10_Future_Roadmap.md`
 * ADR-011 (single-device)
+
+---
+
+# ADR-013: Deployment til Cloudflare Pages
+
+## Status
+
+Accepteret 2026-07-30.
+
+## Kontekst
+
+Appen har hidtil udelukkende kørt via `npm run dev` på Nicolajs egen computer. Det betyder i praksis, at familien kun kan bruge appen, når computeren er tændt og udviklingsserveren kører — appen har reelt ingen selvstændig, vedvarende adresse. Dette blev identificeret som en større praktisk begrænsning end oprindeligt antaget: det gør det bl.a. svært at teste en fremtidig "flere Google-konti"-funktion (Christine kan ikke selv forbinde sin konto fra sin egen telefon uafhængigt af Nicolajs maskine).
+
+Appen er en ren klient-side React/Vite-PWA uden backend (jf. ADR-011, single-device) — den kan derfor hostes som statiske filer hvor som helst.
+
+## Beslutning
+
+Appen deployes til **Cloudflare Pages**, forbundet direkte til GitHub-repoet med automatisk deploy ved push til `main`.
+
+Sammenlignet med Vercel/Netlify (de mest almindelige alternativer) har Cloudflare Pages to afgørende fordele for dette projekt:
+
+1. **Ubegrænset båndbredde på gratis-planen** — det højeste skalerbarhedsloft af de sammenlignede muligheder, uden praktisk risiko for at ramme en betalingsmur ved almindelig familiebrug.
+2. **Ingen "kun ikke-kommerciel brug"-begrænsning** i vilkårene — Vercels Hobby-plan og Netlifys Starter-plan kræver begge en betalt opgradering, hvis projektet nogensinde bliver kommercielt. Cloudflare Pages' gratis-plan har ikke denne begrænsning, hvilket holder appen fri, uanset hvilken retning projektet tager.
+
+Hvis appen senere får brug for en rigtig backend (fælles database i stedet for per-device `localStorage`, jf. ADR-012, eller brugerkonti), tilbyder Cloudflare Workers/D1/R2 en naturlig udvidelsesvej inden for samme økosystem, uden at skulle migrere hosting-platform.
+
+**Build-konfiguration**:
+- Root-mappe: `05_App/web`
+- Build-kommando: `npm run build`
+- Output-mappe: `dist`
+- Miljøvariabler sættes i Cloudflare Pages' dashboard, ikke i repoet: `VITE_GOOGLE_CALENDAR_ENABLED`, `VITE_GOOGLE_CLIENT_ID`.
+
+**SPA-routing**: appen bruger `BrowserRouter` (rigtige URL-stier som `/calendar`, `/settings`, ikke hash-baseret routing). En `_redirects`-fil (`/* /index.html 200`) er tilføjet i `05_App/web/public/`, så alle stier falder tilbage til `index.html` i stedet for at give 404 ved direkte navigation eller genindlæsning.
+
+**Google OAuth**: Google Cloud Console-klientens "Authorized JavaScript origins" skal opdateres til at inkludere den nye production-URL (`https://<projekt>.pages.dev`), ellers fejler Google-login på den deployede adresse. `localhost` forbliver også en gyldig origin, så lokal udvikling er upåvirket.
+
+## Alternativer overvejet
+
+### Vercel
+
+Marginalt mere strømlinet opsætningsoplevelse, men Hobby-planens vilkår om ikke-kommerciel brug gør den til et ringere valg, hvis projektet nogensinde bliver kommercielt — hvilket ikke kan udelukkes på forhånd.
+
+### Netlify
+
+Samme vurdering som Vercel — sammenlignelig funktionalitet, samme begrænsning i de gratis vilkår.
+
+### GitHub Pages
+
+Ingen kommerciel begrænsning, men kræver manuel SPA-routing-håndtering og en selvstændig GitHub Actions-workflow for deploy (i stedet for den indbyggede Git-integration), og har ingen vej til en fremtidig backend, hvis det bliver relevant.
+
+## Konsekvenser
+
+### Positivt
+
+* Familien kan bruge appen fra egne enheder, uden at Nicolajs computer skal være tændt.
+* Automatisk deploy ved push til `main` — ingen manuel deploy-proces at vedligeholde.
+* Fri for både nuværende og evt. fremtidig kommerciel brug, uden at skulle genoverveje hosting-valget.
+
+### Negativt
+
+* Endnu en ekstern konto/afhængighed (Cloudflare) — dog uden nuværende omkostning.
+* Miljøvariabler (Google Client ID) skal holdes i sync mellem `.env.local` (lokal udvikling) og Cloudflare Pages' dashboard (produktion) — ingen automatisk delt kilde.
+
+## Relaterede dokumenter
+
+* ADR-011 (single-device)
+* ADR-012 (lokal datamodel)
+* `01_Project_Documentation/AI_Knowledge_Base/13_Release_And_Security_Baseline.md`
