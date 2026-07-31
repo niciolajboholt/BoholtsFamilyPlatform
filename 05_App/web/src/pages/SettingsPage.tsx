@@ -205,8 +205,11 @@ function SettingsPage() {
 
     setIsOutlookCalendarBusy(true);
     try {
+      // Navigerer væk fra appen ved succes (Outlook bruger redirect, ikke
+      // pop-up, jf. ADR-016) — koden efter connectOutlookCalendar() når
+      // normalt ikke at køre. Efter login skal brugeren selv trykke
+      // synk-ikonet for at vælge kalendere.
       await connectOutlookCalendar();
-      openCalendarSelectionDialog("outlook");
     } catch {
       // Fejlen undlader blot at markere som forbundet — Kalender-siden
       // viser fortsat "ikke forbundet", som er tilstrækkelig feedback.

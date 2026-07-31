@@ -80,6 +80,8 @@ function getMsalInstance(clientId: string): Promise<PublicClientApplication> {
 export class OutlookCalendarSession {
   private accessToken: string | null = null;
 
+  private initializationPromise: Promise<void> | null = null;
+
   isConfigured(): boolean {
     return getOutlookCalendarConfig().enabled;
   }
@@ -100,6 +102,57 @@ export class OutlookCalendarSession {
     return readWasConnected();
   }
 
+  /**
+   * Skal kaldes én gang, tidligt i appens livscyklus (fra
+   * useOutlookCalendarConnection ved mount) — behandler et evt. igangværende
+   * "kommer tilbage fra Microsofts logind"-svar (se connect()-kommentaren).
+   * Uden dette kald ville et gennemført login aldrig blive fanget op.
+   */
+  async ensureInitialized(): Promise<void> {
+    const config = getOutlookCalendarConfig();
+
+    if (!config.enabled || !config.clientId) {
+      return;
+    }
+
+    if (!this.initializationPromise) {
+      const clientId = config.clientId;
+
+      this.initializationPromise = (async () => {
+        let msalInstance: PublicClientApplication;
+
+        try {
+          msalInstance = await getMsalInstance(clientId);
+        } catch {
+          return;
+        }
+
+        try {
+          const result = await msalInstance.handleRedirectPromise();
+
+          if (result?.accessToken && result.account) {
+            msalInstance.setActiveAccount(result.account);
+            this.accessToken = result.accessToken;
+            markWasConnected();
+          }
+        } catch {
+          // En fejlet omdirigerings-håndtering efterlader blot brugeren i
+          // "ikke forbundet"-tilstand — samme fejlniveau som et afvist login.
+        }
+      })();
+    }
+
+    return this.initializationPromise;
+  }
+
+  /**
+   * Bruger en fuld sideomdirigering til Microsofts logind, i stedet for en
+   * pop-up (som GoogleCalendarSession bruger for Google) — Safari (særligt i
+   * en installeret PWA) blokerer ofte kommunikationen tilbage fra en
+   * pop-up-baseret login, så den hænger uden nogensinde at svare. En
+   * omdirigering navigerer hele siden væk og tilbage i stedet, hvilket er
+   * Microsofts egen anbefaling for Safari/mobil. Se ADR-016.
+   */
   async connect(): Promise<void> {
     const config = getOutlookCalendarConfig();
 
@@ -122,29 +175,12 @@ export class OutlookCalendarSession {
       );
     }
 
-    try {
-      const result = await msalInstance.loginPopup({
-        scopes: outlookCalendarScopes,
-      });
-
-      if (!result.accessToken || !result.account) {
-        throw new CalendarProviderError(
-          "authentication",
-          "Outlook Kalender blev ikke forbundet.",
-        );
-      }
-
-      msalInstance.setActiveAccount(result.account);
-      this.accessToken = result.accessToken;
-      markWasConnected();
-    } catch (error: unknown) {
-      if (error instanceof CalendarProviderError) throw error;
-      throw new CalendarProviderError(
-        "authentication",
-        "Outlook Kalender blev ikke forbundet.",
-        { cause: error },
-      );
-    }
+    // Navigerer væk fra appen — koden herefter kører kun, hvis omdirigeringen
+    // selv fejlede med det samme (fx netværksfejl), ikke efter et gennemført
+    // login (det svar behandles af ensureInitialized() ved næste sideindlæsning).
+    await msalInstance.loginRedirect({
+      scopes: outlookCalendarScopes,
+    });
   }
 
   /**
