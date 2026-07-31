@@ -16,6 +16,15 @@ export const googleCalendarSession =
   new GoogleCalendarSession();
 export const outlookCalendarSession =
   new OutlookCalendarSession();
+
+// Skal køre med det samme dette modul indlæses (app-opstart), ikke først når
+// SettingsPage/CalendarPage måtte blive monteret — Outlook bruger en fuld
+// side-omdirigering til login (se ADR-016), og Microsoft sender brugeren
+// tilbage til appens forside, ikke nødvendigvis Indstillinger. Uden dette
+// tidlige kald ville en efterfølgende klient-side-navigation nå at rydde
+// URL'ens hash-fragment, før noget nogensinde læste login-svaret i den.
+void outlookCalendarSession.ensureInitialized();
+
 import { LocalCalendarProvider } from "./LocalCalendarProvider";
 
 export function createCalendarProvider(
