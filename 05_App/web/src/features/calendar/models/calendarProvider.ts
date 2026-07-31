@@ -1,6 +1,7 @@
 export type CalendarProviderType =
   | "local"
   | "google"
+  | "outlook"
   | "apple";
 
 /**
@@ -23,6 +24,23 @@ export interface CalendarSource {
 export interface CalendarEventRange {
   start: string;
   end: string;
+}
+
+/**
+ * Eksterne kilder (Google/Outlook/Apple) deler samme begrænsninger i UI'et:
+ * ejerskab kommer fra kalender-til-familiemedlem-tildelingen (ADR-014) i
+ * stedet for manuel valg, og appen opretter ikke selv nye gentagelsesregler
+ * på dem. Brug denne i stedet for at sammenligne mod "google" direkte, så en
+ * ny provider (fx Outlook) automatisk får samme behandling.
+ */
+export function isExternalCalendarProviderType(
+  providerType: CalendarProviderType | undefined,
+): boolean {
+  return (
+    providerType === "google" ||
+    providerType === "outlook" ||
+    providerType === "apple"
+  );
 }
 
 /**

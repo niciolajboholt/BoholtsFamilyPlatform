@@ -21,7 +21,7 @@ import CalendarToolbar from "../features/calendar/components/CalendarToolbar";
 import { CalendarSourceFilter } from "../features/calendar/components/CalendarSourceFilter";
 import EditEventDialog from "../features/calendar/components/EditEventDialog";
 import EventList from "../features/calendar/components/EventList";
-import { GoogleCalendarConnection } from "../features/calendar/components/GoogleCalendarConnection";
+import { ExternalCalendarConnectionBanner } from "../features/calendar/components/ExternalCalendarConnectionBanner";
 import MonthCalendar from "../features/calendar/components/MonthCalendar";
 import NewEventDialog from "../features/calendar/components/NewEventDialog";
 import WeekCalendar from "../features/calendar/components/WeekCalendar";
@@ -29,6 +29,7 @@ import { useCalendarEvents } from "../features/calendar/hooks/useCalendarEvents"
 import { useCalendarSources } from "../features/calendar/hooks/useCalendarSources";
 import { useFamilyMembers } from "../features/calendar/hooks/useFamilyMembers";
 import { useGoogleCalendarConnection } from "../features/calendar/hooks/useGoogleCalendarConnection";
+import { useOutlookCalendarConnection } from "../features/calendar/hooks/useOutlookCalendarConnection";
 import { useRecurrenceExceptions } from "../features/calendar/hooks/useRecurrenceExceptions";
 import type {
   CalendarEvent,
@@ -236,7 +237,16 @@ function CalendarPage() {
     isAttemptingSilentReconnect: isAttemptingGoogleSilentReconnect,
   } = useGoogleCalendarConnection();
 
+  const {
+    isConfigured: isOutlookCalendarConfigured,
+    configurationError: outlookCalendarConfigurationError,
+    isConnected: isOutlookCalendarConnected,
+    wasEverConnected: wasOutlookCalendarEverConnected,
+    isAttemptingSilentReconnect: isAttemptingOutlookSilentReconnect,
+  } = useOutlookCalendarConnection();
+
   const wasGoogleCalendarConnectedRef = useRef(isGoogleCalendarConnected);
+  const wasOutlookCalendarConnectedRef = useRef(isOutlookCalendarConnected);
 
   useEffect(() => {
     const wasConnected = wasGoogleCalendarConnectedRef.current;
@@ -250,6 +260,16 @@ function CalendarPage() {
       void refreshEvents();
     }
   }, [isGoogleCalendarConnected, refreshCalendarSources, refreshEvents]);
+
+  useEffect(() => {
+    const wasConnected = wasOutlookCalendarConnectedRef.current;
+    wasOutlookCalendarConnectedRef.current = isOutlookCalendarConnected;
+
+    if (!wasConnected && isOutlookCalendarConnected) {
+      void refreshCalendarSources();
+      void refreshEvents();
+    }
+  }, [isOutlookCalendarConnected, refreshCalendarSources, refreshEvents]);
 
   const isInitialLoading =
     isLoading && !hasLoadedEvents;
@@ -677,7 +697,8 @@ function CalendarPage() {
         }
       />
 
-      <GoogleCalendarConnection
+      <ExternalCalendarConnectionBanner
+        providerLabel="Google"
         isConfigured={isGoogleCalendarConfigured}
         configurationError={googleCalendarConfigurationError}
         isConnected={isGoogleCalendarConnected}
@@ -685,6 +706,22 @@ function CalendarPage() {
         isAttemptingSilentReconnect={isAttemptingGoogleSilentReconnect}
         health={providerHealth.find(
           (health) => health.providerId === "google",
+        )}
+        onRetry={() => {
+          void refreshEvents();
+          void refreshCalendarSources();
+        }}
+      />
+
+      <ExternalCalendarConnectionBanner
+        providerLabel="Outlook"
+        isConfigured={isOutlookCalendarConfigured}
+        configurationError={outlookCalendarConfigurationError}
+        isConnected={isOutlookCalendarConnected}
+        wasEverConnected={wasOutlookCalendarEverConnected}
+        isAttemptingSilentReconnect={isAttemptingOutlookSilentReconnect}
+        health={providerHealth.find(
+          (health) => health.providerId === "outlook",
         )}
         onRetry={() => {
           void refreshEvents();

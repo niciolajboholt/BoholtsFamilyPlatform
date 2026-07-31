@@ -24,6 +24,7 @@ import {
 } from "@mui/material";
 
 import { useCalendarEvents } from "../features/calendar/hooks/useCalendarEvents";
+import { useCurrentMember } from "../features/calendar/hooks/useCurrentMember";
 import { useFamilyMembers } from "../features/calendar/hooks/useFamilyMembers";
 import { useRecurrenceExceptions } from "../features/calendar/hooks/useRecurrenceExceptions";
 import { familyPseudoMemberId } from "../features/calendar/models/calendarEvent";
@@ -96,6 +97,7 @@ function formatRelativeDayLabel(date: Date): string {
 function HomePage() {
   const navigate = useNavigate();
   const { members } = useFamilyMembers();
+  const { currentMember } = useCurrentMember();
   const { events } = useCalendarEvents();
   const recurrenceExceptions = useRecurrenceExceptions();
 
@@ -148,7 +150,9 @@ function HomePage() {
   return (
     <Box sx={{ maxWidth: 900, mx: "auto", pb: 4 }}>
       <Box sx={{ mb: 3 }}>
-        <Typography variant="h4">Hej Nicolaj 👋</Typography>
+        <Typography variant="h4">
+          {currentMember ? `Hej ${currentMember.name} 👋` : "Hej! 👋"}
+        </Typography>
 
         <Typography
           color="text.secondary"

@@ -635,3 +635,50 @@ Ikke muligt uden en build-per-familie: `vite-plugin-pwa`s manifest genereres sta
 
 * ADR-012 (lokal datamodel/storage-strategi)
 * ADR-014 (Google-kalendere tildelt familiemedlemmer)
+
+---
+
+# ADR-016: Outlook Kalender via samme server-fri mønster som Google; Apple Kalender bevidst udskudt
+
+## Status
+
+Accepteret 2026-07-31.
+
+## Kontekst
+
+Nicolaj ønskede at kunne forbinde både Outlook og Apple Kalender, ud over Google. Undersøgelse af begge muligheder viste en afgørende asymmetri:
+
+* **Outlook** har en OAuth-baseret, browser-venlig klientbibliotek (Microsoft MSAL.js) og en CORS-venlig REST-API (Microsoft Graph) — nøjagtig samme arkitektur-form som den eksisterende Google-integration.
+* **Apple Kalender** har ingen OAuth og ingen almindelig REST-API — kun CalDAV med et Apple-id og en "app-specifik adgangskode", og Apples CalDAV-servere accepterer ikke direkte browser-CORS-kald. En Apple-integration ville kræve appens allerførste server-komponent (en proxy, der opbevarer adgangskoden på serversiden) — en markant større og mere sikkerhedskritisk beslutning end at tilføje endnu en OAuth-baseret kilde.
+
+Nicolaj besluttede at bygge Outlook nu, efter samme mønster som Google, og udskyde Apple Kalender til en selvstændig, senere sprint, når server-komponenten og adgangskode-håndteringen kan besluttes for sig.
+
+## Beslutning
+
+1. **Outlook-provider-stakken** (`providers/outlook/`) er en linje-for-linje mirror af Google-stakken: `OutlookCalendarSession.ts` bruger `@azure/msal-browser`s `PublicClientApplication` (popup-login mod `login.microsoftonline.com/common`, så både private Microsoft-konti og arbejds-/skolekonti understøttes) i stedet for Google Identity Services; `OutlookCalendarApi.ts` kalder Microsoft Graph (`graph.microsoft.com/v1.0`) direkte fra browseren, samme som Google Calendar-API'et; `outlookCalendarMapper.ts` mapper Graphs `/calendarView`-udfoldede gentagelsesforekomster (`seriesMasterId`) til det samme `recurrenceMasterId`-felt som Google (Sprint 16).
+   * Én bemærkelsesværdig forskel: MSAL's `acquireTokenSilent` er afhængig af MSAL's egen cache (her sat til `sessionStorage`, ikke ren hukommelse), i modsætning til Googles stille genopkobling, som tjekker en reel, langtidsholdbar session hos Google selv. Outlooks stille genopkobling virker derfor kun inden for samme browser-session/fane, ikke på tværs af helt nye faner — en bevidst, dokumenteret afvigelse, ikke en fejl.
+2. **`CompositeCalendarProvider` er generaliseret** fra en hardcodet `{local, google?}`-struktur til en liste af eksterne providers (`{providerId, provider, sourceIdPrefix}[]`), så en tredje (og fremtidig fjerde, Apple) kilde ikke kræver endnu en kopieret sæt if/else-grene. Samme generalisering er lavet for kalender-valg-dialogen (`GoogleCalendarSelectionDialog` → `CalendarSelectionDialog`, parametriseret med `providerLabel`) og forbindelses-banneret (`GoogleCalendarConnection` → `ExternalCalendarConnectionBanner`).
+3. **Apple Kalender implementeres ikke i denne sprint.** `CalendarProviderType` har fortsat en `"apple"`-værdi (allerede tilstede før denne sprint), men `calendarProviderFactory.ts` kaster fortsat en "ikke implementeret endnu"-fejl for den. Beslutningen om en CalDAV-proxy-serverkomponent, hvor en Apple-adgangskode skal håndteres, tages i en selvstændig, senere sprint.
+
+## Alternativer overvejet
+
+### Byg Apple Kalender samtidig, via en Cloudflare Worker-CalDAV-proxy
+
+Teknisk muligt, men introducerer appens første server-side komponent og en ny sikkerhedsoverflade (Apple-adgangskoder sendt gennem og potentielt opbevaret af egen infrastruktur) i samme omgang som en ellers ukompliceret Outlook-tilføjelse. Afvist for nu — Nicolaj foretrak at holde denne sprint på samme, velkendte, server-fri arkitektur.
+
+## Konsekvenser
+
+### Positivt
+
+* Outlook-integrationen genbruger 100% af de eksisterende mønstre (session/API/mapper/eksklusion/tildeling), holder implementeringen forudsigelig og hurtig at verificere.
+* `CompositeCalendarProvider`-generaliseringen betaler sig allerede ved denne sprint og gør en fremtidig Apple-tilføjelse billigere.
+
+### Negativt
+
+* Outlooks stille genopkobling er svagere end Googles (kun inden for samme fane/session) — accepteret, dokumenteret begrænsning.
+* Apple Kalender forbliver ikke understøttet, indtil en selvstændig beslutning om server-komponenten er taget.
+
+## Relaterede dokumenter
+
+* ADR-008/009 (Google Calendar, læse-/skriveadgang)
+* ADR-014 (Google-kalendere tildelt familiemedlemmer)

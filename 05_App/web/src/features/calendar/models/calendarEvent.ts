@@ -7,7 +7,17 @@ export const familyPseudoMemberId: CalendarOwnerId = "family";
 
 export type CalendarEventSource =
   | "internal"
-  | "google";
+  | "google"
+  | "outlook";
+
+// Mirrors isExternalCalendarProviderType (models/calendarProvider.ts) at the
+// event level — ejerskab på eksterne aftaler kommer fra kalender-til-
+// familiemedlem-tildelingen, ikke manuel valg.
+export function isExternalCalendarEventSource(
+  source: CalendarEventSource,
+): boolean {
+  return source === "google" || source === "outlook";
+}
 
 export type CalendarSourceId = string;
 
