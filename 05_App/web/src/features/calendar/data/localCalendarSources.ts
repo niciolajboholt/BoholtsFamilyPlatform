@@ -1,4 +1,5 @@
 import { getFamilyMembers } from "../preferences/familyMembersStorage";
+import { getCalendarMemberMappings } from "../preferences/calendarMemberMappingStorage";
 import type { CalendarSource } from "../models/calendarProvider";
 
 /**
@@ -20,8 +21,17 @@ const legacyGoogleDemoSource: CalendarSource = {
 // dynamic (Sprint 15), so a newly added/removed member must be reflected
 // immediately without a full page reload.
 export function getLocalCalendarSources(): CalendarSource[] {
-  const ownerCalendarSources: CalendarSource[] = getFamilyMembers().map(
-    (owner) => ({
+  // Et familiemedlem, hvis kalender er tildelt til en rigtig Google-kalender
+  // (ADR-014), skal ikke også vise en tom, lokal duplikat-kalender ved siden
+  // af — den lokale kilde skjules, så der kun er ét, Google-forankret
+  // kalenderelement pr. medlem.
+  const mappedOwnerIds = new Set(
+    Object.values(getCalendarMemberMappings()),
+  );
+
+  const ownerCalendarSources: CalendarSource[] = getFamilyMembers()
+    .filter((owner) => !mappedOwnerIds.has(owner.id))
+    .map((owner) => ({
       id: `local:${owner.id}`,
       name: owner.name,
       providerType: "local",
@@ -29,8 +39,7 @@ export function getLocalCalendarSources(): CalendarSource[] {
       isVisible: true,
       isReadOnly: false,
       ownerId: owner.id,
-    }),
-  );
+    }));
 
   return [...ownerCalendarSources, legacyGoogleDemoSource];
 }

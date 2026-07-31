@@ -62,6 +62,31 @@ describe("mapGoogleCalendarSource", () => {
   it("returns null when the entry has no id", () => {
     expect(mapGoogleCalendarSource({ summary: "Uden id" })).toBeNull();
   });
+
+  it("uses the mapped owner's name and color instead of Google's own, when given one", () => {
+    const source = mapGoogleCalendarSource(
+      {
+        id: "nicolajbach12@gmail.com",
+        summary: "nicolajbach12@gmail.com",
+        backgroundColor: "#123456",
+      },
+      { id: "nicolaj", name: "Nicolaj", color: "#2E7D32" },
+    );
+
+    expect(source?.name).toBe("Nicolaj");
+    expect(source?.color).toBe("#2E7D32");
+  });
+
+  it("falls back to Google's own name/color when no owner is mapped", () => {
+    const source = mapGoogleCalendarSource({
+      id: "nicolajbach12@gmail.com",
+      summary: "nicolajbach12@gmail.com",
+      backgroundColor: "#123456",
+    });
+
+    expect(source?.name).toBe("nicolajbach12@gmail.com");
+    expect(source?.color).toBe("#123456");
+  });
 });
 
 describe("mapGoogleCalendarEvent", () => {
@@ -81,6 +106,19 @@ describe("mapGoogleCalendarEvent", () => {
     expect(mapped?.start).toBe("2026-07-31T09:00:00+02:00");
     expect(mapped?.end).toBe("2026-07-31T10:00:00+02:00");
     expect(mapped?.ownerIds).toEqual([]);
+  });
+
+  it("sets ownerIds to the mapped owner, when this calendar is assigned to a family member", () => {
+    const event: GoogleCalendarEvent = {
+      id: "abc123",
+      summary: "Frisør",
+      start: { dateTime: "2026-07-31T09:00:00+02:00" },
+      end: { dateTime: "2026-07-31T10:00:00+02:00" },
+    };
+
+    const mapped = mapGoogleCalendarEvent(calendarId, event, "nicolaj");
+
+    expect(mapped?.ownerIds).toEqual(["nicolaj"]);
   });
 
   it("maps a single-day all-day event onto exactly one local day (regression test)", () => {

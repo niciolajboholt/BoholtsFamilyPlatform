@@ -1,4 +1,5 @@
-import type { CalendarEvent } from "../../models/calendarEvent";
+import type { CalendarOwner } from "../../data/calendarOwners";
+import type { CalendarEvent, CalendarOwnerId } from "../../models/calendarEvent";
 import type { CreateCalendarEventInput } from "../../models/calendarEventInput";
 import type { CalendarEventRange, CalendarSource } from "../../models/calendarProvider";
 import type { CalendarProvider } from "../CalendarProvider";
@@ -12,6 +13,21 @@ import {
 import { decodeGoogleEventId, decodeGoogleCalendarSourceId } from "./googleCalendarIds";
 import { mapGoogleEventWriteRequest } from "./googleCalendarWriteMapper";
 import { getExcludedGoogleCalendarIds } from "../../preferences/googleCalendarExclusionStorage";
+import { getCalendarMemberMappings } from "../../preferences/calendarMemberMappingStorage";
+import { getFamilyMembers } from "../../preferences/familyMembersStorage";
+
+function getMappedOwnersByCalendarId(): Map<string, CalendarOwner> {
+  const mappings = getCalendarMemberMappings();
+  const membersById = new Map(getFamilyMembers().map((member) => [member.id, member]));
+  const result = new Map<string, CalendarOwner>();
+
+  for (const [calendarId, ownerId] of Object.entries(mappings)) {
+    const member = membersById.get(ownerId);
+    if (member) result.set(calendarId, member);
+  }
+
+  return result;
+}
 
 export class GoogleCalendarProvider implements CalendarProvider {
   private readonly api: GoogleCalendarApi;
@@ -28,10 +44,16 @@ export class GoogleCalendarProvider implements CalendarProvider {
   async getCalendars(): Promise<CalendarSource[]> {
     const calendars = await this.api.listCalendars();
     const excludedIds = new Set(getExcludedGoogleCalendarIds());
+    const mappedOwnersByCalendarId = getMappedOwnersByCalendarId();
 
     const sources = calendars
       .filter((calendar) => !calendar.id || !excludedIds.has(calendar.id))
-      .map(mapGoogleCalendarSource)
+      .map((calendar) =>
+        mapGoogleCalendarSource(
+          calendar,
+          calendar.id ? mappedOwnersByCalendarId.get(calendar.id) : undefined,
+        ),
+      )
       .filter((source): source is CalendarSource => source !== null);
     this.calendarSources = sources;
     return sources;
@@ -48,7 +70,7 @@ export class GoogleCalendarProvider implements CalendarProvider {
     const calendars = await this.api.listCalendars();
 
     return calendars
-      .map(mapGoogleCalendarSource)
+      .map((calendar) => mapGoogleCalendarSource(calendar))
       .filter((source): source is CalendarSource => source !== null);
   }
 
@@ -57,6 +79,7 @@ export class GoogleCalendarProvider implements CalendarProvider {
   ): Promise<CalendarEvent[]> {
     const calendars = await this.api.listCalendars();
     const excludedIds = new Set(getExcludedGoogleCalendarIds());
+    const mappings = getCalendarMemberMappings();
     const eventsByCalendar = await Promise.all(
       calendars
         .filter((calendar) => Boolean(calendar.id) && !excludedIds.has(calendar.id!))
@@ -66,10 +89,11 @@ export class GoogleCalendarProvider implements CalendarProvider {
             calendarId,
             range,
           );
+          const mappedOwnerId: CalendarOwnerId | undefined = mappings[calendarId];
 
           return events
             .map((event) =>
-              mapGoogleCalendarEvent(calendarId, event),
+              mapGoogleCalendarEvent(calendarId, event, mappedOwnerId),
             )
             .filter(
               (event): event is CalendarEvent =>
@@ -118,7 +142,8 @@ export class GoogleCalendarProvider implements CalendarProvider {
   }
 
   private mapWrittenEvent(calendarId: string, event: import("./googleCalendarTypes").GoogleCalendarEvent): CalendarEvent {
-    const mapped = mapGoogleCalendarEvent(calendarId, event);
+    const mappedOwnerId: CalendarOwnerId | undefined = getCalendarMemberMappings()[calendarId];
+    const mapped = mapGoogleCalendarEvent(calendarId, event, mappedOwnerId);
     if (!mapped) throw new CalendarProviderError("unknown", "Google Kalender sendte en ugyldig aftale.");
     return mapped;
   }

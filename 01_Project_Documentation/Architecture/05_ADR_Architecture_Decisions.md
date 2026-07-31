@@ -533,3 +533,57 @@ Ingen kommerciel begrænsning, men kræver manuel SPA-routing-håndtering og en 
 * ADR-011 (single-device)
 * ADR-012 (lokal datamodel)
 * `01_Project_Documentation/AI_Knowledge_Base/13_Release_And_Security_Baseline.md`
+
+---
+
+# ADR-014: Google-kalendere tildelt familiemedlemmer, i stedet for flere samtidige Google-konti
+
+## Status
+
+Accepteret 2026-07-30.
+
+## Kontekst
+
+Nicolaj rejste et oprindeligt ønske om at kunne forbinde flere Google-konti til appen samtidig (fx både sin egen og Christines), så begge kunne se en samlet familiekalender. Det blev først antaget at kræve en større omskrivning af `GoogleCalendarSession`/`GoogleCalendarProvider` fra én delt singleton til flere samtidige sessioner (jf. tidligere roadmap-afsnit "Flere Google-konti pr. familie").
+
+En efterfølgende samtale afdækkede en simplere, allerede fungerende vej: "Familien Boholt"-kalenderen er allerede delt med Christine i Google Calendar, og Google Calendars egen delefunktion løser i forvejen "flere personer skal se samme kalender" — uden at appen behøver håndtere flere samtidige konti. Nicolaj ønsker desuden, at appen — ikke Google Calendars egen app — forbliver familiens daglige interface, mens Google Calendar blot er den underliggende, synkroniserede datakilde.
+
+## Beslutning
+
+Hvert familiemedlem forbinder **sin egen Google-konto**, én ad gangen, præcis som den eksisterende arkitektur allerede understøtter (ADR-008/009) — ingen ændring af `GoogleCalendarSession` er nødvendig. Familiens fælles overblik opnås i stedet ved at:
+
+1. Dele relevante Google-kalendere mellem familiemedlemmerne via Google Calendars egen, indbyggede delefunktion (fx "Familien Boholt", "Alfred", "Jens" delt med Christine med redigeringsret; Nicolajs egen personlige kalender delt med kun læseadgang, hvis han ønsker det).
+2. En ny, letvægts **kalender-til-familiemedlem-tildeling** i appen (`calendarMemberMappingStorage.ts`): brugeren kan i "Vælg Google-kalendere"-dialogen tildele hver forbundet Google-kalender til et familiemedlem (Nicolaj/Christine/Alfred/Jens/Familien/ingen). En tildelt kalenders aftaler arver medlemmets farve og `ownerIds`, og indgår dermed i den eksisterende familiefiltrering (`getEventOwnerColor`, dashboardets status-widget, `EventParticipantsSection`) uden yderligere kodeændringer — disse forbrugere kender kun til `ownerIds`, ikke til om et event stammer fra en lokal eller en Google-kalender.
+
+Alfred og Jens har ingen egen Google-konto — deres kalendere oprettes som separate, sekundære kalendere i Nicolajs Google-konto og deles derfra.
+
+**Tildelingen gemmes pr. enhed** (som `calendarSourceVisibilityStorage`/`googleCalendarExclusionStorage`), ikke synkroniseret mellem familiemedlemmers enheder — hver person sætter selv sin tildeling op én gang, første gang de forbinder deres konto. Da et delt Google-kalender-id er identisk uanset hvilken konto der tilgår det, er selve tildelingen (kalender-id → familiemedlem) korrekt uanset hvis enhed der ser den — kun opsætnings-arbejdet er ikke delt.
+
+## Alternativer overvejet
+
+### Flere samtidige Google-sessioner i appen
+
+Det oprindeligt antagede scope — ville kræve en ny sessions-arkitektur, ny `sourceId`-kodning der inkluderer konto-identitet, og separat forbind/afbryd-UI pr. konto. Afvist: Googles egen delefunktion løser præcis det samme behov, uden ny kompleksitet i appen.
+
+### Lade lokale kalendre og Google-kalendere forblive helt adskilte, uden tildeling
+
+Ville betyde, at Google-kilder viste Googles egne navne/farver (fx "nicolajbach12@gmail.com" i grå) i stedet for at fremstå som appens egne, farvede familiekalendre — inkonsistent brugeroplevelse, og et af de oprindelige spørgsmål der udløste denne ADR.
+
+## Konsekvenser
+
+### Positivt
+
+* Ingen ny sessions-/multi-konto-arkitektur nødvendig — genbruger eksisterende, testet Google-integration.
+* Løser reelt både "flere Google-konti" og "farvekonsistens for Google-kilder" med én, lille funktion.
+* Familien får en ægte, Google-synkroniseret fælles kalender, uden at skulle bruge Google Calendars egen app.
+
+### Negativt
+
+* Tildelingen er pr. enhed — hvert familiemedlem sætter selv deres del op, i stedet for at det automatisk følger med en delt kalender. Acceptabelt for en engangs-opsætning.
+* Kræver manuel deling i Google Calendars egen UI (uden for appens kontrol) for at et andet familiemedlems konto overhovedet kan se en given kalender.
+
+## Relaterede dokumenter
+
+* ADR-008 (Google Calendar, skrivebeskyttet)
+* ADR-009 (Google Calendar, skriveadgang)
+* ADR-011 (single-device)
