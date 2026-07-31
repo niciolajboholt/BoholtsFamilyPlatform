@@ -1,17 +1,22 @@
-import { useState } from "react";
+import type { ChangeEvent } from "react";
+import { useRef, useState } from "react";
 
 import AddIcon from "@mui/icons-material/Add";
 import {
   CalendarMonthRounded,
   ChevronRightRounded,
+  CloudDownloadRounded,
+  CloudUploadRounded,
   DarkModeRounded,
   FamilyRestroomRounded,
   NotificationsRounded,
   PersonRounded,
+  SaveRounded,
   SyncRounded,
 } from "@mui/icons-material";
 
 import {
+  Alert,
   Avatar,
   Box,
   Button,
@@ -30,6 +35,10 @@ import type { CalendarOwner } from "../features/calendar/data/calendarOwners";
 import { useFamilyMembers } from "../features/calendar/hooks/useFamilyMembers";
 import { useGoogleCalendarConnection } from "../features/calendar/hooks/useGoogleCalendarConnection";
 import type { CalendarSource } from "../features/calendar/models/calendarProvider";
+import {
+  createDataBackup,
+  restoreDataBackup,
+} from "../features/calendar/preferences/dataBackupStorage";
 import {
   clearExcludedGoogleCalendars,
   setExcludedGoogleCalendars,
@@ -153,6 +162,61 @@ function SettingsPage() {
 
   function handleSkipCalendarSelection() {
     setIsCalendarSelectionOpen(false);
+  }
+
+  const importFileInputRef = useRef<HTMLInputElement | null>(null);
+  const [backupFeedback, setBackupFeedback] = useState<{
+    severity: "success" | "error";
+    message: string;
+  } | null>(null);
+
+  function handleExportData() {
+    const backup = createDataBackup();
+    const blob = new Blob([JSON.stringify(backup, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download = `boholts-familie-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+
+    setBackupFeedback({
+      severity: "success",
+      message: "Backup downloadet.",
+    });
+  }
+
+  function handleImportFileSelected(
+    changeEvent: ChangeEvent<HTMLInputElement>,
+  ) {
+    const file = changeEvent.target.files?.[0];
+    changeEvent.target.value = "";
+    if (!file) return;
+
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      try {
+        const parsed: unknown = JSON.parse(String(reader.result));
+        restoreDataBackup(parsed);
+
+        // Al app-state (familiemedlemmer, kalenderaftaler, indstillinger) er
+        // allerede indlæst i hukommelsen af de forskellige hooks — en
+        // genindlæsning er den simple, pålidelige måde at få dem til at læse
+        // den nyligt genskrevne localStorage igen.
+        window.location.reload();
+      } catch {
+        setBackupFeedback({
+          severity: "error",
+          message: "Filen kunne ikke importeres — den er ikke en gyldig backup.",
+        });
+      }
+    };
+
+    reader.readAsText(file);
   }
 
   const googleCalendarStatusText = !isGoogleCalendarConfigured
@@ -343,6 +407,68 @@ function SettingsPage() {
                   <ChevronRightRounded />
                 )}
               </IconButton>
+            </Box>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent sx={{ p: 3 }}>
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                gap: 1.5,
+                mb: 2.5,
+              }}
+            >
+              <Avatar sx={{ bgcolor: "background.default", color: "text.primary" }}>
+                <SaveRounded />
+              </Avatar>
+
+              <Box>
+                <Typography variant="h6">Data &amp; backup</Typography>
+
+                <Typography variant="body2" color="text.secondary">
+                  Dine data ligger kun i denne browser — tag en backup for at
+                  undgå at miste dem
+                </Typography>
+              </Box>
+            </Box>
+
+            {backupFeedback && (
+              <Alert
+                severity={backupFeedback.severity}
+                onClose={() => setBackupFeedback(null)}
+                sx={{ mb: 2 }}
+              >
+                {backupFeedback.message}
+              </Alert>
+            )}
+
+            <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap" }}>
+              <Button
+                variant="outlined"
+                startIcon={<CloudDownloadRounded />}
+                onClick={handleExportData}
+              >
+                Eksportér data
+              </Button>
+
+              <Button
+                variant="outlined"
+                startIcon={<CloudUploadRounded />}
+                onClick={() => importFileInputRef.current?.click()}
+              >
+                Importér data
+              </Button>
+
+              <input
+                ref={importFileInputRef}
+                type="file"
+                accept="application/json"
+                hidden
+                onChange={handleImportFileSelected}
+              />
             </Box>
           </CardContent>
         </Card>

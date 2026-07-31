@@ -384,3 +384,84 @@ oprindeligt blev valgt som princip.
 * `01_Project_Documentation/AI_Knowledge_Base/09_Lessons_Learned.md`
 * `01_Project_Documentation/AI_Knowledge_Base/10_Future_Roadmap.md`
 * `01_Project_Documentation/AI_Knowledge_Base/12_Project_DNA.md`
+
+---
+
+# ADR-011: Single-device forbliver den bevidste model (Audit F-09)
+
+## Status
+
+Accepteret 2026-07-30.
+
+## Kontekst
+
+Den eksterne audit (F-09) pegede på, at appens lokale data og familieprofiler er single-device: der findes ingen login, deling eller synkronisering mellem fx Nicolajs og Christines telefoner. Hvert device har sin egen, uafhængige `localStorage`. Auditens acceptkriterier bad om enten en klar dokumentation af begrænsningen, eller en beslutning om retning mod deling/synkronisering.
+
+## Beslutning
+
+Boholts Family Platform forbliver **bevidst single-device** for nu. Der bygges ikke login, backend eller synkronisering mellem enheder i denne omgang.
+
+Begrundelse: familien bruger i praksis appen fra ét primært device ad gangen (husstandens fælles skærm/telefon), og en flerbruger-løsning kræver en ikke-triviel investering (backend, autentificering, konfliktløsning ved samtidige redigeringer), som ikke står mål med den nuværende brug. At forcere en sync-arkitektur nu ville også låse tidligt bindende valg for F-06/F-11 (datamodel, migration), før det reelle behov er kendt.
+
+## Konsekvenser
+
+### Positivt
+
+* Ingen backend, login eller netværksafhængighed for lokale data — appen forbliver simpel og hurtig at udvikle på.
+* F-06 (single source of truth) og F-11 (data-versionering/backup) kan designes til ét device, uden at skulle løse distribuerede konfliktscenarier.
+
+### Negativt
+
+* Familiemedlemmer på forskellige devices ser ikke nødvendigvis samme lokale data (Google Calendar-data er uafhængigt af dette, da det allerede synkroniseres via Google selv).
+* En senere overgang til flerbruger vil kræve en ny, selvstændig arkitekturbeslutning og reel udviklingsindsats — ikke en lille tilføjelse.
+
+## Fremtidig retning
+
+Hvis behovet for deling mellem devices opstår, tages en ny ADR, der som minimum skal tage stilling til: autentificering, en backend eller synkroniseringstjeneste, konfliktløsning ved samtidige redigeringer, og migration af eksisterende lokale data. Indtil da er single-device den gældende, dokumenterede grænse — ikke en overset mangel.
+
+## Relaterede dokumenter
+
+* `01_Project_Documentation/AI_Knowledge_Base/10_Future_Roadmap.md`
+
+---
+
+# ADR-012: Lokal datamodel — single source of truth og lagringsstrategi (Audit F-06, F-11)
+
+## Status
+
+Accepteret 2026-07-30.
+
+## Kontekst
+
+Auditen (F-06) efterspurgte en dokumenteret, fælles "single source of truth" mellem lokale og Google-events, herunder event-identitet, cache-ejerskab, konfliktpolitik og slette-/tombstone-adfærd. F-11 efterspurgte tilsvarende en dokumenteret lagringsstrategi: skemaversion, migration og backup/restore for `localStorage`-data.
+
+Med single-device bekræftet som gældende model (ADR-011), er de svære, distribuerede dele af disse spørgsmål (konflikt mellem samtidige devices, sync-protokoller) ikke relevante endnu — kun spørgsmålet om, hvordan data er struktureret og ejet inden for ét device.
+
+## Beslutning
+
+**Event-identitet**: hvert `CalendarEvent.id` er unikt inden for sin kilde. Lokale events har et selvgenereret id; Google-events bruger et kodet id (`googleCalendarIds.ts`) afledt af Googles egne kalender- og event-id'er. `sourceId` (fx `local:family`, `google:<kodet-id>`) afgør entydigt, hvilken `CalendarProvider` der ejer et event, og bruges af `CompositeCalendarProvider.getProviderForSource()` til at route skrivninger korrekt.
+
+**Cache-ejerskab**: `CalendarService`/`localStorage` er den eneste persistente kilde for lokale events. Google-events har ingen selvstændig lokal cache — de hentes friskt fra Google ved hvert `getEvents()`-kald og eksisterer kun i React-state (`useCalendarEvents`), så vist data er så aktuel som sidste vellykkede hentning. Der er præcis ét kald til hver af `useCalendarEvents`/`useCalendarSources` (i `CalendarPage.tsx`), så der findes ikke i dag flere, potentielt divergerende cache-instanser.
+
+**Konfliktpolitik**: "sidste skriv vinder" — passende for single-device (ADR-011), hvor der ikke er samtidige skrivere. Google-skrivninger bruger Googles egen `accessRole`/etag-lignende afvisning ved reelle konflikter (fx en aftale ændret et andet sted, håndteret som en almindelig fejl i UI'et), men der er ingen selvstændig, klientside konfliktløsning ud over det.
+
+**Sletning/tombstones**: lokale sletninger er øjeblikkelige og endelige i `localStorage` — der er ikke behov for tombstones, da der ikke synkroniseres mod andre devices (single-device). Google-sletninger går direkte gennem Google API'et og er dermed også øjeblikkelige og autoritative.
+
+**Lagringsstrategi (F-11)**: `localStorage` fastholdes som lagringsteknologi — en overgang til IndexedDB er ikke nødvendig ved den nuværende datamængde (én families kalenderaftaler, familiemedlemmer og indstillinger). Hver lagret nøgle (`calendarEvents`, familiemedlemmer, gentagelsesundtagelser, kalendersynlighed, Google-eksklusion) får et eksplicit skemaversionsfelt, så en fremtidig strukturændring kan migreres deterministisk i stedet for at antage det aktuelle format. Der tilføjes en manuel eksport/import-funktion (backup/restore) i Indstillinger, så data ikke er uigenkaldeligt tabt ved fx en ryddet browser-cache.
+
+## Konsekvenser
+
+### Positivt
+
+* Formaliserer en arkitektur, der reelt allerede eksisterer — ingen destruktiv migration eller ombygning nødvendig.
+* Giver et dokumenteret grundlag at bygge skemaversionering og backup/restore på (se implementeringen under F-11).
+
+### Negativt
+
+* `localStorage` har en praktisk størrelsesgrænse (typisk 5-10 MB pr. origin) — hvis datamængden vokser markant (fx flere års aftaler for en stor familie), skal IndexedDB genovervejes. Dette er ikke en aktuel begrænsning.
+* Ingen cross-device konsistens, jf. ADR-011 — forventet og accepteret, ikke en fejl i denne beslutning.
+
+## Relaterede dokumenter
+
+* `01_Project_Documentation/AI_Knowledge_Base/10_Future_Roadmap.md`
+* ADR-011 (single-device)

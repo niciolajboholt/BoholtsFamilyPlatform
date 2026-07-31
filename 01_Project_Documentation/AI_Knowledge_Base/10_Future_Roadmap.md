@@ -2,13 +2,13 @@
 
 > Status: Active
 
-Version: 1.8
+Version: 1.9
 
 Project:
 Boholts Family Platform
 
 Last Updated:
-2026-07-30 (audit-fund F-01, F-05, F-07, F-12, F-14, F-16 (delvist), F-17 løst eller udført)
+2026-07-30 (alle 17 audit-fund gennemgået — 15 løst/udført, F-05 og F-16 delvist løst med resterende dele eksplicit dokumenteret som åbne)
 
 Owner:
 Nicolaj Bach Boholt
@@ -34,7 +34,7 @@ Ikke inkluderet endnu, som forudsat i Release Plan: login, deling mellem brugere
 
 ## Stabiliseringsmilepæl — ekstern audit (2026-07-29)
 
-**Status: Fase 0 og 1 er gennemført (2026-07-30) — blokeringen af nye feature-sprints er ophævet. Fase 2 (arkitekturbeslutninger: datamodel, Google-sync, dashboard-mock) og Fase 3 (PWA, fysisk a11y-test, kravsporbarhedsmatrix) er fortsat åbne og kræver beslutninger fra Nicolaj, før de kodes.**
+**Status: Fase 0, 1 og 2 er gennemført (2026-07-30). Fase 3 er gennemført med to bevidste undtagelser: `nextSyncToken`/inkrementel Google-sync (del af F-05) og komponent-/hook-tests i Strict Mode samt Playwright-flows (F-07 del 2) er ikke påbegyndt — vurderet som lavere prioritet nu hvor kerneproblemerne er løst. Fysisk iPhone/Safari/VoiceOver-test (F-16) kræver Nicolajs egen fysiske enhed og kan ikke udføres af en AI-agent.**
 
 En ekstern, uafhængig audit (Codex, revision 2, 2026-07-29) gennemgik `main`, `develop` (commit `9647722`) og den daværende lokale Sprint 16-arbejdstilstand. Samlet konklusion: **NO-GO** til release, med 17 konkrete fund (F-01 til F-17), hvoraf 5 vurderes kritiske/blokerende. Den fulde rapport samt en uafhængig vurdering og eksekveringsplan er udarbejdet uden for repoet sammen med Nicolaj; denne sektion er det autoritative uddrag i Knowledge Base, så begge AI-agenter arbejder fra samme grundlag.
 
@@ -58,18 +58,20 @@ En ekstern, uafhængig audit (Codex, revision 2, 2026-07-29) gennemgik `main`, `
 
 ### Fase 2 — Beslutningspunkter (afklares før videre kodning)
 
-- Datamodel: localStorage → IndexedDB, event-identitet, tombstones til slettede poster, konfliktpolitik (F-06, F-11).
-- Google-sync: ~~gyldigt, begrænset tidsvindue~~ **(løst 2026-07-30)**: `useCalendarEvents` brugte `allCalendarEventRange` = ECMAScripts dato-yderpunkter (år -271821 til +275760) sendt direkte som `timeMin`/`timeMax` til Google-API'et. Erstattet af `getDefaultCalendarEventRange()` (nu ±1/2 år), med en medfølgende rettelse i `LocalCalendarProvider`, så en lokal gentagende aftales mesterrekord ikke længere falder ud af det snævrere vindue. `nextSyncToken`/inkrementel sync og fælles source-cache mellem hooks er fortsat åbne, større arkitekturbeslutninger (F-05).
-- Dashboard/mock-UI: bind `HomePage.tsx` til rigtige data, eller fjern ikke-implementerede handlinger (Indkøbsliste, Opgaver, "Ny aftale") tydeligt (F-10).
+- ~~Datamodel: localStorage → IndexedDB, event-identitet, tombstones til slettede poster, konfliktpolitik (F-06, F-11).~~ **Løst (2026-07-30, ADR-011 + ADR-012)**: single-device forbliver den bevidste model (ADR-011), så de svære, distribuerede spørgsmål (cross-device konflikt/sync) ikke er relevante endnu. `localStorage` fastholdes (ikke IndexedDB) ved den nuværende datamængde; event-identitet, cache-ejerskab, konfliktpolitik ("sidste skriv vinder") og slette-adfærd er dokumenteret i ADR-012. Manuel eksport/import (backup/restore) er implementeret i Indstillinger (`dataBackupStorage.ts`).
+- ~~Google-sync: gyldigt, begrænset tidsvindue~~ **(løst 2026-07-30)**: `useCalendarEvents` brugte `allCalendarEventRange` = ECMAScripts dato-yderpunkter (år -271821 til +275760) sendt direkte som `timeMin`/`timeMax` til Google-API'et. Erstattet af `getDefaultCalendarEventRange()` (nu ±1/2 år), med en medfølgende rettelse i `LocalCalendarProvider`, så en lokal gentagende aftales mesterrekord ikke længere falder ud af det snævrere vindue. `nextSyncToken`/inkrementel sync og fælles source-cache mellem hooks er fortsat åbne, større arkitekturbeslutninger (F-05) — bemærk dog at der i dag kun er ét kald til hver af `useCalendarEvents`/`useCalendarSources` (i `CalendarPage.tsx`), så en divergerende cache mellem flere hook-instanser ikke er et aktuelt, observeret problem.
+- ~~Dashboard/mock-UI: bind `HomePage.tsx` til rigtige data, eller fjern ikke-implementerede handlinger (Indkøbsliste, Opgaver, "Ny aftale") tydeligt (F-10).~~ **Løst (2026-07-30)**: "Næste aftale", "I dag" og familiens status-grid er nu bundet til `useCalendarEvents`/`useFamilyMembers` (samme gentagelses-udfoldning som `CalendarPage`), med ærlige tomme-tilstande. Indkøbsliste/Opgaver er deaktiveret med et "Snart"-badge i stedet for at fremstå som fungerende. "Ny aftale" var allerede rigtig.
 
 ### Fase 3 — Milepæle (afhænger af Fase 2's beslutninger)
 
-- PWA: manifest, service worker, offline-scope defineret af datamodel-beslutningen (F-04).
+- ~~PWA: manifest, service worker, offline-scope defineret af datamodel-beslutningen (F-04).~~ **Løst (2026-07-30)**: `vite-plugin-pwa` var installeret, men aldrig konfigureret. Tilføjet manifest (navn, ikoner, tema-/baggrundsfarver, `lang: "da"`) og en `generateSW`-service worker, der precacher app-skallen. Google Calendar-API og OAuth er eksplicit `NetworkOnly` i cache-strategien, så kalenderdata/adgangstoken aldrig caches. Verificeret via en produktions-preview: service worker registreres, manifest indlæses korrekt. Kendt hul: kun et SVG-ikon findes (bruges til både manifest og apple-touch-icon) — et rigtigt PNG-ikonsæt i flere størrelser er en opfølgning, ikke blokerende. Fysisk iPhone/Safari-installations-/offline-test mangler stadig (se F-16 nedenfor).
 - ~~Recurrence: begræns til understøttet delmængde, eller færdiggør `byWeekdays`/`byMonthDay`/`byMonth` i selve ekspansionen — hænger sammen med Sprint 16 ovenfor (F-13).~~ **Løst ved Sprint 16-merge (2026-07-29)**: `byWeekdays` (flere ugedage pr. regel, fx "hver tirsdag og torsdag"), `byMonthDay` (datotal-gitter, samt en ny ordinal ugedag-i-måneden-variant inkl. "Første & sidste") er fuldt implementeret i selve `expandRecurringEvents.ts`-udfoldningen, ikke kun i modellen. `byMonth` for årlig gentagelse er ikke en selvstændigt aflæst variabel i udfoldningen, men resultatet er korrekt, fordi årlig gentagelse regner videre fra den oprindelige aftales egen måned/dag.
-- Komponent-/hook-tests i Strict Mode, 3-5 kritiske Playwright-flows, krav-ID'er og sporbarhedsmatrix (F-07 del 2, F-15).
-- Google-livetest med dedikeret testkonto samt fysisk iPhone/Safari/VoiceOver-test (kræver fysisk adgang, kan ikke gøres af en AI-agent alene).
+- Komponent-/hook-tests i Strict Mode og 3-5 kritiske Playwright-flows er fortsat åbne (F-07 del 2). ~~Krav-ID'er og sporbarhedsmatrix (F-15).~~ **Løst (2026-07-30)**: se `14_Requirements_Traceability.md`.
+- Google-livetest med dedikeret testkonto samt fysisk iPhone/Safari/VoiceOver-test (kræver fysisk adgang, kan ikke gøres af en AI-agent alene) — fortsat åbent, del af F-16.
 
-**Sporbarhed**: opret ét GitHub Issue pr. fund-ID (F-01 til F-17), så hver commit/PR kan referere `Fixes F-xx`.
+**Sporbarhed**: opret ét GitHub Issue pr. fund-ID (F-01 til F-17), så hver commit/PR kan referere `Fixes F-xx`. Se `14_Requirements_Traceability.md` for den fulde matrix.
+
+**Øvrige fund løst uden for Fase 0-3-listen ovenfor**: F-08 (release-/sikkerhedsgrundlag) er dokumenteret i `13_Release_And_Security_Baseline.md`. F-09 (single-device/flerbruger) er afklaret som ADR-011 — se Fase 2 ovenfor.
 
 ---
 
