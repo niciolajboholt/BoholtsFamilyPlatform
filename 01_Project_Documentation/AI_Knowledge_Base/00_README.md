@@ -96,6 +96,14 @@ Guide til nye AI-agenter.
 
 Projektets identitet, værdier og principper.
 
+13_Release_And_Security_Baseline
+
+Release-checkliste, token-livscyklus og sikkerhedsgrundlag.
+
+14_Requirements_Traceability
+
+Sporbarhedsmatrix mellem audit-fund, issues, kode og test.
+
 ---
 
 # Vedligeholdelse
