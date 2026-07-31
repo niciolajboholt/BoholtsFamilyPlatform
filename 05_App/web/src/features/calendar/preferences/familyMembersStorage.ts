@@ -6,6 +6,12 @@ import { familyMemberRelations } from "../data/familyMemberRelations";
 
 const STORAGE_KEY = "boholts-family-members";
 
+// useFamilyMembers() isn't a shared Context — each component instance has
+// its own useState, only synced via localStorage. Components that derive
+// something from family data OUTSIDE that hook (e.g. AppLayout's AppBar
+// heading) need this event to notice a save from elsewhere in the app.
+export const familyMembersChangedEvent = "boholts-family-members-changed";
+
 function seedMembers(): CalendarOwner[] {
   return Object.values(calendarOwners);
 }
@@ -81,6 +87,8 @@ export function saveFamilyMembers(members: CalendarOwner[]): void {
     // Storage may be unavailable (private browsing, disabled storage) —
     // the caller's in-memory state remains correct for this session.
   }
+
+  window.dispatchEvent(new Event(familyMembersChangedEvent));
 }
 
 export function getFamilyMemberIds(): string[] {

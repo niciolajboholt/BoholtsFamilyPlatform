@@ -20,6 +20,7 @@ import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { FamilySetupOnboarding } from "../features/calendar/components/FamilySetupOnboarding";
 import { familyPseudoMemberId } from "../features/calendar/models/calendarEvent";
 import {
+  familyMembersChangedEvent,
   getFamilyMembers,
   hasCompletedFamilySetup,
 } from "../features/calendar/preferences/familyMembersStorage";
@@ -48,6 +49,25 @@ function AppLayout() {
   useEffect(() => {
     document.title = `${familyName} Familieapp`;
   }, [familyName]);
+
+  // Renaming the family in Settings saves through a separate
+  // useFamilyMembers() instance, which doesn't share state with this
+  // component — pick up the change without requiring a full page reload.
+  useEffect(() => {
+    function handleFamilyMembersChanged() {
+      setFamilyName(readFamilyName());
+    }
+
+    window.addEventListener(
+      familyMembersChangedEvent,
+      handleFamilyMembersChanged,
+    );
+    return () =>
+      window.removeEventListener(
+        familyMembersChangedEvent,
+        handleFamilyMembersChanged,
+      );
+  }, []);
 
   if (isFirstLaunch) {
     return (
