@@ -48,7 +48,9 @@ import {
 import type {
   CalendarEvent,
 } from "../models/calendarEvent";
+import { isExternalCalendarEventSource } from "../models/calendarEvent";
 import type { CalendarSource } from "../models/calendarProvider";
+import { isExternalCalendarProviderType } from "../models/calendarProvider";
 import type { RecurrenceExceptionOverride } from "../preferences/recurrenceExceptionsStorage";
 import type { CalendarOwner } from "../data/calendarOwners";
 
@@ -239,7 +241,7 @@ function EditEventDialog({
   } =
     useEventValidation(
       formState,
-      eventSource?.providerType !== "google",
+      !isExternalCalendarProviderType(eventSource?.providerType),
     );
 
   const {
@@ -413,7 +415,7 @@ function EditEventDialog({
       end,
       allDay: formState.allDay,
       ownerIds:
-        effectiveEvent.source === "google"
+        isExternalCalendarEventSource(effectiveEvent.source)
           ? []
           : [...formState.ownerIds],
       description:
@@ -522,8 +524,8 @@ function EditEventDialog({
         >
           {!isInternalEvent && (
             <Alert severity="info">
-              {eventSource?.providerType === "google"
-                ? "Denne Google-kalender er skrivebeskyttet."
+              {isExternalCalendarProviderType(eventSource?.providerType)
+                ? "Denne kalender er skrivebeskyttet."
                 : "Kun interne aftaler kan redigeres eller slettes."}
             </Alert>
           )}
@@ -625,7 +627,7 @@ function EditEventDialog({
             dateFieldsFullWidth={false}
           />
 
-          {eventSource?.providerType !== "google" && canEditRecurrenceRule && (
+          {!isExternalCalendarProviderType(eventSource?.providerType) && canEditRecurrenceRule && (
             <EventRecurrenceSection
               value={recurrence}
               eventStartDate={formState.startDate}
@@ -635,7 +637,7 @@ function EditEventDialog({
             />
           )}
 
-          {eventSource?.providerType !== "google" && (
+          {!isExternalCalendarProviderType(eventSource?.providerType) && (
             <EventParticipantsSection
               ownerIds={formState.ownerIds}
               members={members}

@@ -1,3 +1,5 @@
+import { useEffect, useRef, useState } from "react";
+
 import {
   CalendarMonthRounded,
   HomeRounded,
@@ -15,11 +17,96 @@ import {
 } from "@mui/material";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 
+import { FamilySetupOnboarding } from "../features/calendar/components/FamilySetupOnboarding";
+import { familyPseudoMemberId } from "../features/calendar/models/calendarEvent";
+import {
+  familyMembersChangedEvent,
+  getFamilyMembers,
+  hasCompletedFamilySetup,
+} from "../features/calendar/preferences/familyMembersStorage";
+
 const routes = ["/", "/calendar", "/settings"];
+
+function readFamilyName(): string {
+  return (
+    getFamilyMembers().find((member) => member.id === familyPseudoMemberId)
+      ?.name ?? "Familien"
+  );
+}
 
 function AppLayout() {
   const location = useLocation();
   const navigate = useNavigate();
+
+  const [isFirstLaunch, setIsFirstLaunch] = useState(
+    () => !hasCompletedFamilySetup(),
+  );
+  // Not sourced from useFamilyMembers() — that hook's state is only read
+  // once at mount, so it would still show the pre-onboarding placeholder
+  // name after onDone() fires, since AppLayout itself never remounts.
+  const [familyName, setFamilyName] = useState(() => readFamilyName());
+
+  useEffect(() => {
+    document.title = `${familyName} Familieapp`;
+  }, [familyName]);
+
+  // Renaming the family in Settings saves through a separate
+  // useFamilyMembers() instance, which doesn't share state with this
+  // component — pick up the change without requiring a full page reload.
+  useEffect(() => {
+    function handleFamilyMembersChanged() {
+      setFamilyName(readFamilyName());
+    }
+
+    window.addEventListener(
+      familyMembersChangedEvent,
+      handleFamilyMembersChanged,
+    );
+    return () =>
+      window.removeEventListener(
+        familyMembersChangedEvent,
+        handleFamilyMembersChanged,
+      );
+  }, []);
+
+  const appBarRef = useRef<HTMLElement>(null);
+
+  // Gør AppBar'ens faktiske (målte, ikke antagede) højde tilgængelig som en
+  // CSS-variabel — den er højere end MUI's standard Toolbar-højde, fordi den
+  // indeholder to tekstlinjer + et ikon. Sider med egne klæbende
+  // overskrifter (fx familie-planlæggeren) skal placeres under AppBar'en og
+  // læser derfor denne variabel i stedet for at gætte et fast pixeltal.
+  useEffect(() => {
+    const appBar = appBarRef.current;
+
+    if (!appBar) {
+      return;
+    }
+
+    const updateHeight = () => {
+      document.documentElement.style.setProperty(
+        "--app-bar-height",
+        `${appBar.getBoundingClientRect().height}px`,
+      );
+    };
+
+    updateHeight();
+
+    const observer = new ResizeObserver(updateHeight);
+    observer.observe(appBar);
+    return () => observer.disconnect();
+  }, []);
+
+  if (isFirstLaunch) {
+    return (
+      <FamilySetupOnboarding
+        onDone={() => {
+          setFamilyName(readFamilyName());
+          setIsFirstLaunch(false);
+        }}
+      />
+    );
+  }
 
   const currentIndex = Math.max(routes.indexOf(location.pathname), 0);
 
@@ -32,6 +119,7 @@ function AppLayout() {
       }}
     >
       <AppBar
+        ref={appBarRef}
         position="sticky"
         color="transparent"
         elevation={0}
@@ -64,12 +152,12 @@ function AppLayout() {
                 fontWeight: 800,
               }}
             >
-              B
+              {familyName.trim().slice(0, 1).toUpperCase() || "?"}
             </Box>
 
             <Box>
               <Typography variant="h6" sx={{ lineHeight: 1.1 }}>
-                Boholts Familie
+                {familyName}
               </Typography>
 
               <Typography variant="caption" color="text.secondary">

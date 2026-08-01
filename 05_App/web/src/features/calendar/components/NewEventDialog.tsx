@@ -47,6 +47,7 @@ import type {
   CalendarEvent,
 } from "../models/calendarEvent";
 import type { CalendarSource } from "../models/calendarProvider";
+import { isExternalCalendarProviderType } from "../models/calendarProvider";
 import type { CreateCalendarEventInput } from "../models/calendarEventInput";
 import type { CalendarOwner } from "../data/calendarOwners";
 
@@ -148,7 +149,7 @@ function NewEventDialog({
     validationErrors,
     firstInvalidField,
   } =
-    useEventValidation(form, selectedSource?.providerType !== "google");
+    useEventValidation(form, !isExternalCalendarProviderType(selectedSource?.providerType));
 
   const {
     fieldRefs,
@@ -269,7 +270,7 @@ function NewEventDialog({
       return;
     }
 
-    if (selectedSource?.providerType !== "google" && recurrenceError) {
+    if (!isExternalCalendarProviderType(selectedSource?.providerType) && recurrenceError) {
       setSubmitError(recurrenceError);
 
       return;
@@ -293,7 +294,7 @@ function NewEventDialog({
         allDay:
           form.allDay,
 
-        ownerIds: selectedSource?.providerType === "google" ? [] : [...form.ownerIds],
+        ownerIds: isExternalCalendarProviderType(selectedSource?.providerType) ? [] : [...form.ownerIds],
         sourceId,
 
         start,
@@ -317,7 +318,7 @@ function NewEventDialog({
           undefined,
 
         recurrence:
-          selectedSource?.providerType === "google"
+          isExternalCalendarProviderType(selectedSource?.providerType)
             ? undefined
             : recurrenceFormValueToRule(recurrence, start),
       };
@@ -454,7 +455,7 @@ function NewEventDialog({
             dateFieldsFullWidth
           />
 
-          {selectedSource?.providerType !== "google" && (
+          {!isExternalCalendarProviderType(selectedSource?.providerType) && (
             <EventRecurrenceSection
               value={recurrence}
               eventStartDate={form.startDate}
@@ -464,7 +465,7 @@ function NewEventDialog({
             />
           )}
 
-          {selectedSource?.providerType !== "google" && (
+          {!isExternalCalendarProviderType(selectedSource?.providerType) && (
             <EventParticipantsSection
               ownerIds={form.ownerIds}
               members={members}

@@ -30,6 +30,14 @@ function CalendarViewToggle({
       <ToggleButton value="week">
         Uge
       </ToggleButton>
+
+      <ToggleButton value="day">
+        Dag
+      </ToggleButton>
+
+      <ToggleButton value="planner">
+        Side by side
+      </ToggleButton>
     </ToggleButtonGroup>
   );
 }

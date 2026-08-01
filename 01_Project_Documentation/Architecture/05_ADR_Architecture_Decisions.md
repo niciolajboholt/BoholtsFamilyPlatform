@@ -587,3 +587,99 @@ Ville betyde, at Google-kilder viste Googles egne navne/farver (fx "nicolajbach1
 * ADR-008 (Google Calendar, skrivebeskyttet)
 * ADR-009 (Google Calendar, skriveadgang)
 * ADR-011 (single-device)
+
+---
+
+# ADR-015: Generiske standardværdier + førstegangs-familieopsætning i stedet for hardcodede familienavne
+
+## Status
+
+Accepteret 2026-07-31.
+
+## Kontekst
+
+Efter v1.0 gik i produktion, var familiemedlemmerne stadig hardcodet til de rigtige Boholt-navne (Nicolaj/Christine/Alfred/Jens) direkte i seed-dataet (`calendarOwners.ts`). Enhver ny, tom installation "arvede" derfor automatisk Nicolajs egen families rigtige navne uden nogen opsætning — uholdbart, hvis appen skal kunne tages i brug af en anden familie. Nicolaj ønskede, at en ny bruger ved første åbning selv kan navngive sin familie og sine familiemedlemmer, med generiske standardværdier (Far/Mor/Barn 1/Barn 2) som udgangspunkt, og at appens egen branding (AppBar-overskrift, sidetitel) afspejler det valgte familienavn.
+
+## Beslutning
+
+1. Seed-dataet i `calendarOwners.ts` er ændret fra rigtige navne til generiske placeholders (Far/Mor/Barn 1/Barn 2/Familien), hver markeret med et nyt `isPlaceholderName: true`-felt på `CalendarOwner`.
+2. En ny komponent, `FamilySetupOnboarding.tsx`, vises ved første åbning — afgjort af, om `localStorage["boholts-family-members"]` nogensinde er blevet skrevet (`hasCompletedFamilySetup()` i `familyMembersStorage.ts`). Ingen ny storage-nøgle var nødvendig: det at intet endnu er gemt ER selve "er dette en ny bruger?"-signalet.
+3. `AppLayout.tsx` (den fælles wrapper for alle ruter) erstatter — ikke overlejrer — hele sit indhold med onboarding-komponenten, indtil opsætningen er gennemført. Dette er bevidst, fordi `useFamilyMembers()` ikke er en delt Context, kun en `localStorage`-bakket `useState` pr. komponent-instans; havde onboarding i stedet været en Dialog ovenpå en allerede monteret side, ville siden bagved have beholdt sin gamle, allerede-læste medlemsliste i hukommelsen efter onboarding lukkede.
+4. Familie-pseudomedlemmets navn ("Familien" i dag) kan nu redigeres — den tidligere spærring i `FamilyMemberDialog.tsx` er fjernet — og det navn driver nu også AppBar-overskriften og fanetitlen (`document.title`), ikke kun den interne, delte kalender.
+5. Når en Google-kalender tildeles et familiemedlem, hvis navn stadig er en uændret placeholder (`GoogleCalendarSelectionDialog.tsx`), tilbydes brugeren at overskrive placeholder-navnet med Googles rigtige kalendernavn (forudkrydset, kan fravælges).
+
+## Alternativer overvejet
+
+### Behold hardcodede Boholt-navne, tilføj kun en "omdøb senere"-mulighed i Indstillinger
+
+Afvist: løser ikke det første indtryk — en ny bruger ville stadig se en fremmed families rigtige navne i UI'en, indtil de aktivt opsøgte Indstillinger for at rette det.
+
+### Del PWA-manifestets navn/hjemmeskærm-ikon dynamisk med det valgte familienavn
+
+Ikke muligt uden en build-per-familie: `vite-plugin-pwa`s manifest genereres statisk ved build-time. Accepteret begrænsning — kun AppBar og fanetitel (kørselstid) kan gøres dynamiske; hjemmeskærm-ikonets navn forbliver "Boholts Familieapp".
+
+## Konsekvenser
+
+### Positivt
+
+* En ny installation kan tages i brug af en hvilken som helst familie uden kodeændringer.
+* Ingen ny storage-nøgle eller state-arkitektur nødvendig — genbruger eksisterende `familyMembersStorage.ts`/`useFamilyMembers`-mønstre.
+* Google-navn-overskrivningen reducerer manuelt opsætningsarbejde efter Google-forbindelse.
+
+### Negativt
+
+* AppBar-familienavnet opdateres ikke live, hvis familienavnet redigeres senere via Indstillinger (kræver en sideopdatering/ny navigation) — konsistent med appens eksisterende, ikke-delte state-model, men en kendt begrænsning.
+* Hjemmeskærm-ikonets navn forbliver statisk "Boholts Familieapp" uanset det valgte familienavn.
+
+## Relaterede dokumenter
+
+* ADR-012 (lokal datamodel/storage-strategi)
+* ADR-014 (Google-kalendere tildelt familiemedlemmer)
+
+---
+
+# ADR-016: Outlook Kalender via samme server-fri mønster som Google; Apple Kalender bevidst udskudt
+
+## Status
+
+Accepteret 2026-07-31.
+
+## Kontekst
+
+Nicolaj ønskede at kunne forbinde både Outlook og Apple Kalender, ud over Google. Undersøgelse af begge muligheder viste en afgørende asymmetri:
+
+* **Outlook** har en OAuth-baseret, browser-venlig klientbibliotek (Microsoft MSAL.js) og en CORS-venlig REST-API (Microsoft Graph) — nøjagtig samme arkitektur-form som den eksisterende Google-integration.
+* **Apple Kalender** har ingen OAuth og ingen almindelig REST-API — kun CalDAV med et Apple-id og en "app-specifik adgangskode", og Apples CalDAV-servere accepterer ikke direkte browser-CORS-kald. En Apple-integration ville kræve appens allerførste server-komponent (en proxy, der opbevarer adgangskoden på serversiden) — en markant større og mere sikkerhedskritisk beslutning end at tilføje endnu en OAuth-baseret kilde.
+
+Nicolaj besluttede at bygge Outlook nu, efter samme mønster som Google, og udskyde Apple Kalender til en selvstændig, senere sprint, når server-komponenten og adgangskode-håndteringen kan besluttes for sig.
+
+## Beslutning
+
+1. **Outlook-provider-stakken** (`providers/outlook/`) er en linje-for-linje mirror af Google-stakken: `OutlookCalendarSession.ts` bruger `@azure/msal-browser`s `PublicClientApplication` (login mod `login.microsoftonline.com/common`, så både private Microsoft-konti og arbejds-/skolekonti understøttes) i stedet for Google Identity Services; `OutlookCalendarApi.ts` kalder Microsoft Graph (`graph.microsoft.com/v1.0`) direkte fra browseren, samme som Google Calendar-API'et; `outlookCalendarMapper.ts` mapper Graphs `/calendarView`-udfoldede gentagelsesforekomster (`seriesMasterId`) til det samme `recurrenceMasterId`-felt som Google (Sprint 16).
+   * Én bemærkelsesværdig forskel: MSAL's `acquireTokenSilent` er afhængig af MSAL's egen cache (her sat til `sessionStorage`, ikke ren hukommelse), i modsætning til Googles stille genopkobling, som tjekker en reel, langtidsholdbar session hos Google selv. Outlooks stille genopkobling virker derfor kun inden for samme browser-session/fane, ikke på tværs af helt nye faner — en bevidst, dokumenteret afvigelse, ikke en fejl.
+   * **Redirect i stedet for pop-up**: modsat Google (som bruger en pop-up-baseret login) bruger Outlook en fuld sideomdirigering (`loginRedirect`/`handleRedirectPromise`). Årsag: testet live i Safari på en iPhone (installeret som PWA), hvor pop-up-login gennemførtes hos Microsoft, men aldrig kom tilbage til appen — Safari blokerede tilsyneladende kommunikationen fra pop-up-vinduet tilbage til appen, så forbind-knappen hang uendeligt. Redirect-flowet navigerer hele siden væk og tilbage i stedet, hvilket Microsoft selv anbefaler for Safari/mobil, og løste problemet. Konsekvens: der åbnes ikke længere automatisk en "Vælg kalendere"-dialog umiddelbart efter forbindelse (siden genindlæses helt) — brugeren trykker i stedet selv synk-ikonet under Indstillinger efter login.
+2. **`CompositeCalendarProvider` er generaliseret** fra en hardcodet `{local, google?}`-struktur til en liste af eksterne providers (`{providerId, provider, sourceIdPrefix}[]`), så en tredje (og fremtidig fjerde, Apple) kilde ikke kræver endnu en kopieret sæt if/else-grene. Samme generalisering er lavet for kalender-valg-dialogen (`GoogleCalendarSelectionDialog` → `CalendarSelectionDialog`, parametriseret med `providerLabel`) og forbindelses-banneret (`GoogleCalendarConnection` → `ExternalCalendarConnectionBanner`).
+3. **Apple Kalender implementeres ikke i denne sprint.** `CalendarProviderType` har fortsat en `"apple"`-værdi (allerede tilstede før denne sprint), men `calendarProviderFactory.ts` kaster fortsat en "ikke implementeret endnu"-fejl for den. Beslutningen om en CalDAV-proxy-serverkomponent, hvor en Apple-adgangskode skal håndteres, tages i en selvstændig, senere sprint.
+
+## Alternativer overvejet
+
+### Byg Apple Kalender samtidig, via en Cloudflare Worker-CalDAV-proxy
+
+Teknisk muligt, men introducerer appens første server-side komponent og en ny sikkerhedsoverflade (Apple-adgangskoder sendt gennem og potentielt opbevaret af egen infrastruktur) i samme omgang som en ellers ukompliceret Outlook-tilføjelse. Afvist for nu — Nicolaj foretrak at holde denne sprint på samme, velkendte, server-fri arkitektur.
+
+## Konsekvenser
+
+### Positivt
+
+* Outlook-integrationen genbruger 100% af de eksisterende mønstre (session/API/mapper/eksklusion/tildeling), holder implementeringen forudsigelig og hurtig at verificere.
+* `CompositeCalendarProvider`-generaliseringen betaler sig allerede ved denne sprint og gør en fremtidig Apple-tilføjelse billigere.
+
+### Negativt
+
+* Outlooks stille genopkobling er svagere end Googles (kun inden for samme fane/session) — accepteret, dokumenteret begrænsning.
+* Apple Kalender forbliver ikke understøttet, indtil en selvstændig beslutning om server-komponenten er taget.
+
+## Relaterede dokumenter
+
+* ADR-008/009 (Google Calendar, læse-/skriveadgang)
+* ADR-014 (Google-kalendere tildelt familiemedlemmer)

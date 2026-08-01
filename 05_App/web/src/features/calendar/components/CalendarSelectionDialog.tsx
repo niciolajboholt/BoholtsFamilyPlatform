@@ -20,14 +20,13 @@ import {
 import { useFamilyMembers } from "../hooks/useFamilyMembers";
 import type { CalendarOwnerId } from "../models/calendarEvent";
 import type { CalendarSource } from "../models/calendarProvider";
-import { getExcludedGoogleCalendarIds } from "../preferences/googleCalendarExclusionStorage";
-import { getOwnerIdForGoogleCalendar } from "../preferences/calendarMemberMappingStorage";
 
 const unassignedValue = "";
 
-function getInitiallyCheckedIds(calendars: CalendarSource[]): Set<string> {
-  const excludedIds = new Set(getExcludedGoogleCalendarIds());
-
+function getInitiallyCheckedIds(
+  calendars: CalendarSource[],
+  excludedIds: Set<string>,
+): Set<string> {
   return new Set(
     calendars
       .filter(
@@ -41,45 +40,64 @@ function getInitiallyCheckedIds(calendars: CalendarSource[]): Set<string> {
 
 function getInitialMemberAssignments(
   calendars: CalendarSource[],
+  getOwnerId: (calendarId: string) => CalendarOwnerId | undefined,
 ): Record<string, CalendarOwnerId | typeof unassignedValue> {
   const assignments: Record<string, CalendarOwnerId | typeof unassignedValue> = {};
 
   for (const calendar of calendars) {
     assignments[calendar.id] = calendar.externalReference
-      ? (getOwnerIdForGoogleCalendar(calendar.externalReference) ?? unassignedValue)
+      ? (getOwnerId(calendar.externalReference) ?? unassignedValue)
       : unassignedValue;
   }
 
   return assignments;
 }
 
-export interface GoogleCalendarMemberAssignment {
-  googleCalendarId: string;
+export interface CalendarMemberAssignment {
+  calendarId: string;
   ownerId: CalendarOwnerId | null;
 }
 
-interface GoogleCalendarSelectionDialogProps {
+export interface CalendarNameOverride {
+  ownerId: CalendarOwnerId;
+  newName: string;
+}
+
+interface CalendarSelectionDialogProps {
   open: boolean;
+  providerLabel: string;
   calendars: CalendarSource[];
   isLoading: boolean;
   error: string | null;
+  getExcludedIds: () => string[];
+  getOwnerId: (calendarId: string) => CalendarOwnerId | undefined;
   onRetry: () => void;
   onSkip: () => void;
   onConfirm: (
-    excludedGoogleCalendarIds: string[],
-    memberAssignments: GoogleCalendarMemberAssignment[],
+    excludedCalendarIds: string[],
+    memberAssignments: CalendarMemberAssignment[],
+    nameOverrides: CalendarNameOverride[],
   ) => void;
 }
 
-export function GoogleCalendarSelectionDialog({
+/**
+ * Generisk kalender-valg-dialog, brugt af både Google og Outlook (og senere
+ * Apple) — provider-specifikke detaljer (eksklusionslager, kalender-til-
+ * medlem-tildeling) kommer ind som props, i stedet for at dialogen selv
+ * kender til en bestemt provider.
+ */
+export function CalendarSelectionDialog({
   open,
+  providerLabel,
   calendars,
   isLoading,
   error,
+  getExcludedIds,
+  getOwnerId,
   onRetry,
   onSkip,
   onConfirm,
-}: GoogleCalendarSelectionDialogProps) {
+}: CalendarSelectionDialogProps) {
   const { members } = useFamilyMembers();
   // Forudmarkeres ud fra allerede gemte fravalg — dialogen genbruges både
   // ved første forbindelse (intet fravalgt endnu, så alt er markeret) og
@@ -92,16 +110,35 @@ export function GoogleCalendarSelectionDialog({
     : "closed";
   const [lastResetKey, setLastResetKey] = useState(resetKey);
   const [checkedIds, setCheckedIds] = useState<Set<string>>(() =>
-    getInitiallyCheckedIds(calendars),
+    getInitiallyCheckedIds(calendars, new Set(getExcludedIds())),
   );
   const [memberAssignments, setMemberAssignments] = useState(() =>
-    getInitialMemberAssignments(calendars),
+    getInitialMemberAssignments(calendars, getOwnerId),
   );
+  // Keyed by calendar.id — whether to replace an assigned member's still-
+  // placeholder name (e.g. "Far") with this calendar's real name. Defaults
+  // to true (checked) whenever the condition applies; absence of a key
+  // just falls back to that default, so no separate init pass needed.
+  const [nameOverrideChoices, setNameOverrideChoices] = useState<
+    Record<string, boolean>
+  >({});
 
   if (resetKey !== lastResetKey) {
     setLastResetKey(resetKey);
-    setCheckedIds(getInitiallyCheckedIds(calendars));
-    setMemberAssignments(getInitialMemberAssignments(calendars));
+    setCheckedIds(getInitiallyCheckedIds(calendars, new Set(getExcludedIds())));
+    setMemberAssignments(getInitialMemberAssignments(calendars, getOwnerId));
+    setNameOverrideChoices({});
+  }
+
+  function getNameOverrideCandidate(calendar: CalendarSource) {
+    const ownerId = memberAssignments[calendar.id];
+    if (!ownerId) return null;
+
+    const member = members.find((candidate) => candidate.id === ownerId);
+    if (!member?.isPlaceholderName) return null;
+    if (!calendar.name || calendar.name === member.name) return null;
+
+    return member;
   }
 
   function toggleCalendar(sourceId: string) {
@@ -123,32 +160,42 @@ export function GoogleCalendarSelectionDialog({
   }
 
   function handleConfirm() {
-    // externalReference er kalenderens rå Google-id — det er dét, både
+    // externalReference er kalenderens rå id — det er dét, både
     // eksklusionslisten og familie-tildelingen gemmer, ikke det kodede
     // sourceId (som afhænger af, om kalenderen overhovedet bliver hentet igen).
-    const excludedGoogleCalendarIds = calendars
+    const excludedCalendarIds = calendars
       .filter((calendar) => !checkedIds.has(calendar.id))
       .map((calendar) => calendar.externalReference)
       .filter((id): id is string => Boolean(id));
 
-    const memberMappings: GoogleCalendarMemberAssignment[] = calendars
+    const memberMappings: CalendarMemberAssignment[] = calendars
       .filter((calendar) => Boolean(calendar.externalReference))
       .map((calendar) => ({
-        googleCalendarId: calendar.externalReference!,
+        calendarId: calendar.externalReference!,
         ownerId: memberAssignments[calendar.id] || null,
       }));
 
-    onConfirm(excludedGoogleCalendarIds, memberMappings);
+    const nameOverrides: CalendarNameOverride[] = calendars
+      .filter((calendar) => {
+        const candidate = getNameOverrideCandidate(calendar);
+        return candidate && (nameOverrideChoices[calendar.id] ?? true);
+      })
+      .map((calendar) => ({
+        ownerId: memberAssignments[calendar.id],
+        newName: calendar.name,
+      }));
+
+    onConfirm(excludedCalendarIds, memberMappings, nameOverrides);
   }
 
   return (
     <Dialog open={open} onClose={onSkip} fullWidth maxWidth="xs">
-      <DialogTitle>Vælg Google-kalendere</DialogTitle>
+      <DialogTitle>Vælg {providerLabel}-kalendere</DialogTitle>
 
       <DialogContent>
         <Box sx={{ display: "grid", gap: 2, pt: 1 }}>
           <DialogContentText>
-            Hvilke af dine Google-kalendere skal bringes med ind i
+            Hvilke af dine {providerLabel}-kalendere skal bringes med ind i
             familie-appen? Fravalgte kalendere hentes slet ikke. Du kan altid
             ændre dit valg igen senere via synkroniseringsknappen under
             Kalenderforbindelser.
@@ -179,7 +226,7 @@ export function GoogleCalendarSelectionDialog({
 
           {!isLoading && !error && calendars.length === 0 && (
             <Alert severity="info">
-              Ingen kalendere fundet på din Google-konto.
+              Ingen kalendere fundet på din {providerLabel}-konto.
             </Alert>
           )}
 
@@ -231,6 +278,35 @@ export function GoogleCalendarSelectionDialog({
                       </MenuItem>
                     ))}
                   </Select>
+
+                  {(() => {
+                    const overrideCandidate = getNameOverrideCandidate(calendar);
+                    if (!overrideCandidate) return null;
+
+                    return (
+                      <FormControlLabel
+                        sx={{ width: "100%", ml: 0 }}
+                        control={
+                          <Checkbox
+                            size="small"
+                            checked={nameOverrideChoices[calendar.id] ?? true}
+                            onChange={(event) =>
+                              setNameOverrideChoices((current) => ({
+                                ...current,
+                                [calendar.id]: event.target.checked,
+                              }))
+                            }
+                          />
+                        }
+                        label={
+                          <Typography variant="body2" color="text.secondary">
+                            Brug "{calendar.name}" som navn for "
+                            {overrideCandidate.name}"?
+                          </Typography>
+                        }
+                      />
+                    );
+                  })()}
                 </Box>
               ))}
             </Box>

@@ -1,5 +1,8 @@
 import { getGoogleCalendarConfig } from "./googleCalendarConfig";
 import { CalendarProviderError } from "../calendarProviderErrors";
+import { raceWithTimeout } from "../raceWithTimeout";
+
+export { raceWithTimeout };
 
 interface GoogleTokenResponse {
   access_token?: string;
@@ -69,30 +72,6 @@ function readWasConnected(): boolean {
 }
 
 const silentReconnectTimeoutMs = 4000;
-
-// Races a promise against a timeout without ever rejecting — used so a
-// silent reconnect attempt that Google never responds to (e.g. because it
-// requires an interactive prompt) can't hang the app forever.
-export function raceWithTimeout<T>(
-  promise: Promise<T>,
-  timeoutMs: number,
-  timeoutValue: T,
-): Promise<T> {
-  return new Promise<T>((resolve) => {
-    const timer = setTimeout(() => resolve(timeoutValue), timeoutMs);
-
-    promise.then(
-      (value) => {
-        clearTimeout(timer);
-        resolve(value);
-      },
-      () => {
-        clearTimeout(timer);
-        resolve(timeoutValue);
-      },
-    );
-  });
-}
 
 function loadGoogleIdentityServices(): Promise<void> {
   if (window.google?.accounts.oauth2) {

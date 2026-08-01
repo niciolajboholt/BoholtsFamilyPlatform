@@ -19,9 +19,11 @@ import {
 
 import CalendarToolbar from "../features/calendar/components/CalendarToolbar";
 import { CalendarSourceFilter } from "../features/calendar/components/CalendarSourceFilter";
+import DayCalendar from "../features/calendar/components/DayCalendar";
 import EditEventDialog from "../features/calendar/components/EditEventDialog";
 import EventList from "../features/calendar/components/EventList";
-import { GoogleCalendarConnection } from "../features/calendar/components/GoogleCalendarConnection";
+import { ExternalCalendarConnectionBanner } from "../features/calendar/components/ExternalCalendarConnectionBanner";
+import FamilyPlannerCalendar from "../features/calendar/components/FamilyPlannerCalendar";
 import MonthCalendar from "../features/calendar/components/MonthCalendar";
 import NewEventDialog from "../features/calendar/components/NewEventDialog";
 import WeekCalendar from "../features/calendar/components/WeekCalendar";
@@ -29,6 +31,7 @@ import { useCalendarEvents } from "../features/calendar/hooks/useCalendarEvents"
 import { useCalendarSources } from "../features/calendar/hooks/useCalendarSources";
 import { useFamilyMembers } from "../features/calendar/hooks/useFamilyMembers";
 import { useGoogleCalendarConnection } from "../features/calendar/hooks/useGoogleCalendarConnection";
+import { useOutlookCalendarConnection } from "../features/calendar/hooks/useOutlookCalendarConnection";
 import { useRecurrenceExceptions } from "../features/calendar/hooks/useRecurrenceExceptions";
 import type {
   CalendarEvent,
@@ -104,10 +107,25 @@ function changeWeek(
   return result;
 }
 
+function changeDay(
+  date: Date,
+  numberOfDays: number,
+): Date {
+  const result = new Date(date);
+
+  result.setDate(result.getDate() + numberOfDays);
+  result.setHours(12, 0, 0, 0);
+
+  return result;
+}
+
 // Rundhåndet interval omkring det synlige tidsrum (uge- eller måneds-gitter
 // kan række ~1 uge ind i nabomåneder) — bruges kun til at afgrænse
 // gentagelses-udfoldning, ikke til præcis dag-visning (det gør
-// getEventsForDate/getEventsForWeek stadig nedstrøms).
+// getEventsForDate/getEventsForWeek stadig nedstrøms). Planlæggeren udregner
+// sit eget, dynamisk voksende interval internt (se FamilyPlannerCalendar) og
+// bruger ikke denne værdi — falder derfor blot igennem til månedens brede
+// standardbuffer nedenfor.
 function getVisibleRange(
   visibleDate: Date,
   calendarView: CalendarView,
@@ -119,6 +137,21 @@ function getVisibleRange(
 
     const end = new Date(visibleDate);
     end.setDate(end.getDate() + 14);
+    end.setHours(0, 0, 0, 0);
+
+    return {
+      start: start.toISOString(),
+      end: end.toISOString(),
+    };
+  }
+
+  if (calendarView === "day") {
+    const start = new Date(visibleDate);
+    start.setDate(start.getDate() - 3);
+    start.setHours(0, 0, 0, 0);
+
+    const end = new Date(visibleDate);
+    end.setDate(end.getDate() + 4);
     end.setHours(0, 0, 0, 0);
 
     return {
@@ -236,7 +269,16 @@ function CalendarPage() {
     isAttemptingSilentReconnect: isAttemptingGoogleSilentReconnect,
   } = useGoogleCalendarConnection();
 
+  const {
+    isConfigured: isOutlookCalendarConfigured,
+    configurationError: outlookCalendarConfigurationError,
+    isConnected: isOutlookCalendarConnected,
+    wasEverConnected: wasOutlookCalendarEverConnected,
+    isAttemptingSilentReconnect: isAttemptingOutlookSilentReconnect,
+  } = useOutlookCalendarConnection();
+
   const wasGoogleCalendarConnectedRef = useRef(isGoogleCalendarConnected);
+  const wasOutlookCalendarConnectedRef = useRef(isOutlookCalendarConnected);
 
   useEffect(() => {
     const wasConnected = wasGoogleCalendarConnectedRef.current;
@@ -250,6 +292,16 @@ function CalendarPage() {
       void refreshEvents();
     }
   }, [isGoogleCalendarConnected, refreshCalendarSources, refreshEvents]);
+
+  useEffect(() => {
+    const wasConnected = wasOutlookCalendarConnectedRef.current;
+    wasOutlookCalendarConnectedRef.current = isOutlookCalendarConnected;
+
+    if (!wasConnected && isOutlookCalendarConnected) {
+      void refreshCalendarSources();
+      void refreshEvents();
+    }
+  }, [isOutlookCalendarConnected, refreshCalendarSources, refreshEvents]);
 
   const isInitialLoading =
     isLoading && !hasLoadedEvents;
@@ -281,6 +333,20 @@ function CalendarPage() {
         visibleSourceIds.has(event.sourceId),
       );
     }, [expandedEvents, visibleCalendarSourceIds]);
+
+  // Planlæggeren udfolder selv gentagne aftaler internt over sit eget,
+  // dynamisk voksende rulle-vindue (se FamilyPlannerCalendar) — sourceId er
+  // uændret på tværs af gentagelses-udfoldning, så det er korrekt at filtrere
+  // her på de rå aftaler, i stedet for at afhænge af expandedEvents' faste,
+  // lille synlige interval.
+  const sourceFilteredRawEvents =
+    useMemo(() => {
+      const visibleSourceIds = new Set(visibleCalendarSourceIds);
+
+      return events.filter((event) =>
+        visibleSourceIds.has(event.sourceId),
+      );
+    }, [events, visibleCalendarSourceIds]);
 
   const eventsForSelectedDate =
     useMemo(() => {
@@ -342,56 +408,32 @@ function CalendarPage() {
   }
 
   function handlePrevious() {
-    setVisibleDate(
-      (currentDate) =>
-        calendarView === "month"
-          ? changeMonth(
-              currentDate,
-              -1,
-            )
-          : changeWeek(
-              currentDate,
-              -1,
-            ),
-    );
+    setVisibleDate((currentDate) => {
+      if (calendarView === "month") return changeMonth(currentDate, -1);
+      if (calendarView === "week") return changeWeek(currentDate, -1);
+      if (calendarView === "day") return changeDay(currentDate, -1);
+      return changeMonth(currentDate, -1); // planner: skifter vinduets centrum en måned ad gangen
+    });
 
-    if (
-      calendarView === "week"
-    ) {
-      setSelectedDate(
-        (currentDate) =>
-          changeWeek(
-            currentDate,
-            -1,
-          ),
-      );
+    if (calendarView === "week") {
+      setSelectedDate((currentDate) => changeWeek(currentDate, -1));
+    } else if (calendarView === "day") {
+      setSelectedDate((currentDate) => changeDay(currentDate, -1));
     }
   }
 
   function handleNext() {
-    setVisibleDate(
-      (currentDate) =>
-        calendarView === "month"
-          ? changeMonth(
-              currentDate,
-              1,
-            )
-          : changeWeek(
-              currentDate,
-              1,
-            ),
-    );
+    setVisibleDate((currentDate) => {
+      if (calendarView === "month") return changeMonth(currentDate, 1);
+      if (calendarView === "week") return changeWeek(currentDate, 1);
+      if (calendarView === "day") return changeDay(currentDate, 1);
+      return changeMonth(currentDate, 1); // planner: skifter vinduets centrum en måned ad gangen
+    });
 
-    if (
-      calendarView === "week"
-    ) {
-      setSelectedDate(
-        (currentDate) =>
-          changeWeek(
-            currentDate,
-            1,
-          ),
-      );
+    if (calendarView === "week") {
+      setSelectedDate((currentDate) => changeWeek(currentDate, 1));
+    } else if (calendarView === "day") {
+      setSelectedDate((currentDate) => changeDay(currentDate, 1));
     }
   }
 
@@ -677,7 +719,8 @@ function CalendarPage() {
         }
       />
 
-      <GoogleCalendarConnection
+      <ExternalCalendarConnectionBanner
+        providerLabel="Google"
         isConfigured={isGoogleCalendarConfigured}
         configurationError={googleCalendarConfigurationError}
         isConnected={isGoogleCalendarConnected}
@@ -691,6 +734,30 @@ function CalendarPage() {
           void refreshCalendarSources();
         }}
       />
+
+      {/*
+        Outlook er midlertidigt slået fra uden en configurationError (se
+        outlookCalendarConfig.ts) — vises slet ikke her, mens den er ukonfigureret,
+        i stedet for en "ikke konfigureret"-boks ingen kan handle på endnu.
+        Dukker automatisk op igen, når Outlook genaktiveres.
+      */}
+      {isOutlookCalendarConfigured && (
+      <ExternalCalendarConnectionBanner
+        providerLabel="Outlook"
+        isConfigured={isOutlookCalendarConfigured}
+        configurationError={outlookCalendarConfigurationError}
+        isConnected={isOutlookCalendarConnected}
+        wasEverConnected={wasOutlookCalendarEverConnected}
+        isAttemptingSilentReconnect={isAttemptingOutlookSilentReconnect}
+        health={providerHealth.find(
+          (health) => health.providerId === "outlook",
+        )}
+        onRetry={() => {
+          void refreshEvents();
+          void refreshCalendarSources();
+        }}
+      />
+      )}
 
       <Card sx={{ mb: 2.5 }}>
         <CardContent
@@ -806,52 +873,48 @@ function CalendarPage() {
             </Alert>
           ) : null}
 
-      {calendarView ===
-      "month" ? (
+      {calendarView === "month" ? (
         <MonthCalendar
-          visibleMonth={
-            visibleDate
-          }
-          selectedDate={
-            selectedDate
-          }
+          visibleMonth={visibleDate}
+          selectedDate={selectedDate}
           events={visibleEvents}
           members={members}
-          onSelectDate={
-            handleSelectDate
-          }
-          onSelectEvent={
-            handleSelectEvent
-          }
+          onSelectDate={handleSelectDate}
+          onSelectEvent={handleSelectEvent}
+        />
+      ) : calendarView === "week" ? (
+        <WeekCalendar
+          selectedDate={selectedDate}
+          events={visibleEvents}
+          members={members}
+          onSelectDate={handleSelectDate}
+          onSelectEvent={handleSelectEvent}
+        />
+      ) : calendarView === "day" ? (
+        <DayCalendar
+          selectedDate={selectedDate}
+          events={visibleEvents}
+          members={members}
+          onSelectEvent={handleSelectEvent}
         />
       ) : (
-        <WeekCalendar
-          selectedDate={
-            selectedDate
-          }
-          events={visibleEvents}
+        <FamilyPlannerCalendar
+          visibleDate={visibleDate}
+          events={sourceFilteredRawEvents}
+          recurrenceExceptions={recurrenceExceptions.exceptions}
           members={members}
-          onSelectDate={
-            handleSelectDate
-          }
-          onSelectEvent={
-            handleSelectEvent
-          }
+          onSelectEvent={handleSelectEvent}
         />
       )}
 
-      <EventList
-        selectedDate={
-          selectedDate
-        }
-        events={
-          eventsForSelectedDate
-        }
-        members={members}
-        onSelectEvent={
-          handleSelectEvent
-        }
-      />
+      {calendarView === "month" && (
+        <EventList
+          selectedDate={selectedDate}
+          events={eventsForSelectedDate}
+          members={members}
+          onSelectEvent={handleSelectEvent}
+        />
+      )}
         </>
       )}
 

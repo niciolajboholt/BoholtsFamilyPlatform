@@ -14,22 +14,22 @@ describe("getLocalCalendarSources", () => {
     const ownerIds = sources.map((source) => source.ownerId).filter(Boolean);
 
     expect(ownerIds).toEqual(
-      expect.arrayContaining(["nicolaj", "christine", "alfred", "jens", "family"]),
+      expect.arrayContaining(["far", "mor", "barn-1", "barn-2", "family"]),
     );
   });
 
   it("hides the local source for a member mapped to a Google calendar (ADR-014)", () => {
-    setCalendarMemberMapping("alfred@group.calendar.google.com", "alfred");
+    setCalendarMemberMapping("barn-1@group.calendar.google.com", "barn-1");
 
     const sources = getLocalCalendarSources();
 
-    expect(sources.some((source) => source.id === "local:alfred")).toBe(false);
+    expect(sources.some((source) => source.id === "local:barn-1")).toBe(false);
     // Other members are unaffected.
-    expect(sources.some((source) => source.id === "local:christine")).toBe(true);
+    expect(sources.some((source) => source.id === "local:mor")).toBe(true);
   });
 
   it("still includes the read-only legacy demo source regardless of mappings", () => {
-    setCalendarMemberMapping("alfred@group.calendar.google.com", "alfred");
+    setCalendarMemberMapping("barn-1@group.calendar.google.com", "barn-1");
 
     const sources = getLocalCalendarSources();
 

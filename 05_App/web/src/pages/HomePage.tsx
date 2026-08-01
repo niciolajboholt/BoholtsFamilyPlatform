@@ -24,12 +24,14 @@ import {
 } from "@mui/material";
 
 import { useCalendarEvents } from "../features/calendar/hooks/useCalendarEvents";
+import { useCurrentMember } from "../features/calendar/hooks/useCurrentMember";
 import { useFamilyMembers } from "../features/calendar/hooks/useFamilyMembers";
 import { useRecurrenceExceptions } from "../features/calendar/hooks/useRecurrenceExceptions";
 import { familyPseudoMemberId } from "../features/calendar/models/calendarEvent";
 import type { CalendarEvent } from "../features/calendar/models/calendarEvent";
 import { expandRecurringEvents } from "../features/calendar/utils/expandRecurringEvents";
 import { getEventsForDate } from "../features/calendar/utils/getEventsForDate";
+import { getInitials } from "../features/calendar/utils/getInitials";
 
 // Hvor langt frem "Næste aftale" kigger for at finde en kommende
 // forekomst — også af gentagne aftaler, som først udfoldes inden for dette
@@ -47,10 +49,6 @@ const quickActions: QuickAction[] = [
   { title: "Indkøbsliste", icon: <ShoppingCartOutlined />, isComingSoon: true },
   { title: "Opgaver", icon: <CheckCircleOutlineRounded />, isComingSoon: true },
 ];
-
-function getInitials(name: string): string {
-  return name.trim().slice(0, 1).toUpperCase() || "?";
-}
 
 function formatEventTime(value: string, allDay: boolean): string {
   if (allDay) return "Hele dagen";
@@ -96,6 +94,7 @@ function formatRelativeDayLabel(date: Date): string {
 function HomePage() {
   const navigate = useNavigate();
   const { members } = useFamilyMembers();
+  const { currentMember } = useCurrentMember();
   const { events } = useCalendarEvents();
   const recurrenceExceptions = useRecurrenceExceptions();
 
@@ -148,7 +147,9 @@ function HomePage() {
   return (
     <Box sx={{ maxWidth: 900, mx: "auto", pb: 4 }}>
       <Box sx={{ mb: 3 }}>
-        <Typography variant="h4">Hej Nicolaj 👋</Typography>
+        <Typography variant="h4">
+          {currentMember ? `Hej ${currentMember.name} 👋` : "Hej! 👋"}
+        </Typography>
 
         <Typography
           color="text.secondary"

@@ -261,7 +261,8 @@ function isCalendarEvent(
     value.ownerIds.length === 0 ||
     !value.ownerIds.every(isCalendarOwnerId) ||
     (value.source !== "internal" &&
-      value.source !== "google")
+      value.source !== "google" &&
+      value.source !== "outlook")
   ) {
     return false;
   }

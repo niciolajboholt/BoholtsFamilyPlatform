@@ -3,13 +3,13 @@ import type { CalendarEvent } from "../models/calendarEvent";
 export const calendarEvents: CalendarEvent[] = [
   {
     id: "event-1",
-    title: "Aflevere Alfred",
+    title: "Aflevere Barn 1",
     start: "2026-07-27T07:45:00",
     end: "2026-07-27T08:15:00",
     allDay: false,
-    ownerIds: ["nicolaj", "alfred"],
+    ownerIds: ["far", "barn-1"],
     source: "internal",
-    sourceId: "local:nicolaj",
+    sourceId: "local:far",
     location: "Skolen",
   },
   {
@@ -19,7 +19,7 @@ export const calendarEvents: CalendarEvent[] = [
     start: "2026-07-27T10:30:00",
     end: "2026-07-27T11:15:00",
     allDay: false,
-    ownerIds: ["christine"],
+    ownerIds: ["mor"],
     source: "google",
     sourceId: "google:demo",
     location: "Tandlægehuset",
@@ -30,9 +30,9 @@ export const calendarEvents: CalendarEvent[] = [
     start: "2026-07-27T16:30:00",
     end: "2026-07-27T17:30:00",
     allDay: false,
-    ownerIds: ["alfred"],
+    ownerIds: ["barn-1"],
     source: "internal",
-    sourceId: "local:alfred",
+    sourceId: "local:barn-1",
     location: "Boldbanen",
   },
   {
@@ -47,12 +47,12 @@ export const calendarEvents: CalendarEvent[] = [
   },
   {
     id: "event-5",
-    title: "Jens i børnehave",
+    title: "Barn 2 i børnehave",
     start: "2026-07-28",
     end: "2026-07-28",
     allDay: true,
-    ownerIds: ["jens"],
+    ownerIds: ["barn-2"],
     source: "internal",
-    sourceId: "local:jens",
+    sourceId: "local:barn-2",
   },
 ];

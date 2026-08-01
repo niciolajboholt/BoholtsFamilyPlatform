@@ -15,23 +15,11 @@ import {
 } from "@mui/material";
 
 import type { CalendarOwner } from "../data/calendarOwners";
+import { familyMemberColorSwatches as colorSwatches } from "../data/familyMemberColorSwatches";
 import { familyMemberRelations } from "../data/familyMemberRelations";
 import type { FamilyMemberRelation } from "../data/familyMemberRelations";
 import { familyPseudoMemberId } from "../models/calendarEvent";
 import type { FamilyMemberInput } from "../hooks/useFamilyMembers";
-
-// A small, fixed swatch set rather than a full color wheel — no picker
-// library exists in this project, and 8 choices is plenty for a family.
-const colorSwatches = [
-  "#2E7D32",
-  "#C06C84",
-  "#D99832",
-  "#4D7EA8",
-  "#6D597A",
-  "#00838F",
-  "#D32F2F",
-  "#5D4037",
-];
 
 interface FamilyMemberDialogProps {
   open: boolean;
@@ -77,24 +65,23 @@ export function FamilyMemberDialog({
 
   const trimmedName = name.trim();
   const nameError =
-    !isFamilyPseudoMember && isNameTouched && trimmedName.length === 0
-      ? "Skriv et navn."
-      : null;
+    isNameTouched && trimmedName.length === 0 ? "Skriv et navn." : null;
 
   function handleSave() {
-    if (!isFamilyPseudoMember && trimmedName.length === 0) {
+    if (trimmedName.length === 0) {
       setIsNameTouched(true);
       return;
     }
 
     onSave({
-      name: isFamilyPseudoMember ? (member?.name ?? "Familien") : trimmedName,
+      name: trimmedName,
       relation: isFamilyPseudoMember
         ? undefined
         : relation === ""
           ? undefined
           : relation,
       color,
+      isPlaceholderName: false,
     });
     onClose();
   }
@@ -120,25 +107,22 @@ export function FamilyMemberDialog({
           <Box sx={{ display: "grid", gap: 2, pt: 1 }}>
             {isFamilyPseudoMember && (
               <Alert severity="info">
-                "Familien" er en delt profil til fælles aftaler. Kun farven
-                kan ændres — navnet kan ikke ændres, og profilen kan ikke
-                slettes.
+                Dette er den delte profil til fælles aftaler. Navn og farve
+                kan ændres, men profilen kan ikke slettes.
               </Alert>
             )}
 
-            {!isFamilyPseudoMember && (
-              <TextField
-                label="Navn"
-                value={name}
-                autoFocus
-                required
-                fullWidth
-                error={Boolean(nameError)}
-                helperText={nameError}
-                onChange={(event) => setName(event.target.value)}
-                onBlur={() => setIsNameTouched(true)}
-              />
-            )}
+            <TextField
+              label="Navn"
+              value={name}
+              autoFocus
+              required
+              fullWidth
+              error={Boolean(nameError)}
+              helperText={nameError}
+              onChange={(event) => setName(event.target.value)}
+              onBlur={() => setIsNameTouched(true)}
+            />
 
             {!isFamilyPseudoMember && (
               <TextField

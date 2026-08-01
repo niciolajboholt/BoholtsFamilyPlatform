@@ -2,38 +2,51 @@ import type { CalendarEvent } from "../models/calendarEvent";
 import type { CreateCalendarEventInput } from "../models/calendarEventInput";
 import type {
   CalendarEventRange,
+  CalendarProviderType,
   CalendarSource,
 } from "../models/calendarProvider";
 import type { CalendarProviderHealth } from "../models/calendarProviderHealth";
 import type { CalendarProvider } from "./CalendarProvider";
 import { CalendarProviderError } from "./calendarProviderErrors";
 
+export interface ExternalCalendarProvider {
+  providerId: Exclude<CalendarProviderType, "local">;
+  provider: CalendarProvider;
+  // e.g. "google:" / "outlook:" — used to route a sourceId to its provider
+  // without the composite needing to know each provider's internals.
+  sourceIdPrefix: string;
+}
+
 interface CompositeCalendarProviders {
   local: CalendarProvider;
-  google?: CalendarProvider;
+  external: ExternalCalendarProvider[];
 }
 
 /**
  * Samler uafhængige kalenderkilder, uden at React-laget behøver kende deres
- * konkrete implementeringer. En fejl i en valgfri ekstern kilde må ikke skjule
- * familiens lokale aftaler.
+ * konkrete implementeringer. En fejl i én valgfri ekstern kilde må ikke skjule
+ * familiens lokale aftaler eller andre eksterne kilders aftaler.
  */
 export class CompositeCalendarProvider
   implements CalendarProvider
 {
-  private readonly providers: CompositeCalendarProviders;
+  private readonly local: CalendarProvider;
+
+  private readonly external: ExternalCalendarProvider[];
 
   private providerHealth: CalendarProviderHealth[];
 
   constructor(
     providers: CompositeCalendarProviders,
   ) {
-    this.providers = providers;
+    this.local = providers.local;
+    this.external = providers.external;
     this.providerHealth = [
       { providerId: "local", status: "ready" },
-      ...(providers.google
-        ? [{ providerId: "google" as const, status: "disconnected" as const }]
-        : []),
+      ...this.external.map((entry) => ({
+        providerId: entry.providerId,
+        status: "disconnected" as const,
+      })),
     ];
   }
 
@@ -42,59 +55,68 @@ export class CompositeCalendarProvider
   }
 
   async getCalendars(): Promise<CalendarSource[]> {
-    const localCalendars =
-      await this.providers.local.getCalendars();
+    const localCalendars = await this.local.getCalendars();
 
-    if (!this.providers.google) {
+    if (this.external.length === 0) {
       return localCalendars;
     }
 
-    try {
-      const googleCalendars =
-        await this.providers.google.getCalendars();
+    let didAnyExternalSucceed = false;
 
-      this.setGoogleHealth({
-        providerId: "google",
-        status: "ready",
-      });
+    const externalResults = await Promise.all(
+      this.external.map(async (entry) => {
+        try {
+          const calendars = await entry.provider.getCalendars();
+          didAnyExternalSucceed = true;
+          this.setProviderHealth(entry.providerId, {
+            providerId: entry.providerId,
+            status: "ready",
+          });
+          return calendars;
+        } catch (error: unknown) {
+          this.setProviderReadError(entry.providerId, error);
+          return [];
+        }
+      }),
+    );
 
-      // Demo-kalenderen ("google:demo") er kun en pladsholder for brugere,
-      // der endnu ikke har forbundet en rigtig Google-konto. Så snart en
-      // rigtig forbindelse faktisk svarer, er den overflødig og skal væk.
-      return [
-        ...localCalendars.filter((source) => source.id !== "google:demo"),
-        ...googleCalendars,
-      ];
-    } catch (error: unknown) {
-      this.setGoogleReadError(error);
-      return localCalendars;
-    }
+    // Demo-kalenderen ("google:demo") er kun en pladsholder for brugere, der
+    // endnu ikke har forbundet en rigtig ekstern konto. Så snart mindst én
+    // ekstern kilde faktisk svarer, er den overflødig og skal væk.
+    return [
+      ...localCalendars.filter(
+        (source) => !didAnyExternalSucceed || source.id !== "google:demo",
+      ),
+      ...externalResults.flat(),
+    ];
   }
 
   async getEvents(
     range: CalendarEventRange,
   ): Promise<CalendarEvent[]> {
-    const localEvents =
-      await this.providers.local.getEvents(range);
+    const localEvents = await this.local.getEvents(range);
 
-    if (!this.providers.google) {
+    if (this.external.length === 0) {
       return localEvents;
     }
 
-    try {
-      const googleEvents =
-        await this.providers.google.getEvents(range);
+    const externalResults = await Promise.all(
+      this.external.map(async (entry) => {
+        try {
+          const events = await entry.provider.getEvents(range);
+          this.setProviderHealth(entry.providerId, {
+            providerId: entry.providerId,
+            status: "ready",
+          });
+          return events;
+        } catch (error: unknown) {
+          this.setProviderReadError(entry.providerId, error);
+          return [];
+        }
+      }),
+    );
 
-      this.setGoogleHealth({
-        providerId: "google",
-        status: "ready",
-      });
-
-      return [...localEvents, ...googleEvents];
-    } catch (error: unknown) {
-      this.setGoogleReadError(error);
-      return localEvents;
-    }
+    return [...localEvents, ...externalResults.flat()];
   }
 
   createEvent(
@@ -129,19 +151,27 @@ export class CompositeCalendarProvider
   private getProviderForSource(
     sourceId?: string,
   ): CalendarProvider {
-    if (!sourceId) return this.providers.local;
-    if (sourceId?.startsWith("local:")) return this.providers.local;
-    if (sourceId?.startsWith("google:") && this.providers.google) return this.providers.google;
+    if (!sourceId) return this.local;
+    if (sourceId.startsWith("local:")) return this.local;
+
+    const match = this.external.find((entry) =>
+      sourceId.startsWith(entry.sourceIdPrefix),
+    );
+    if (match) return match.provider;
+
     throw new CalendarProviderError("not-found", "Kalenderkilden findes ikke længere.");
   }
 
-  private setGoogleReadError(error: unknown): void {
+  private setProviderReadError(
+    providerId: Exclude<CalendarProviderType, "local">,
+    error: unknown,
+  ): void {
     if (
       error instanceof CalendarProviderError &&
       error.code === "authentication"
     ) {
-      this.setGoogleHealth({
-        providerId: "google",
+      this.setProviderHealth(providerId, {
+        providerId,
         status: "disconnected",
       });
       return;
@@ -149,22 +179,23 @@ export class CompositeCalendarProvider
 
     const message = error instanceof CalendarProviderError
       ? error.message
-      : "Google Kalender kunne ikke opdateres. Dine lokale kalendere vises stadig.";
+      : "Kalenderen kunne ikke opdateres. Dine lokale kalendere vises stadig.";
 
-    this.setGoogleHealth({
-      providerId: "google",
+    this.setProviderHealth(providerId, {
+      providerId,
       status: "error",
       message,
       canRetry: true,
     });
   }
 
-  private setGoogleHealth(
+  private setProviderHealth(
+    providerId: CalendarProviderType,
     health: CalendarProviderHealth,
   ): void {
     this.providerHealth = this.providerHealth.map(
       (currentHealth) =>
-        currentHealth.providerId === "google"
+        currentHealth.providerId === providerId
           ? health
           : currentHealth,
     );

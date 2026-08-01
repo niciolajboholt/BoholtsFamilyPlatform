@@ -10,6 +10,20 @@ import type { CalendarView } from "../models/calendarView";
 import { getWeekDays } from "../utils/getWeekDays";
 import CalendarViewToggle from "./CalendarViewToggle";
 
+const previousLabelByView: Record<CalendarView, string> = {
+  month: "Forrige måned",
+  week: "Forrige uge",
+  day: "Forrige dag",
+  planner: "Forrige måned",
+};
+
+const nextLabelByView: Record<CalendarView, string> = {
+  month: "Næste måned",
+  week: "Næste uge",
+  day: "Næste dag",
+  planner: "Næste måned",
+};
+
 interface CalendarToolbarProps {
   calendarView: CalendarView;
   visibleDate: Date;
@@ -45,6 +59,22 @@ function formatWeek(date: Date): string {
   return `${firstText} – ${lastText}`;
 }
 
+function formatDay(date: Date): string {
+  return new Intl.DateTimeFormat("da-DK", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  }).format(date);
+}
+
+// Planlæggeren viser et fortløbende, uendeligt rulle-vindue uden ét fast
+// "synligt tidsrum" som de andre visninger — titlen viser derfor blot den
+// måned, brugeren sidst navigerede til (via Frem/Tilbage/I dag), ikke
+// nødvendigvis det, der er øverst i viewporten lige nu.
+function formatPlanner(date: Date): string {
+  return formatMonth(date);
+}
+
 function CalendarToolbar({
   calendarView,
   visibleDate,
@@ -56,7 +86,11 @@ function CalendarToolbar({
   const title =
     calendarView === "month"
       ? formatMonth(visibleDate)
-      : formatWeek(visibleDate);
+      : calendarView === "week"
+        ? formatWeek(visibleDate)
+        : calendarView === "day"
+          ? formatDay(visibleDate)
+          : formatPlanner(visibleDate);
 
   return (
     <Card sx={{ mb: 2.5 }}>
@@ -75,11 +109,7 @@ function CalendarToolbar({
           <Button
             variant="outlined"
             onClick={onPrevious}
-            aria-label={
-              calendarView === "month"
-                ? "Forrige måned"
-                : "Forrige uge"
-            }
+            aria-label={previousLabelByView[calendarView]}
           >
             ← Forrige
           </Button>
@@ -123,11 +153,7 @@ function CalendarToolbar({
           <Button
             variant="outlined"
             onClick={onNext}
-            aria-label={
-              calendarView === "month"
-                ? "Næste måned"
-                : "Næste uge"
-            }
+            aria-label={nextLabelByView[calendarView]}
           >
             Næste →
           </Button>

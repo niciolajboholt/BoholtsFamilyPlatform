@@ -19,17 +19,17 @@ describe("CalendarService.reassignOwner", () => {
     const movedEvent = await CalendarService.createEvent({
       ...baseEvent,
       title: "Flyttes",
-      ownerIds: ["nicolaj", "family"],
-      sourceId: "local:nicolaj",
+      ownerIds: ["far", "family"],
+      sourceId: "local:far",
     });
     const unaffectedEvent = await CalendarService.createEvent({
       ...baseEvent,
       title: "Forbliver",
-      ownerIds: ["christine"],
-      sourceId: "local:christine",
+      ownerIds: ["mor"],
+      sourceId: "local:mor",
     });
 
-    await CalendarService.reassignOwner("nicolaj", "family");
+    await CalendarService.reassignOwner("far", "family");
 
     const reloadedEvents = await CalendarService.getEvents();
     const reloadedMovedEvent = reloadedEvents.find(
@@ -44,8 +44,8 @@ describe("CalendarService.reassignOwner", () => {
       sourceId: "local:family",
     });
     expect(reloadedUnaffectedEvent).toMatchObject({
-      ownerIds: ["christine"],
-      sourceId: "local:christine",
+      ownerIds: ["mor"],
+      sourceId: "local:mor",
     });
   });
 
@@ -53,11 +53,11 @@ describe("CalendarService.reassignOwner", () => {
     const event = await CalendarService.createEvent({
       ...baseEvent,
       title: "Google-kilde",
-      ownerIds: ["nicolaj"],
+      ownerIds: ["far"],
       sourceId: "google:primary",
     });
 
-    await CalendarService.reassignOwner("nicolaj", "family");
+    await CalendarService.reassignOwner("far", "family");
 
     const reloadedEvent = (await CalendarService.getEvents()).find(
       (currentEvent) => currentEvent.id === event.id,

@@ -1,3 +1,4 @@
+import type { CalendarOwner } from "../data/calendarOwners";
 import type { CalendarOwnerId } from "../models/calendarEvent";
 
 /**
@@ -58,12 +59,37 @@ export function getCalendarMemberMappings(): Record<string, CalendarOwnerId> {
   return mappings;
 }
 
+// Navnet er en rest fra før Outlook fandtes (Sprint 14) — virker fint for
+// enhver providers rå kalender-id, ikke kun Google's, da mappingen selv er
+// providerneutral. Ikke omdøbt endnu for at undgå at røre 8 filer for en
+// navne-detalje alene.
 export function getOwnerIdForGoogleCalendar(
   googleCalendarId: string,
 ): CalendarOwnerId | undefined {
   return readMappings().find(
     (entry) => entry.googleCalendarId === googleCalendarId,
   )?.ownerId;
+}
+
+/**
+ * Samme tildelinger som getCalendarMemberMappings(), men slået op til de
+ * faktiske familiemedlem-objekter (navn, farve) i stedet for bare id'er —
+ * delt af Google- og Outlook-provideren, som ellers hver havde en identisk
+ * kopi af denne udledning.
+ */
+export function getMappedOwnersByCalendarId(
+  members: CalendarOwner[],
+): Map<string, CalendarOwner> {
+  const mappings = getCalendarMemberMappings();
+  const membersById = new Map(members.map((member) => [member.id, member]));
+  const result = new Map<string, CalendarOwner>();
+
+  for (const [calendarId, ownerId] of Object.entries(mappings)) {
+    const member = membersById.get(ownerId);
+    if (member) result.set(calendarId, member);
+  }
+
+  return result;
 }
 
 /**

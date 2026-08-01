@@ -12,7 +12,6 @@ import {
   NotificationsRounded,
   PersonRounded,
   SaveRounded,
-  SyncRounded,
 } from "@mui/icons-material";
 
 import {
@@ -22,7 +21,6 @@ import {
   Button,
   Card,
   CardContent,
-  CircularProgress,
   Divider,
   IconButton,
   Switch,
@@ -30,14 +28,22 @@ import {
 } from "@mui/material";
 
 import { FamilyMemberDialog } from "../features/calendar/components/FamilyMemberDialog";
-import type { GoogleCalendarMemberAssignment } from "../features/calendar/components/GoogleCalendarSelectionDialog";
-import { GoogleCalendarSelectionDialog } from "../features/calendar/components/GoogleCalendarSelectionDialog";
+import type {
+  CalendarMemberAssignment,
+  CalendarNameOverride,
+} from "../features/calendar/components/CalendarSelectionDialog";
+import { CalendarSelectionDialog } from "../features/calendar/components/CalendarSelectionDialog";
+import { CurrentMemberPickerDialog } from "../features/calendar/components/CurrentMemberPickerDialog";
+import { ProviderConnectionRow } from "../features/calendar/components/ProviderConnectionRow";
 import type { CalendarOwner } from "../features/calendar/data/calendarOwners";
+import { useCurrentMember } from "../features/calendar/hooks/useCurrentMember";
 import { useFamilyMembers } from "../features/calendar/hooks/useFamilyMembers";
 import { useGoogleCalendarConnection } from "../features/calendar/hooks/useGoogleCalendarConnection";
+import { useOutlookCalendarConnection } from "../features/calendar/hooks/useOutlookCalendarConnection";
 import type { CalendarSource } from "../features/calendar/models/calendarProvider";
 import {
   clearCalendarMemberMappings,
+  getOwnerIdForGoogleCalendar,
   setCalendarMemberMapping,
 } from "../features/calendar/preferences/calendarMemberMappingStorage";
 import {
@@ -46,13 +52,19 @@ import {
 } from "../features/calendar/preferences/dataBackupStorage";
 import {
   clearExcludedGoogleCalendars,
+  getExcludedGoogleCalendarIds,
   setExcludedGoogleCalendars,
 } from "../features/calendar/preferences/googleCalendarExclusionStorage";
-import { listAllGoogleCalendars } from "../features/calendar/providers/calendarProviderFactory";
-
-function getInitials(name: string): string {
-  return name.trim().slice(0, 1).toUpperCase() || "?";
-}
+import {
+  clearExcludedOutlookCalendars,
+  getExcludedOutlookCalendarIds,
+  setExcludedOutlookCalendars,
+} from "../features/calendar/providers/outlook/outlookCalendarExclusionStorage";
+import {
+  listAllGoogleCalendars,
+  listAllOutlookCalendars,
+} from "../features/calendar/providers/calendarProviderFactory";
+import { getInitials } from "../features/calendar/utils/getInitials";
 
 function SettingsPage() {
   const {
@@ -66,6 +78,10 @@ function SettingsPage() {
     null,
   );
   const [isMemberDialogOpen, setIsMemberDialogOpen] = useState(false);
+
+  const { currentMember, setCurrentMemberId } = useCurrentMember();
+  const [isCurrentMemberPickerOpen, setIsCurrentMemberPickerOpen] =
+    useState(false);
 
   function handleOpenAddMember() {
     setEditingMember(null);
@@ -96,38 +112,56 @@ function SettingsPage() {
     disconnect: disconnectGoogleCalendar,
   } = useGoogleCalendarConnection();
 
+  const {
+    isConfigured: isOutlookCalendarConfigured,
+    configurationError: outlookConfigurationError,
+    isConnected: isOutlookCalendarConnected,
+    wasEverConnected: wasOutlookCalendarEverConnected,
+    isAttemptingSilentReconnect: isAttemptingOutlookSilentReconnect,
+    redirectDiagnostic: outlookRedirectDiagnostic,
+    connect: connectOutlookCalendar,
+    disconnect: disconnectOutlookCalendar,
+  } = useOutlookCalendarConnection();
+
   const [isGoogleCalendarBusy, setIsGoogleCalendarBusy] = useState(false);
+  const [isOutlookCalendarBusy, setIsOutlookCalendarBusy] = useState(false);
 
-  const [isCalendarSelectionOpen, setIsCalendarSelectionOpen] =
-    useState(false);
-  const [googleCalendarsForSelection, setGoogleCalendarsForSelection] =
-    useState<CalendarSource[]>([]);
-  const [isFetchingGoogleCalendars, setIsFetchingGoogleCalendars] =
-    useState(false);
-  const [fetchGoogleCalendarsError, setFetchGoogleCalendarsError] = useState<
-    string | null
+  const [activeSelectionProvider, setActiveSelectionProvider] = useState<
+    "google" | "outlook" | null
   >(null);
+  const [calendarsForSelection, setCalendarsForSelection] = useState<
+    CalendarSource[]
+  >([]);
+  const [isFetchingCalendarsForSelection, setIsFetchingCalendarsForSelection] =
+    useState(false);
+  const [fetchCalendarsForSelectionError, setFetchCalendarsForSelectionError] =
+    useState<string | null>(null);
 
-  async function fetchGoogleCalendarsForSelection(): Promise<void> {
-    setIsFetchingGoogleCalendars(true);
-    setFetchGoogleCalendarsError(null);
+  async function fetchCalendarsForSelection(
+    provider: "google" | "outlook",
+  ): Promise<void> {
+    setIsFetchingCalendarsForSelection(true);
+    setFetchCalendarsForSelectionError(null);
 
     try {
-      const sources = await listAllGoogleCalendars();
+      const sources =
+        provider === "google"
+          ? await listAllGoogleCalendars()
+          : await listAllOutlookCalendars();
 
-      setGoogleCalendarsForSelection(sources);
+      setCalendarsForSelection(sources);
     } catch {
-      setFetchGoogleCalendarsError(
-        "Dine Google-kalendere kunne ikke hentes.",
+      setFetchCalendarsForSelectionError(
+        `Dine ${provider === "google" ? "Google" : "Outlook"}-kalendere kunne ikke hentes.`,
       );
     } finally {
-      setIsFetchingGoogleCalendars(false);
+      setIsFetchingCalendarsForSelection(false);
     }
   }
 
-  function openCalendarSelectionDialog() {
-    setIsCalendarSelectionOpen(true);
-    void fetchGoogleCalendarsForSelection();
+  function openCalendarSelectionDialog(provider: "google" | "outlook") {
+    setActiveSelectionProvider(provider);
+    void fetchCalendarsForSelection(provider);
   }
 
   async function handleToggleGoogleCalendar(): Promise<void> {
@@ -150,7 +184,7 @@ function SettingsPage() {
       // Lige efter en vellykket, interaktiv forbindelse — ikke ved Sprint
       // 14's stille genoprettelse ved appstart, som slet ikke rører denne
       // handler — spørger vi, hvilke af de fundne kalendere der skal vises.
-      openCalendarSelectionDialog();
+      openCalendarSelectionDialog("google");
     } catch {
       // Fejlen undlader blot at markere som forbundet — Kalender-siden
       // viser fortsat "ikke forbundet", som er tilstrækkelig feedback.
@@ -159,21 +193,64 @@ function SettingsPage() {
     }
   }
 
-  function handleConfirmCalendarSelection(
-    excludedGoogleCalendarIds: string[],
-    memberAssignments: GoogleCalendarMemberAssignment[],
-  ) {
-    setExcludedGoogleCalendars(excludedGoogleCalendarIds);
+  async function handleToggleOutlookCalendar(): Promise<void> {
+    if (isOutlookCalendarConnected) {
+      disconnectOutlookCalendar();
+      clearExcludedOutlookCalendars();
+      clearCalendarMemberMappings();
 
-    for (const assignment of memberAssignments) {
-      setCalendarMemberMapping(assignment.googleCalendarId, assignment.ownerId);
+      return;
     }
 
-    setIsCalendarSelectionOpen(false);
+    setIsOutlookCalendarBusy(true);
+    try {
+      // Navigerer væk fra appen ved succes (Outlook bruger redirect, ikke
+      // pop-up, jf. ADR-016) — koden efter connectOutlookCalendar() når
+      // normalt ikke at køre. Efter login skal brugeren selv trykke
+      // synk-ikonet for at vælge kalendere.
+      await connectOutlookCalendar();
+    } catch {
+      // Fejlen undlader blot at markere som forbundet — Kalender-siden
+      // viser fortsat "ikke forbundet", som er tilstrækkelig feedback.
+    } finally {
+      setIsOutlookCalendarBusy(false);
+    }
+  }
+
+  function handleConfirmCalendarSelection(
+    excludedCalendarIds: string[],
+    memberAssignments: CalendarMemberAssignment[],
+    nameOverrides: CalendarNameOverride[],
+  ) {
+    if (activeSelectionProvider === "google") {
+      setExcludedGoogleCalendars(excludedCalendarIds);
+    } else if (activeSelectionProvider === "outlook") {
+      setExcludedOutlookCalendars(excludedCalendarIds);
+    }
+
+    for (const assignment of memberAssignments) {
+      setCalendarMemberMapping(assignment.calendarId, assignment.ownerId);
+    }
+
+    for (const override of nameOverrides) {
+      const currentMember = members.find(
+        (member) => member.id === override.ownerId,
+      );
+      if (!currentMember) continue;
+
+      updateMember(override.ownerId, {
+        name: override.newName,
+        relation: currentMember.relation,
+        color: currentMember.color,
+        isPlaceholderName: false,
+      });
+    }
+
+    setActiveSelectionProvider(null);
   }
 
   function handleSkipCalendarSelection() {
-    setIsCalendarSelectionOpen(false);
+    setActiveSelectionProvider(null);
   }
 
   const importFileInputRef = useRef<HTMLInputElement | null>(null);
@@ -231,15 +308,33 @@ function SettingsPage() {
     reader.readAsText(file);
   }
 
-  const googleCalendarStatusText = !isGoogleCalendarConfigured
-    ? "Ikke konfigureret"
-    : isGoogleCalendarConnected
-      ? "Forbundet"
-      : isAttemptingGoogleSilentReconnect
-        ? "Genopretter forbindelsen..."
-        : wasGoogleCalendarEverConnected
-          ? "Ikke forbundet i denne session"
-          : "Ikke forbundet endnu";
+  function getProviderConnectionStatusText(
+    isConfigured: boolean,
+    isConnected: boolean,
+    isAttemptingSilentReconnect: boolean,
+    wasEverConnected: boolean,
+    configurationError?: string,
+  ): string {
+    if (!isConfigured) return configurationError ?? "Ikke konfigureret";
+    if (isConnected) return "Forbundet";
+    if (isAttemptingSilentReconnect) return "Genopretter forbindelsen...";
+    return wasEverConnected ? "Ikke forbundet i denne session" : "Ikke forbundet endnu";
+  }
+
+  const googleCalendarStatusText = getProviderConnectionStatusText(
+    isGoogleCalendarConfigured,
+    isGoogleCalendarConnected,
+    isAttemptingGoogleSilentReconnect,
+    wasGoogleCalendarEverConnected,
+  );
+
+  const outlookCalendarStatusText = getProviderConnectionStatusText(
+    isOutlookCalendarConfigured,
+    isOutlookCalendarConnected,
+    isAttemptingOutlookSilentReconnect,
+    wasOutlookCalendarEverConnected,
+    outlookConfigurationError,
+  );
 
   return (
     <Box sx={{ maxWidth: 900, mx: "auto", pb: 4 }}>
@@ -364,62 +459,39 @@ function SettingsPage() {
               </Box>
             </Box>
 
-            <Box
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                gap: 1.5,
-                py: 1.5,
+            <ProviderConnectionRow
+              label="Google Calendar"
+              statusText={googleCalendarStatusText}
+              isConnected={isGoogleCalendarConnected}
+              isConfigured={isGoogleCalendarConfigured}
+              isBusy={isGoogleCalendarBusy}
+              isAttemptingSilentReconnect={isAttemptingGoogleSilentReconnect}
+              onManageCalendars={() => openCalendarSelectionDialog("google")}
+              onToggleConnection={() => {
+                void handleToggleGoogleCalendar();
               }}
-            >
-              <IconButton
-                aria-label="Administrer Google-kalendere"
-                disabled={!isGoogleCalendarConnected}
-                onClick={openCalendarSelectionDialog}
-                sx={{ p: 0 }}
-              >
-                <Avatar
-                  sx={{
-                    bgcolor: "background.default",
-                    color: "text.primary",
-                  }}
-                >
-                  <SyncRounded />
-                </Avatar>
-              </IconButton>
+            />
 
-              <Box sx={{ flexGrow: 1 }}>
-                <Typography sx={{ fontWeight: 600 }}>
-                  Google Calendar
-                </Typography>
+            <Divider />
 
-                <Typography variant="body2" color="text.secondary">
-                  {googleCalendarStatusText}
-                </Typography>
-              </Box>
+            <ProviderConnectionRow
+              label="Outlook Calendar"
+              statusText={outlookCalendarStatusText}
+              isConnected={isOutlookCalendarConnected}
+              isConfigured={isOutlookCalendarConfigured}
+              isBusy={isOutlookCalendarBusy}
+              isAttemptingSilentReconnect={isAttemptingOutlookSilentReconnect}
+              onManageCalendars={() => openCalendarSelectionDialog("outlook")}
+              onToggleConnection={() => {
+                void handleToggleOutlookCalendar();
+              }}
+            />
 
-              <IconButton
-                aria-label={
-                  isGoogleCalendarConnected
-                    ? "Afbryd Google Calendar"
-                    : "Forbind Google Calendar"
-                }
-                disabled={
-                  !isGoogleCalendarConfigured ||
-                  isGoogleCalendarBusy ||
-                  isAttemptingGoogleSilentReconnect
-                }
-                onClick={() => {
-                  void handleToggleGoogleCalendar();
-                }}
-              >
-                {isGoogleCalendarBusy || isAttemptingGoogleSilentReconnect ? (
-                  <CircularProgress size={20} />
-                ) : (
-                  <ChevronRightRounded />
-                )}
-              </IconButton>
-            </Box>
+            {outlookRedirectDiagnostic && (
+              <Alert severity="warning" sx={{ mt: 1.5 }}>
+                {outlookRedirectDiagnostic}
+              </Alert>
+            )}
           </CardContent>
         </Card>
 
@@ -557,11 +629,14 @@ function SettingsPage() {
                 </Typography>
 
                 <Typography variant="body2" color="text.secondary">
-                  Nicolaj
+                  {currentMember?.name ?? "Vælg din profil"}
                 </Typography>
               </Box>
 
-              <IconButton aria-label="Åbn min profil">
+              <IconButton
+                aria-label="Åbn min profil"
+                onClick={() => setIsCurrentMemberPickerOpen(true)}
+              >
                 <ChevronRightRounded />
               </IconButton>
             </Box>
@@ -569,13 +644,27 @@ function SettingsPage() {
         </Card>
       </Box>
 
-      <GoogleCalendarSelectionDialog
-        open={isCalendarSelectionOpen}
-        calendars={googleCalendarsForSelection}
-        isLoading={isFetchingGoogleCalendars}
-        error={fetchGoogleCalendarsError}
+      <CurrentMemberPickerDialog
+        open={isCurrentMemberPickerOpen}
+        members={members}
+        onClose={() => setIsCurrentMemberPickerOpen(false)}
+        onSelect={setCurrentMemberId}
+      />
+
+      <CalendarSelectionDialog
+        open={activeSelectionProvider !== null}
+        providerLabel={activeSelectionProvider === "outlook" ? "Outlook" : "Google"}
+        calendars={calendarsForSelection}
+        isLoading={isFetchingCalendarsForSelection}
+        error={fetchCalendarsForSelectionError}
+        getExcludedIds={() =>
+          activeSelectionProvider === "outlook"
+            ? getExcludedOutlookCalendarIds()
+            : getExcludedGoogleCalendarIds()
+        }
+        getOwnerId={getOwnerIdForGoogleCalendar}
         onRetry={() => {
-          void fetchGoogleCalendarsForSelection();
+          if (activeSelectionProvider) void fetchCalendarsForSelection(activeSelectionProvider);
         }}
         onSkip={handleSkipCalendarSelection}
         onConfirm={handleConfirmCalendarSelection}
