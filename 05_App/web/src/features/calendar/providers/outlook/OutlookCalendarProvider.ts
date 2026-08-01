@@ -1,4 +1,3 @@
-import type { CalendarOwner } from "../../data/calendarOwners";
 import type { CalendarEvent, CalendarOwnerId } from "../../models/calendarEvent";
 import type { CreateCalendarEventInput } from "../../models/calendarEventInput";
 import type { CalendarEventRange, CalendarSource } from "../../models/calendarProvider";
@@ -13,21 +12,11 @@ import {
 import { decodeOutlookEventId, decodeOutlookCalendarSourceId } from "./outlookCalendarIds";
 import { mapOutlookEventWriteRequest } from "./outlookCalendarWriteMapper";
 import { getExcludedOutlookCalendarIds } from "./outlookCalendarExclusionStorage";
-import { getCalendarMemberMappings } from "../../preferences/calendarMemberMappingStorage";
+import {
+  getCalendarMemberMappings,
+  getMappedOwnersByCalendarId,
+} from "../../preferences/calendarMemberMappingStorage";
 import { getFamilyMembers } from "../../preferences/familyMembersStorage";
-
-function getMappedOwnersByCalendarId(): Map<string, CalendarOwner> {
-  const mappings = getCalendarMemberMappings();
-  const membersById = new Map(getFamilyMembers().map((member) => [member.id, member]));
-  const result = new Map<string, CalendarOwner>();
-
-  for (const [calendarId, ownerId] of Object.entries(mappings)) {
-    const member = membersById.get(ownerId);
-    if (member) result.set(calendarId, member);
-  }
-
-  return result;
-}
 
 export class OutlookCalendarProvider implements CalendarProvider {
   private readonly api: OutlookCalendarApi;
@@ -45,7 +34,7 @@ export class OutlookCalendarProvider implements CalendarProvider {
   async getCalendars(): Promise<CalendarSource[]> {
     const calendars = await this.api.listCalendars();
     const excludedIds = new Set(getExcludedOutlookCalendarIds());
-    const mappedOwnersByCalendarId = getMappedOwnersByCalendarId();
+    const mappedOwnersByCalendarId = getMappedOwnersByCalendarId(getFamilyMembers());
 
     const sources = calendars
       .filter((calendar) => !calendar.id || !excludedIds.has(calendar.id))

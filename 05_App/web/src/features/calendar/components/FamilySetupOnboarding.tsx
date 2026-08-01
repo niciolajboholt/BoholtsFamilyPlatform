@@ -15,24 +15,12 @@ import {
 
 import { calendarOwners } from "../data/calendarOwners";
 import type { CalendarOwner } from "../data/calendarOwners";
+import { familyMemberColorSwatches as colorSwatches } from "../data/familyMemberColorSwatches";
 import { familyMemberRelations } from "../data/familyMemberRelations";
 import type { FamilyMemberRelation } from "../data/familyMemberRelations";
 import { familyPseudoMemberId } from "../models/calendarEvent";
 import { saveFamilyMembers } from "../preferences/familyMembersStorage";
 import { slugifyMemberName } from "../hooks/useFamilyMembers";
-
-// Same fixed swatch set as FamilyMemberDialog — no color-picker library in
-// this project, and 8 choices is plenty for a family.
-const colorSwatches = [
-  "#2E7D32",
-  "#C06C84",
-  "#D99832",
-  "#4D7EA8",
-  "#6D597A",
-  "#00838F",
-  "#D32F2F",
-  "#5D4037",
-];
 
 const familyDefaultName = calendarOwners[familyPseudoMemberId].name;
 

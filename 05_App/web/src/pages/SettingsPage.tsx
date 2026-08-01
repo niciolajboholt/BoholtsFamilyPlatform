@@ -64,10 +64,7 @@ import {
   listAllGoogleCalendars,
   listAllOutlookCalendars,
 } from "../features/calendar/providers/calendarProviderFactory";
-
-function getInitials(name: string): string {
-  return name.trim().slice(0, 1).toUpperCase() || "?";
-}
+import { getInitials } from "../features/calendar/utils/getInitials";
 
 function SettingsPage() {
   const {

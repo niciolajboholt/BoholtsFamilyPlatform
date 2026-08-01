@@ -31,6 +31,7 @@ import { familyPseudoMemberId } from "../features/calendar/models/calendarEvent"
 import type { CalendarEvent } from "../features/calendar/models/calendarEvent";
 import { expandRecurringEvents } from "../features/calendar/utils/expandRecurringEvents";
 import { getEventsForDate } from "../features/calendar/utils/getEventsForDate";
+import { getInitials } from "../features/calendar/utils/getInitials";
 
 // Hvor langt frem "Næste aftale" kigger for at finde en kommende
 // forekomst — også af gentagne aftaler, som først udfoldes inden for dette
@@ -48,10 +49,6 @@ const quickActions: QuickAction[] = [
   { title: "Indkøbsliste", icon: <ShoppingCartOutlined />, isComingSoon: true },
   { title: "Opgaver", icon: <CheckCircleOutlineRounded />, isComingSoon: true },
 ];
-
-function getInitials(name: string): string {
-  return name.trim().slice(0, 1).toUpperCase() || "?";
-}
 
 function formatEventTime(value: string, allDay: boolean): string {
   if (allDay) return "Hele dagen";

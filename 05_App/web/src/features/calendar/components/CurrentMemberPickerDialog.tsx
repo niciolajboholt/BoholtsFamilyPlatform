@@ -11,10 +11,7 @@ import {
 
 import type { CalendarOwner } from "../data/calendarOwners";
 import { familyPseudoMemberId } from "../models/calendarEvent";
-
-function getInitials(name: string): string {
-  return name.trim().slice(0, 1).toUpperCase() || "?";
-}
+import { getInitials } from "../utils/getInitials";
 
 interface CurrentMemberPickerDialogProps {
   open: boolean;
