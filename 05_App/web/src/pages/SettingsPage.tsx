@@ -114,6 +114,7 @@ function SettingsPage() {
 
   const {
     isConfigured: isOutlookCalendarConfigured,
+    configurationError: outlookConfigurationError,
     isConnected: isOutlookCalendarConnected,
     wasEverConnected: wasOutlookCalendarEverConnected,
     isAttemptingSilentReconnect: isAttemptingOutlookSilentReconnect,
@@ -312,8 +313,9 @@ function SettingsPage() {
     isConnected: boolean,
     isAttemptingSilentReconnect: boolean,
     wasEverConnected: boolean,
+    configurationError?: string,
   ): string {
-    if (!isConfigured) return "Ikke konfigureret";
+    if (!isConfigured) return configurationError ?? "Ikke konfigureret";
     if (isConnected) return "Forbundet";
     if (isAttemptingSilentReconnect) return "Genopretter forbindelsen...";
     return wasEverConnected ? "Ikke forbundet i denne session" : "Ikke forbundet endnu";
@@ -331,6 +333,7 @@ function SettingsPage() {
     isOutlookCalendarConnected,
     isAttemptingOutlookSilentReconnect,
     wasOutlookCalendarEverConnected,
+    outlookConfigurationError,
   );
 
   return (
