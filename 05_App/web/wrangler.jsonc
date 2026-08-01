@@ -14,7 +14,8 @@
     {
       "binding": "DB",
       "database_name": "boholtsfamilyplatform",
-      "database_id": "9de10d3f-3178-4b63-838f-0d7377b0df1b"
+      "database_id": "9de10d3f-3178-4b63-838f-0d7377b0df1b",
+      "migrations_dir": "./server/migrations"
     }
   ],
   // "beta"-miljøet deployer til en separat Worker (egen URL), brugt af et

@@ -1,14 +1,16 @@
 import { Hono } from "hono";
 
-export interface Env {
-  DB: D1Database;
-  ASSETS: Fetcher;
-}
+import type { Env } from "./env";
+import authRoutes from "./routes/auth";
+import apiRoutes from "./routes/api";
 
 const app = new Hono<{ Bindings: Env }>();
 
+app.route("/auth", authRoutes);
+app.route("/api", apiRoutes);
+
 // Beviser at Worker + D1 hænger rigtigt sammen efter en deploy (Fase 0) —
-// selve familie/bruger/session-ruterne kommer i senere faser.
+// resten af familie/kalender-ruterne kommer i senere faser.
 app.get("/api/health", async (c) => {
   try {
     const row = await c.env.DB.prepare("SELECT 1 AS ok").first<{ ok: number }>();

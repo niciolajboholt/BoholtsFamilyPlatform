@@ -7,9 +7,10 @@ import {
 } from "@mui/icons-material";
 import {
   AppBar,
+  Box,
   BottomNavigation,
   BottomNavigationAction,
-  Box,
+  CircularProgress,
   Container,
   Paper,
   Toolbar,
@@ -18,12 +19,14 @@ import {
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 
 import { FamilySetupOnboarding } from "../features/calendar/components/FamilySetupOnboarding";
+import { useSession } from "../features/auth/hooks/useSession";
 import { familyPseudoMemberId } from "../features/calendar/models/calendarEvent";
 import {
   familyMembersChangedEvent,
   getFamilyMembers,
   hasCompletedFamilySetup,
 } from "../features/calendar/preferences/familyMembersStorage";
+import LoginPage from "../pages/LoginPage";
 
 const routes = ["/", "/calendar", "/settings"];
 
@@ -37,6 +40,8 @@ function readFamilyName(): string {
 function AppLayout() {
   const location = useLocation();
   const navigate = useNavigate();
+
+  const { user, isLoading: isSessionLoading } = useSession();
 
   const [isFirstLaunch, setIsFirstLaunch] = useState(
     () => !hasCompletedFamilySetup(),
@@ -96,6 +101,25 @@ function AppLayout() {
     observer.observe(appBar);
     return () => observer.disconnect();
   }, []);
+
+  if (isSessionLoading) {
+    return (
+      <Box
+        sx={{
+          minHeight: "100vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (!user) {
+    return <LoginPage />;
+  }
 
   if (isFirstLaunch) {
     return (
