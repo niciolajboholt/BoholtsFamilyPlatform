@@ -39,9 +39,19 @@ interface FamilyPlannerCalendarProps {
   onSelectEvent: (event: CalendarEvent) => void;
 }
 
+// Denne visning ruller sammen med hele siden (ikke i en indre boks) for at
+// navne-headeren reelt kan fastfryses mod skærmen, når man ruller — se
+// forklaringen ved appBarOffset nedenfor for hvorfor det kræver et par
+// justeringer.
 const HEADER_ROW_HEIGHT_PX = 44;
+const WEEK_BAND_HEIGHT_PX = 32;
 const DATE_COLUMN_WIDTH_PX = 64;
 const MEMBER_COLUMN_MIN_WIDTH_PX = 128;
+
+// Matcher AppLayout.tsx's sticky AppBar (MUI's standard Toolbar-højde:
+// 56px under "sm"-breakpointet, 64px derover) — headeren herunder skal
+// klæbe lige under den, ikke oven i den.
+const APP_BAR_HEIGHT_PX = { xs: 56, sm: 64 };
 
 function addDays(date: Date, days: number): Date {
   return new Date(
@@ -166,7 +176,6 @@ function FamilyPlannerCalendar({
     return bands;
   }, [windowRange]);
 
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const topSentinelRef = useRef<HTMLDivElement>(null);
   const bottomSentinelRef = useRef<HTMLDivElement>(null);
   const dayRowRefs = useRef(new Map<string, HTMLDivElement>());
@@ -185,6 +194,9 @@ function FamilyPlannerCalendar({
   // Kører efter hvert render og tjekker, om den ventende rulle-dato nu har
   // en synlig række (fx efter en gen-forankring har udvidet vinduet) —
   // billig opslag, rydder sig selv op så snart den er tilfredsstillet.
+  // Ruller siden (ikke en indre boks — se note ved APP_BAR_HEIGHT_PX) og
+  // korrigerer for de klæbende bånd (AppBar + navne-header + uge-bånd), så
+  // datoens række ikke havner skjult bagved dem.
   useEffect(() => {
     const pendingDate = pendingScrollDateRef.current;
 
@@ -195,7 +207,15 @@ function FamilyPlannerCalendar({
     const row = dayRowRefs.current.get(getDayKey(pendingDate));
 
     if (row) {
-      row.scrollIntoView({ block: "start" });
+      const stickyOffset =
+        (window.innerWidth < 600
+          ? APP_BAR_HEIGHT_PX.xs
+          : APP_BAR_HEIGHT_PX.sm) +
+        HEADER_ROW_HEIGHT_PX +
+        WEEK_BAND_HEIGHT_PX;
+
+      const rowTop = row.getBoundingClientRect().top + window.scrollY;
+      window.scrollTo({ top: rowTop - stickyOffset, behavior: "auto" });
       pendingScrollDateRef.current = null;
     }
   });
@@ -205,21 +225,20 @@ function FamilyPlannerCalendar({
   // extend-backward faktisk har sat en ventende højde, ikke ved
   // gen-forankring eller extend-forward.
   useLayoutEffect(() => {
-    const container = scrollContainerRef.current;
     const previousScrollHeight = pendingBackwardScrollHeightRef.current;
 
-    if (container && previousScrollHeight !== null) {
-      container.scrollTop += container.scrollHeight - previousScrollHeight;
+    if (previousScrollHeight !== null) {
+      const newScrollHeight = document.documentElement.scrollHeight;
+      window.scrollBy(0, newScrollHeight - previousScrollHeight);
       pendingBackwardScrollHeightRef.current = null;
     }
   }, [windowRange]);
 
   useEffect(() => {
-    const container = scrollContainerRef.current;
     const topSentinel = topSentinelRef.current;
     const bottomSentinel = bottomSentinelRef.current;
 
-    if (!container || !topSentinel || !bottomSentinel) {
+    if (!topSentinel || !bottomSentinel) {
       return;
     }
 
@@ -231,14 +250,17 @@ function FamilyPlannerCalendar({
           }
 
           if (entry.target === topSentinel) {
-            pendingBackwardScrollHeightRef.current = container.scrollHeight;
+            pendingBackwardScrollHeightRef.current =
+              document.documentElement.scrollHeight;
             dispatchWindow({ type: "extend-backward" });
           } else if (entry.target === bottomSentinel) {
             dispatchWindow({ type: "extend-forward" });
           }
         }
       },
-      { root: container, rootMargin: "800px 0px 800px 0px" },
+      // root: null (browser-viewporten, ikke en indre boks) — hele siden
+      // ruller, se note ved APP_BAR_HEIGHT_PX.
+      { root: null, rootMargin: "1000px 0px 1000px 0px" },
     );
 
     observer.observe(topSentinel);
@@ -248,18 +270,26 @@ function FamilyPlannerCalendar({
   }, []);
 
   const gridTemplateColumns = `${DATE_COLUMN_WIDTH_PX}px repeat(${columns.length}, minmax(${MEMBER_COLUMN_MIN_WIDTH_PX}px, 1fr))`;
+  const cellDividerBorder = { borderRight: "1px solid", borderColor: "divider" };
 
   const today = new Date();
 
   return (
-    <Card sx={{ mb: 2.5 }}>
+    <Card
+      sx={{
+        mb: 2.5,
+        // MUI's Card klipper som standard sit indhold (overflow: hidden),
+        // hvilket ville tvinge klæbende elementer herunder til kun at
+        // fastfryse inden for selve kortets boks i stedet for mod hele
+        // siden, når man ruller — se APP_BAR_HEIGHT_PX-noten.
+        overflow: "visible",
+      }}
+    >
       <CardContent sx={{ p: { xs: 1, sm: 1.5 } }}>
         <Box
-          ref={scrollContainerRef}
           sx={{
-            position: "relative",
-            maxHeight: 640,
-            overflow: "auto",
+            border: "1px solid",
+            borderColor: "divider",
           }}
         >
           <Box
@@ -267,7 +297,7 @@ function FamilyPlannerCalendar({
               display: "grid",
               gridTemplateColumns,
               position: "sticky",
-              top: 0,
+              top: APP_BAR_HEIGHT_PX,
               zIndex: 3,
               backgroundColor: "background.paper",
               borderBottom: "2px solid",
@@ -275,9 +305,9 @@ function FamilyPlannerCalendar({
               minHeight: HEADER_ROW_HEIGHT_PX,
             }}
           >
-            <Box />
+            <Box sx={cellDividerBorder} />
 
-            {columns.map((column) => (
+            {columns.map((column, index) => (
               <Box
                 key={column.id}
                 sx={{
@@ -286,6 +316,7 @@ function FamilyPlannerCalendar({
                   justifyContent: "center",
                   p: 0.75,
                   minWidth: 0,
+                  ...(index < columns.length - 1 ? cellDividerBorder : {}),
                 }}
               >
                 <Typography
@@ -306,9 +337,15 @@ function FamilyPlannerCalendar({
               <Box
                 sx={{
                   position: "sticky",
-                  top: HEADER_ROW_HEIGHT_PX,
+                  top: {
+                    xs: APP_BAR_HEIGHT_PX.xs + HEADER_ROW_HEIGHT_PX,
+                    sm: APP_BAR_HEIGHT_PX.sm + HEADER_ROW_HEIGHT_PX,
+                  },
                   zIndex: 2,
                   backgroundColor: "action.hover",
+                  borderBottom: "1px solid",
+                  borderColor: "divider",
+                  minHeight: WEEK_BAND_HEIGHT_PX,
                   px: 1,
                   py: 0.5,
                 }}
@@ -350,6 +387,7 @@ function FamilyPlannerCalendar({
                       sx={{
                         p: 0.75,
                         textAlign: "center",
+                        ...cellDividerBorder,
                       }}
                     >
                       <Typography
@@ -374,7 +412,7 @@ function FamilyPlannerCalendar({
                       </Typography>
                     </Box>
 
-                    {columns.map((column) => {
+                    {columns.map((column, index) => {
                       const columnEvents = getEventsForColumn(
                         dayEvents,
                         column.id,
@@ -389,6 +427,9 @@ function FamilyPlannerCalendar({
                             display: "grid",
                             gap: 0.5,
                             alignContent: "start",
+                            ...(index < columns.length - 1
+                              ? cellDividerBorder
+                              : {}),
                           }}
                         >
                           {columnEvents.map((event) => {
