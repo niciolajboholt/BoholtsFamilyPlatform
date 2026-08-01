@@ -14,14 +14,14 @@ export interface OutlookCalendarConfig {
 // administrator dér), og godkendelsen afventer stadig deres IT-afdeling.
 // Koden er fuldt færdig og testet — fjern kun denne linje igen, når
 // samtykket er givet, for at slå funktionen til uden yderligere ændringer.
+// Ingen configurationError her med vilje — appen skal opføre sig som om
+// Outlook slet ikke findes endnu, ikke vise en "kommer snart"-besked (fjernet
+// efter ønske, se CalendarPage.tsx's tilsvarende betingede banner).
 const isTemporarilyDisabled = true;
 
 export function getOutlookCalendarConfig(): OutlookCalendarConfig {
   if (isTemporarilyDisabled) {
-    return {
-      enabled: false,
-      configurationError: "Outlook Kalender kommer snart — afventer IT-godkendelse hos arbejdsgiveren.",
-    };
+    return { enabled: false };
   }
 
   const enabled =

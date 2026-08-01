@@ -277,13 +277,6 @@ function FamilyPlannerCalendar({
   }, []);
 
   const gridTemplateColumns = `${DATE_COLUMN_WIDTH_PX}px repeat(${columns.length}, minmax(${MEMBER_COLUMN_MIN_WIDTH_PX}px, 1fr))`;
-  // Delt op i to objekter uden overlappende nøgler (begge har brug for
-  // "divider"-farven, men TypeScript flager en dublet-nøgle som fejl, hvis
-  // begge selv definerer borderColor) — kombineres altid med borderColor
-  // sat separat, se brugsstederne.
-  const cellDividerBorder = { borderRight: "1px solid" };
-  const cellRowBorder = { borderBottom: "1px solid" };
-  const dividerBorderColor = { borderColor: "divider" };
 
   const today = new Date();
 
@@ -303,14 +296,25 @@ function FamilyPlannerCalendar({
           Hele tabellen (header + alle dage) er ÉT delt CSS-grid, ikke ét
           grid pr. række — ellers udregner hver række sine "1fr"-kolonner
           uafhængigt af de andre, og selv en lille afvigelse mellem rækker
-          gør de lodrette linjer forskudt/"trappede" ned igennem visningen
-          (det brugeren rapporterede). Med ét fælles grid deler alle rækker
-          nøjagtigt de samme kolonnebredder.
+          gør de lodrette linjer forskudt/"trappede" ned igennem visningen.
+          Med ét fælles grid deler alle rækker nøjagtigt de samme
+          kolonnebredder.
+
+          Gitterlinjerne selv tegnes IKKE som border på hver enkelt celle —
+          det gav ekstra/fordoblede linjer på nogle enheder (formentlig en
+          gengivelses-finesse ved mange celler med individuelle borders i et
+          grid med brøkdels-kolonnebredder). I stedet bruges det klassiske,
+          robuste "gap + baggrundsfarve"-trick: containeren har en 1px
+          "gap" og selv er farvet som en streg (divider), og hver celle har
+          sin egen uigennemsigtige baggrund — stregerne er dermed reelt kun
+          det ene pixel mellemrum, ikke en border, og kan ikke fordobles.
         */}
         <Box
           sx={{
             display: "grid",
             gridTemplateColumns,
+            gap: "1px",
+            backgroundColor: "divider",
             border: "1px solid",
             borderColor: "divider",
           }}
@@ -324,11 +328,10 @@ function FamilyPlannerCalendar({
               borderBottom: "2px solid",
               borderColor: "divider",
               minHeight: HEADER_ROW_HEIGHT_PX,
-              ...cellDividerBorder,
             }}
           />
 
-          {columns.map((column, index) => (
+          {columns.map((column) => (
             <Box
               key={column.id}
               sx={{
@@ -344,7 +347,6 @@ function FamilyPlannerCalendar({
                 borderBottom: "2px solid",
                 borderColor: "divider",
                 minHeight: HEADER_ROW_HEIGHT_PX,
-                ...(index < columns.length - 1 ? cellDividerBorder : {}),
               }}
             >
               <Typography
@@ -371,8 +373,6 @@ function FamilyPlannerCalendar({
                   top: `calc(${APP_BAR_HEIGHT_VAR} + ${HEADER_ROW_HEIGHT_PX}px)`,
                   zIndex: 2,
                   backgroundColor: "action.hover",
-                  borderBottom: "1px solid",
-                  borderColor: "divider",
                   minHeight: WEEK_BAND_HEIGHT_PX,
                   px: 1,
                   py: 0.5,
@@ -407,9 +407,7 @@ function FamilyPlannerCalendar({
                       sx={{
                         p: 0.75,
                         textAlign: "center",
-                        ...cellRowBorder,
-                        ...cellDividerBorder,
-                        ...dividerBorderColor,
+                        backgroundColor: "background.paper",
                       }}
                     >
                       <Typography
@@ -434,7 +432,7 @@ function FamilyPlannerCalendar({
                       </Typography>
                     </Box>
 
-                    {columns.map((column, index) => {
+                    {columns.map((column) => {
                       const columnEvents = getEventsForColumn(
                         dayEvents,
                         column.id,
@@ -449,11 +447,7 @@ function FamilyPlannerCalendar({
                             display: "grid",
                             gap: 0.5,
                             alignContent: "start",
-                            ...cellRowBorder,
-                            ...(index < columns.length - 1
-                              ? cellDividerBorder
-                              : {}),
-                            ...dividerBorderColor,
+                            backgroundColor: "background.paper",
                           }}
                         >
                           {columnEvents.map((event) => {

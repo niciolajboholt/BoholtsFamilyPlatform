@@ -735,6 +735,13 @@ function CalendarPage() {
         }}
       />
 
+      {/*
+        Outlook er midlertidigt slået fra uden en configurationError (se
+        outlookCalendarConfig.ts) — vises slet ikke her, mens den er ukonfigureret,
+        i stedet for en "ikke konfigureret"-boks ingen kan handle på endnu.
+        Dukker automatisk op igen, når Outlook genaktiveres.
+      */}
+      {isOutlookCalendarConfigured && (
       <ExternalCalendarConnectionBanner
         providerLabel="Outlook"
         isConfigured={isOutlookCalendarConfigured}
@@ -750,6 +757,7 @@ function CalendarPage() {
           void refreshCalendarSources();
         }}
       />
+      )}
 
       <Card sx={{ mb: 2.5 }}>
         <CardContent
