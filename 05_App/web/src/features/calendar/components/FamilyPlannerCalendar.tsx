@@ -1,4 +1,5 @@
 import {
+  Fragment,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -265,7 +266,7 @@ function FamilyPlannerCalendar({
         }
       },
       // root: null (browser-viewporten, ikke en indre boks) — hele siden
-      // ruller, se note ved APP_BAR_HEIGHT_PX.
+      // ruller, se note ved APP_BAR_HEIGHT_VAR.
       { root: null, rootMargin: "1000px 0px 1000px 0px" },
     );
 
@@ -276,7 +277,13 @@ function FamilyPlannerCalendar({
   }, []);
 
   const gridTemplateColumns = `${DATE_COLUMN_WIDTH_PX}px repeat(${columns.length}, minmax(${MEMBER_COLUMN_MIN_WIDTH_PX}px, 1fr))`;
-  const cellDividerBorder = { borderRight: "1px solid", borderColor: "divider" };
+  // Delt op i to objekter uden overlappende nøgler (begge har brug for
+  // "divider"-farven, men TypeScript flager en dublet-nøgle som fejl, hvis
+  // begge selv definerer borderColor) — kombineres altid med borderColor
+  // sat separat, se brugsstederne.
+  const cellDividerBorder = { borderRight: "1px solid" };
+  const cellRowBorder = { borderBottom: "1px solid" };
+  const dividerBorderColor = { borderColor: "divider" };
 
   const today = new Date();
 
@@ -292,16 +299,24 @@ function FamilyPlannerCalendar({
       }}
     >
       <CardContent sx={{ p: { xs: 1, sm: 1.5 } }}>
+        {/*
+          Hele tabellen (header + alle dage) er ÉT delt CSS-grid, ikke ét
+          grid pr. række — ellers udregner hver række sine "1fr"-kolonner
+          uafhængigt af de andre, og selv en lille afvigelse mellem rækker
+          gør de lodrette linjer forskudt/"trappede" ned igennem visningen
+          (det brugeren rapporterede). Med ét fælles grid deler alle rækker
+          nøjagtigt de samme kolonnebredder.
+        */}
         <Box
           sx={{
+            display: "grid",
+            gridTemplateColumns,
             border: "1px solid",
             borderColor: "divider",
           }}
         >
           <Box
             sx={{
-              display: "grid",
-              gridTemplateColumns,
               position: "sticky",
               top: APP_BAR_HEIGHT_VAR,
               zIndex: 3,
@@ -309,39 +324,49 @@ function FamilyPlannerCalendar({
               borderBottom: "2px solid",
               borderColor: "divider",
               minHeight: HEADER_ROW_HEIGHT_PX,
+              ...cellDividerBorder,
             }}
-          >
-            <Box sx={cellDividerBorder} />
+          />
 
-            {columns.map((column, index) => (
-              <Box
-                key={column.id}
-                sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  p: 0.75,
-                  minWidth: 0,
-                  ...(index < columns.length - 1 ? cellDividerBorder : {}),
-                }}
+          {columns.map((column, index) => (
+            <Box
+              key={column.id}
+              sx={{
+                position: "sticky",
+                top: APP_BAR_HEIGHT_VAR,
+                zIndex: 3,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                p: 0.75,
+                minWidth: 0,
+                backgroundColor: "background.paper",
+                borderBottom: "2px solid",
+                borderColor: "divider",
+                minHeight: HEADER_ROW_HEIGHT_PX,
+                ...(index < columns.length - 1 ? cellDividerBorder : {}),
+              }}
+            >
+              <Typography
+                variant="body2"
+                noWrap
+                sx={{ fontWeight: 700 }}
               >
-                <Typography
-                  variant="body2"
-                  noWrap
-                  sx={{ fontWeight: 700 }}
-                >
-                  {column.label}
-                </Typography>
-              </Box>
-            ))}
-          </Box>
+                {column.label}
+              </Typography>
+            </Box>
+          ))}
 
-          <div ref={topSentinelRef} style={{ height: 1 }} />
+          <div
+            ref={topSentinelRef}
+            style={{ height: 1, gridColumn: "1 / -1" }}
+          />
 
           {weekBands.map((weekDays) => (
-            <Box key={weekDays[0].toISOString()}>
+            <Fragment key={weekDays[0].toISOString()}>
               <Box
                 sx={{
+                  gridColumn: "1 / -1",
                   position: "sticky",
                   top: `calc(${APP_BAR_HEIGHT_VAR} + ${HEADER_ROW_HEIGHT_PX}px)`,
                   zIndex: 2,
@@ -370,27 +395,21 @@ function FamilyPlannerCalendar({
                 const isToday = isSameDate(day, today);
 
                 return (
-                  <Box
-                    key={dayKey}
-                    ref={(element: HTMLDivElement | null) => {
-                      if (element) {
-                        dayRowRefs.current.set(dayKey, element);
-                      } else {
-                        dayRowRefs.current.delete(dayKey);
-                      }
-                    }}
-                    sx={{
-                      display: "grid",
-                      gridTemplateColumns,
-                      borderBottom: "1px solid",
-                      borderColor: "divider",
-                    }}
-                  >
+                  <Fragment key={dayKey}>
                     <Box
+                      ref={(element: HTMLDivElement | null) => {
+                        if (element) {
+                          dayRowRefs.current.set(dayKey, element);
+                        } else {
+                          dayRowRefs.current.delete(dayKey);
+                        }
+                      }}
                       sx={{
                         p: 0.75,
                         textAlign: "center",
+                        ...cellRowBorder,
                         ...cellDividerBorder,
+                        ...dividerBorderColor,
                       }}
                     >
                       <Typography
@@ -430,9 +449,11 @@ function FamilyPlannerCalendar({
                             display: "grid",
                             gap: 0.5,
                             alignContent: "start",
+                            ...cellRowBorder,
                             ...(index < columns.length - 1
                               ? cellDividerBorder
                               : {}),
+                            ...dividerBorderColor,
                           }}
                         >
                           {columnEvents.map((event) => {
@@ -502,13 +523,16 @@ function FamilyPlannerCalendar({
                         </Box>
                       );
                     })}
-                  </Box>
+                  </Fragment>
                 );
               })}
-            </Box>
+            </Fragment>
           ))}
 
-          <div ref={bottomSentinelRef} style={{ height: 1 }} />
+          <div
+            ref={bottomSentinelRef}
+            style={{ height: 1, gridColumn: "1 / -1" }}
+          />
         </Box>
       </CardContent>
     </Card>
