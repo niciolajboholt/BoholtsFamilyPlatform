@@ -40,18 +40,28 @@ interface FamilyPlannerCalendarProps {
 }
 
 // Denne visning ruller sammen med hele siden (ikke i en indre boks) for at
-// navne-headeren reelt kan fastfryses mod skærmen, når man ruller — se
-// forklaringen ved appBarOffset nedenfor for hvorfor det kræver et par
-// justeringer.
+// navne-headeren reelt kan fastfryses mod skærmen, når man ruller.
 const HEADER_ROW_HEIGHT_PX = 44;
 const WEEK_BAND_HEIGHT_PX = 32;
 const DATE_COLUMN_WIDTH_PX = 64;
 const MEMBER_COLUMN_MIN_WIDTH_PX = 128;
 
-// Matcher AppLayout.tsx's sticky AppBar (MUI's standard Toolbar-højde:
-// 56px under "sm"-breakpointet, 64px derover) — headeren herunder skal
-// klæbe lige under den, ikke oven i den.
-const APP_BAR_HEIGHT_PX = { xs: 56, sm: 64 };
+// AppLayout.tsx's sticky AppBar er højere end MUI's standard Toolbar-højde
+// (den har to tekstlinjer + et ikon), og dens præcise højde kan variere
+// (fx et langt familienavn der ombrydes). AppLayout måler derfor selv sin
+// AppBar og eksponerer den som en CSS-variabel — herunder-headeren skal
+// klæbe lige under den, ikke bruge et gættet fast pixeltal (som tidligere
+// gav en overlappende visning på rigtige enheder).
+const APP_BAR_HEIGHT_VAR = "var(--app-bar-height, 64px)";
+
+function getMeasuredAppBarHeight(): number {
+  const value = getComputedStyle(document.documentElement).getPropertyValue(
+    "--app-bar-height",
+  );
+  const parsed = parseFloat(value);
+
+  return Number.isFinite(parsed) ? parsed : 64;
+}
 
 function addDays(date: Date, days: number): Date {
   return new Date(
@@ -194,7 +204,7 @@ function FamilyPlannerCalendar({
   // Kører efter hvert render og tjekker, om den ventende rulle-dato nu har
   // en synlig række (fx efter en gen-forankring har udvidet vinduet) —
   // billig opslag, rydder sig selv op så snart den er tilfredsstillet.
-  // Ruller siden (ikke en indre boks — se note ved APP_BAR_HEIGHT_PX) og
+  // Ruller siden (ikke en indre boks — se note ved APP_BAR_HEIGHT_VAR) og
   // korrigerer for de klæbende bånd (AppBar + navne-header + uge-bånd), så
   // datoens række ikke havner skjult bagved dem.
   useEffect(() => {
@@ -208,11 +218,7 @@ function FamilyPlannerCalendar({
 
     if (row) {
       const stickyOffset =
-        (window.innerWidth < 600
-          ? APP_BAR_HEIGHT_PX.xs
-          : APP_BAR_HEIGHT_PX.sm) +
-        HEADER_ROW_HEIGHT_PX +
-        WEEK_BAND_HEIGHT_PX;
+        getMeasuredAppBarHeight() + HEADER_ROW_HEIGHT_PX + WEEK_BAND_HEIGHT_PX;
 
       const rowTop = row.getBoundingClientRect().top + window.scrollY;
       window.scrollTo({ top: rowTop - stickyOffset, behavior: "auto" });
@@ -281,7 +287,7 @@ function FamilyPlannerCalendar({
         // MUI's Card klipper som standard sit indhold (overflow: hidden),
         // hvilket ville tvinge klæbende elementer herunder til kun at
         // fastfryse inden for selve kortets boks i stedet for mod hele
-        // siden, når man ruller — se APP_BAR_HEIGHT_PX-noten.
+        // siden, når man ruller — se APP_BAR_HEIGHT_VAR-noten.
         overflow: "visible",
       }}
     >
@@ -297,7 +303,7 @@ function FamilyPlannerCalendar({
               display: "grid",
               gridTemplateColumns,
               position: "sticky",
-              top: APP_BAR_HEIGHT_PX,
+              top: APP_BAR_HEIGHT_VAR,
               zIndex: 3,
               backgroundColor: "background.paper",
               borderBottom: "2px solid",
@@ -337,10 +343,7 @@ function FamilyPlannerCalendar({
               <Box
                 sx={{
                   position: "sticky",
-                  top: {
-                    xs: APP_BAR_HEIGHT_PX.xs + HEADER_ROW_HEIGHT_PX,
-                    sm: APP_BAR_HEIGHT_PX.sm + HEADER_ROW_HEIGHT_PX,
-                  },
+                  top: `calc(${APP_BAR_HEIGHT_VAR} + ${HEADER_ROW_HEIGHT_PX}px)`,
                   zIndex: 2,
                   backgroundColor: "action.hover",
                   borderBottom: "1px solid",

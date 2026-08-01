@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import {
   CalendarMonthRounded,
@@ -69,6 +69,34 @@ function AppLayout() {
       );
   }, []);
 
+  const appBarRef = useRef<HTMLElement>(null);
+
+  // Gør AppBar'ens faktiske (målte, ikke antagede) højde tilgængelig som en
+  // CSS-variabel — den er højere end MUI's standard Toolbar-højde, fordi den
+  // indeholder to tekstlinjer + et ikon. Sider med egne klæbende
+  // overskrifter (fx familie-planlæggeren) skal placeres under AppBar'en og
+  // læser derfor denne variabel i stedet for at gætte et fast pixeltal.
+  useEffect(() => {
+    const appBar = appBarRef.current;
+
+    if (!appBar) {
+      return;
+    }
+
+    const updateHeight = () => {
+      document.documentElement.style.setProperty(
+        "--app-bar-height",
+        `${appBar.getBoundingClientRect().height}px`,
+      );
+    };
+
+    updateHeight();
+
+    const observer = new ResizeObserver(updateHeight);
+    observer.observe(appBar);
+    return () => observer.disconnect();
+  }, []);
+
   if (isFirstLaunch) {
     return (
       <FamilySetupOnboarding
@@ -91,6 +119,7 @@ function AppLayout() {
       }}
     >
       <AppBar
+        ref={appBarRef}
         position="sticky"
         color="transparent"
         elevation={0}
