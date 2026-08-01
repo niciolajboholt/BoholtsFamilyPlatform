@@ -1,1 +1,1 @@
-export type CalendarView = "month" | "week";
+export type CalendarView = "month" | "week" | "day" | "planner";

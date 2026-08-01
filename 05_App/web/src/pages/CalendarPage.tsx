@@ -19,9 +19,11 @@ import {
 
 import CalendarToolbar from "../features/calendar/components/CalendarToolbar";
 import { CalendarSourceFilter } from "../features/calendar/components/CalendarSourceFilter";
+import DayCalendar from "../features/calendar/components/DayCalendar";
 import EditEventDialog from "../features/calendar/components/EditEventDialog";
 import EventList from "../features/calendar/components/EventList";
 import { ExternalCalendarConnectionBanner } from "../features/calendar/components/ExternalCalendarConnectionBanner";
+import FamilyPlannerCalendar from "../features/calendar/components/FamilyPlannerCalendar";
 import MonthCalendar from "../features/calendar/components/MonthCalendar";
 import NewEventDialog from "../features/calendar/components/NewEventDialog";
 import WeekCalendar from "../features/calendar/components/WeekCalendar";
@@ -105,10 +107,25 @@ function changeWeek(
   return result;
 }
 
+function changeDay(
+  date: Date,
+  numberOfDays: number,
+): Date {
+  const result = new Date(date);
+
+  result.setDate(result.getDate() + numberOfDays);
+  result.setHours(12, 0, 0, 0);
+
+  return result;
+}
+
 // Rundhåndet interval omkring det synlige tidsrum (uge- eller måneds-gitter
 // kan række ~1 uge ind i nabomåneder) — bruges kun til at afgrænse
 // gentagelses-udfoldning, ikke til præcis dag-visning (det gør
-// getEventsForDate/getEventsForWeek stadig nedstrøms).
+// getEventsForDate/getEventsForWeek stadig nedstrøms). Planlæggeren udregner
+// sit eget, dynamisk voksende interval internt (se FamilyPlannerCalendar) og
+// bruger ikke denne værdi — falder derfor blot igennem til månedens brede
+// standardbuffer nedenfor.
 function getVisibleRange(
   visibleDate: Date,
   calendarView: CalendarView,
@@ -120,6 +137,21 @@ function getVisibleRange(
 
     const end = new Date(visibleDate);
     end.setDate(end.getDate() + 14);
+    end.setHours(0, 0, 0, 0);
+
+    return {
+      start: start.toISOString(),
+      end: end.toISOString(),
+    };
+  }
+
+  if (calendarView === "day") {
+    const start = new Date(visibleDate);
+    start.setDate(start.getDate() - 3);
+    start.setHours(0, 0, 0, 0);
+
+    const end = new Date(visibleDate);
+    end.setDate(end.getDate() + 4);
     end.setHours(0, 0, 0, 0);
 
     return {
@@ -302,6 +334,20 @@ function CalendarPage() {
       );
     }, [expandedEvents, visibleCalendarSourceIds]);
 
+  // Planlæggeren udfolder selv gentagne aftaler internt over sit eget,
+  // dynamisk voksende rulle-vindue (se FamilyPlannerCalendar) — sourceId er
+  // uændret på tværs af gentagelses-udfoldning, så det er korrekt at filtrere
+  // her på de rå aftaler, i stedet for at afhænge af expandedEvents' faste,
+  // lille synlige interval.
+  const sourceFilteredRawEvents =
+    useMemo(() => {
+      const visibleSourceIds = new Set(visibleCalendarSourceIds);
+
+      return events.filter((event) =>
+        visibleSourceIds.has(event.sourceId),
+      );
+    }, [events, visibleCalendarSourceIds]);
+
   const eventsForSelectedDate =
     useMemo(() => {
       const dateEvents =
@@ -362,56 +408,32 @@ function CalendarPage() {
   }
 
   function handlePrevious() {
-    setVisibleDate(
-      (currentDate) =>
-        calendarView === "month"
-          ? changeMonth(
-              currentDate,
-              -1,
-            )
-          : changeWeek(
-              currentDate,
-              -1,
-            ),
-    );
+    setVisibleDate((currentDate) => {
+      if (calendarView === "month") return changeMonth(currentDate, -1);
+      if (calendarView === "week") return changeWeek(currentDate, -1);
+      if (calendarView === "day") return changeDay(currentDate, -1);
+      return changeMonth(currentDate, -1); // planner: skifter vinduets centrum en måned ad gangen
+    });
 
-    if (
-      calendarView === "week"
-    ) {
-      setSelectedDate(
-        (currentDate) =>
-          changeWeek(
-            currentDate,
-            -1,
-          ),
-      );
+    if (calendarView === "week") {
+      setSelectedDate((currentDate) => changeWeek(currentDate, -1));
+    } else if (calendarView === "day") {
+      setSelectedDate((currentDate) => changeDay(currentDate, -1));
     }
   }
 
   function handleNext() {
-    setVisibleDate(
-      (currentDate) =>
-        calendarView === "month"
-          ? changeMonth(
-              currentDate,
-              1,
-            )
-          : changeWeek(
-              currentDate,
-              1,
-            ),
-    );
+    setVisibleDate((currentDate) => {
+      if (calendarView === "month") return changeMonth(currentDate, 1);
+      if (calendarView === "week") return changeWeek(currentDate, 1);
+      if (calendarView === "day") return changeDay(currentDate, 1);
+      return changeMonth(currentDate, 1); // planner: skifter vinduets centrum en måned ad gangen
+    });
 
-    if (
-      calendarView === "week"
-    ) {
-      setSelectedDate(
-        (currentDate) =>
-          changeWeek(
-            currentDate,
-            1,
-          ),
-      );
+    if (calendarView === "week") {
+      setSelectedDate((currentDate) => changeWeek(currentDate, 1));
+    } else if (calendarView === "day") {
+      setSelectedDate((currentDate) => changeDay(currentDate, 1));
     }
   }
 
@@ -843,52 +865,48 @@ function CalendarPage() {
             </Alert>
           ) : null}
 
-      {calendarView ===
-      "month" ? (
+      {calendarView === "month" ? (
         <MonthCalendar
-          visibleMonth={
-            visibleDate
-          }
-          selectedDate={
-            selectedDate
-          }
+          visibleMonth={visibleDate}
+          selectedDate={selectedDate}
           events={visibleEvents}
           members={members}
-          onSelectDate={
-            handleSelectDate
-          }
-          onSelectEvent={
-            handleSelectEvent
-          }
+          onSelectDate={handleSelectDate}
+          onSelectEvent={handleSelectEvent}
+        />
+      ) : calendarView === "week" ? (
+        <WeekCalendar
+          selectedDate={selectedDate}
+          events={visibleEvents}
+          members={members}
+          onSelectDate={handleSelectDate}
+          onSelectEvent={handleSelectEvent}
+        />
+      ) : calendarView === "day" ? (
+        <DayCalendar
+          selectedDate={selectedDate}
+          events={visibleEvents}
+          members={members}
+          onSelectEvent={handleSelectEvent}
         />
       ) : (
-        <WeekCalendar
-          selectedDate={
-            selectedDate
-          }
-          events={visibleEvents}
+        <FamilyPlannerCalendar
+          visibleDate={visibleDate}
+          events={sourceFilteredRawEvents}
+          recurrenceExceptions={recurrenceExceptions.exceptions}
           members={members}
-          onSelectDate={
-            handleSelectDate
-          }
-          onSelectEvent={
-            handleSelectEvent
-          }
+          onSelectEvent={handleSelectEvent}
         />
       )}
 
-      <EventList
-        selectedDate={
-          selectedDate
-        }
-        events={
-          eventsForSelectedDate
-        }
-        members={members}
-        onSelectEvent={
-          handleSelectEvent
-        }
-      />
+      {calendarView === "month" && (
+        <EventList
+          selectedDate={selectedDate}
+          events={eventsForSelectedDate}
+          members={members}
+          onSelectEvent={handleSelectEvent}
+        />
+      )}
         </>
       )}
 
