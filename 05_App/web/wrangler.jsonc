@@ -1,22 +1,45 @@
 {
   "name": "boholtsfamilyplatform",
   "compatibility_date": "2026-07-30",
+  // Fra Sprint 20: appen har fået en rigtig backend (Hono) ved siden af de
+  // statiske filer — "main" kører Worker-koden, som selv server'er de
+  // statiske filer for alt der ikke er en /api-rute, via ASSETS-bindingen.
+  "main": "./server/index.ts",
   "assets": {
     "directory": "./dist",
+    "binding": "ASSETS",
     "not_found_handling": "single-page-application"
   },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "boholtsfamilyplatform",
+      "database_id": "9de10d3f-3178-4b63-838f-0d7377b0df1b"
+    }
+  ],
   // "beta"-miljøet deployer til en separat Worker (egen URL), brugt af et
   // andet Cloudflare Workers-projekt der forgrener sig fra `develop` i
   // stedet for `main` — så nye funktioner kan testes på en rigtig, delt
   // URL, før de merges til den rigtige produktion. Aktiveres med
-  // `wrangler deploy --env beta`; ingen effekt uden det flag.
+  // `wrangler deploy --env beta`; ingen effekt uden det flag. Har sin EGEN
+  // D1-database, adskilt fra produktion, så beta-test aldrig kan ramme
+  // rigtig familiedata.
   "env": {
     "beta": {
       "name": "boholtsfamilyplatform-beta",
+      "main": "./server/index.ts",
       "assets": {
         "directory": "./dist",
+        "binding": "ASSETS",
         "not_found_handling": "single-page-application"
-      }
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "boholtsfamilyplatform-beta",
+          "database_id": "cd369f99-abc2-44e0-9647-300ee6d85a13"
+        }
+      ]
     }
   }
 }
