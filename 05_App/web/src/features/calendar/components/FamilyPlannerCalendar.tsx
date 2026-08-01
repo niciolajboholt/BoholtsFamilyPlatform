@@ -308,11 +308,21 @@ function FamilyPlannerCalendar({
           "gap" og selv er farvet som en streg (divider), og hver celle har
           sin egen uigennemsigtige baggrund — stregerne er dermed reelt kun
           det ene pixel mellemrum, ikke en border, og kan ikke fordobles.
+
+          width: "fit-content" er nødvendig, fordi kolonnerne (minmax(128px,
+          1fr)) kan kræve mere plads end det smalle skærmbillede har — uden
+          den forbliver selve grid-boksens EGEN bredde låst til den synlige
+          viewport, mens cellerne visuelt fortsætter ud over den (siden
+          ruller vandret som forventet, det er kun boksens baggrund der
+          ellers ville stoppe for tidligt). Da containerens baggrundsfarve
+          er det, der tegner gap-linjerne, betød det at linjerne forsvandt
+          efter de første par kolonner — selve fejlen brugeren så.
         */}
         <Box
           sx={{
             display: "grid",
             gridTemplateColumns,
+            width: "fit-content",
             gap: "1px",
             backgroundColor: "divider",
             border: "1px solid",
