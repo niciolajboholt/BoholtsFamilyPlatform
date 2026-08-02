@@ -6,12 +6,15 @@ import type { Env } from "../env";
 const sessionCookieName = "session";
 const sessionDurationSeconds = 30 * 24 * 60 * 60; // 30 dage
 
-type AppContext = Context<{ Bindings: Env }>;
+// Generisk over Variables (ikke bundet til et bestemt sæt), så ruter med
+// deres egne c.set()-typer (fx families.ts's { user: SessionUser }) stadig
+// kan give deres Context videre til disse hjælpefunktioner.
+type AppContext<E extends { Bindings: Env } = { Bindings: Env }> = Context<E>;
 
 // wrangler dev kører over almindelig http://localhost — en "Secure"-flagget
 // cookie ville aldrig blive gemt der, så flaget sættes kun når requesten
 // reelt kom ind over https (den rigtige deploy, prod såvel som beta).
-function isSecureRequest(c: AppContext): boolean {
+function isSecureRequest<E extends { Bindings: Env }>(c: AppContext<E>): boolean {
   return new URL(c.req.url).protocol === "https:";
 }
 
@@ -22,8 +25,8 @@ export interface SessionUser {
   pictureUrl: string | null;
 }
 
-export async function createSession(
-  c: AppContext,
+export async function createSession<E extends { Bindings: Env }>(
+  c: AppContext<E>,
   userId: string,
 ): Promise<void> {
   const sessionId = crypto.randomUUID();
@@ -55,8 +58,8 @@ interface SessionRow {
   expiresAt: string;
 }
 
-export async function getSessionUser(
-  c: AppContext,
+export async function getSessionUser<E extends { Bindings: Env }>(
+  c: AppContext<E>,
 ): Promise<SessionUser | null> {
   const sessionId = getCookie(c, sessionCookieName);
 
@@ -91,7 +94,9 @@ export async function getSessionUser(
   };
 }
 
-export async function destroySession(c: AppContext): Promise<void> {
+export async function destroySession<E extends { Bindings: Env }>(
+  c: AppContext<E>,
+): Promise<void> {
   const sessionId = getCookie(c, sessionCookieName);
 
   if (sessionId) {

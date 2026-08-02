@@ -26,6 +26,8 @@ import {
   getFamilyMembers,
   hasCompletedFamilySetup,
 } from "../features/calendar/preferences/familyMembersStorage";
+import { getMyFamily } from "../features/family/familyApi";
+import { syncFamilyMembersFromServer } from "../features/family/familyMembersSync";
 import LoginPage from "../pages/LoginPage";
 
 const routes = ["/", "/calendar", "/settings"];
@@ -50,6 +52,39 @@ function AppLayout() {
   // once at mount, so it would still show the pre-onboarding placeholder
   // name after onDone() fires, since AppLayout itself never remounts.
   const [familyName, setFamilyName] = useState(() => readFamilyName());
+
+  // Kun relevant, hvis DENNE enhed aldrig har gennemført onboarding lokalt —
+  // en bruger, der allerede har en familie på serveren (fx logger ind på et
+  // nyt device), skal ikke vises onboarding igen, bare fordi den lokale
+  // cache er tom. Returnerende brugere med lokal data undgår bevidst dette
+  // netværkskald ved hvert opstart.
+  const [isFamilyCheckLoading, setIsFamilyCheckLoading] = useState(isFirstLaunch);
+
+  useEffect(() => {
+    if (!user || !isFirstLaunch) {
+      return;
+    }
+
+    let isCancelled = false;
+
+    getMyFamily().then((result) => {
+      if (isCancelled) {
+        return;
+      }
+
+      if (result.ok && result.data.family && result.data.members) {
+        syncFamilyMembersFromServer(result.data.members);
+        setFamilyName(readFamilyName());
+        setIsFirstLaunch(false);
+      }
+
+      setIsFamilyCheckLoading(false);
+    });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [user, isFirstLaunch]);
 
   useEffect(() => {
     document.title = `${familyName} Familieapp`;
@@ -119,6 +154,21 @@ function AppLayout() {
 
   if (!user) {
     return <LoginPage />;
+  }
+
+  if (isFamilyCheckLoading) {
+    return (
+      <Box
+        sx={{
+          minHeight: "100vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <CircularProgress />
+      </Box>
+    );
   }
 
   if (isFirstLaunch) {
