@@ -74,22 +74,10 @@ auth.get("/google/callback", async (c) => {
 
   const redirectUri = `${new URL(c.req.url).origin}/auth/google/callback`;
 
-  // Midlertidig diagnostik (fjernes igen): viser kun længde + første tegn af
-  // secret'en, aldrig hele værdien, for at bekræfte om c.env rent faktisk
-  // indeholder den værdi, der er sat i Cloudflare-dashboardet.
-  console.log(
-    "OAuth-callback env-tjek:",
-    JSON.stringify({
-      clientIdPreview: c.env.GOOGLE_CLIENT_ID?.slice(0, 12),
-      clientSecretLength: c.env.GOOGLE_CLIENT_SECRET?.length ?? 0,
-      clientSecretPreview: c.env.GOOGLE_CLIENT_SECRET?.slice(0, 8),
-    }),
-  );
-
   try {
     const tokens = await exchangeGoogleAuthorizationCode({
       clientId: c.env.GOOGLE_CLIENT_ID,
-      clientSecret: c.env.GOOGLE_CLIENT_SECRET,
+      clientSecret: await c.env.GOOGLE_CLIENT_SECRET.get(),
       redirectUri,
       code,
       codeVerifier: verifier,
@@ -132,7 +120,7 @@ auth.get("/google/callback", async (c) => {
     if (tokens.refresh_token) {
       const encrypted = await encryptRefreshToken(
         tokens.refresh_token,
-        c.env.GOOGLE_TOKEN_ENCRYPTION_KEY,
+        await c.env.GOOGLE_TOKEN_ENCRYPTION_KEY.get(),
       );
 
       await c.env.DB.prepare(
