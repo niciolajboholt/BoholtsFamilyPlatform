@@ -747,7 +747,7 @@ Afvist: en JWT kan ikke tilbagekaldes før den udløber, hvilket er uforeneligt 
 ### Status pr. fase
 
 * **Fase 0** (Worker + D1-fundament): Færdig og verificeret på `beta`.
-* **Fase 1** (server-ejet Google-login, session): Under implementering.
+* **Fase 1** (server-ejet Google-login, session): Færdig og verificeret på `beta` — fuld login-runde (Google-samtykke → session → familie-app) bekræftet virkende 2026-08-02.
 * **Fase 2-6** (familier/invitationer, server-ejet kalender-sync, migrering af enheds-lokal familiedata, udfasning af lokale aftaler, oprydning): Ikke påbegyndt.
 
 ## Relaterede dokumenter
