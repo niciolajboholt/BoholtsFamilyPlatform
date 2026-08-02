@@ -1,9 +1,11 @@
 import { useState } from "react";
 
+import ContentCopyIcon from "@mui/icons-material/ContentCopyRounded";
 import {
   Box,
   Button,
   Container,
+  IconButton,
   Paper,
   TextField,
   Typography,
@@ -16,12 +18,13 @@ interface FamilySetupOnboardingProps {
   onDone: () => void;
 }
 
-type Mode = "choice" | "create" | "join";
+type Mode = "choice" | "create" | "join" | "created";
 
 export function FamilySetupOnboarding({ onDone }: FamilySetupOnboardingProps) {
   const [mode, setMode] = useState<Mode>("choice");
   const [familyName, setFamilyName] = useState("");
   const [inviteCode, setInviteCode] = useState("");
+  const [createdInviteCode, setCreatedInviteCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -46,6 +49,16 @@ export function FamilySetupOnboarding({ onDone }: FamilySetupOnboardingProps) {
     }
 
     syncFamilyMembersFromServer(result.data.members);
+
+    // Koden vises kun her — der er endnu ingen "Del invitation"-visning i
+    // Indstillinger, så dette er brugerens eneste chance for at se den, før
+    // de fortsætter ind i appen.
+    if (result.data.inviteCode) {
+      setCreatedInviteCode(result.data.inviteCode);
+      setMode("created");
+      return;
+    }
+
     onDone();
   }
 
@@ -73,6 +86,13 @@ export function FamilySetupOnboarding({ onDone }: FamilySetupOnboardingProps) {
     onDone();
   }
 
+  function handleCopyCode() {
+    navigator.clipboard?.writeText(createdInviteCode).catch(() => {
+      // Udklipsholder kan være utilgængelig (fx uden HTTPS) — koden står
+      // stadig synligt på skærmen, så brugeren kan skrive den af manuelt.
+    });
+  }
+
   return (
     <Box
       sx={{
@@ -87,7 +107,7 @@ export function FamilySetupOnboarding({ onDone }: FamilySetupOnboardingProps) {
         <Paper sx={{ p: 3, display: "grid", gap: 3 }}>
           <Box>
             <Typography variant="h5" sx={{ fontWeight: 700 }}>
-              Velkommen!
+              {mode === "created" ? "Familien er oprettet!" : "Velkommen!"}
             </Typography>
             <Typography variant="body2" color="text.secondary">
               {mode === "choice" &&
@@ -96,6 +116,8 @@ export function FamilySetupOnboarding({ onDone }: FamilySetupOnboardingProps) {
                 "Giv jeres familie et navn. I kan tilføje og navngive medlemmer bagefter under Indstillinger."}
               {mode === "join" &&
                 "Indtast den invitationskode, du har fået af et familiemedlem."}
+              {mode === "created" &&
+                "Del denne kode med resten af familien, så de kan tilslutte sig. Du kan altid finde og lave en ny kode senere under Indstillinger."}
             </Typography>
           </Box>
 
@@ -161,6 +183,39 @@ export function FamilySetupOnboarding({ onDone }: FamilySetupOnboardingProps) {
                   Tilslut familie
                 </Button>
               </Box>
+            </Box>
+          )}
+
+          {mode === "created" && (
+            <Box sx={{ display: "grid", gap: 2 }}>
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 1,
+                  p: 2,
+                  borderRadius: 2,
+                  bgcolor: "action.hover",
+                }}
+              >
+                <Typography
+                  variant="h5"
+                  sx={{ fontWeight: 700, letterSpacing: 2 }}
+                >
+                  {createdInviteCode}
+                </Typography>
+                <IconButton
+                  aria-label="Kopiér invitationskode"
+                  onClick={handleCopyCode}
+                >
+                  <ContentCopyIcon />
+                </IconButton>
+              </Box>
+
+              <Button variant="contained" onClick={onDone}>
+                Fortsæt til appen
+              </Button>
             </Box>
           )}
         </Paper>
