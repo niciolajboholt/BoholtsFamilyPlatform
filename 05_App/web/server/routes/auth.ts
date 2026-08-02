@@ -26,7 +26,11 @@ function isSecureRequest(url: string): boolean {
 // brugeren til Googles samtykke-skærm. redirect_uri udregnes af den
 // indkommende request selv (samme domæne request'en kom ind på), så
 // prod/beta virker uden separat konfiguration pr. miljø.
-auth.get("/google/start", async (c) => {
+// Hedder bevidst "begin", ikke "start": Cloudflares edge-cache for
+// workers.dev-domænet cachede engang et 200-svar for "/google/start" og
+// ignorerer forespørgselsstrenge i cache-nøglen, så end ikke en
+// cache-busting-parameter kunne omgå den fastlåste cache — kun en ny sti kan.
+auth.get("/google/begin", async (c) => {
   const state = generateOAuthState();
   const verifier = generatePkceVerifier();
   const challenge = await derivePkceChallenge(verifier);
