@@ -139,7 +139,8 @@ auth.get("/google/callback", async (c) => {
 
     return c.redirect("/");
   } catch (error) {
-    console.error("Google OAuth callback fejlede:", error);
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("Google OAuth callback fejlede:", message);
     return c.text("Login fejlede. Prøv igen.", 500);
   }
 });
