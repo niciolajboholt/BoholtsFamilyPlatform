@@ -17,6 +17,15 @@ async function parseJsonBody<T extends object>(
   return c.req.json<Partial<T>>().catch(() => ({}) as Partial<T>);
 }
 
+// Uden dette viser Cloudflares logs kun et stack-trace uden selve
+// fejlbeskeden for uventede (ufangede) fejl, fx D1-fejl — samme problem vi
+// stødte på i auth.ts's callback, før den fik sin egen try/catch.
+families.onError((error, c) => {
+  const message = error instanceof Error ? error.message : String(error);
+  console.error("Familie-API fejlede:", message);
+  return c.json({ error: "Der skete en serverfejl. Prøv igen." }, 500);
+});
+
 // Enhver /api/families*-rute kræver en gyldig session — der er ingen
 // offentlige familie-data.
 families.use("*", async (c, next) => {
