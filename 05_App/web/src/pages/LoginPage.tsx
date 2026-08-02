@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   Box,
   Button,
@@ -7,6 +8,12 @@ import {
 } from "@mui/material";
 
 function LoginPage() {
+  // Forespørgselsparameteren gør hvert link unikt, så Cloudflares edge-cache
+  // (workers.dev-domænet giver os ingen egen purge-adgang) aldrig kan ramme
+  // et tidligere cachet svar for denne rute — den ignoreres af serveren.
+  // Beregnes én gang pr. mount, ikke ved hvert render (impure ellers).
+  const [cacheBuster] = useState(() => Date.now());
+
   return (
     <Box
       sx={{
@@ -32,7 +39,7 @@ function LoginPage() {
             variant="contained"
             size="large"
             fullWidth
-            href="/auth/google/start"
+            href={`/auth/google/start?_=${cacheBuster}`}
           >
             Log ind med Google
           </Button>
