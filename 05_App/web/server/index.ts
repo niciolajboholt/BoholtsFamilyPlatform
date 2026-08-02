@@ -6,6 +6,19 @@ import apiRoutes from "./routes/api";
 
 const app = new Hono<{ Bindings: Env }>();
 
+// /auth og /api svarer med engangs-/brugerspecifikt indhold (OAuth-state,
+// sessions) og må aldrig caches af Cloudflares edge — sket én gang allerede:
+// et tilfældigt cachet 200-svar for /auth/google/start blev serveret til
+// enhver efterfølgende besøgende i stedet for et rigtigt redirect.
+app.use("/auth/*", async (c, next) => {
+  await next();
+  c.header("Cache-Control", "no-store");
+});
+app.use("/api/*", async (c, next) => {
+  await next();
+  c.header("Cache-Control", "no-store");
+});
+
 app.route("/auth", authRoutes);
 app.route("/api", apiRoutes);
 
