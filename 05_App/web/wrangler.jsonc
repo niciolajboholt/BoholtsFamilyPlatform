@@ -5,6 +5,14 @@
   // statiske filer — "main" kører Worker-koden, som selv server'er de
   // statiske filer for alt der ikke er en /api-rute, via ASSETS-bindingen.
   "main": "./server/index.ts",
+  // Ikke-hemmelig, derfor tryg at have direkte i config i stedet for kun i
+  // Cloudflare-dashboardets "Variables and Secrets" — dashboard-variablen
+  // viste sig at ende som "undefined" efter deploy-kommandoen fik
+  // "--env beta" tilføjet, formentlig fordi den er bundet til Workerens
+  // ikke-navngivne (produktions-)miljø, ikke det navngivne "beta"-miljø.
+  "vars": {
+    "GOOGLE_CLIENT_ID": "621931405628-lc7afq5qp0ejmdks5hl9c6b7uclskiie.apps.googleusercontent.com"
+  },
   "assets": {
     "directory": "./dist",
     "binding": "ASSETS",
@@ -34,6 +42,9 @@
     "beta": {
       "name": "boholtsfamilyplatform-beta",
       "main": "./server/index.ts",
+      "vars": {
+        "GOOGLE_CLIENT_ID": "621931405628-lc7afq5qp0ejmdks5hl9c6b7uclskiie.apps.googleusercontent.com"
+      },
       "assets": {
         "directory": "./dist",
         "binding": "ASSETS",
