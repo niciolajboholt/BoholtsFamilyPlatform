@@ -28,6 +28,7 @@ import {
 } from "@mui/material";
 
 import { FamilyMemberDialog } from "../features/calendar/components/FamilyMemberDialog";
+import { InviteCodeCard } from "../features/family/InviteCodeCard";
 import type {
   CalendarMemberAssignment,
   CalendarNameOverride,
@@ -435,6 +436,8 @@ function SettingsPage() {
           onSave={handleSaveMember}
           onDelete={deleteMember}
         />
+
+        <InviteCodeCard />
 
         <Card>
           <CardContent sx={{ p: 3 }}>
