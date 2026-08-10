@@ -9,7 +9,9 @@ interface ProviderConnectionRowProps {
   isBusy: boolean;
   isAttemptingSilentReconnect: boolean;
   onManageCalendars: () => void;
-  onToggleConnection: () => void;
+  // Udeladt for en provider uden en manuel forbind/afbryd-handling (Fase 3:
+  // Google forbindes allerede ved login) — rækken viser da kun status.
+  onToggleConnection?: () => void;
 }
 
 /**
@@ -62,17 +64,19 @@ export function ProviderConnectionRow({
         </Typography>
       </Box>
 
-      <IconButton
-        aria-label={isConnected ? `Afbryd ${label}` : `Forbind ${label}`}
-        disabled={!isConfigured || isBusy || isAttemptingSilentReconnect}
-        onClick={onToggleConnection}
-      >
-        {isBusy || isAttemptingSilentReconnect ? (
-          <CircularProgress size={20} />
-        ) : (
-          <ChevronRightRounded />
-        )}
-      </IconButton>
+      {onToggleConnection && (
+        <IconButton
+          aria-label={isConnected ? `Afbryd ${label}` : `Forbind ${label}`}
+          disabled={!isConfigured || isBusy || isAttemptingSilentReconnect}
+          onClick={onToggleConnection}
+        >
+          {isBusy || isAttemptingSilentReconnect ? (
+            <CircularProgress size={20} />
+          ) : (
+            <ChevronRightRounded />
+          )}
+        </IconButton>
+      )}
     </Box>
   );
 }

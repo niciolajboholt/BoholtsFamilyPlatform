@@ -10,8 +10,11 @@ import type {
 } from "./googleCalendarTypes";
 import type { GoogleCalendarEventRequest } from "./googleCalendarTypes";
 
-const calendarApiBaseUrl =
-  "https://www.googleapis.com/calendar/v3";
+// Fase 3: går gennem serverens eget proxy-lag (server/routes/calendar.ts) i
+// stedet for direkte til Google — serveren har adgangstokenet (cookie-
+// session), klienten har det aldrig. "credentials: same-origin" sikrer
+// sessionscookien følger med, ligesom resten af appens /api-kald.
+const calendarApiBaseUrl = "/api/calendar";
 
 function toProviderError(response: Response): CalendarProviderError {
   if (response.status === 401) {
@@ -40,18 +43,8 @@ function toProviderError(response: Response): CalendarProviderError {
 }
 
 export class GoogleCalendarApi {
-  private readonly getAccessToken: () => string | null;
-
-  constructor(
-    getAccessToken: () => string | null,
-  ) {
-    this.getAccessToken = getAccessToken;
-  }
-
   async listCalendars(): Promise<GoogleCalendarListEntry[]> {
-    return this.fetchAllPages<GoogleCalendarListResponse>(
-      "/users/me/calendarList",
-    );
+    return this.fetchAllPages<GoogleCalendarListResponse>("/calendars");
   }
 
   async listEvents(
@@ -99,11 +92,10 @@ export class GoogleCalendarApi {
   }
 
   private async request(method: "POST" | "PATCH" | "DELETE", path: string, body: GoogleCalendarEventRequest | undefined, query: Record<string, string>): Promise<Response> {
-    const accessToken = this.getAccessToken();
-    if (!accessToken) throw new CalendarProviderError("authentication", "Google Kalender skal forbindes igen, før aftalen kan gemmes.");
     const response = await fetch(`${calendarApiBaseUrl}${path}?${new URLSearchParams(query).toString()}`, {
       method,
-      headers: { Authorization: `Bearer ${accessToken}`, ...(body ? { "Content-Type": "application/json" } : {}) },
+      credentials: "same-origin",
+      headers: body ? { "Content-Type": "application/json" } : {},
       body: body ? JSON.stringify(body) : undefined,
     }).catch((error: unknown) => { throw new CalendarProviderError("network", "Google Kalender kunne ikke kontaktes. Dine lokale aftaler er ikke påvirket.", { cause: error }); });
     if (!response.ok) throw toProviderError(response);
@@ -120,15 +112,6 @@ export class GoogleCalendarApi {
     path: string,
     query: Record<string, string> = {},
   ): Promise<TItem[]> {
-    const accessToken = this.getAccessToken();
-
-    if (!accessToken) {
-      throw new CalendarProviderError(
-        "authentication",
-        "Google Kalender er ikke forbundet.",
-      );
-    }
-
     const items: TItem[] = [];
     let pageToken: string | undefined;
 
@@ -142,7 +125,7 @@ export class GoogleCalendarApi {
       try {
         response = await fetch(
           `${calendarApiBaseUrl}${path}?${searchParams.toString()}`,
-          { headers: { Authorization: `Bearer ${accessToken}` } },
+          { credentials: "same-origin" },
         );
       } catch (error: unknown) {
         throw new CalendarProviderError(

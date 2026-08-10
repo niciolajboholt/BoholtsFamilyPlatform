@@ -6,14 +6,10 @@ import type { CalendarProvider } from "./CalendarProvider";
 import { CompositeCalendarProvider } from "./CompositeCalendarProvider";
 import type { ExternalCalendarProvider } from "./CompositeCalendarProvider";
 import { GoogleCalendarProvider } from "./google/GoogleCalendarProvider";
-import { getGoogleCalendarConfig } from "./google/googleCalendarConfig";
-import { GoogleCalendarSession } from "./google/GoogleCalendarSession";
 import { OutlookCalendarProvider } from "./outlook/OutlookCalendarProvider";
 import { getOutlookCalendarConfig } from "./outlook/outlookCalendarConfig";
 import { OutlookCalendarSession } from "./outlook/OutlookCalendarSession";
 
-export const googleCalendarSession =
-  new GoogleCalendarSession();
 export const outlookCalendarSession =
   new OutlookCalendarSession();
 
@@ -42,10 +38,13 @@ export function createCalendarProvider(
   }
 }
 
-const googleCalendarProvider =
-  getGoogleCalendarConfig().enabled
-    ? new GoogleCalendarProvider(googleCalendarSession)
-    : null;
+// Fase 3: Google er ikke længere valgfrit konfigureret via en klient
+// env-var — enhver logget-ind bruger har allerede givet kalender-samtykke
+// ved login (Fase 1), så providerens egen "authentication"-fejl (401 fra
+// /api/calendar, hvis brugeren mod forventning ikke er forbundet) er
+// tilstrækkelig; CompositeCalendarProvider fanger den allerede og viser
+// providerId "google" som "disconnected" i stedet for at fejle hele siden.
+const googleCalendarProvider = new GoogleCalendarProvider();
 
 const outlookCalendarProvider =
   getOutlookCalendarConfig().enabled
@@ -53,13 +52,11 @@ const outlookCalendarProvider =
     : null;
 
 const externalProviders: ExternalCalendarProvider[] = [
-  ...(googleCalendarProvider
-    ? [{
-        providerId: "google" as const,
-        provider: googleCalendarProvider,
-        sourceIdPrefix: "google:",
-      }]
-    : []),
+  {
+    providerId: "google" as const,
+    provider: googleCalendarProvider,
+    sourceIdPrefix: "google:",
+  },
   ...(outlookCalendarProvider
     ? [{
         providerId: "outlook" as const,
@@ -94,9 +91,7 @@ export const calendarProvider =
  * respekterer eksklusion.
  */
 export function listAllGoogleCalendars(): Promise<CalendarSource[]> {
-  return googleCalendarProvider
-    ? googleCalendarProvider.listAllCalendars()
-    : Promise.resolve([]);
+  return googleCalendarProvider.listAllCalendars();
 }
 
 /**

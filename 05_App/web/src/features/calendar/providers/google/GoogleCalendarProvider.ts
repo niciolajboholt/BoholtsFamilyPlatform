@@ -4,7 +4,6 @@ import type { CalendarEventRange, CalendarSource } from "../../models/calendarPr
 import type { CalendarProvider } from "../CalendarProvider";
 import { CalendarProviderError } from "../calendarProviderErrors";
 import { GoogleCalendarApi } from "./GoogleCalendarApi";
-import { GoogleCalendarSession } from "./GoogleCalendarSession";
 import {
   mapGoogleCalendarEvent,
   mapGoogleCalendarSource,
@@ -19,16 +18,8 @@ import {
 import { getFamilyMembers } from "../../preferences/familyMembersStorage";
 
 export class GoogleCalendarProvider implements CalendarProvider {
-  private readonly api: GoogleCalendarApi;
+  private readonly api = new GoogleCalendarApi();
   private calendarSources: CalendarSource[] = [];
-
-  constructor(
-    session: GoogleCalendarSession,
-  ) {
-    this.api = new GoogleCalendarApi(
-      () => session.getAccessToken(),
-    );
-  }
 
   async getCalendars(): Promise<CalendarSource[]> {
     const calendars = await this.api.listCalendars();

@@ -54,7 +54,6 @@ import {
   restoreDataBackup,
 } from "../features/calendar/preferences/dataBackupStorage";
 import {
-  clearExcludedGoogleCalendars,
   getExcludedGoogleCalendarIds,
   setExcludedGoogleCalendars,
 } from "../features/calendar/preferences/googleCalendarExclusionStorage";
@@ -109,12 +108,8 @@ function SettingsPage() {
   }
 
   const {
-    isConfigured: isGoogleCalendarConfigured,
     isConnected: isGoogleCalendarConnected,
-    wasEverConnected: wasGoogleCalendarEverConnected,
-    isAttemptingSilentReconnect: isAttemptingGoogleSilentReconnect,
-    connect: connectGoogleCalendar,
-    disconnect: disconnectGoogleCalendar,
+    reconnect: reconnectGoogleCalendar,
   } = useGoogleCalendarConnection();
 
   const {
@@ -128,7 +123,6 @@ function SettingsPage() {
     disconnect: disconnectOutlookCalendar,
   } = useOutlookCalendarConnection();
 
-  const [isGoogleCalendarBusy, setIsGoogleCalendarBusy] = useState(false);
   const [isOutlookCalendarBusy, setIsOutlookCalendarBusy] = useState(false);
 
   const [activeSelectionProvider, setActiveSelectionProvider] = useState<
@@ -167,35 +161,6 @@ function SettingsPage() {
   function openCalendarSelectionDialog(provider: "google" | "outlook") {
     setActiveSelectionProvider(provider);
     void fetchCalendarsForSelection(provider);
-  }
-
-  async function handleToggleGoogleCalendar(): Promise<void> {
-    if (isGoogleCalendarConnected) {
-      disconnectGoogleCalendar();
-
-      // En (gen)forbindelse — evt. med en anden konto — bør starte forfra
-      // med alle kalendere til rådighed, ikke arve en tidligere kontos
-      // fravalg eller familie-tildelinger.
-      clearExcludedGoogleCalendars();
-      clearCalendarMemberMappings();
-
-      return;
-    }
-
-    setIsGoogleCalendarBusy(true);
-    try {
-      await connectGoogleCalendar();
-
-      // Lige efter en vellykket, interaktiv forbindelse — ikke ved Sprint
-      // 14's stille genoprettelse ved appstart, som slet ikke rører denne
-      // handler — spørger vi, hvilke af de fundne kalendere der skal vises.
-      openCalendarSelectionDialog("google");
-    } catch {
-      // Fejlen undlader blot at markere som forbundet — Kalender-siden
-      // viser fortsat "ikke forbundet", som er tilstrækkelig feedback.
-    } finally {
-      setIsGoogleCalendarBusy(false);
-    }
   }
 
   async function handleToggleOutlookCalendar(): Promise<void> {
@@ -326,12 +291,9 @@ function SettingsPage() {
     return wasEverConnected ? "Ikke forbundet i denne session" : "Ikke forbundet endnu";
   }
 
-  const googleCalendarStatusText = getProviderConnectionStatusText(
-    isGoogleCalendarConfigured,
-    isGoogleCalendarConnected,
-    isAttemptingGoogleSilentReconnect,
-    wasGoogleCalendarEverConnected,
-  );
+  const googleCalendarStatusText = isGoogleCalendarConnected
+    ? "Forbundet"
+    : "Forbindelsen mangler";
 
   const outlookCalendarStatusText = getProviderConnectionStatusText(
     isOutlookCalendarConfigured,
@@ -470,14 +432,26 @@ function SettingsPage() {
               label="Google Calendar"
               statusText={googleCalendarStatusText}
               isConnected={isGoogleCalendarConnected}
-              isConfigured={isGoogleCalendarConfigured}
-              isBusy={isGoogleCalendarBusy}
-              isAttemptingSilentReconnect={isAttemptingGoogleSilentReconnect}
+              isConfigured
+              isBusy={false}
+              isAttemptingSilentReconnect={false}
               onManageCalendars={() => openCalendarSelectionDialog("google")}
-              onToggleConnection={() => {
-                void handleToggleGoogleCalendar();
-              }}
             />
+
+            {!isGoogleCalendarConnected && (
+              <Alert
+                severity="warning"
+                sx={{ mt: 1.5 }}
+                action={
+                  <Button color="inherit" size="small" onClick={reconnectGoogleCalendar}>
+                    Forbind igen
+                  </Button>
+                }
+              >
+                Google Kalender-forbindelsen mangler — familiens kalender kan
+                ikke hentes, før den er genoprettet.
+              </Alert>
+            )}
 
             <Divider />
 

@@ -1,89 +1,54 @@
 import { useCallback, useEffect, useState } from "react";
 
-import { googleCalendarSession } from "../providers/calendarProviderFactory";
-
 interface UseGoogleCalendarConnectionResult {
-  isConfigured: boolean;
-  configurationError?: string;
+  isLoading: boolean;
   isConnected: boolean;
-  wasEverConnected: boolean;
-  isAttemptingSilentReconnect: boolean;
-  connect: () => Promise<void>;
-  disconnect: () => void;
+  reconnect: () => void;
+}
+
+interface CalendarStatusResponse {
+  connected: boolean;
 }
 
 /**
- * React-binding til appens generiske kalenderforbindelse. Google-detaljer
- * forbliver afgrænset til provider-laget.
+ * Fase 3: Google-samtykket sker allerede ved login (Fase 1) — "forbindelse"
+ * er derfor blot "har brugeren en google_connections-række på serveren".
+ * Der er intet klient-side token eller GSI-script tilbage; en manglende
+ * forbindelse (fx fordi brugeren har tilbagekaldt adgangen hos Google) løses
+ * ved at gennemføre login-flowet igen, ikke en separat "forbind"-handling.
  */
 export function useGoogleCalendarConnection(): UseGoogleCalendarConnectionResult {
-  const [isConnected, setIsConnected] = useState(
-    () => googleCalendarSession.isConnected(),
-  );
-
-  const [wasEverConnected, setWasEverConnected] = useState(
-    () => googleCalendarSession.wasEverConnected(),
-  );
-
-  const [isAttemptingSilentReconnect, setIsAttemptingSilentReconnect] =
-    useState(false);
-
-  const connect = useCallback(async (): Promise<void> => {
-    await googleCalendarSession.connect();
-    setIsConnected(true);
-    setWasEverConnected(true);
-  }, []);
-
-  const disconnect = useCallback((): void => {
-    googleCalendarSession.disconnect();
-    setIsConnected(false);
-    setWasEverConnected(false);
-  }, []);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
-    if (
-      !googleCalendarSession.isConfigured() ||
-      googleCalendarSession.isConnected() ||
-      !googleCalendarSession.wasEverConnected()
-    ) {
-      return;
-    }
+    let isCancelled = false;
 
-    let isCurrent = true;
+    fetch("/api/calendar/status", { credentials: "same-origin" })
+      .then(async (response) => {
+        if (!response.ok) {
+          return false;
+        }
 
-    // Sprint 14: try to restore the session invisibly (no Google prompt)
-    // when we know the user connected before. This effect synchronizes
-    // React state with an external system (Google's auth state) — the
-    // canonical use case for an effect — but the state change is only
-    // "new" once, on the mount where a silent reconnect is worth trying,
-    // so the lint rule's static check can't see it's not cascading.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setIsAttemptingSilentReconnect(true);
-
-    void googleCalendarSession.attemptSilentReconnect().then((didReconnect) => {
-      if (!isCurrent) {
-        return;
-      }
-
-      setIsAttemptingSilentReconnect(false);
-
-      if (didReconnect) {
-        setIsConnected(true);
-      }
-    });
+        const data: CalendarStatusResponse = await response.json();
+        return data.connected;
+      })
+      .catch(() => false)
+      .then((connected) => {
+        if (!isCancelled) {
+          setIsConnected(connected);
+          setIsLoading(false);
+        }
+      });
 
     return () => {
-      isCurrent = false;
+      isCancelled = true;
     };
   }, []);
 
-  return {
-    isConfigured: googleCalendarSession.isConfigured(),
-    configurationError: googleCalendarSession.getConfigurationError(),
-    isConnected,
-    wasEverConnected,
-    isAttemptingSilentReconnect,
-    connect,
-    disconnect,
-  };
+  const reconnect = useCallback((): void => {
+    window.location.href = "/auth/google/begin";
+  }, []);
+
+  return { isLoading, isConnected, reconnect };
 }
