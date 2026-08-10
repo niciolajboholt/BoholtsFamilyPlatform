@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
 
+import { clearCurrentMemberId } from "../../calendar/preferences/currentMemberStorage";
+import { clearFamilyMembers } from "../../calendar/preferences/familyMembersStorage";
+
 export interface SessionUser {
   id: string;
   email: string;
@@ -57,6 +60,12 @@ export function useSession(): UseSessionResult {
       method: "POST",
       credentials: "same-origin",
     });
+
+    // En anden bruger kan logge ind på samme enhed bagefter — uden dette
+    // ville de arve denne brugers familie fra den lokale cache, fordi
+    // hasCompletedFamilySetup() stadig ville være sand.
+    clearFamilyMembers();
+    clearCurrentMemberId();
     setUser(null);
   }
 

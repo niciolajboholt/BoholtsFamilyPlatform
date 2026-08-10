@@ -102,3 +102,17 @@ export function getFamilyMemberIds(): string[] {
 export function hasCompletedFamilySetup(): boolean {
   return readStoredMembers() !== null;
 }
+
+// Fase 2: kaldes ved log ud, så en anden bruger, der logger ind på samme
+// enhed bagefter, ikke arver den forrige brugers familie fra den lokale
+// cache — uden dette ville hasCompletedFamilySetup() stadig være sand, og
+// AppLayout ville aldrig spørge serveren om den nye brugers egen familie.
+export function clearFamilyMembers(): void {
+  try {
+    window.localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // Storage utilgængelig — intet at rydde.
+  }
+
+  window.dispatchEvent(new Event(familyMembersChangedEvent));
+}
