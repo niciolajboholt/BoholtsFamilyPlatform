@@ -1,5 +1,5 @@
 import { ChevronRightRounded, SyncRounded } from "@mui/icons-material";
-import { Avatar, Box, CircularProgress, IconButton, Typography } from "@mui/material";
+import { Avatar, Box, Button, CircularProgress, IconButton, Typography } from "@mui/material";
 
 interface ProviderConnectionRowProps {
   label: string;
@@ -38,21 +38,14 @@ export function ProviderConnectionRow({
         py: 1.5,
       }}
     >
-      <IconButton
-        aria-label={`Administrer ${label}`}
-        disabled={!isConnected}
-        onClick={onManageCalendars}
-        sx={{ p: 0 }}
+      <Avatar
+        sx={{
+          bgcolor: "background.default",
+          color: "text.primary",
+        }}
       >
-        <Avatar
-          sx={{
-            bgcolor: "background.default",
-            color: "text.primary",
-          }}
-        >
-          <SyncRounded />
-        </Avatar>
-      </IconButton>
+        <SyncRounded />
+      </Avatar>
 
       <Box sx={{ flexGrow: 1 }}>
         <Typography sx={{ fontWeight: 600 }}>
@@ -63,6 +56,12 @@ export function ProviderConnectionRow({
           {statusText}
         </Typography>
       </Box>
+
+      {isConnected && (
+        <Button size="small" onClick={onManageCalendars}>
+          Vælg og navngiv kalendere
+        </Button>
+      )}
 
       {onToggleConnection && (
         <IconButton
