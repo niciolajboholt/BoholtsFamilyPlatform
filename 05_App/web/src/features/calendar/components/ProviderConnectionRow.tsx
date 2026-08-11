@@ -34,27 +34,40 @@ export function ProviderConnectionRow({
       sx={{
         display: "flex",
         alignItems: "center",
-        gap: 1.5,
         py: 1.5,
       }}
     >
-      <Avatar
+      {/* Ikon og tekst grupperes og centreres sammen, i stedet for at teksten
+          centreres alene i den fulde resterende bredde — ellers ender
+          teksten langt fra ikonet, når der ikke er en kontrol i højre side
+          (Google-rækken efter Fase 3) til at afbalancere bredden. */}
+      <Box
         sx={{
-          bgcolor: "background.default",
-          color: "text.primary",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 1.5,
+          flexGrow: 1,
         }}
       >
-        <SyncRounded />
-      </Avatar>
+        <Avatar
+          sx={{
+            bgcolor: "background.default",
+            color: "text.primary",
+          }}
+        >
+          <SyncRounded />
+        </Avatar>
 
-      <Box sx={{ flexGrow: 1, textAlign: "center" }}>
-        <Typography sx={{ fontWeight: 600 }}>
-          {label}
-        </Typography>
+        <Box sx={{ textAlign: "center" }}>
+          <Typography sx={{ fontWeight: 600 }}>
+            {label}
+          </Typography>
 
-        <Typography variant="body2" color="text.secondary">
-          {statusText}
-        </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {statusText}
+          </Typography>
+        </Box>
       </Box>
 
       {onToggleConnection && (

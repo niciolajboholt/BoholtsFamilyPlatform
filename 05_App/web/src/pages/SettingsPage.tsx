@@ -301,45 +301,58 @@ function SettingsPage() {
                       sx={{
                         display: "flex",
                         alignItems: "center",
-                        gap: 1.5,
                         py: 1.5,
                       }}
                     >
-                      <Avatar
+                      {/* Avatar og tekst grupperes og centreres sammen, i
+                          stedet for at teksten centreres alene i den fulde
+                          resterende bredde mellem avatar og rediger-knap —
+                          ellers ender teksten langt fra avataren. */}
+                      <Box
                         sx={{
-                          bgcolor: member.color,
-                          width: 42,
-                          height: 42,
-                          fontWeight: 700,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: 1.5,
+                          flexGrow: 1,
                         }}
                       >
-                        {getInitials(member.name)}
-                      </Avatar>
+                        <Avatar
+                          sx={{
+                            bgcolor: member.color,
+                            width: 42,
+                            height: 42,
+                            fontWeight: 700,
+                          }}
+                        >
+                          {getInitials(member.name)}
+                        </Avatar>
 
-                      <Box sx={{ flexGrow: 1, textAlign: "center" }}>
-                        <Typography sx={{ fontWeight: 600 }}>
-                          {member.name}
-                        </Typography>
-
-                        <Typography variant="body2" color="text.secondary">
-                          {member.relation ?? "Delt profil"}
-                        </Typography>
-
-                        {mappedCalendarLabel && (
-                          <Typography
-                            variant="caption"
-                            color="text.secondary"
-                            sx={{
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              gap: 0.5,
-                            }}
-                          >
-                            <CalendarMonthRounded sx={{ fontSize: 14 }} />
-                            {mappedCalendarLabel}
+                        <Box sx={{ textAlign: "center" }}>
+                          <Typography sx={{ fontWeight: 600 }}>
+                            {member.name}
                           </Typography>
-                        )}
+
+                          <Typography variant="body2" color="text.secondary">
+                            {member.relation ?? "Delt profil"}
+                          </Typography>
+
+                          {mappedCalendarLabel && (
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                              sx={{
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                gap: 0.5,
+                              }}
+                            >
+                              <CalendarMonthRounded sx={{ fontSize: 14 }} />
+                              {mappedCalendarLabel}
+                            </Typography>
+                          )}
+                        </Box>
                       </Box>
 
                       <IconButton
@@ -505,24 +518,27 @@ function SettingsPage() {
               Appindstillinger
             </Typography>
 
-            <Box
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                gap: 1.5,
-                py: 1.5,
-              }}
-            >
-              <NotificationsRounded color="action" />
+            <Box sx={{ display: "flex", alignItems: "center", py: 1.5 }}>
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 1.5,
+                  flexGrow: 1,
+                }}
+              >
+                <NotificationsRounded color="action" />
 
-              <Box sx={{ flexGrow: 1, textAlign: "center" }}>
-                <Typography sx={{ fontWeight: 600 }}>
-                  Notifikationer
-                </Typography>
+                <Box sx={{ textAlign: "center" }}>
+                  <Typography sx={{ fontWeight: 600 }}>
+                    Notifikationer
+                  </Typography>
 
-                <Typography variant="body2" color="text.secondary">
-                  Påmindelser om aftaler og opgaver
-                </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Påmindelser om aftaler og opgaver
+                  </Typography>
+                </Box>
               </Box>
 
               <Switch defaultChecked />
@@ -530,24 +546,27 @@ function SettingsPage() {
 
             <Divider />
 
-            <Box
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                gap: 1.5,
-                py: 1.5,
-              }}
-            >
-              <DarkModeRounded color="action" />
+            <Box sx={{ display: "flex", alignItems: "center", py: 1.5 }}>
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 1.5,
+                  flexGrow: 1,
+                }}
+              >
+                <DarkModeRounded color="action" />
 
-              <Box sx={{ flexGrow: 1, textAlign: "center" }}>
-                <Typography sx={{ fontWeight: 600 }}>
-                  Mørkt tema
-                </Typography>
+                <Box sx={{ textAlign: "center" }}>
+                  <Typography sx={{ fontWeight: 600 }}>
+                    Mørkt tema
+                  </Typography>
 
-                <Typography variant="body2" color="text.secondary">
-                  Forberedt til en senere sprint
-                </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Forberedt til en senere sprint
+                  </Typography>
+                </Box>
               </Box>
 
               <Switch disabled />
@@ -555,24 +574,27 @@ function SettingsPage() {
 
             <Divider />
 
-            <Box
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                gap: 1.5,
-                py: 1.5,
-              }}
-            >
-              <PersonRounded color="action" />
+            <Box sx={{ display: "flex", alignItems: "center", py: 1.5 }}>
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 1.5,
+                  flexGrow: 1,
+                }}
+              >
+                <PersonRounded color="action" />
 
-              <Box sx={{ flexGrow: 1, textAlign: "center" }}>
-                <Typography sx={{ fontWeight: 600 }}>
-                  Min profil
-                </Typography>
+                <Box sx={{ textAlign: "center" }}>
+                  <Typography sx={{ fontWeight: 600 }}>
+                    Min profil
+                  </Typography>
 
-                <Typography variant="body2" color="text.secondary">
-                  {currentMember?.name ?? "Vælg din profil"}
-                </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {currentMember?.name ?? "Vælg din profil"}
+                  </Typography>
+                </Box>
               </Box>
 
               <IconButton
@@ -587,22 +609,25 @@ function SettingsPage() {
               <>
                 <Divider />
 
-                <Box
-                  sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 1.5,
-                    py: 1.5,
-                  }}
-                >
-                  <LogoutRounded color="action" />
+                <Box sx={{ display: "flex", alignItems: "center", py: 1.5 }}>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 1.5,
+                      flexGrow: 1,
+                    }}
+                  >
+                    <LogoutRounded color="action" />
 
-                  <Box sx={{ flexGrow: 1, textAlign: "center" }}>
-                    <Typography sx={{ fontWeight: 600 }}>Log ud</Typography>
+                    <Box sx={{ textAlign: "center" }}>
+                      <Typography sx={{ fontWeight: 600 }}>Log ud</Typography>
 
-                    <Typography variant="body2" color="text.secondary">
-                      {user.email}
-                    </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        {user.email}
+                      </Typography>
+                    </Box>
                   </Box>
 
                   <Button color="error" onClick={() => void logout()}>
