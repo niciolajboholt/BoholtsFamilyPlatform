@@ -47,7 +47,7 @@ export function ProviderConnectionRow({
         <SyncRounded />
       </Avatar>
 
-      <Box sx={{ flexGrow: 1 }}>
+      <Box sx={{ flexGrow: 1, textAlign: "center" }}>
         <Typography sx={{ fontWeight: 600 }}>
           {label}
         </Typography>

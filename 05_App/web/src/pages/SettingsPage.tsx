@@ -316,7 +316,7 @@ function SettingsPage() {
                         {getInitials(member.name)}
                       </Avatar>
 
-                      <Box sx={{ flexGrow: 1 }}>
+                      <Box sx={{ flexGrow: 1, textAlign: "center" }}>
                         <Typography sx={{ fontWeight: 600 }}>
                           {member.name}
                         </Typography>
@@ -332,6 +332,7 @@ function SettingsPage() {
                             sx={{
                               display: "flex",
                               alignItems: "center",
+                              justifyContent: "center",
                               gap: 0.5,
                             }}
                           >
@@ -514,7 +515,7 @@ function SettingsPage() {
             >
               <NotificationsRounded color="action" />
 
-              <Box sx={{ flexGrow: 1 }}>
+              <Box sx={{ flexGrow: 1, textAlign: "center" }}>
                 <Typography sx={{ fontWeight: 600 }}>
                   Notifikationer
                 </Typography>
@@ -539,7 +540,7 @@ function SettingsPage() {
             >
               <DarkModeRounded color="action" />
 
-              <Box sx={{ flexGrow: 1 }}>
+              <Box sx={{ flexGrow: 1, textAlign: "center" }}>
                 <Typography sx={{ fontWeight: 600 }}>
                   Mørkt tema
                 </Typography>
@@ -564,7 +565,7 @@ function SettingsPage() {
             >
               <PersonRounded color="action" />
 
-              <Box sx={{ flexGrow: 1 }}>
+              <Box sx={{ flexGrow: 1, textAlign: "center" }}>
                 <Typography sx={{ fontWeight: 600 }}>
                   Min profil
                 </Typography>
@@ -596,7 +597,7 @@ function SettingsPage() {
                 >
                   <LogoutRounded color="action" />
 
-                  <Box sx={{ flexGrow: 1 }}>
+                  <Box sx={{ flexGrow: 1, textAlign: "center" }}>
                     <Typography sx={{ fontWeight: 600 }}>Log ud</Typography>
 
                     <Typography variant="body2" color="text.secondary">
