@@ -72,6 +72,19 @@ export function getOwnerIdForGoogleCalendar(
 }
 
 /**
+ * Modsat opslag af getOwnerIdForGoogleCalendar — bruges af
+ * FamilyMemberDialog til at forududfylde, hvilken kalender et medlem allerede
+ * har. Et medlem kan i princippet have flere kalendere mappet til sig, men
+ * dialogen tilbyder kun at vise/redigere én ad gangen — den først fundne.
+ */
+export function getCalendarIdForOwner(
+  ownerId: CalendarOwnerId,
+): string | undefined {
+  return readMappings().find((entry) => entry.ownerId === ownerId)
+    ?.googleCalendarId;
+}
+
+/**
  * Samme tildelinger som getCalendarMemberMappings(), men slået op til de
  * faktiske familiemedlem-objekter (navn, farve) i stedet for bare id'er —
  * delt af Google- og Outlook-provideren, som ellers hver havde en identisk
