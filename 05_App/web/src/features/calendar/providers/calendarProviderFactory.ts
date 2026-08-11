@@ -6,7 +6,9 @@ import type { CalendarProvider } from "./CalendarProvider";
 import { CompositeCalendarProvider } from "./CompositeCalendarProvider";
 import type { ExternalCalendarProvider } from "./CompositeCalendarProvider";
 import { GoogleCalendarProvider } from "./google/GoogleCalendarProvider";
+import { decodeGoogleCalendarSourceId } from "./google/googleCalendarIds";
 import { OutlookCalendarProvider } from "./outlook/OutlookCalendarProvider";
+import { decodeOutlookCalendarSourceId } from "./outlook/outlookCalendarIds";
 import { getOutlookCalendarConfig } from "./outlook/outlookCalendarConfig";
 import { OutlookCalendarSession } from "./outlook/OutlookCalendarSession";
 
@@ -101,4 +103,50 @@ export function listAllOutlookCalendars(): Promise<CalendarSource[]> {
   return outlookCalendarProvider
     ? outlookCalendarProvider.listAllCalendars()
     : Promise.resolve([]);
+}
+
+export interface MappableCalendarOption {
+  // Det rå provider-kalender-id (ikke det kodede sourceId) — samme form som
+  // calendarMemberMappingStorage.ts gemmer, så et valg her kan skrives
+  // direkte uden yderligere oversættelse.
+  rawCalendarId: string;
+  label: string;
+}
+
+/**
+ * Alle kalendere fra alle forbundne konti, i den form
+ * kalender-til-familiemedlem-tildelingen (FamilyMemberDialog, ADR-014)
+ * har brug for — delt så både dialogen og familielisten i Indstillinger kan
+ * slå et rå kalender-id op til et menneskeligt navn.
+ */
+export async function listAllMappableCalendars(): Promise<
+  MappableCalendarOption[]
+> {
+  const [googleCalendars, outlookCalendars] = await Promise.all([
+    listAllGoogleCalendars(),
+    listAllOutlookCalendars(),
+  ]);
+
+  const options: MappableCalendarOption[] = [];
+
+  for (const source of [...googleCalendars, ...outlookCalendars]) {
+    try {
+      if (source.providerType === "google") {
+        options.push({
+          rawCalendarId: decodeGoogleCalendarSourceId(source.id),
+          label: `${source.name} (Google)`,
+        });
+      } else if (source.providerType === "outlook") {
+        options.push({
+          rawCalendarId: decodeOutlookCalendarSourceId(source.id),
+          label: `${source.name} (Outlook)`,
+        });
+      }
+    } catch {
+      // En kilde med et uventet id-format springes over — bør ikke ske i
+      // praksis, da id'et altid kommer fra samme providers egen encode-fn.
+    }
+  }
+
+  return options;
 }

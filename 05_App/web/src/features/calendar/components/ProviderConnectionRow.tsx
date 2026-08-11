@@ -1,5 +1,5 @@
-import { ChevronRightRounded, SyncRounded, TuneRounded } from "@mui/icons-material";
-import { Avatar, Box, Button, CircularProgress, IconButton, Typography } from "@mui/material";
+import { ChevronRightRounded, SyncRounded } from "@mui/icons-material";
+import { Avatar, Box, CircularProgress, IconButton, Typography } from "@mui/material";
 
 interface ProviderConnectionRowProps {
   label: string;
@@ -8,7 +8,6 @@ interface ProviderConnectionRowProps {
   isConfigured: boolean;
   isBusy: boolean;
   isAttemptingSilentReconnect: boolean;
-  onManageCalendars: () => void;
   // Udeladt for en provider uden en manuel forbind/afbryd-handling (Fase 3:
   // Google forbindes allerede ved login) — rækken viser da kun status.
   onToggleConnection?: () => void;
@@ -17,7 +16,9 @@ interface ProviderConnectionRowProps {
 /**
  * Én række i "Kalenderforbindelser"-kortet — delt af Google og Outlook (og
  * senere Apple), så SettingsPage ikke skal gentage det samme layout for
- * hver provider.
+ * hver provider. Kalender-til-familiemedlem-tildeling sker ikke længere her
+ * (Fase 3) — den flyttede ind i "Rediger familiemedlem", så rækken viser nu
+ * kun forbindelsesstatus.
  */
 export function ProviderConnectionRow({
   label,
@@ -26,61 +27,48 @@ export function ProviderConnectionRow({
   isConfigured,
   isBusy,
   isAttemptingSilentReconnect,
-  onManageCalendars,
   onToggleConnection,
 }: ProviderConnectionRowProps) {
   return (
-    <Box sx={{ py: 1.5 }}>
-      <Box
+    <Box
+      sx={{
+        display: "flex",
+        alignItems: "center",
+        gap: 1.5,
+        py: 1.5,
+      }}
+    >
+      <Avatar
         sx={{
-          display: "flex",
-          alignItems: "center",
-          gap: 1.5,
+          bgcolor: "background.default",
+          color: "text.primary",
         }}
       >
-        <Avatar
-          sx={{
-            bgcolor: "background.default",
-            color: "text.primary",
-          }}
-        >
-          <SyncRounded />
-        </Avatar>
+        <SyncRounded />
+      </Avatar>
 
-        <Box sx={{ flexGrow: 1 }}>
-          <Typography sx={{ fontWeight: 600 }}>
-            {label}
-          </Typography>
+      <Box sx={{ flexGrow: 1 }}>
+        <Typography sx={{ fontWeight: 600 }}>
+          {label}
+        </Typography>
 
-          <Typography variant="body2" color="text.secondary">
-            {statusText}
-          </Typography>
-        </Box>
-
-        {onToggleConnection && (
-          <IconButton
-            aria-label={isConnected ? `Afbryd ${label}` : `Forbind ${label}`}
-            disabled={!isConfigured || isBusy || isAttemptingSilentReconnect}
-            onClick={onToggleConnection}
-          >
-            {isBusy || isAttemptingSilentReconnect ? (
-              <CircularProgress size={20} />
-            ) : (
-              <ChevronRightRounded />
-            )}
-          </IconButton>
-        )}
+        <Typography variant="body2" color="text.secondary">
+          {statusText}
+        </Typography>
       </Box>
 
-      {isConnected && (
-        <Button
-          size="small"
-          onClick={onManageCalendars}
-          startIcon={<TuneRounded fontSize="small" />}
-          sx={{ ml: 7, mt: 0.5, textTransform: "none", fontWeight: 500 }}
+      {onToggleConnection && (
+        <IconButton
+          aria-label={isConnected ? `Afbryd ${label}` : `Forbind ${label}`}
+          disabled={!isConfigured || isBusy || isAttemptingSilentReconnect}
+          onClick={onToggleConnection}
         >
-          Vælg og navngiv kalendere
-        </Button>
+          {isBusy || isAttemptingSilentReconnect ? (
+            <CircularProgress size={20} />
+          ) : (
+            <ChevronRightRounded />
+          )}
+        </IconButton>
       )}
     </Box>
   );

@@ -20,48 +20,12 @@ import { familyMemberRelations } from "../data/familyMemberRelations";
 import type { FamilyMemberRelation } from "../data/familyMemberRelations";
 import { familyPseudoMemberId } from "../models/calendarEvent";
 import type { FamilyMemberInput } from "../hooks/useFamilyMembers";
-import type { CalendarSource } from "../models/calendarProvider";
-import {
-  listAllGoogleCalendars,
-  listAllOutlookCalendars,
-} from "../providers/calendarProviderFactory";
-import { decodeGoogleCalendarSourceId } from "../providers/google/googleCalendarIds";
-import { decodeOutlookCalendarSourceId } from "../providers/outlook/outlookCalendarIds";
+import type { MappableCalendarOption } from "../providers/calendarProviderFactory";
+import { listAllMappableCalendars } from "../providers/calendarProviderFactory";
 import {
   getCalendarIdForOwner,
   setCalendarMemberMapping,
 } from "../preferences/calendarMemberMappingStorage";
-
-interface CalendarOption {
-  rawCalendarId: string;
-  label: string;
-}
-
-// Dialogens dropdown skal kunne sætte mappingen direkte via
-// setCalendarMemberMapping (rå provider-kalender-id), men listAllGoogle/
-// OutlookCalendars() returnerer kilder med et kodet sourceId ("google:...").
-// Afkodning her holder resten af dialogen fri af provider-detaljer.
-function toCalendarOption(source: CalendarSource): CalendarOption | null {
-  try {
-    if (source.providerType === "google") {
-      return {
-        rawCalendarId: decodeGoogleCalendarSourceId(source.id),
-        label: `${source.name} (Google)`,
-      };
-    }
-
-    if (source.providerType === "outlook") {
-      return {
-        rawCalendarId: decodeOutlookCalendarSourceId(source.id),
-        label: `${source.name} (Outlook)`,
-      };
-    }
-
-    return null;
-  } catch {
-    return null;
-  }
-}
 
 interface FamilyMemberDialogProps {
   open: boolean;
@@ -89,7 +53,9 @@ export function FamilyMemberDialog({
   const [isNameTouched, setIsNameTouched] = useState(false);
   const [isDeleteConfirmVisible, setIsDeleteConfirmVisible] = useState(false);
   const [selectedCalendarId, setSelectedCalendarId] = useState("");
-  const [calendarOptions, setCalendarOptions] = useState<CalendarOption[]>([]);
+  const [calendarOptions, setCalendarOptions] = useState<
+    MappableCalendarOption[]
+  >([]);
   const [isLoadingCalendarOptions, setIsLoadingCalendarOptions] =
     useState(false);
 
@@ -127,17 +93,11 @@ export function FamilyMemberDialog({
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsLoadingCalendarOptions(true);
 
-    Promise.all([listAllGoogleCalendars(), listAllOutlookCalendars()])
-      .then(([googleCalendars, outlookCalendars]) => {
-        if (isCancelled) {
-          return;
+    listAllMappableCalendars()
+      .then((options) => {
+        if (!isCancelled) {
+          setCalendarOptions(options);
         }
-
-        const options = [...googleCalendars, ...outlookCalendars]
-          .map(toCalendarOption)
-          .filter((option): option is CalendarOption => option !== null);
-
-        setCalendarOptions(options);
       })
       .catch(() => {
         if (!isCancelled) {

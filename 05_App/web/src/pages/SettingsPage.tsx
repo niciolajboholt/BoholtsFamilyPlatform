@@ -1,5 +1,5 @@
 import type { ChangeEvent } from "react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import AddIcon from "@mui/icons-material/Add";
 import {
@@ -31,11 +31,6 @@ import {
 import { FamilyMemberDialog } from "../features/calendar/components/FamilyMemberDialog";
 import { useSession } from "../features/auth/hooks/useSession";
 import { InviteCodeCard } from "../features/family/InviteCodeCard";
-import type {
-  CalendarMemberAssignment,
-  CalendarNameOverride,
-} from "../features/calendar/components/CalendarSelectionDialog";
-import { CalendarSelectionDialog } from "../features/calendar/components/CalendarSelectionDialog";
 import { CurrentMemberPickerDialog } from "../features/calendar/components/CurrentMemberPickerDialog";
 import { ProviderConnectionRow } from "../features/calendar/components/ProviderConnectionRow";
 import type { CalendarOwner } from "../features/calendar/data/calendarOwners";
@@ -43,29 +38,17 @@ import { useCurrentMember } from "../features/calendar/hooks/useCurrentMember";
 import { useFamilyMembers } from "../features/calendar/hooks/useFamilyMembers";
 import { useGoogleCalendarConnection } from "../features/calendar/hooks/useGoogleCalendarConnection";
 import { useOutlookCalendarConnection } from "../features/calendar/hooks/useOutlookCalendarConnection";
-import type { CalendarSource } from "../features/calendar/models/calendarProvider";
 import {
   clearCalendarMemberMappings,
-  getOwnerIdForGoogleCalendar,
-  setCalendarMemberMapping,
+  getCalendarIdForOwner,
 } from "../features/calendar/preferences/calendarMemberMappingStorage";
 import {
   createDataBackup,
   restoreDataBackup,
 } from "../features/calendar/preferences/dataBackupStorage";
-import {
-  getExcludedGoogleCalendarIds,
-  setExcludedGoogleCalendars,
-} from "../features/calendar/preferences/googleCalendarExclusionStorage";
-import {
-  clearExcludedOutlookCalendars,
-  getExcludedOutlookCalendarIds,
-  setExcludedOutlookCalendars,
-} from "../features/calendar/providers/outlook/outlookCalendarExclusionStorage";
-import {
-  listAllGoogleCalendars,
-  listAllOutlookCalendars,
-} from "../features/calendar/providers/calendarProviderFactory";
+import { clearExcludedOutlookCalendars } from "../features/calendar/providers/outlook/outlookCalendarExclusionStorage";
+import type { MappableCalendarOption } from "../features/calendar/providers/calendarProviderFactory";
+import { listAllMappableCalendars } from "../features/calendar/providers/calendarProviderFactory";
 import { getInitials } from "../features/calendar/utils/getInitials";
 
 function SettingsPage() {
@@ -125,43 +108,36 @@ function SettingsPage() {
 
   const [isOutlookCalendarBusy, setIsOutlookCalendarBusy] = useState(false);
 
-  const [activeSelectionProvider, setActiveSelectionProvider] = useState<
-    "google" | "outlook" | null
-  >(null);
-  const [calendarsForSelection, setCalendarsForSelection] = useState<
-    CalendarSource[]
+  // Kalender-til-medlem-visning (kun læsning her — selve tildelingen sker i
+  // FamilyMemberDialog) — hentes én gang, så familielisten kan vise hvilken
+  // kalender hvert medlem allerede er koblet til.
+  const [calendarOptions, setCalendarOptions] = useState<
+    MappableCalendarOption[]
   >([]);
-  const [isFetchingCalendarsForSelection, setIsFetchingCalendarsForSelection] =
-    useState(false);
-  const [fetchCalendarsForSelectionError, setFetchCalendarsForSelectionError] =
-    useState<string | null>(null);
 
-  async function fetchCalendarsForSelection(
-    provider: "google" | "outlook",
-  ): Promise<void> {
-    setIsFetchingCalendarsForSelection(true);
-    setFetchCalendarsForSelectionError(null);
+  useEffect(() => {
+    let isCancelled = false;
 
-    try {
-      const sources =
-        provider === "google"
-          ? await listAllGoogleCalendars()
-          : await listAllOutlookCalendars();
+    listAllMappableCalendars()
+      .then((options) => {
+        if (!isCancelled) {
+          setCalendarOptions(options);
+        }
+      })
+      .catch(() => {
+        if (!isCancelled) {
+          setCalendarOptions([]);
+        }
+      });
 
-      setCalendarsForSelection(sources);
-    } catch {
-      setFetchCalendarsForSelectionError(
-        `Dine ${provider === "google" ? "Google" : "Outlook"}-kalendere kunne ikke hentes.`,
-      );
-    } finally {
-      setIsFetchingCalendarsForSelection(false);
-    }
-  }
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
 
-  function openCalendarSelectionDialog(provider: "google" | "outlook") {
-    setActiveSelectionProvider(provider);
-    void fetchCalendarsForSelection(provider);
-  }
+  const calendarLabelByRawId = new Map(
+    calendarOptions.map((option) => [option.rawCalendarId, option.label]),
+  );
 
   async function handleToggleOutlookCalendar(): Promise<void> {
     if (isOutlookCalendarConnected) {
@@ -185,42 +161,6 @@ function SettingsPage() {
     } finally {
       setIsOutlookCalendarBusy(false);
     }
-  }
-
-  function handleConfirmCalendarSelection(
-    excludedCalendarIds: string[],
-    memberAssignments: CalendarMemberAssignment[],
-    nameOverrides: CalendarNameOverride[],
-  ) {
-    if (activeSelectionProvider === "google") {
-      setExcludedGoogleCalendars(excludedCalendarIds);
-    } else if (activeSelectionProvider === "outlook") {
-      setExcludedOutlookCalendars(excludedCalendarIds);
-    }
-
-    for (const assignment of memberAssignments) {
-      setCalendarMemberMapping(assignment.calendarId, assignment.ownerId);
-    }
-
-    for (const override of nameOverrides) {
-      const currentMember = members.find(
-        (member) => member.id === override.ownerId,
-      );
-      if (!currentMember) continue;
-
-      updateMember(override.ownerId, {
-        name: override.newName,
-        relation: currentMember.relation,
-        color: currentMember.color,
-        isPlaceholderName: false,
-      });
-    }
-
-    setActiveSelectionProvider(null);
-  }
-
-  function handleSkipCalendarSelection() {
-    setActiveSelectionProvider(null);
   }
 
   const importFileInputRef = useRef<HTMLInputElement | null>(null);
@@ -349,48 +289,70 @@ function SettingsPage() {
             </Box>
 
             <Box sx={{ display: "grid", gap: 0 }}>
-              {members.map((member, index) => (
-                <Box key={member.id}>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 1.5,
-                      py: 1.5,
-                    }}
-                  >
-                    <Avatar
+              {members.map((member, index) => {
+                const mappedCalendarId = getCalendarIdForOwner(member.id);
+                const mappedCalendarLabel = mappedCalendarId
+                  ? calendarLabelByRawId.get(mappedCalendarId)
+                  : undefined;
+
+                return (
+                  <Box key={member.id}>
+                    <Box
                       sx={{
-                        bgcolor: member.color,
-                        width: 42,
-                        height: 42,
-                        fontWeight: 700,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1.5,
+                        py: 1.5,
                       }}
                     >
-                      {getInitials(member.name)}
-                    </Avatar>
+                      <Avatar
+                        sx={{
+                          bgcolor: member.color,
+                          width: 42,
+                          height: 42,
+                          fontWeight: 700,
+                        }}
+                      >
+                        {getInitials(member.name)}
+                      </Avatar>
 
-                    <Box sx={{ flexGrow: 1 }}>
-                      <Typography sx={{ fontWeight: 600 }}>
-                        {member.name}
-                      </Typography>
+                      <Box sx={{ flexGrow: 1 }}>
+                        <Typography sx={{ fontWeight: 600 }}>
+                          {member.name}
+                        </Typography>
 
-                      <Typography variant="body2" color="text.secondary">
-                        {member.relation ?? "Delt profil"}
-                      </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {member.relation ?? "Delt profil"}
+                        </Typography>
+
+                        {mappedCalendarLabel && (
+                          <Typography
+                            variant="caption"
+                            color="text.secondary"
+                            sx={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 0.5,
+                            }}
+                          >
+                            <CalendarMonthRounded sx={{ fontSize: 14 }} />
+                            {mappedCalendarLabel}
+                          </Typography>
+                        )}
+                      </Box>
+
+                      <IconButton
+                        aria-label={`Rediger ${member.name}`}
+                        onClick={() => handleOpenEditMember(member)}
+                      >
+                        <ChevronRightRounded />
+                      </IconButton>
                     </Box>
 
-                    <IconButton
-                      aria-label={`Rediger ${member.name}`}
-                      onClick={() => handleOpenEditMember(member)}
-                    >
-                      <ChevronRightRounded />
-                    </IconButton>
+                    {index < members.length - 1 && <Divider />}
                   </Box>
-
-                  {index < members.length - 1 && <Divider />}
-                </Box>
-              ))}
+                );
+              })}
             </Box>
           </CardContent>
         </Card>
@@ -435,7 +397,6 @@ function SettingsPage() {
               isConfigured
               isBusy={false}
               isAttemptingSilentReconnect={false}
-              onManageCalendars={() => openCalendarSelectionDialog("google")}
             />
 
             {!isGoogleCalendarConnected && (
@@ -462,7 +423,6 @@ function SettingsPage() {
               isConfigured={isOutlookCalendarConfigured}
               isBusy={isOutlookCalendarBusy}
               isAttemptingSilentReconnect={isAttemptingOutlookSilentReconnect}
-              onManageCalendars={() => openCalendarSelectionDialog("outlook")}
               onToggleConnection={() => {
                 void handleToggleOutlookCalendar();
               }}
@@ -659,25 +619,6 @@ function SettingsPage() {
         members={members}
         onClose={() => setIsCurrentMemberPickerOpen(false)}
         onSelect={setCurrentMemberId}
-      />
-
-      <CalendarSelectionDialog
-        open={activeSelectionProvider !== null}
-        providerLabel={activeSelectionProvider === "outlook" ? "Outlook" : "Google"}
-        calendars={calendarsForSelection}
-        isLoading={isFetchingCalendarsForSelection}
-        error={fetchCalendarsForSelectionError}
-        getExcludedIds={() =>
-          activeSelectionProvider === "outlook"
-            ? getExcludedOutlookCalendarIds()
-            : getExcludedGoogleCalendarIds()
-        }
-        getOwnerId={getOwnerIdForGoogleCalendar}
-        onRetry={() => {
-          if (activeSelectionProvider) void fetchCalendarsForSelection(activeSelectionProvider);
-        }}
-        onSkip={handleSkipCalendarSelection}
-        onConfirm={handleConfirmCalendarSelection}
       />
     </Box>
   );
