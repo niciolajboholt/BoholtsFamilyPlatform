@@ -24,6 +24,7 @@ import type { MappableCalendarOption } from "../providers/calendarProviderFactor
 import { listAllMappableCalendars } from "../providers/calendarProviderFactory";
 import {
   getCalendarIdForOwner,
+  refreshCalendarMemberMappingsFromServer,
   setCalendarMemberMapping,
 } from "../preferences/calendarMemberMappingStorage";
 
@@ -73,7 +74,9 @@ export function FamilyMemberDialog({
     setColor(member?.color ?? colorSwatches[0]);
     setIsNameTouched(false);
     setIsDeleteConfirmVisible(false);
-    setSelectedCalendarId(member ? getCalendarIdForOwner(member.id) ?? "" : "");
+    // Nulstillet her, ikke forudfyldt — den rigtige værdi (hvis nogen) sættes
+    // af effekten herunder, når mappings er hentet friskt fra serveren.
+    setSelectedCalendarId("");
   }
 
   // Et helt nyt medlem har intet id, før det er gemt server-side (Fase 2) —
@@ -93,10 +96,21 @@ export function FamilyMemberDialog({
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsLoadingCalendarOptions(true);
 
-    listAllMappableCalendars()
-      .then((options) => {
-        if (!isCancelled) {
-          setCalendarOptions(options);
+    Promise.all([
+      listAllMappableCalendars(),
+      refreshCalendarMemberMappingsFromServer(),
+    ])
+      .then(([options]) => {
+        if (isCancelled) {
+          return;
+        }
+
+        setCalendarOptions(options);
+
+        // Mappings er nu friske fra serveren (Fase 4) — sikkert at læse
+        // den synkrone cache her.
+        if (member) {
+          setSelectedCalendarId(getCalendarIdForOwner(member.id) ?? "");
         }
       })
       .catch(() => {
@@ -113,7 +127,7 @@ export function FamilyMemberDialog({
     return () => {
       isCancelled = true;
     };
-  }, [open, canAssignCalendar]);
+  }, [open, canAssignCalendar, member]);
 
   const trimmedName = name.trim();
   const nameError =
@@ -140,11 +154,11 @@ export function FamilyMemberDialog({
       const previousCalendarId = getCalendarIdForOwner(member.id);
 
       if (previousCalendarId && previousCalendarId !== selectedCalendarId) {
-        setCalendarMemberMapping(previousCalendarId, null);
+        void setCalendarMemberMapping(previousCalendarId, null);
       }
 
       if (selectedCalendarId) {
-        setCalendarMemberMapping(selectedCalendarId, member.id);
+        void setCalendarMemberMapping(selectedCalendarId, member.id);
       }
     }
 

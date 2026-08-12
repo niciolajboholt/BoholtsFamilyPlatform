@@ -41,6 +41,7 @@ import { useOutlookCalendarConnection } from "../features/calendar/hooks/useOutl
 import {
   clearCalendarMemberMappings,
   getCalendarIdForOwner,
+  refreshCalendarMemberMappingsFromServer,
 } from "../features/calendar/preferences/calendarMemberMappingStorage";
 import {
   createDataBackup,
@@ -118,8 +119,11 @@ function SettingsPage() {
   useEffect(() => {
     let isCancelled = false;
 
-    listAllMappableCalendars()
-      .then((options) => {
+    Promise.all([
+      listAllMappableCalendars(),
+      refreshCalendarMemberMappingsFromServer(),
+    ])
+      .then(([options]) => {
         if (!isCancelled) {
           setCalendarOptions(options);
         }
@@ -143,7 +147,7 @@ function SettingsPage() {
     if (isOutlookCalendarConnected) {
       disconnectOutlookCalendar();
       clearExcludedOutlookCalendars();
-      clearCalendarMemberMappings();
+      void clearCalendarMemberMappings();
 
       return;
     }
