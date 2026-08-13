@@ -87,7 +87,11 @@ async function proxyToGoogle(
 
   const responseBody = await response.text();
 
-  return new Response(responseBody, {
+  // Google svarer 204 (fx en vellykket event-sletning) uden krop — Fetch-specen
+  // forbyder en non-null body på et null-body-statuskode (204/205/304), så en
+  // tom streng her ville kaste "Invalid response status code 204" og fejle
+  // enhver sletning gennem serveren.
+  return new Response(responseBody === "" ? null : responseBody, {
     status: response.status,
     headers: { "Content-Type": "application/json" },
   });
