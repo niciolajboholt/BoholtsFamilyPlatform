@@ -74,6 +74,27 @@ rækkefølge.
 Begge blev fundet ved at skrive rute-tests, ikke ved manuel gennemgang —
 endnu et argument for at Fase 4 bør have samme behandling, før den merges.
 
+### Deploy-infrastrukturfejl fundet og rettet (2026-08-13)
+
+`develop`s `wrangler.jsonc` manglede `secrets_store_secrets`-bindingerne for
+`GOOGLE_CLIENT_SECRET`/`GOOGLE_TOKEN_ENCRYPTION_KEY`, selvom server-koden
+allerede forventer dem (Fase 1). Bindinger sat manuelt i Cloudflare-
+dashboardets Bindings-fane overlever ikke et nyt Git-udløst deploy — og
+fordi beta auto-deployer ved ethvert push til `develop`, inkl. rene
+dokumentations-commits, betød det at Google-login reelt knækkede igen ved
+næste deploy, uanset hvad der blev pushet. Nicolaj opdagede dette ved at
+tjekke Cloudflare-dashboardet direkte.
+
+Rettet ved at hente den allerede virkende binding-konfiguration fra
+`feature/sprint-20-fase2-families` (commit `b1326c0`) ind på `develop`
+(commit `e457124`), så fix'en ikke skulle vente på at hele Fase 2 er testet
+og merget. Verificeret med `wrangler deploy --dry-run --env beta`.
+
+**Læring:** enhver fremtidig, selv triviel, ændring der pushes til `develop`
+trigger et beta-deploy — så deploy-konfiguration (bindinger, secrets) skal
+altid stå i `wrangler.jsonc`, aldrig kun sættes manuelt i dashboardet, uanset
+hvor lille en anden ændring man laver samme dag.
+
 ---
 
 ## Konkrete næste skridt, i rækkefølge
