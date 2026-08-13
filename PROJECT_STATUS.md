@@ -4,9 +4,10 @@ Senest opdateret: 2026-08-13
 
 ## Aktuel fase
 
-Version 1.1 er released til `main`. Featureudvikling kører normalt igen —
-stabiliseringsmilepælen efter den eksterne audit blev afsluttet 2026-07-30, og
-alt arbejde siden (Sprint 17–18 samt kalenderplanlæggeren) er merget.
+Version 1.1 (Sprint 0–19) er released til `main`. Sprint 20 — en Cloudflare
+Worker + D1-server til multi-tenant familier og login (ADR-017) — er i gang
+på separate `feature/sprint-20-fase*`-branches, endnu ikke merget til `main`.
+Se "Sprint 20" nedenfor.
 
 ## Leveret på `main`
 
@@ -21,6 +22,20 @@ alt arbejde siden (Sprint 17–18 samt kalenderplanlæggeren) er merget.
 - Outlook Calendar-integration bygget (ADR-016) — **midlertidigt deaktiveret**
   i kode, afventer IT-godkendelse hos Nicolajs arbejdsgiver.
 - Vitest-testpakke.
+
+## Sprint 20 — Multi-tenant familie-server (ADR-017, i gang)
+
+- Fase 0 (Worker+D1-fundament) og Fase 1 (server-ejet Google-login): færdige,
+  merget til `develop`, verificeret på beta.
+- Fase 2 (familier/invitationer): bygget på egen branch, afventer Christines
+  test af invitationsflowet og Nicolajs godkendelse, før merge til `develop`.
+- Fase 3 (server overtager Google Kalender-sync): bygget, kun testet lokalt/
+  på Cloudflare-preview (PR #26 mod `main` blev lukket uden merge
+  2026-08-10) — mangler en rigtig beta-test og godkendelse.
+- Fase 4 (kalender-medlem-mapping til delt database): første commit landet
+  2026-08-12, status derudover ikke verificeret.
+- Fase 5 (udfas lokale aftaler) og Fase 6 (oprydning + beslutning om
+  Cloudflare Access på `main`): ikke startet.
 
 ## Kendte, bevidst åbne punkter
 
