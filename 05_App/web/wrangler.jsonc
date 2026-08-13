@@ -13,6 +13,20 @@
   "vars": {
     "GOOGLE_CLIENT_ID": "621931405628-lc7afq5qp0ejmdks5hl9c6b7uclskiie.apps.googleusercontent.com"
   },
+  // Antager samme secret-navne som beta (samme mønster) — ret disse, hvis
+  // main's Secrets Store-bindinger reelt hedder noget andet.
+  "secrets_store_secrets": [
+    {
+      "binding": "GOOGLE_CLIENT_SECRET",
+      "store_id": "2bc6325a385d4ca3bc555d66f5453a21",
+      "secret_name": "google-client-secret"
+    },
+    {
+      "binding": "GOOGLE_TOKEN_ENCRYPTION_KEY",
+      "store_id": "2bc6325a385d4ca3bc555d66f5453a21",
+      "secret_name": "google-token-encryption-key"
+    }
+  ],
   "assets": {
     "directory": "./dist",
     "binding": "ASSETS",
@@ -45,6 +59,23 @@
       "vars": {
         "GOOGLE_CLIENT_ID": "621931405628-lc7afq5qp0ejmdks5hl9c6b7uclskiie.apps.googleusercontent.com"
       },
+      // Ligesom "vars" ovenfor: bindinger tilføjet kun via dashboardets
+      // Bindings-fane forsvinder ved næste Git-udløste deploy ("Cannot read
+      // properties of undefined (reading 'get')") — skal stå her for at
+      // overleve fremtidige deploys, inkl. deploys udløst af rene
+      // dokumentations-commits.
+      "secrets_store_secrets": [
+        {
+          "binding": "GOOGLE_CLIENT_SECRET",
+          "store_id": "2bc6325a385d4ca3bc555d66f5453a21",
+          "secret_name": "google-client-secret"
+        },
+        {
+          "binding": "GOOGLE_TOKEN_ENCRYPTION_KEY",
+          "store_id": "2bc6325a385d4ca3bc555d66f5453a21",
+          "secret_name": "google-token-encryption-key"
+        }
+      ],
       "assets": {
         "directory": "./dist",
         "binding": "ASSETS",
