@@ -2,13 +2,13 @@
 
 > Status: Active
 
-Version: 1.3
+Version: 1.4
 
 Project:
 Boholts Family Platform
 
 Last Updated:
-2026-07-29 (Sprint 15)
+2026-08-13 (Sprint 16–18 samt unavngivet planlægger-arbejde eftertilføjet)
 
 Owner:
 Nicolaj Bach Boholt
@@ -124,9 +124,46 @@ Formålet var at gøre event-dialogerne (opret/redigér) vedligeholdbare ved at 
 
 ---
 
+## Sprint 16 — Gentagne aftaler (2026-07-29)
+
+- Fuldt Apple Calendar-stil gentagelsesmønster: ugentligt med flere ugedage, månedligt datotal eller ugedag-i-position inkl. "Første & sidste".
+- Enkelt-forekomst-redigering/-sletning af gentagne aftaler.
+- Google-gentagelser vises nu også (`recurrenceMasterId`).
+- Merget til `develop` samme dag som en ekstern audit (Codex) gennemgik branchen og gav **NO-GO** med 17 fund (F-01 til F-17). Stabiliseringsarbejdet (Fase 0–3) blev udført 2026-07-29–30 og lukkede alle fund undtagen to bevidst udskudte (se [10_Future_Roadmap](10_Future_Roadmap.md)). En valideret `develop` blev merget til `main` 2026-07-30.
+
+---
+
+## Sprint 17 — Førstegangs-onboarding (ADR-015, 2026-07-31)
+
+- Seed-data ændret fra hardcodede Boholt-navne til generiske placeholders (Far/Mor/Barn 1/Barn 2/Familien), markeret med `isPlaceholderName`.
+- Ny `FamilySetupOnboarding.tsx` vises ved første åbning, styret af om familiemedlemmer nogensinde er gemt i `localStorage`.
+- Familie-pseudomedlemmets navn kan nu redigeres og driver AppBar-overskrift/fanetitel.
+- Ved tildeling af en Google-kalender med uændret placeholder-navn tilbydes brugeren at overtage Googles rigtige kalendernavn.
+
+---
+
+## Sprint 18 — Outlook Kalender (ADR-016, 2026-07-31)
+
+- Outlook-provider-stak (`providers/outlook/`) bygget som spejl af Google-stakken: MSAL.js mod Microsoft Graph, samme mapper-/tildelingsmønster.
+- Redirect-login i stedet for pop-up (pop-up hang på iPhone/Safari/PWA).
+- `CompositeCalendarProvider`, kalender-valg-dialogen og forbindelsesbanneret generaliseret til at understøtte flere eksterne providers, ikke kun Google.
+- Apple Kalender bevidst udskudt — kræver appens første server-komponent (CalDAV-proxy).
+- **Status:** integrationen virker, men er **midlertidigt slået fra i kode** (`outlookCalendarConfig.ts`), da Nicolajs arbejdsgivers Entra-tenant kræver IT-godkendelse, som endnu ikke er givet.
+
+---
+
+## Kalenderplanlægger og dagsvisning (2026-08-01, uden sprintnummer)
+
+- Ny time-for-time dagsvisning.
+- Ny "side-by-side" familieplanlægger (medlemmer som kolonner, sticky ugebånd, ægte bidirektionel uendelig scroll), bygget efter et referencescreenshot fra Nicolaj.
+- Ugevisningens redundante agenda-liste under kalendergitteret fjernet (månedsvisning beholder sin, da cellerne der viser langt mindre detalje).
+- **Bemærk:** dette arbejde blev aldrig givet et formelt sprintnummer i dokumentationen, selvom kodekommentarer i Sprint 17/18-filerne antyder en fortløbende, uformel nummerering. Behandles her som direkte fortsættelse af Sprint 18.
+
+---
+
 ## Status ved seneste opdatering
 
-Sprint 0 til 15 er merget ind i `develop`. Ingen af de planlagte Fase 2–4-funktioner (se [10_Future_Roadmap](10_Future_Roadmap.md)) er påbegyndt endnu. Vitest er indført (Sprint 13), men dækker kun de rene funktioner (Google-mappere, familie-lager) — React-komponenter/hooks har fortsat ingen automatiseret test. Se [08_Development_Standards](08_Development_Standards.md).
+Sprint 0 til 18 (samt det unavngivne planlægger-/dagsvisningsarbejde) er merget til `main` (seneste: v1.1, 2026-08-10). Outlook-integrationen (Sprint 18) er bygget, men står bevidst deaktiveret i kode, indtil IT-godkendelse foreligger hos Nicolajs arbejdsgiver. Ingen af de planlagte Fase 2–4-funktioner (se [10_Future_Roadmap](10_Future_Roadmap.md)) er påbegyndt endnu — herunder "Flere Google-konti pr. familie", som kræver en selvstændig ADR og planlægningsrunde. Vitest dækker fortsat kun rene funktioner (Google/Outlook-mappere, familie-/lager-hooks) — React-komponenter/hooks har ingen automatiseret test. Se [08_Development_Standards](08_Development_Standards.md).
 
 ---
 

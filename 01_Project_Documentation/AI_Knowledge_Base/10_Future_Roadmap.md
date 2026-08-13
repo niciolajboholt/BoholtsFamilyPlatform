@@ -2,13 +2,13 @@
 
 > Status: Active
 
-Version: 1.9
+Version: 1.10
 
 Project:
 Boholts Family Platform
 
 Last Updated:
-2026-07-30 (alle 17 audit-fund gennemgået — 15 løst/udført, F-05 og F-16 delvist løst med resterende dele eksplicit dokumenteret som åbne)
+2026-08-13 (Sprint 17/18 og kalenderplanlæggeren tilføjet til nedenstående oversigt; se 05_Sprint_History.md for detaljer)
 
 Owner:
 Nicolaj Bach Boholt
@@ -26,7 +26,7 @@ Dette dokument samler den planlagte udviklingsretning fra `Product/07_Product_Ro
 
 ## Nuværende status
 
-Fase 1 (Proof of Concept) er delvist gennemført: familieoverblik, kalendervisning, og opret/redigér/slet af aftaler findes. Google Calendar-integration er gennemført med både læse- og skriveadgang samt stille genoprettelse ved appstart (ud over hvad Fase 1 oprindeligt krævede). Sprint 13 tilføjede automatiseret test (Vitest) og formaliserede platformstrategien som ADR-10. Sprint 15 gjorde familiemedlemmer til dynamisk, redigerbar data (navn, relation, farve, tilføj/slet) i stedet for en fast liste. Se [05_Sprint_History](05_Sprint_History.md).
+Fase 1 (Proof of Concept) er delvist gennemført: familieoverblik, kalendervisning, og opret/redigér/slet af aftaler findes. Google Calendar-integration er gennemført med både læse- og skriveadgang samt stille genoprettelse ved appstart (ud over hvad Fase 1 oprindeligt krævede). Sprint 13 tilføjede automatiseret test (Vitest) og formaliserede platformstrategien som ADR-10. Sprint 15 gjorde familiemedlemmer til dynamisk, redigerbar data (navn, relation, farve, tilføj/slet) i stedet for en fast liste. Sprint 16 tilføjede gentagne aftaler, Sprint 17 førstegangs-onboarding (ADR-015), og Sprint 18 en Outlook-kalenderintegration (ADR-016, aktuelt deaktiveret i kode, afventer IT-godkendelse). Herefter blev en dags- og "side-by-side" familieplanlægger-visning tilføjet uden eget sprintnummer. v1.1 er released til `main`. Se [05_Sprint_History](05_Sprint_History.md).
 
 Ikke inkluderet endnu, som forudsat i Release Plan: login, deling mellem brugere, push-notifikationer, widgets.
 
@@ -107,7 +107,7 @@ Dette vurderes at være en væsentligt større og mere risikofyldt ændring end 
 ## Fase 2 — MVP
 
 - ~~Personlige farver og redigerbare familiemedlemmer~~ — se Sprint 15 ovenfor.
-- ~~Gentagne aftaler~~ — se Sprint 16 ovenfor (planlagt).
+- ~~Gentagne aftaler~~ — se Sprint 16 ovenfor (gennemført).
 - Familie-tidslinje.
 - Konfliktvisning.
 - Notifikationer.
