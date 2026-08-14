@@ -1,5 +1,7 @@
 import type { CalendarOwner } from "../data/calendarOwners";
+import { familyPseudoMemberId } from "../models/calendarEvent";
 import type { CalendarOwnerId } from "../models/calendarEvent";
+import { getFamilyPseudoMemberServerId } from "./familyMembersStorage";
 import {
   clearAllCalendarMappings,
   deleteCalendarMapping,
@@ -7,6 +9,29 @@ import {
   getMyFamily,
   setCalendarMapping,
 } from "../../family/familyApi";
+
+// familyMembersSync.ts erstatter familie-pseudomedlemmets rigtige
+// server-id med det faste, lokale familyPseudoMemberId ("family") — men
+// serveren kender kun det rigtige id (en crypto.randomUUID(), som ethvert
+// andet medlem). Uden denne oversættelse ville et forsøg på at tildele en
+// kalender til "Familien" blive afvist af serverens familie-scoping-tjek
+// (findes ikke i denne familie), stille og uden fejlmelding, fordi
+// FamilyMemberDialog's gem-kald ikke afventer eller viser fejl.
+function toServerMemberId(ownerId: CalendarOwnerId): string {
+  if (ownerId === familyPseudoMemberId) {
+    return getFamilyPseudoMemberServerId() ?? ownerId;
+  }
+
+  return ownerId;
+}
+
+function toLocalOwnerId(serverMemberId: string): CalendarOwnerId {
+  if (serverMemberId === getFamilyPseudoMemberServerId()) {
+    return familyPseudoMemberId as CalendarOwnerId;
+  }
+
+  return serverMemberId as CalendarOwnerId;
+}
 
 /**
  * Kobler en rå Google-kalender-id til et familiemedlem, så aftaler fra en
@@ -135,7 +160,7 @@ function toStoredMappings(
 ): StoredMapping[] {
   return rows.map((row) => ({
     googleCalendarId: row.googleCalendarId,
-    ownerId: row.familyMemberId as CalendarOwnerId,
+    ownerId: toLocalOwnerId(row.familyMemberId),
   }));
 }
 
@@ -174,7 +199,7 @@ export async function setCalendarMemberMapping(
   }
 
   const result = ownerId
-    ? await setCalendarMapping(familyId, googleCalendarId, ownerId)
+    ? await setCalendarMapping(familyId, googleCalendarId, toServerMemberId(ownerId))
     : await deleteCalendarMapping(familyId, googleCalendarId);
 
   if (result.ok && result.data.mappings) {

@@ -95,6 +95,26 @@ export function getFamilyMemberIds(): string[] {
   return getFamilyMembers().map((member) => member.id);
 }
 
+// familyMembersSync.ts erstatter familie-pseudomedlemmets rigtige
+// server-side id (en crypto.randomUUID(), som enhver anden familys) med det
+// faste, lokale familyPseudoMemberId ("family"), som resten af appen altid
+// har forventet. Det er praktisk for lokal visning/filtrering, men betyder
+// at det rigtige server-id ellers går tabt — og et hvilket som helst senere
+// server-kald, der skal identificere pseudomedlemmet over for API'et (fx
+// Fase 4's kalender-medlem-tildeling), ville sende "family" i stedet for et
+// gyldigt id og blive afvist. Denne cache er broen: sat af
+// syncFamilyMembersFromServer, læst af alt der taler direkte med serveren
+// om pseudomedlemmet.
+let cachedFamilyPseudoMemberServerId: string | null = null;
+
+export function setFamilyPseudoMemberServerId(id: string | null): void {
+  cachedFamilyPseudoMemberServerId = id;
+}
+
+export function getFamilyPseudoMemberServerId(): string | null {
+  return cachedFamilyPseudoMemberServerId;
+}
+
 // A brand-new install never has this key written yet — this is also, by
 // construction, the "has the user completed first-launch onboarding?"
 // signal (Sprint 17), since onboarding's only job is to write it for the

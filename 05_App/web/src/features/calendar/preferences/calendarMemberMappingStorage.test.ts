@@ -40,11 +40,14 @@ vi.mock("../../family/familyApi", () => ({
   })),
 }));
 
+import { familyPseudoMemberId } from "../models/calendarEvent";
 import {
   getCalendarMemberMappings,
   getOwnerIdForGoogleCalendar,
   setCalendarMemberMapping,
 } from "./calendarMemberMappingStorage";
+import { setFamilyPseudoMemberServerId } from "./familyMembersStorage";
+import { setCalendarMapping as setCalendarMappingMock } from "../../family/familyApi";
 
 function seedMappings(entries: { googleCalendarId: string; ownerId: string }[]) {
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
@@ -94,6 +97,29 @@ describe("calendarMemberMappingStorage", () => {
       await setCalendarMemberMapping("nicolajbach12@gmail.com", null);
 
       expect(getOwnerIdForGoogleCalendar("nicolajbach12@gmail.com")).toBeUndefined();
+    });
+
+    // Regression: familyMembersSync.ts erstatter pseudomedlemmets rigtige
+    // server-id ("family-server-uuid" her) med det faste, lokale
+    // familyPseudoMemberId ("family") overalt i klienten. Uden oversættelse
+    // ville dette kald sende det bogstavelige "family" som familyMemberId —
+    // serverens familie-scoping-tjek (families.ts) ville afvise det, da intet
+    // rigtigt medlem har det id, og fejlen ville forsvinde stille, fordi
+    // FamilyMemberDialog's gem-kald hverken afventer eller viser fejl.
+    it("translates the pseudo-member id to its real server id before writing", async () => {
+      setFamilyPseudoMemberServerId("family-server-uuid");
+
+      await setCalendarMemberMapping("family@example.com", familyPseudoMemberId);
+
+      expect(setCalendarMappingMock).toHaveBeenCalledWith(
+        mockFamilyId,
+        "family@example.com",
+        "family-server-uuid",
+      );
+      // Og læses tilbage som det lokale "family"-id, ikke den rå server-UUID.
+      expect(getOwnerIdForGoogleCalendar("family@example.com")).toBe(
+        familyPseudoMemberId,
+      );
     });
   });
 });

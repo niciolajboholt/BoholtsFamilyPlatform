@@ -6,7 +6,10 @@
 // ind i den samme lokale cache via den eksisterende saveFamilyMembers().
 import type { CalendarOwner } from "../calendar/data/calendarOwners";
 import { familyPseudoMemberId } from "../calendar/models/calendarEvent";
-import { saveFamilyMembers } from "../calendar/preferences/familyMembersStorage";
+import {
+  saveFamilyMembers,
+  setFamilyPseudoMemberServerId,
+} from "../calendar/preferences/familyMembersStorage";
 import type { FamilyMemberDto } from "./familyApi";
 
 // relation=NULL er reserveret til familie-pseudomedlemmet på serveren — det
@@ -28,5 +31,7 @@ export function mapMembersToCalendarOwners(
 }
 
 export function syncFamilyMembersFromServer(members: FamilyMemberDto[]): void {
+  const pseudoMember = members.find((member) => member.relation === null);
+  setFamilyPseudoMemberServerId(pseudoMember?.id ?? null);
   saveFamilyMembers(mapMembersToCalendarOwners(members));
 }
