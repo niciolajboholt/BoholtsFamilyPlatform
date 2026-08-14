@@ -171,15 +171,21 @@ hvor lille en anden ændring man laver samme dag.
 4. ~~**Gennemgå og test Fase 4**~~ ✅ **Gennemført og merget (2026-08-14)** —
    PR #30 merget til `develop`. Mangler dog stadig rigtig beta-verificering
    af selve UI-flowet (Indstillinger → "Rediger familiemedlem").
-5. **Designvalg til Fase 5** (kun Nicolaj kan beslutte): skal eksisterende
+5. ~~**Fjern Cloudflare Access**~~ **Besluttet (2026-08-14):** Nicolaj slår den
+   fra. Løsrevet fra resten af Fase 6 — ADR-017s egen begrundelse (linje 745)
+   satte kun Fase 1-2 som bar, og begge er færdige, merget og testet af to
+   rigtige brugere (Nicolaj + Christine). Googles endnu-uverificerede
+   samtykke-skærm + invitationskoden er den reelle beskyttelse i mellemtiden.
+   Ren dashboard-handling (Zero Trust → Access → Applications) — ingen kode
+   involveret, ikke noget en AI-agent kan udføre.
+6. **Designvalg til Fase 5** (kun Nicolaj kan beslutte): skal eksisterende
    lokale aftaler bulk-oprettes automatisk i Google Kalender, eller
    eksporteres som en backup-fil brugeren selv gemmer (genbruger
    `dataBackupStorage.ts`)? Et kort beslutningsoplæg udarbejdes, når vi når
    hertil.
-6. **Fase 6**: fjern Cloudflare Access (kun meningsfuldt når app-eget login +
-   invitationssystem er betroet, se Risiko 1), ryd op i dødt kode
-   (`GoogleCalendarSession`-referencer, `google-calendar-was-connected`),
-   opdatér `20_Calendar_Provider_Architecture.md`/`09_Data_Model.md`, bekræft
+7. **Resten af Fase 6**: ryd op i dødt kode (`GoogleCalendarSession`-
+   referencer, `google-calendar-was-connected`), opdatér
+   `20_Calendar_Provider_Architecture.md`/`09_Data_Model.md`, bekræft
    Outlook-integrationen fortsat er urørt.
 
 ---
