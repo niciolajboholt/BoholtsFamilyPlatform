@@ -387,7 +387,12 @@ families.patch("/:id/members/:memberId", async (c) => {
 });
 
 // Fjern et familiemedlem — ejer/admin. "family"-pseudomedlemmet må ikke
-// slettes, ligesom i den nuværende lokale model.
+// slettes, ligesom i den nuværende lokale model. Medlemmer sås med
+// crypto.randomUUID() (se families.post("/") ovenfor), ikke seedets faste
+// id'er — "id = 'family'" ville derfor aldrig matche noget rigtigt medlem,
+// og pseudomedlemmet var reelt ubeskyttet. relation IS NULL er den samme
+// reserverede markør, resten af denne fil allerede bruger til at kende
+// pseudomedlemmet (se PATCH .../members/:memberId ovenfor).
 families.delete("/:id/members/:memberId", async (c) => {
   const user = c.get("user");
   const familyId = c.req.param("id");
@@ -399,7 +404,7 @@ families.delete("/:id/members/:memberId", async (c) => {
   }
 
   await c.env.DB.prepare(
-    "DELETE FROM family_members WHERE family_id = ? AND id = ? AND id != 'family'",
+    "DELETE FROM family_members WHERE family_id = ? AND id = ? AND relation IS NOT NULL",
   )
     .bind(familyId, memberId)
     .run();
