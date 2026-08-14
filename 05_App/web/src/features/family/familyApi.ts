@@ -126,3 +126,39 @@ export function removeMembership(familyId: string, userId: string) {
     { method: "DELETE" },
   );
 }
+
+export interface CalendarMemberMappingDto {
+  googleCalendarId: string;
+  familyMemberId: string;
+}
+
+export function getCalendarMappings(familyId: string) {
+  return request<{ mappings?: CalendarMemberMappingDto[]; error?: string }>(
+    `/api/families/${familyId}/calendar-mappings`,
+  );
+}
+
+export function setCalendarMapping(
+  familyId: string,
+  calendarId: string,
+  familyMemberId: string,
+) {
+  return request<{ mappings?: CalendarMemberMappingDto[]; error?: string }>(
+    `/api/families/${familyId}/calendar-mappings/${encodeURIComponent(calendarId)}`,
+    { method: "PUT", body: JSON.stringify({ familyMemberId }) },
+  );
+}
+
+export function deleteCalendarMapping(familyId: string, calendarId: string) {
+  return request<{ mappings?: CalendarMemberMappingDto[]; error?: string }>(
+    `/api/families/${familyId}/calendar-mappings/${encodeURIComponent(calendarId)}`,
+    { method: "DELETE" },
+  );
+}
+
+export function clearAllCalendarMappings(familyId: string) {
+  return request<{ mappings?: CalendarMemberMappingDto[]; error?: string }>(
+    `/api/families/${familyId}/calendar-mappings`,
+    { method: "DELETE" },
+  );
+}

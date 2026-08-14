@@ -14,6 +14,7 @@ import { getExcludedGoogleCalendarIds } from "../../preferences/googleCalendarEx
 import {
   getCalendarMemberMappings,
   getMappedOwnersByCalendarId,
+  refreshCalendarMemberMappingsFromServer,
 } from "../../preferences/calendarMemberMappingStorage";
 import { getFamilyMembers } from "../../preferences/familyMembersStorage";
 
@@ -22,6 +23,7 @@ export class GoogleCalendarProvider implements CalendarProvider {
   private calendarSources: CalendarSource[] = [];
 
   async getCalendars(): Promise<CalendarSource[]> {
+    await refreshCalendarMemberMappingsFromServer();
     const calendars = await this.api.listCalendars();
     const excludedIds = new Set(getExcludedGoogleCalendarIds());
     const mappedOwnersByCalendarId = getMappedOwnersByCalendarId(getFamilyMembers());
@@ -57,6 +59,7 @@ export class GoogleCalendarProvider implements CalendarProvider {
   async getEvents(
     range: CalendarEventRange,
   ): Promise<CalendarEvent[]> {
+    await refreshCalendarMemberMappingsFromServer();
     const calendars = await this.api.listCalendars();
     const excludedIds = new Set(getExcludedGoogleCalendarIds());
     const mappings = getCalendarMemberMappings();
@@ -91,7 +94,7 @@ export class GoogleCalendarProvider implements CalendarProvider {
     const calendarId = decodeGoogleCalendarSourceId(sourceId);
     await this.assertWritableSource(sourceId);
     const created = await this.api.createEvent(calendarId, mapGoogleEventWriteRequest(input));
-    return this.mapWrittenEvent(calendarId, created);
+    return await this.mapWrittenEvent(calendarId, created);
   }
 
   async updateEvent(event: CalendarEvent): Promise<CalendarEvent> {
@@ -100,7 +103,7 @@ export class GoogleCalendarProvider implements CalendarProvider {
     const { calendarId, eventId } = decodeGoogleEventId(event.id);
     if (calendarId !== decodeGoogleCalendarSourceId(event.sourceId)) throw new CalendarProviderError("validation", "Google-aftalen tilhører en anden kalender.");
     const updated = await this.api.updateEvent(calendarId, eventId, mapGoogleEventWriteRequest(event));
-    return this.mapWrittenEvent(calendarId, updated);
+    return await this.mapWrittenEvent(calendarId, updated);
   }
 
   async deleteEvent(eventId: string, sourceId?: string): Promise<void> {
@@ -121,7 +124,10 @@ export class GoogleCalendarProvider implements CalendarProvider {
     if (source.isReadOnly) throw new CalendarProviderError("authorization", "Denne Google-kalender er skrivebeskyttet.");
   }
 
-  private mapWrittenEvent(calendarId: string, event: import("./googleCalendarTypes").GoogleCalendarEvent): CalendarEvent {
+  private async mapWrittenEvent(calendarId: string, event: import("./googleCalendarTypes").GoogleCalendarEvent): Promise<CalendarEvent> {
+    // getCalendars()/getEvents() har typisk allerede varmet cachen op forud
+    // for et skriv-kald (assertWritableSource kalder getCalendars(), hvis
+    // den ikke allerede er kaldt) — intet ekstra serverkald nødvendigt her.
     const mappedOwnerId: CalendarOwnerId | undefined = getCalendarMemberMappings()[calendarId];
     const mapped = mapGoogleCalendarEvent(calendarId, event, mappedOwnerId);
     if (!mapped) throw new CalendarProviderError("unknown", "Google Kalender sendte en ugyldig aftale.");

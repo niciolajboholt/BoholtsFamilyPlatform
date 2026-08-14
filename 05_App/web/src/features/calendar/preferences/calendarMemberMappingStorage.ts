@@ -1,5 +1,12 @@
 import type { CalendarOwner } from "../data/calendarOwners";
 import type { CalendarOwnerId } from "../models/calendarEvent";
+import {
+  clearAllCalendarMappings,
+  deleteCalendarMapping,
+  getCalendarMappings,
+  getMyFamily,
+  setCalendarMapping,
+} from "../../family/familyApi";
 
 /**
  * Kobler en rå Google-kalender-id til et familiemedlem, så aftaler fra en
@@ -7,8 +14,12 @@ import type { CalendarOwnerId } from "../models/calendarEvent";
  * kalender) arver medlemmets farve og indgår i familiefiltrering, i stedet
  * for at fremstå som en generisk, Google-farvet kilde. Se ADR-014.
  *
- * Gemmes pr. enhed, ligesom `calendarSourceVisibilityStorage` — hvert
- * familiemedlem sætter denne op én gang på sin egen telefon/computer.
+ * Fase 4: tildelingen er familiedata og ejes af serveren — men de fleste
+ * opslag herfra (getCalendarMemberMappings m.fl.) er meget hyppige og bruges
+ * synkront af provider-laget, så de bliver ved med at læse en lokal cache i
+ * stedet for at blive gjort async overalt. refreshCalendarMemberMappingsFromServer()
+ * er broen: kaldes af provider-laget før det læser cachen, så den altid er
+ * frisk — samme mønster som familyMembersSync.ts bruger for familyMembersStorage.ts.
  */
 const STORAGE_KEY = "boholts-family-calendar-member-mapping";
 
@@ -105,29 +116,89 @@ export function getMappedOwnersByCalendarId(
   return result;
 }
 
+// familyId ændrer sig ikke midt i en session — slås kun op én gang, i
+// stedet for at kalde /api/families/mine ved hver eneste kalender-hentning.
+let cachedFamilyId: string | null | undefined;
+
+async function resolveFamilyId(): Promise<string | null> {
+  if (cachedFamilyId !== undefined) {
+    return cachedFamilyId;
+  }
+
+  const result = await getMyFamily();
+  cachedFamilyId = result.ok && result.data.family ? result.data.family.id : null;
+  return cachedFamilyId;
+}
+
+function toStoredMappings(
+  rows: { googleCalendarId: string; familyMemberId: string }[],
+): StoredMapping[] {
+  return rows.map((row) => ({
+    googleCalendarId: row.googleCalendarId,
+    ownerId: row.familyMemberId as CalendarOwnerId,
+  }));
+}
+
+/**
+ * Henter familiens tildelinger fra serveren og skriver dem ind i den lokale
+ * cache — kaldes af provider-laget (GoogleCalendarProvider m.fl.), før det
+ * læser mappings synkront, så cachen altid er frisk.
+ */
+export async function refreshCalendarMemberMappingsFromServer(): Promise<void> {
+  const familyId = await resolveFamilyId();
+
+  if (!familyId) {
+    return;
+  }
+
+  const result = await getCalendarMappings(familyId);
+
+  if (result.ok && result.data.mappings) {
+    writeMappings(toStoredMappings(result.data.mappings));
+  }
+}
+
 /**
  * Sætter eller fjerner (ved `ownerId: null`) tildelingen for én kalender.
+ * Server-først, ligesom useFamilyMembers.ts's mutationer — cachen opdateres
+ * kun fra serverens eget, autoritative svar, ikke optimistisk.
  */
-export function setCalendarMemberMapping(
+export async function setCalendarMemberMapping(
   googleCalendarId: string,
   ownerId: CalendarOwnerId | null,
-): void {
-  const withoutExisting = readMappings().filter(
-    (entry) => entry.googleCalendarId !== googleCalendarId,
-  );
+): Promise<void> {
+  const familyId = await resolveFamilyId();
 
-  writeMappings(
-    ownerId
-      ? [...withoutExisting, { googleCalendarId, ownerId }]
-      : withoutExisting,
-  );
+  if (!familyId) {
+    return;
+  }
+
+  const result = ownerId
+    ? await setCalendarMapping(familyId, googleCalendarId, ownerId)
+    : await deleteCalendarMapping(familyId, googleCalendarId);
+
+  if (result.ok && result.data.mappings) {
+    writeMappings(toStoredMappings(result.data.mappings));
+  }
 }
 
 /**
  * Ryddes ved eksplicit afbrydelse — en senere (gen)forbindelse, evt. med en
  * anden Google-konto, bør starte forfra, ikke arve tildelinger der pegede på
- * en tidligere kontos kalender-id'er.
+ * en tidligere kontos kalender-id'er. Rydder familiens delte data på
+ * serveren, ikke kun denne enheds cache.
  */
-export function clearCalendarMemberMappings(): void {
-  window.localStorage.removeItem(STORAGE_KEY);
+export async function clearCalendarMemberMappings(): Promise<void> {
+  const familyId = await resolveFamilyId();
+
+  if (!familyId) {
+    window.localStorage.removeItem(STORAGE_KEY);
+    return;
+  }
+
+  const result = await clearAllCalendarMappings(familyId);
+
+  if (result.ok) {
+    window.localStorage.removeItem(STORAGE_KEY);
+  }
 }

@@ -474,6 +474,122 @@ describe("families routes", () => {
     });
   });
 
+  describe("calendar member mappings (Fase 4)", () => {
+    it("lets any member list the mappings, but only owner/admin write them", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader);
+      const member = await seedLoggedInUser(env.DB as never, { id: "member" });
+      await families.request(
+        `/invites/${created.inviteCode}/accept`,
+        { method: "POST", headers: { Cookie: member.cookieHeader } },
+        env,
+      );
+      const targetMemberId = created.members[0].id;
+
+      const readAsMember = await families.request(
+        `/${created.family.id}/calendar-mappings`,
+        { headers: { Cookie: member.cookieHeader } },
+        env,
+      );
+      expect(readAsMember.status).toBe(200);
+
+      const writeAsMember = await families.request(
+        `/${created.family.id}/calendar-mappings/primary%40example.com`,
+        {
+          method: "PUT",
+          headers: { Cookie: member.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({ familyMemberId: targetMemberId }),
+        },
+        env,
+      );
+      expect(writeAsMember.status).toBe(403);
+    });
+
+    it("rejects a familyMemberId that belongs to a different family", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader, "Boholt");
+
+      const otherOwner = await seedLoggedInUser(env.DB as never, { id: "other-owner" });
+      const otherFamily = await createFamily(env, otherOwner.cookieHeader, "Naboerne");
+      const foreignMemberId = otherFamily.members[0].id;
+
+      const response = await families.request(
+        `/${created.family.id}/calendar-mappings/primary%40example.com`,
+        {
+          method: "PUT",
+          headers: { Cookie: owner.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({ familyMemberId: foreignMemberId }),
+        },
+        env,
+      );
+
+      expect(response.status).toBe(400);
+
+      const mappings = await families.request(
+        `/${created.family.id}/calendar-mappings`,
+        { headers: { Cookie: owner.cookieHeader } },
+        env,
+      );
+      expect((await mappings.json()).mappings).toEqual([]);
+    });
+
+    it("sets, updates, deletes a single mapping, and clears all mappings", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader);
+      const [firstMember, secondMember] = created.members;
+
+      const setResponse = await families.request(
+        `/${created.family.id}/calendar-mappings/primary%40example.com`,
+        {
+          method: "PUT",
+          headers: { Cookie: owner.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({ familyMemberId: firstMember.id }),
+        },
+        env,
+      );
+      expect((await setResponse.json()).mappings).toEqual([
+        { googleCalendarId: "primary@example.com", familyMemberId: firstMember.id },
+      ]);
+
+      const updateResponse = await families.request(
+        `/${created.family.id}/calendar-mappings/primary%40example.com`,
+        {
+          method: "PUT",
+          headers: { Cookie: owner.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({ familyMemberId: secondMember.id }),
+        },
+        env,
+      );
+      expect((await updateResponse.json()).mappings).toEqual([
+        { googleCalendarId: "primary@example.com", familyMemberId: secondMember.id },
+      ]);
+
+      const deleteResponse = await families.request(
+        `/${created.family.id}/calendar-mappings/primary%40example.com`,
+        { method: "DELETE", headers: { Cookie: owner.cookieHeader } },
+        env,
+      );
+      expect((await deleteResponse.json()).mappings).toEqual([]);
+
+      await families.request(
+        `/${created.family.id}/calendar-mappings/work%40example.com`,
+        {
+          method: "PUT",
+          headers: { Cookie: owner.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({ familyMemberId: firstMember.id }),
+        },
+        env,
+      );
+
+      const clearAllResponse = await families.request(
+        `/${created.family.id}/calendar-mappings`,
+        { method: "DELETE", headers: { Cookie: owner.cookieHeader } },
+        env,
+      );
+      expect((await clearAllResponse.json()).mappings).toEqual([]);
+    });
+  });
+
   describe("GET /:id", () => {
     it("returns 404 for a family the user isn't a member of", async () => {
       const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });

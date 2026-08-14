@@ -15,6 +15,7 @@ import { getExcludedOutlookCalendarIds } from "./outlookCalendarExclusionStorage
 import {
   getCalendarMemberMappings,
   getMappedOwnersByCalendarId,
+  refreshCalendarMemberMappingsFromServer,
 } from "../../preferences/calendarMemberMappingStorage";
 import { getFamilyMembers } from "../../preferences/familyMembersStorage";
 
@@ -32,6 +33,7 @@ export class OutlookCalendarProvider implements CalendarProvider {
   }
 
   async getCalendars(): Promise<CalendarSource[]> {
+    await refreshCalendarMemberMappingsFromServer();
     const calendars = await this.api.listCalendars();
     const excludedIds = new Set(getExcludedOutlookCalendarIds());
     const mappedOwnersByCalendarId = getMappedOwnersByCalendarId(getFamilyMembers());
@@ -64,6 +66,7 @@ export class OutlookCalendarProvider implements CalendarProvider {
   async getEvents(
     range: CalendarEventRange,
   ): Promise<CalendarEvent[]> {
+    await refreshCalendarMemberMappingsFromServer();
     const calendars = await this.api.listCalendars();
     const excludedIds = new Set(getExcludedOutlookCalendarIds());
     const mappings = getCalendarMemberMappings();
@@ -98,7 +101,7 @@ export class OutlookCalendarProvider implements CalendarProvider {
     const calendarId = decodeOutlookCalendarSourceId(sourceId);
     await this.assertWritableSource(sourceId);
     const created = await this.api.createEvent(calendarId, mapOutlookEventWriteRequest(input));
-    return this.mapWrittenEvent(calendarId, created);
+    return await this.mapWrittenEvent(calendarId, created);
   }
 
   async updateEvent(event: CalendarEvent): Promise<CalendarEvent> {
@@ -107,7 +110,7 @@ export class OutlookCalendarProvider implements CalendarProvider {
     const { calendarId, eventId } = decodeOutlookEventId(event.id);
     if (calendarId !== decodeOutlookCalendarSourceId(event.sourceId)) throw new CalendarProviderError("validation", "Outlook-aftalen tilhører en anden kalender.");
     const updated = await this.api.updateEvent(calendarId, eventId, mapOutlookEventWriteRequest(event));
-    return this.mapWrittenEvent(calendarId, updated);
+    return await this.mapWrittenEvent(calendarId, updated);
   }
 
   async deleteEvent(eventId: string, sourceId?: string): Promise<void> {
@@ -128,7 +131,7 @@ export class OutlookCalendarProvider implements CalendarProvider {
     if (source.isReadOnly) throw new CalendarProviderError("authorization", "Denne Outlook-kalender er skrivebeskyttet.");
   }
 
-  private mapWrittenEvent(calendarId: string, event: import("./outlookCalendarTypes").OutlookCalendarEvent): CalendarEvent {
+  private async mapWrittenEvent(calendarId: string, event: import("./outlookCalendarTypes").OutlookCalendarEvent): Promise<CalendarEvent> {
     const mappedOwnerId: CalendarOwnerId | undefined = getCalendarMemberMappings()[calendarId];
     const mapped = mapOutlookCalendarEvent(calendarId, event, mappedOwnerId);
     if (!mapped) throw new CalendarProviderError("unknown", "Outlook Kalender sendte en ugyldig aftale.");
