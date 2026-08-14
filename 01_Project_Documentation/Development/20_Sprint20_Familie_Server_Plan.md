@@ -90,13 +90,28 @@ rækkefølge.
   afvisning. Rettet ved at cache'e det rigtige server-id og oversætte begge
   veje i `calendarMemberMappingStorage.ts`. Almindelige navngivne medlemmer
   (Far/Mor/Barn) var upåvirkede — kun "Familien" ramte problemet.
+- **Fase 4, femte bug, fundet ved fornyet brugertest (2026-08-14):** Nicolaj
+  rapporterede at rettelsen ovenfor ikke var nok — tildeling til et
+  almindeligt, navngivet medlem (Nicolaj/Far) virkede stadig ikke. Anden,
+  uafhængig årsag i samme fil: `resolveFamilyId()` brugte
+  `cachedFamilyId !== undefined` som "allerede slået op"-markør og cachede
+  ethvert udfald permanent — inkl. et fejlet eller endnu-ikke-klart
+  `/api/families/mine`-kald, som om brugeren simpelthen ingen familie havde.
+  Ét tidligt, forbigående fejlet kald gjorde derfor kalender-tildeling
+  stille-defekt for resten af sideindlæsningen, for ethvert medlem, ikke kun
+  pseudomedlemmet. Rettet ved kun at cache et sandt (rigtigt) familie-id; et
+  fejlet/null-udfald forsøges igen ved næste kald. Samtidig rettet:
+  `setCalendarMemberMapping()` returnerer nu om det lykkedes, og
+  `FamilyMemberDialog` afventer og viser en fejl i stedet for at lukke som om
+  det virkede.
 
 De første tre blev fundet ved at skrive rute-tests, ikke ved manuel
 gennemgang — et konsekvent mønster: server-ruter uden automatiserede tests
 i denne kodebase har hidtil altid indeholdt mindst én reel bug ved nærmere
-eftersyn. Den fjerde krævede rigtig brugertest for at blive fundet, fordi
-fejlen sad i klientens stille fejlhåndtering, ikke i selve serverlogikken —
-et argument for også at lægge mærke til `void`-kaldte, ikke-afventede
+eftersyn. Fjerde og femte krævede rigtig brugertest for at blive fundet,
+fordi fejlene sad i klientens stille fejlhåndtering, ikke i selve
+serverlogikken — et argument for også at lægge mærke til `void`-kaldte,
+ikke-afventede
 server-skrivninger uden fejlvisning ved fremtidige gennemgange.
 
 ### Deploy-infrastrukturfejl fundet og rettet (2026-08-13)
