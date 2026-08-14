@@ -105,14 +105,38 @@ rækkefølge.
   `FamilyMemberDialog` afventer og viser en fejl i stedet for at lukke som om
   det virkede.
 
+- **Fase 4, sjette bug, fundet ved fornyet brugertest (2026-08-14):** Efter
+  femte bug var rettet og deployet, viste fejlmeldingen (som femte bugs
+  fix netop tilføjede) sig for første gang — tildeling til "Familien"
+  fejlede stadig, nu synligt: "Kalender-tildelingen kunne ikke gemmes." I
+  `layouts/AppLayout.tsx` kørte den eneste effekt, der kalder
+  `syncFamilyMembersFromServer()` (som sætter
+  `getFamilyPseudoMemberServerId()`s cache) kun når `isFirstLaunch` var
+  sand — en bevidst optimering for at spare et netværkskald for
+  returnerende brugere med lokal data. Men den cache er ren in-memory og
+  nulstilles ved hver sideindlæsning, så for enhver returnerende bruger
+  (den normale situation efter første onboarding) forblev pseudomedlemmets
+  rigtige server-id `null`, indtil en helt anden familiemedlem-redigering
+  tilfældigvis nåede at gennemføre først. Rettet ved at tilføje en anden
+  effekt — komplementet til den eksisterende betingelse (bruger til stede,
+  `isFirstLaunch` falsk) — der varmer den samme cache op i baggrunden uden
+  at blokere onboarding-tjekkets loading-tilstand. Ingen automatiseret
+  regressionstest for denne — projektet har endnu ingen infrastruktur til
+  at rendere React-komponenter i test, og at tilføje det var uden for
+  denne rettelses omfang. Verificeret med lint, build og hele den
+  eksisterende testpakke (189/189); afventer manuel gentest.
+
 De første tre blev fundet ved at skrive rute-tests, ikke ved manuel
 gennemgang — et konsekvent mønster: server-ruter uden automatiserede tests
 i denne kodebase har hidtil altid indeholdt mindst én reel bug ved nærmere
-eftersyn. Fjerde og femte krævede rigtig brugertest for at blive fundet,
-fordi fejlene sad i klientens stille fejlhåndtering, ikke i selve
-serverlogikken — et argument for også at lægge mærke til `void`-kaldte,
-ikke-afventede
-server-skrivninger uden fejlvisning ved fremtidige gennemgange.
+eftersyn. Fjerde, femte og sjette krævede rigtig brugertest for at blive
+fundet, fordi fejlene sad i klientens tilstandshåndtering (stille
+fejlslugning, permanent cache af et fejlet opslag, en effekt der aldrig
+kørte for returnerende brugere), ikke i selve serverlogikken — et argument
+for også at lægge mærke til `void`-kaldte, ikke-afventede server-skrivninger
+uden fejlvisning, og til effekt-betingelser der er optimeret for ét
+brugsmønster (første besøg) på bekostning af det langt mere almindelige
+(returnerende bruger), ved fremtidige gennemgange.
 
 ### Deploy-infrastrukturfejl fundet og rettet (2026-08-13)
 
