@@ -143,10 +143,17 @@ export function getMappedOwnersByCalendarId(
 
 // familyId ændrer sig ikke midt i en session — slås kun op én gang, i
 // stedet for at kalde /api/families/mine ved hver eneste kalender-hentning.
-let cachedFamilyId: string | null | undefined;
+// Kun et rigtigt id caches (tjekket med truthiness, ikke `!== undefined`) —
+// en fejlet eller endnu-ikke-klar opslag (netværksfejl, kaldt før sessionen
+// er helt etableret) må IKKE huskes som "denne bruger har ingen familie" for
+// resten af siden. Den oprindelige udgave gjorde netop det, og gjorde derfor
+// kalender-tildeling permanent stille-defekt for resten af sideindlæsningen,
+// hvis blot ét tidligt kald fejlede — uafhængigt af hvilket medlem der
+// forsøgtes tildelt.
+let cachedFamilyId: string | null = null;
 
 async function resolveFamilyId(): Promise<string | null> {
-  if (cachedFamilyId !== undefined) {
+  if (cachedFamilyId) {
     return cachedFamilyId;
   }
 
@@ -186,16 +193,19 @@ export async function refreshCalendarMemberMappingsFromServer(): Promise<void> {
 /**
  * Sætter eller fjerner (ved `ownerId: null`) tildelingen for én kalender.
  * Server-først, ligesom useFamilyMembers.ts's mutationer — cachen opdateres
- * kun fra serverens eget, autoritative svar, ikke optimistisk.
+ * kun fra serverens eget, autoritative svar, ikke optimistisk. Returnerer om
+ * det lykkedes, så kalderen (FamilyMemberDialog) kan vise en fejl i stedet
+ * for at antage succes — en tidligere stille fejl her var netop svær at
+ * opdage, fordi intet kald tjekkede eller viste resultatet.
  */
 export async function setCalendarMemberMapping(
   googleCalendarId: string,
   ownerId: CalendarOwnerId | null,
-): Promise<void> {
+): Promise<boolean> {
   const familyId = await resolveFamilyId();
 
   if (!familyId) {
-    return;
+    return false;
   }
 
   const result = ownerId
@@ -204,7 +214,10 @@ export async function setCalendarMemberMapping(
 
   if (result.ok && result.data.mappings) {
     writeMappings(toStoredMappings(result.data.mappings));
+    return true;
   }
+
+  return false;
 }
 
 /**

@@ -121,5 +121,41 @@ describe("calendarMemberMappingStorage", () => {
         familyPseudoMemberId,
       );
     });
+
+    // Regression: resolveFamilyId() brugte tidligere `undefined` som
+    // "endnu ikke slået op"-markør og cachede ALT andet (inkl. en fejlet
+    // eller endnu-ikke-klar /api/families/mine-forespørgsel) permanent som
+    // "denne bruger har ingen familie". Ét tidligt, transient fejlet kald
+    // gjorde derfor kalender-tildeling stille-defekt for resten af
+    // sideindlæsningen — uafhængigt af hvilket medlem der blev forsøgt.
+    // vi.resetModules() bruges for en frisk modultilstand, så testen ikke
+    // afhænger af hvad tidligere tests i filen allerede har cachet.
+    it("retries family resolution after a failed lookup instead of caching the failure forever", async () => {
+      vi.resetModules();
+
+      const { getMyFamily } = await import("../../family/familyApi");
+      vi.mocked(getMyFamily).mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        data: {},
+      });
+
+      const fresh = await import("./calendarMemberMappingStorage");
+
+      const firstAttempt = await fresh.setCalendarMemberMapping(
+        "nicolajbach12@gmail.com",
+        "nicolaj",
+      );
+      expect(firstAttempt).toBe(false);
+
+      const secondAttempt = await fresh.setCalendarMemberMapping(
+        "nicolajbach12@gmail.com",
+        "nicolaj",
+      );
+      expect(secondAttempt).toBe(true);
+      expect(
+        fresh.getOwnerIdForGoogleCalendar("nicolajbach12@gmail.com"),
+      ).toBe("nicolaj");
+    });
   });
 });
