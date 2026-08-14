@@ -86,6 +86,34 @@ function AppLayout() {
     };
   }, [user, isFirstLaunch]);
 
+  // Komplementet til effekten ovenfor: den springer bevidst netværkskaldet
+  // over for returnerende brugere (isFirstLaunch=false), men det samme kald
+  // er den ENESTE kilde til getFamilyPseudoMemberServerId()'s cache i
+  // familyMembersStorage.ts — en ren in-memory-værdi, der nulstilles ved
+  // hver sideindlæsning. Uden dette forblev pseudomedlemmets rigtige
+  // server-id "unset" for enhver returnerende bruger, indtil de tilfældigvis
+  // gemte en anden familiemedlem-redigering først — hvilket gjorde
+  // kalender-tildeling til "Familien" stille (nu synligt, se
+  // FamilyMemberDialog) defekt for netop den mest almindelige brugssituation.
+  useEffect(() => {
+    if (!user || isFirstLaunch) {
+      return;
+    }
+
+    let isCancelled = false;
+
+    getMyFamily().then((result) => {
+      if (!isCancelled && result.ok && result.data.family && result.data.members) {
+        syncFamilyMembersFromServer(result.data.members);
+        setFamilyName(readFamilyName());
+      }
+    });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [user, isFirstLaunch]);
+
   useEffect(() => {
     document.title = `${familyName} Familieapp`;
   }, [familyName]);
