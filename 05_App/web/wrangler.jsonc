@@ -60,9 +60,10 @@
         "GOOGLE_CLIENT_ID": "621931405628-lc7afq5qp0ejmdks5hl9c6b7uclskiie.apps.googleusercontent.com"
       },
       // Ligesom "vars" ovenfor: bindinger tilføjet kun via dashboardets
-      // Bindings-fane forsvandt ved næste deploy fra Fase 2-branchen
-      // ("Cannot read properties of undefined (reading 'get')") — skal stå
-      // her for at overleve fremtidige deploys.
+      // Bindings-fane forsvinder ved næste Git-udløste deploy ("Cannot read
+      // properties of undefined (reading 'get')") — skal stå her for at
+      // overleve fremtidige deploys, inkl. deploys udløst af rene
+      // dokumentations-commits.
       "secrets_store_secrets": [
         {
           "binding": "GOOGLE_CLIENT_SECRET",
