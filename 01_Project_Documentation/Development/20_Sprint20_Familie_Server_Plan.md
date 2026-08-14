@@ -43,17 +43,19 @@ rækkefølge.
 
 ---
 
-## Status pr. fase (2026-08-13)
+## Status pr. fase (2026-08-14)
 
 | Fase | Indhold | Status |
 |---|---|---|
 | 0 | Cloudflare Worker + D1-fundament | ✅ Merget til `develop` |
 | 1 | Server-ejet Google-login + session | ✅ Merget til `develop`, verificeret på beta 2026-08-02 |
-| 2 | Familier, medlemskab, invitationer | Bygget på `feature/sprint-20-fase2-families`. 24 rute-tests tilføjet 2026-08-13 (var udokumenteret, kun manuelt curl-testet før). PR #29 (draft) mod `develop`. |
-| 3 | Server overtager Google Kalender-sync | Bygget på `feature/sprint-20-fase3-calendar-sync`. Tests tilføjet 2026-08-13. PR #28 (draft), stacket på Fase 2's branch. |
-| 4 | Kalender-medlem-mapping → D1 | Første commit på `feature/sprint-20-fase4-shared-calendar-mapping` 2026-08-12. Endnu ikke gennemgået/testet. |
-| 5 | Udfas lokale (ikke-Google) aftaler + migrering | Ikke startet. |
-| 6 | Oprydning + Cloudflare Access-beslutning | Ikke startet. |
+| 2 | Familier, medlemskab, invitationer | ✅ **Merget til `develop`** (PR #29, 2026-08-14). Christines fulde test af invitationsflowet på beta gennemført og godkendt. 24 rute-tests. |
+| 3 | Server overtager Google Kalender-sync | ✅ **Merget til `develop`** (PR #28, 2026-08-14). Manuel beta-verificering (forbind/opret/redigér/slet, bekræftet i Google Kalender) gennemført og godkendt. |
+| 4 | Kalender-medlem-mapping → D1 | Første commit på `feature/sprint-20-fase4-shared-calendar-mapping` 2026-08-12, oven på nu-forældede Fase 3-commits. Skal rebases mod opdateret `develop`, gennemgås og testes efter samme metode som Fase 2/3, før PR åbnes. |
+| 5 | Udfas lokale (ikke-Google) aftaler + migrering | Ikke startet. Kræver Nicolajs designvalg (bulk-opret i Google vs. eksportér som backup) først. |
+| 6 | Oprydning + Cloudflare Access-beslutning | Ikke startet. 3 af planens DB-indekser er allerede tilstede (se nedenfor). |
+
+**`develop` har nu login, familier/invitationer og server-styret Google-kalender-sync samlet.** Beta-Workeren kører denne kode efter merge af #29/#28 (verificeret grønt CI + Cloudflare-build på begge PR'er).
 
 ### Bugs fundet og rettet undervejs (2026-08-13)
 
@@ -99,18 +101,15 @@ hvor lille en anden ændring man laver samme dag.
 
 ## Konkrete næste skridt, i rækkefølge
 
-1. **Afklar Google-samtykke-status** (kun Nicolaj kan gøre dette, se Risiko 1
-   nedenfor): er Christine tilføjet som testbruger i Google Cloud Console,
-   eller er appen verificeret? Uden det ene eller det andet kan hun ikke
-   logge ind, uanset kodens tilstand.
-2. **Christine tester Fase 2** på beta (login → indtast kode → se samme
-   familie/kalender) → Nicolaj godkender → merge PR #29 til `develop`.
-3. **Rigtig beta-test af Fase 3** (forbind, opret/redigér/slet en aftale
-   gennem appen, bekræft den rammer den rigtige Google-kalender) → godkend →
-   merge PR #28.
-4. **Gennemgå og test Fase 4** med samme grundighed som 2/3: rebase oven på
-   opdateret `develop`, tilføj tests hvis de mangler, led efter tilsvarende
-   bugs.
+1. ~~**Afklar Google-samtykke-status**~~ ✅ Løst — Christine kunne logge ind.
+2. ~~**Christine tester Fase 2**~~ ✅ **Gennemført og godkendt (2026-08-14)** —
+   PR #29 merget til `develop`.
+3. ~~**Rigtig beta-test af Fase 3**~~ ✅ **Gennemført og godkendt (2026-08-14)** —
+   PR #28 merget til `develop`.
+4. **Gennemgå og test Fase 4** med samme grundighed som 2/3: rebase
+   `feature/sprint-20-fase4-shared-calendar-mapping` oven på opdateret
+   `develop` (indeholder nu Fase 2/3), tilføj tests hvis de mangler, led
+   efter tilsvarende bugs. **Næste skridt i rækken.**
 5. **Designvalg til Fase 5** (kun Nicolaj kan beslutte): skal eksisterende
    lokale aftaler bulk-oprettes automatisk i Google Kalender, eller
    eksporteres som en backup-fil brugeren selv gemmer (genbruger
