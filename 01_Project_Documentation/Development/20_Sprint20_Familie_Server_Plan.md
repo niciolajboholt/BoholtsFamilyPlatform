@@ -79,10 +79,25 @@ rækkefølge.
   familie-scoping). En admin kunne i praksis knytte sin egen families
   kalender til et medlem-id fra en helt anden familie. Rettet ved at slå det
   målrettede medlem op scoped til både `id` og `family_id`, før upsert.
+- **Fase 4, fundet ved rigtig brugertest (2026-08-14):** Nicolaj rapporterede
+  at kalender-tildeling til "Familien" ikke gjorde noget, uden fejlmelding.
+  Årsag: `familyMembersSync.ts` erstatter pseudomedlemmets rigtige server-id
+  (en UUID, som ethvert andet medlem) med det faste, lokale
+  `familyPseudoMemberId` ("family") overalt i klienten — så PUT-kaldet sendte
+  bogstaveligt "family" som `familyMemberId`, hvilket fase 4-scoping-tjekket
+  ovenfor korrekt afviste (ingen har det id). Fejlen forsvandt stille, fordi
+  `FamilyMemberDialog`s gem-kald hverken afventer eller viser fejl ved en
+  afvisning. Rettet ved at cache'e det rigtige server-id og oversætte begge
+  veje i `calendarMemberMappingStorage.ts`. Almindelige navngivne medlemmer
+  (Far/Mor/Barn) var upåvirkede — kun "Familien" ramte problemet.
 
-Alle tre blev fundet ved at skrive rute-tests, ikke ved manuel gennemgang —
-et konsekvent mønster: server-ruter uden automatiserede tests i denne
-kodebase har hidtil altid indeholdt mindst én reel bug ved nærmere eftersyn.
+De første tre blev fundet ved at skrive rute-tests, ikke ved manuel
+gennemgang — et konsekvent mønster: server-ruter uden automatiserede tests
+i denne kodebase har hidtil altid indeholdt mindst én reel bug ved nærmere
+eftersyn. Den fjerde krævede rigtig brugertest for at blive fundet, fordi
+fejlen sad i klientens stille fejlhåndtering, ikke i selve serverlogikken —
+et argument for også at lægge mærke til `void`-kaldte, ikke-afventede
+server-skrivninger uden fejlvisning ved fremtidige gennemgange.
 
 ### Deploy-infrastrukturfejl fundet og rettet (2026-08-13)
 
