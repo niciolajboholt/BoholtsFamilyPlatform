@@ -8,7 +8,12 @@ import { DatabaseSync } from "node:sqlite";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-const migrationFiles = ["0001_init.sql", "0002_auth.sql", "0003_families.sql"];
+const migrationFiles = [
+  "0001_init.sql",
+  "0002_auth.sql",
+  "0003_families.sql",
+  "0004_calendar_member_mappings.sql",
+];
 
 function loadMigrations(db: DatabaseSync): void {
   for (const file of migrationFiles) {

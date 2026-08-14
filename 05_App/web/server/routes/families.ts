@@ -565,9 +565,24 @@ families.put("/:id/calendar-mappings/:calendarId", async (c) => {
   }
 
   const body = await parseJsonBody<{ familyMemberId: string }>(c);
+  const familyMemberId = body.familyMemberId?.trim();
 
-  if (!body.familyMemberId?.trim()) {
+  if (!familyMemberId) {
     return c.json({ error: "familyMemberId er påkrævet." }, 400);
+  }
+
+  // family_members.id er en global primærnøgle på tværs af alle familier
+  // (se ADR-017/Fase 2-noten om samme problem ved sletning), så uden dette
+  // tjek kunne en admin i praksis knytte deres kalender til et medlem-id
+  // fra en helt anden familie.
+  const targetMember = await c.env.DB.prepare(
+    "SELECT id FROM family_members WHERE id = ? AND family_id = ?",
+  )
+    .bind(familyMemberId, familyId)
+    .first<{ id: string }>();
+
+  if (!targetMember) {
+    return c.json({ error: "Familiemedlemmet findes ikke i denne familie." }, 400);
   }
 
   await c.env.DB.prepare(
@@ -576,7 +591,7 @@ families.put("/:id/calendar-mappings/:calendarId", async (c) => {
      ON CONFLICT(family_id, google_calendar_id) DO UPDATE SET
        family_member_id = excluded.family_member_id`,
   )
-    .bind(familyId, calendarId, body.familyMemberId.trim())
+    .bind(familyId, calendarId, familyMemberId)
     .run();
 
   const mappings = await listCalendarMemberMappings(c.env.DB, familyId);
