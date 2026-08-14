@@ -8,14 +8,17 @@ interface ProviderConnectionRowProps {
   isConfigured: boolean;
   isBusy: boolean;
   isAttemptingSilentReconnect: boolean;
-  onManageCalendars: () => void;
-  onToggleConnection: () => void;
+  // Udeladt for en provider uden en manuel forbind/afbryd-handling (Fase 3:
+  // Google forbindes allerede ved login) — rækken viser da kun status.
+  onToggleConnection?: () => void;
 }
 
 /**
  * Én række i "Kalenderforbindelser"-kortet — delt af Google og Outlook (og
  * senere Apple), så SettingsPage ikke skal gentage det samme layout for
- * hver provider.
+ * hver provider. Kalender-til-familiemedlem-tildeling sker ikke længere her
+ * (Fase 3) — den flyttede ind i "Rediger familiemedlem", så rækken viser nu
+ * kun forbindelsesstatus.
  */
 export function ProviderConnectionRow({
   label,
@@ -24,7 +27,6 @@ export function ProviderConnectionRow({
   isConfigured,
   isBusy,
   isAttemptingSilentReconnect,
-  onManageCalendars,
   onToggleConnection,
 }: ProviderConnectionRowProps) {
   return (
@@ -32,15 +34,21 @@ export function ProviderConnectionRow({
       sx={{
         display: "flex",
         alignItems: "center",
-        gap: 1.5,
         py: 1.5,
       }}
     >
-      <IconButton
-        aria-label={`Administrer ${label}`}
-        disabled={!isConnected}
-        onClick={onManageCalendars}
-        sx={{ p: 0 }}
+      {/* Ikon og tekst grupperes og centreres sammen, i stedet for at teksten
+          centreres alene i den fulde resterende bredde — ellers ender
+          teksten langt fra ikonet, når der ikke er en kontrol i højre side
+          (Google-rækken efter Fase 3) til at afbalancere bredden. */}
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 1.5,
+          flexGrow: 1,
+        }}
       >
         <Avatar
           sx={{
@@ -50,29 +58,31 @@ export function ProviderConnectionRow({
         >
           <SyncRounded />
         </Avatar>
-      </IconButton>
 
-      <Box sx={{ flexGrow: 1 }}>
-        <Typography sx={{ fontWeight: 600 }}>
-          {label}
-        </Typography>
+        <Box sx={{ textAlign: "center" }}>
+          <Typography sx={{ fontWeight: 600 }}>
+            {label}
+          </Typography>
 
-        <Typography variant="body2" color="text.secondary">
-          {statusText}
-        </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {statusText}
+          </Typography>
+        </Box>
       </Box>
 
-      <IconButton
-        aria-label={isConnected ? `Afbryd ${label}` : `Forbind ${label}`}
-        disabled={!isConfigured || isBusy || isAttemptingSilentReconnect}
-        onClick={onToggleConnection}
-      >
-        {isBusy || isAttemptingSilentReconnect ? (
-          <CircularProgress size={20} />
-        ) : (
-          <ChevronRightRounded />
-        )}
-      </IconButton>
+      {onToggleConnection && (
+        <IconButton
+          aria-label={isConnected ? `Afbryd ${label}` : `Forbind ${label}`}
+          disabled={!isConfigured || isBusy || isAttemptingSilentReconnect}
+          onClick={onToggleConnection}
+        >
+          {isBusy || isAttemptingSilentReconnect ? (
+            <CircularProgress size={20} />
+          ) : (
+            <ChevronRightRounded />
+          )}
+        </IconButton>
+      )}
     </Box>
   );
 }

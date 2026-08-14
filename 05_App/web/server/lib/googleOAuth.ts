@@ -121,6 +121,57 @@ export async function exchangeGoogleAuthorizationCode(options: {
   return response.json();
 }
 
+// Kastes specifikt når Google svarer "invalid_grant" på et refresh-forsøg —
+// det betyder brugeren har tilbagekaldt appens adgang (Google-kontoens
+// "Tredjeparts-adgang"-side) eller refresh-tokenet er udløbet, ikke en
+// forbigående fejl. Kaldestedet (getGoogleAccessToken) bruger dette til at
+// rydde google_connections i stedet for at fejle uklart igen og igen.
+export class GoogleRefreshTokenInvalidError extends Error {
+  constructor() {
+    super("Google-adgangen er blevet tilbagekaldt eller er udløbet.");
+    this.name = "GoogleRefreshTokenInvalidError";
+  }
+}
+
+export async function refreshGoogleAccessToken(options: {
+  clientId: string;
+  clientSecret: string;
+  refreshToken: string;
+}): Promise<GoogleTokenResponse> {
+  const body = new URLSearchParams({
+    client_id: options.clientId,
+    client_secret: options.clientSecret,
+    refresh_token: options.refreshToken,
+    grant_type: "refresh_token",
+  });
+
+  const response = await fetch(tokenEndpoint, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body,
+  });
+
+  if (!response.ok) {
+    const responseBody = await response.text().catch(() => "");
+
+    let errorCode: string | undefined;
+    try {
+      errorCode = (JSON.parse(responseBody) as { error?: string }).error;
+    } catch {
+      // Google svarer normalt med JSON — et uparsbart svar behandles som en
+      // almindelig (ikke-invalid_grant) fejl herunder.
+    }
+
+    if (errorCode === "invalid_grant") {
+      throw new GoogleRefreshTokenInvalidError();
+    }
+
+    throw new Error(`Google token refresh failed: ${response.status} ${responseBody}`);
+  }
+
+  return response.json();
+}
+
 export interface GoogleUserInfo {
   sub: string;
   email: string;

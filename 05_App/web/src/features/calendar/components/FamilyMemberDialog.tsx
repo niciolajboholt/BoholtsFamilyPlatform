@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import {
   Alert,
@@ -20,6 +20,12 @@ import { familyMemberRelations } from "../data/familyMemberRelations";
 import type { FamilyMemberRelation } from "../data/familyMemberRelations";
 import { familyPseudoMemberId } from "../models/calendarEvent";
 import type { FamilyMemberInput } from "../hooks/useFamilyMembers";
+import type { MappableCalendarOption } from "../providers/calendarProviderFactory";
+import { listAllMappableCalendars } from "../providers/calendarProviderFactory";
+import {
+  getCalendarIdForOwner,
+  setCalendarMemberMapping,
+} from "../preferences/calendarMemberMappingStorage";
 
 interface FamilyMemberDialogProps {
   open: boolean;
@@ -46,6 +52,12 @@ export function FamilyMemberDialog({
   const [color, setColor] = useState(member?.color ?? colorSwatches[0]);
   const [isNameTouched, setIsNameTouched] = useState(false);
   const [isDeleteConfirmVisible, setIsDeleteConfirmVisible] = useState(false);
+  const [selectedCalendarId, setSelectedCalendarId] = useState("");
+  const [calendarOptions, setCalendarOptions] = useState<
+    MappableCalendarOption[]
+  >([]);
+  const [isLoadingCalendarOptions, setIsLoadingCalendarOptions] =
+    useState(false);
 
   // Same render-phase reset pattern established in Sprint 13 (NewEventDialog/
   // EditEventDialog) — avoids a useEffect that the react-hooks/
@@ -61,7 +73,47 @@ export function FamilyMemberDialog({
     setColor(member?.color ?? colorSwatches[0]);
     setIsNameTouched(false);
     setIsDeleteConfirmVisible(false);
+    setSelectedCalendarId(member ? getCalendarIdForOwner(member.id) ?? "" : "");
   }
+
+  // Et helt nyt medlem har intet id, før det er gemt server-side (Fase 2) —
+  // kalender-tildelingen kan derfor først sættes, når man redigerer medlemmet
+  // igen bagefter.
+  const canAssignCalendar = !isNew;
+
+  useEffect(() => {
+    if (!open || !canAssignCalendar) {
+      return;
+    }
+
+    let isCancelled = false;
+    // Synkron ved effektens start (dialogen lige åbnet), ikke en kaskade fra
+    // en tidligere renders state — samme mønster som Sprint 14's
+    // useGoogleCalendarConnection brugte til attemptSilentReconnect.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setIsLoadingCalendarOptions(true);
+
+    listAllMappableCalendars()
+      .then((options) => {
+        if (!isCancelled) {
+          setCalendarOptions(options);
+        }
+      })
+      .catch(() => {
+        if (!isCancelled) {
+          setCalendarOptions([]);
+        }
+      })
+      .finally(() => {
+        if (!isCancelled) {
+          setIsLoadingCalendarOptions(false);
+        }
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [open, canAssignCalendar]);
 
   const trimmedName = name.trim();
   const nameError =
@@ -83,6 +135,19 @@ export function FamilyMemberDialog({
       color,
       isPlaceholderName: false,
     });
+
+    if (canAssignCalendar && member) {
+      const previousCalendarId = getCalendarIdForOwner(member.id);
+
+      if (previousCalendarId && previousCalendarId !== selectedCalendarId) {
+        setCalendarMemberMapping(previousCalendarId, null);
+      }
+
+      if (selectedCalendarId) {
+        setCalendarMemberMapping(selectedCalendarId, member.id);
+      }
+    }
+
     onClose();
   }
 
@@ -137,6 +202,32 @@ export function FamilyMemberDialog({
                 {familyMemberRelations.map((option) => (
                   <MenuItem key={option} value={option}>
                     {option}
+                  </MenuItem>
+                ))}
+              </TextField>
+            )}
+
+            {canAssignCalendar && (
+              <TextField
+                select
+                label="Kalender"
+                value={selectedCalendarId}
+                fullWidth
+                disabled={isLoadingCalendarOptions}
+                helperText={
+                  isLoadingCalendarOptions
+                    ? "Henter forbundne kalendere…"
+                    : "Aftaler fra denne kalender vises som tilhørende dette medlem."
+                }
+                onChange={(event) => setSelectedCalendarId(event.target.value)}
+              >
+                <MenuItem value="">Ingen</MenuItem>
+                {calendarOptions.map((option) => (
+                  <MenuItem
+                    key={option.rawCalendarId}
+                    value={option.rawCalendarId}
+                  >
+                    {option.label}
                   </MenuItem>
                 ))}
               </TextField>

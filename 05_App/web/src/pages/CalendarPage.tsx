@@ -262,11 +262,8 @@ function CalendarPage() {
   const recurrenceExceptions = useRecurrenceExceptions();
 
   const {
-    isConfigured: isGoogleCalendarConfigured,
-    configurationError: googleCalendarConfigurationError,
+    isLoading: isGoogleCalendarStatusLoading,
     isConnected: isGoogleCalendarConnected,
-    wasEverConnected: wasGoogleCalendarEverConnected,
-    isAttemptingSilentReconnect: isAttemptingGoogleSilentReconnect,
   } = useGoogleCalendarConnection();
 
   const {
@@ -719,21 +716,22 @@ function CalendarPage() {
         }
       />
 
-      <ExternalCalendarConnectionBanner
-        providerLabel="Google"
-        isConfigured={isGoogleCalendarConfigured}
-        configurationError={googleCalendarConfigurationError}
-        isConnected={isGoogleCalendarConnected}
-        wasEverConnected={wasGoogleCalendarEverConnected}
-        isAttemptingSilentReconnect={isAttemptingGoogleSilentReconnect}
-        health={providerHealth.find(
-          (health) => health.providerId === "google",
-        )}
-        onRetry={() => {
-          void refreshEvents();
-          void refreshCalendarSources();
-        }}
-      />
+      {!isGoogleCalendarStatusLoading && (
+        <ExternalCalendarConnectionBanner
+          providerLabel="Google"
+          isConfigured
+          isConnected={isGoogleCalendarConnected}
+          wasEverConnected
+          isAttemptingSilentReconnect={false}
+          health={providerHealth.find(
+            (health) => health.providerId === "google",
+          )}
+          onRetry={() => {
+            void refreshEvents();
+            void refreshCalendarSources();
+          }}
+        />
+      )}
 
       {/*
         Outlook er midlertidigt slået fra uden en configurationError (se

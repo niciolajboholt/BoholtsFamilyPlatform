@@ -6,14 +6,12 @@ import type { CalendarProvider } from "./CalendarProvider";
 import { CompositeCalendarProvider } from "./CompositeCalendarProvider";
 import type { ExternalCalendarProvider } from "./CompositeCalendarProvider";
 import { GoogleCalendarProvider } from "./google/GoogleCalendarProvider";
-import { getGoogleCalendarConfig } from "./google/googleCalendarConfig";
-import { GoogleCalendarSession } from "./google/GoogleCalendarSession";
+import { decodeGoogleCalendarSourceId } from "./google/googleCalendarIds";
 import { OutlookCalendarProvider } from "./outlook/OutlookCalendarProvider";
+import { decodeOutlookCalendarSourceId } from "./outlook/outlookCalendarIds";
 import { getOutlookCalendarConfig } from "./outlook/outlookCalendarConfig";
 import { OutlookCalendarSession } from "./outlook/OutlookCalendarSession";
 
-export const googleCalendarSession =
-  new GoogleCalendarSession();
 export const outlookCalendarSession =
   new OutlookCalendarSession();
 
@@ -42,10 +40,13 @@ export function createCalendarProvider(
   }
 }
 
-const googleCalendarProvider =
-  getGoogleCalendarConfig().enabled
-    ? new GoogleCalendarProvider(googleCalendarSession)
-    : null;
+// Fase 3: Google er ikke længere valgfrit konfigureret via en klient
+// env-var — enhver logget-ind bruger har allerede givet kalender-samtykke
+// ved login (Fase 1), så providerens egen "authentication"-fejl (401 fra
+// /api/calendar, hvis brugeren mod forventning ikke er forbundet) er
+// tilstrækkelig; CompositeCalendarProvider fanger den allerede og viser
+// providerId "google" som "disconnected" i stedet for at fejle hele siden.
+const googleCalendarProvider = new GoogleCalendarProvider();
 
 const outlookCalendarProvider =
   getOutlookCalendarConfig().enabled
@@ -53,13 +54,11 @@ const outlookCalendarProvider =
     : null;
 
 const externalProviders: ExternalCalendarProvider[] = [
-  ...(googleCalendarProvider
-    ? [{
-        providerId: "google" as const,
-        provider: googleCalendarProvider,
-        sourceIdPrefix: "google:",
-      }]
-    : []),
+  {
+    providerId: "google" as const,
+    provider: googleCalendarProvider,
+    sourceIdPrefix: "google:",
+  },
   ...(outlookCalendarProvider
     ? [{
         providerId: "outlook" as const,
@@ -94,9 +93,7 @@ export const calendarProvider =
  * respekterer eksklusion.
  */
 export function listAllGoogleCalendars(): Promise<CalendarSource[]> {
-  return googleCalendarProvider
-    ? googleCalendarProvider.listAllCalendars()
-    : Promise.resolve([]);
+  return googleCalendarProvider.listAllCalendars();
 }
 
 /**
@@ -106,4 +103,50 @@ export function listAllOutlookCalendars(): Promise<CalendarSource[]> {
   return outlookCalendarProvider
     ? outlookCalendarProvider.listAllCalendars()
     : Promise.resolve([]);
+}
+
+export interface MappableCalendarOption {
+  // Det rå provider-kalender-id (ikke det kodede sourceId) — samme form som
+  // calendarMemberMappingStorage.ts gemmer, så et valg her kan skrives
+  // direkte uden yderligere oversættelse.
+  rawCalendarId: string;
+  label: string;
+}
+
+/**
+ * Alle kalendere fra alle forbundne konti, i den form
+ * kalender-til-familiemedlem-tildelingen (FamilyMemberDialog, ADR-014)
+ * har brug for — delt så både dialogen og familielisten i Indstillinger kan
+ * slå et rå kalender-id op til et menneskeligt navn.
+ */
+export async function listAllMappableCalendars(): Promise<
+  MappableCalendarOption[]
+> {
+  const [googleCalendars, outlookCalendars] = await Promise.all([
+    listAllGoogleCalendars(),
+    listAllOutlookCalendars(),
+  ]);
+
+  const options: MappableCalendarOption[] = [];
+
+  for (const source of [...googleCalendars, ...outlookCalendars]) {
+    try {
+      if (source.providerType === "google") {
+        options.push({
+          rawCalendarId: decodeGoogleCalendarSourceId(source.id),
+          label: `${source.name} (Google)`,
+        });
+      } else if (source.providerType === "outlook") {
+        options.push({
+          rawCalendarId: decodeOutlookCalendarSourceId(source.id),
+          label: `${source.name} (Outlook)`,
+        });
+      }
+    } catch {
+      // En kilde med et uventet id-format springes over — bør ikke ske i
+      // praksis, da id'et altid kommer fra samme providers egen encode-fn.
+    }
+  }
+
+  return options;
 }
