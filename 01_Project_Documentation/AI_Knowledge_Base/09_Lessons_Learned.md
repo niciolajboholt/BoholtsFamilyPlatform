@@ -2,13 +2,13 @@
 
 > Status: Active
 
-Version: 1.2
+Version: 1.3
 
 Project:
 Boholts Family Platform
 
 Last Updated:
-2026-07-28 (Sprint 13)
+2026-08-14 (Sprint 20, Fase 0-4)
 
 Owner:
 Nicolaj Bach Boholt
@@ -86,6 +86,44 @@ Flere gange er lokale branches (fx `develop`) og deres remote-modstykke (`origin
 - **Observation**: Lokal og remote branch-tilstand er ikke altid identisk, og en agent kan fejlagtigt antage, at lokal `HEAD` afspejler den nyeste fælles status.
 - **Konsekvens**: Arbejde kan risikere at basere sig på forældet eller divergeret grundlag, og en påstået commit eller merge skal derfor altid verificeres direkte i Git, ikke antages ud fra en tidligere samtale eller rapport.
 - **Fremtidig regel**: Kør `git fetch` og sammenlign lokal branch mod `origin/<branch>` ved sessionens start, og igen før en branch antages "up to date". Stash er en midlertidig arbejdshjælp, ikke en erstatning for commit og versionsstyring.
+
+---
+
+## Cloudflare Worker-bindinger skal stå i wrangler.jsonc, aldrig kun i dashboardet
+
+Under Sprint 20 (server-fundamentet, Fase 0-1) blev timevis brugt på at fejlsøge et "invalid_client"-login, der viste sig at skyldes at `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` var sat i Cloudflare-dashboardets **Settings → Build → "Variables and secrets"** — en sektion der kun gælder selve build-trinnet, aldrig den kørende Workers runtime. Det rigtige sted er **Bindings-fanens Secrets Store**. Samme fejlklasse ramte senere igen (2026-08-13): en binding sat korrekt via dashboardet forsvandt ved næste Git-udløste deploy, fordi den ikke også stod i `wrangler.jsonc`.
+
+- **Observation**: Cloudflare har flere steder, der ligner hinanden, men opfører sig forskelligt (build-tids-variabler vs. runtime-bindinger; dashboard-sat vs. config-pinnet).
+- **Konsekvens**: En binding kan virke i én deployment og forsvinde stille i den næste, uden nogen fejlbesked ud over en runtime-fejl langt fra årsagen (fx `Cannot read properties of undefined (reading 'get')`).
+- **Fremtidig regel**: Enhver runtime-binding (D1, Secrets Store, `vars`) skal stå eksplicit i `wrangler.jsonc` for både `main`- og `env.beta`-blokken. Dashboard-ændringer er kun en midlertidig test, aldrig den endelige kilde.
+
+---
+
+## Ethvert push til `develop` deployer til beta — også rene dokumentations-commits
+
+Cloudflares Git-integration bygger og deployer ved hvert push til den branch, der er sat som "Production branch" for `boholtsfamilyplatform-beta` (`develop`) — uanset om ændringen rører appkoden. En docs-only-commit i dag udløste et helt nyt deploy, som (fordi en tidligere binding-rettelse endnu ikke var pinnet i config) reelt nulstillede login på beta.
+
+**Erfaring**: Behandl `develop` som en levende, altid-deployet branch. Deploy-kritisk konfiguration (bindinger, secrets) skal være korrekt i `wrangler.jsonc` *før* enhver anden ændring pushes samme dag — den behøver ikke være relateret til det, man rent faktisk arbejder på, for at udløse et deploy.
+
+---
+
+## Globale primærnøgler på tværs af "tenants" kræver eksplicit scoping-tjek
+
+Sprint 20 gjorde appen multi-tenant (flere familier i samme database). Tre separate bugs (Fase 2, Fase 4 ×2) opstod, fordi et id-baseret tjek, der var korrekt i den gamle single-tenant/lokale model, ikke automatisk blev opdateret til at være familie-scoped i den nye:
+
+1. Sletning af "Familien"-pseudomedlemmet tjekkede `id != 'family'` — men id'er er nu `crypto.randomUUID()`, ikke faste slugs (kan ikke være faste, da `family_members.id` er en global primærnøgle).
+2. Tildeling af en kalender til et familiemedlem validerede ikke at det angivne medlem-id faktisk tilhørte den familie, der lavede kaldet — en admin kunne i praksis pege på et medlem fra en helt anden familie.
+3. Klientens lokale "Familien"-id (`"family"`, en fast konstant fra før multi-tenant) blev sendt direkte til serveren som om det var et rigtigt medlem-id, og blev korrekt afvist af tjek nr. 2 — men fejlen blev aldrig vist, fordi kaldet var `void` uden fejlhåndtering.
+
+**Fremtidig regel**: Når en tabel/entitet får en global (ikke længere unik-pr.-ejer) primærnøgle, skal *enhver* eksisterende sammenligning mod den nøgle (lighed, ulighed, "tilhører dette"-tjek) gennemgås eksplicit — antag ikke at et gammelt tjek stadig er korrekt bare fordi typen (streng) er uændret. Og: server-skrivninger fra UI'et bør altid have en fejl-sti, selv en simpel — et `void`-kaldt, ikke-afventet API-kald skjuler enhver serverafvisning fuldstændigt for brugeren.
+
+---
+
+## Rute-tests finder bugs, manuel gennemgang overser dem
+
+Alle fire ovenstående server-bugs (Fase 2's slettebeskyttelse, Fase 3's 204-krasj, Fase 4's cross-family-validering, og den stille "Familien"-fejl) blev fundet ved at skrive automatiserede rute-tests for kode, der allerede var merget uden nogen — heller ikke Fase 4's cross-family-bug, som først blev fanget under en systematisk gennemgang, ikke ved første øjekast.
+
+**Erfaring**: En server-rute uden automatiseret test i denne kodebase har hidtil *altid* indeholdt mindst én reel bug, når den blev testet efterfølgende. Ny server-kode bør have rute-tests, før den merges — ikke eftermonteres, hvis det kan undgås.
 
 ---
 
