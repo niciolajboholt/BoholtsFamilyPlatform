@@ -51,11 +51,11 @@ rækkefølge.
 | 1 | Server-ejet Google-login + session | ✅ Merget til `develop`, verificeret på beta 2026-08-02 |
 | 2 | Familier, medlemskab, invitationer | ✅ **Merget til `develop`** (PR #29, 2026-08-14). Christines fulde test af invitationsflowet på beta gennemført og godkendt. 24 rute-tests. |
 | 3 | Server overtager Google Kalender-sync | ✅ **Merget til `develop`** (PR #28, 2026-08-14). Manuel beta-verificering (forbind/opret/redigér/slet, bekræftet i Google Kalender) gennemført og godkendt. |
-| 4 | Kalender-medlem-mapping → D1 | Første commit på `feature/sprint-20-fase4-shared-calendar-mapping` 2026-08-12, oven på nu-forældede Fase 3-commits. Skal rebases mod opdateret `develop`, gennemgås og testes efter samme metode som Fase 2/3, før PR åbnes. |
+| 4 | Kalender-medlem-mapping → D1 | ✅ **Merget til `develop`** (PR #30, 2026-08-14). Rebaset mod opdateret `develop`, 27 rute-tests i alt, en cross-family valideringsbug fundet og rettet (se nedenfor). Mangler stadig rigtig beta-verificering af selve UI-flowet (Indstillinger → "Rediger familiemedlem"). |
 | 5 | Udfas lokale (ikke-Google) aftaler + migrering | Ikke startet. Kræver Nicolajs designvalg (bulk-opret i Google vs. eksportér som backup) først. |
 | 6 | Oprydning + Cloudflare Access-beslutning | Ikke startet. 3 af planens DB-indekser er allerede tilstede (se nedenfor). |
 
-**`develop` har nu login, familier/invitationer og server-styret Google-kalender-sync samlet.** Beta-Workeren kører denne kode efter merge af #29/#28 (verificeret grønt CI + Cloudflare-build på begge PR'er).
+**`develop` har nu login, familier/invitationer, server-styret Google-kalender-sync og delt kalender-medlem-mapping samlet.** Beta-Workeren kører denne kode efter merge af #29/#28/#30 (verificeret grønt CI + Cloudflare-build på alle tre PR'er).
 
 ### Bugs fundet og rettet undervejs (2026-08-13)
 
@@ -72,9 +72,17 @@ rækkefølge.
   Tjekket matchede derfor aldrig noget rigtigt medlem, og pseudomedlemmet var
   reelt ubeskyttet. Rettet til `relation IS NOT NULL`, samme markør resten af
   filen allerede bruger.
+- **Fase 4**: `PUT /:id/calendar-mappings/:calendarId` autoriserede kalderen
+  som ejer/admin af familien i URL'en, men validerede aldrig at det angivne
+  `familyMemberId` i request-body faktisk tilhørte den familie — samme
+  klasse fejl som Fase 2-bugen ovenfor (global primærnøgle, ingen
+  familie-scoping). En admin kunne i praksis knytte sin egen families
+  kalender til et medlem-id fra en helt anden familie. Rettet ved at slå det
+  målrettede medlem op scoped til både `id` og `family_id`, før upsert.
 
-Begge blev fundet ved at skrive rute-tests, ikke ved manuel gennemgang —
-endnu et argument for at Fase 4 bør have samme behandling, før den merges.
+Alle tre blev fundet ved at skrive rute-tests, ikke ved manuel gennemgang —
+et konsekvent mønster: server-ruter uden automatiserede tests i denne
+kodebase har hidtil altid indeholdt mindst én reel bug ved nærmere eftersyn.
 
 ### Deploy-infrastrukturfejl fundet og rettet (2026-08-13)
 
@@ -106,10 +114,9 @@ hvor lille en anden ændring man laver samme dag.
    PR #29 merget til `develop`.
 3. ~~**Rigtig beta-test af Fase 3**~~ ✅ **Gennemført og godkendt (2026-08-14)** —
    PR #28 merget til `develop`.
-4. **Gennemgå og test Fase 4** med samme grundighed som 2/3: rebase
-   `feature/sprint-20-fase4-shared-calendar-mapping` oven på opdateret
-   `develop` (indeholder nu Fase 2/3), tilføj tests hvis de mangler, led
-   efter tilsvarende bugs. **Næste skridt i rækken.**
+4. ~~**Gennemgå og test Fase 4**~~ ✅ **Gennemført og merget (2026-08-14)** —
+   PR #30 merget til `develop`. Mangler dog stadig rigtig beta-verificering
+   af selve UI-flowet (Indstillinger → "Rediger familiemedlem").
 5. **Designvalg til Fase 5** (kun Nicolaj kan beslutte): skal eksisterende
    lokale aftaler bulk-oprettes automatisk i Google Kalender, eller
    eksporteres som en backup-fil brugeren selv gemmer (genbruger
