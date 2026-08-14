@@ -9,6 +9,7 @@ import {
   CloudUploadRounded,
   DarkModeRounded,
   FamilyRestroomRounded,
+  LogoutRounded,
   NotificationsRounded,
   PersonRounded,
   SaveRounded,
@@ -28,6 +29,8 @@ import {
 } from "@mui/material";
 
 import { FamilyMemberDialog } from "../features/calendar/components/FamilyMemberDialog";
+import { useSession } from "../features/auth/hooks/useSession";
+import { InviteCodeCard } from "../features/family/InviteCodeCard";
 import type {
   CalendarMemberAssignment,
   CalendarNameOverride,
@@ -83,6 +86,8 @@ function SettingsPage() {
   const [isCurrentMemberPickerOpen, setIsCurrentMemberPickerOpen] =
     useState(false);
 
+  const { user, logout } = useSession();
+
   function handleOpenAddMember() {
     setEditingMember(null);
     setIsMemberDialogOpen(true);
@@ -97,9 +102,9 @@ function SettingsPage() {
     input: Parameters<typeof addMember>[0],
   ) {
     if (editingMember) {
-      updateMember(editingMember.id, input);
+      void updateMember(editingMember.id, input);
     } else {
-      addMember(input);
+      void addMember(input);
     }
   }
 
@@ -436,6 +441,8 @@ function SettingsPage() {
           onDelete={deleteMember}
         />
 
+        <InviteCodeCard />
+
         <Card>
           <CardContent sx={{ p: 3 }}>
             <Box
@@ -640,6 +647,35 @@ function SettingsPage() {
                 <ChevronRightRounded />
               </IconButton>
             </Box>
+
+            {user && (
+              <>
+                <Divider />
+
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1.5,
+                    py: 1.5,
+                  }}
+                >
+                  <LogoutRounded color="action" />
+
+                  <Box sx={{ flexGrow: 1 }}>
+                    <Typography sx={{ fontWeight: 600 }}>Log ud</Typography>
+
+                    <Typography variant="body2" color="text.secondary">
+                      {user.email}
+                    </Typography>
+                  </Box>
+
+                  <Button color="error" onClick={() => void logout()}>
+                    Log ud
+                  </Button>
+                </Box>
+              </>
+            )}
           </CardContent>
         </Card>
       </Box>
