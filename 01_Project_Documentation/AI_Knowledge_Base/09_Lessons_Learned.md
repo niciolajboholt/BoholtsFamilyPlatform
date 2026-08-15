@@ -2,7 +2,7 @@
 
 > Status: Active
 
-Version: 1.3
+Version: 1.4
 
 Project:
 Boholts Family Platform
@@ -124,6 +124,14 @@ Sprint 20 gjorde appen multi-tenant (flere familier i samme database). Tre separ
 Alle fire ovenstående server-bugs (Fase 2's slettebeskyttelse, Fase 3's 204-krasj, Fase 4's cross-family-validering, og den stille "Familien"-fejl) blev fundet ved at skrive automatiserede rute-tests for kode, der allerede var merget uden nogen — heller ikke Fase 4's cross-family-bug, som først blev fanget under en systematisk gennemgang, ikke ved første øjekast.
 
 **Erfaring**: En server-rute uden automatiseret test i denne kodebase har hidtil *altid* indeholdt mindst én reel bug, når den blev testet efterfølgende. Ny server-kode bør have rute-tests, før den merges — ikke eftermonteres, hvis det kan undgås.
+
+---
+
+## D1-migrationer anvendes ikke automatisk — de skal huskes manuelt hver gang
+
+Fase 4's kalender-tildeling blev "rettet" tre gange (id-oversættelse, `resolveFamilyId`-cache, `AppLayout`-effekt) uden at symptomet forsvandt, fordi ingen af de tre var den reelle årsag: tabellen `calendar_member_mappings` fandtes slet ikke i beta-databasen. Hverken `npm run build`, `npm test` eller Cloudflare Workers Builds kører `wrangler d1 migrations apply` — der er intet trin i pipelinen, der anvender nye migrationsfiler på den faktiske (beta/produktions-)database. Det er en ren manuel kommando, som skal huskes hver gang en ny migrationsfil tilføjes, og som blev glemt her. En manglende tabel fejler tavst med en generisk server-500, som klienten viser som en generisk "kunne ikke gemmes"-fejl — umuligt at skelne fra en rigtig valideringsfejl uden at slå direkte op i databasen.
+
+**Erfaring**: efter enhver ny migrationsfil, bekræft eksplicit (fx via `d1_database_query` mod `sqlite_master`) at tabellen findes i **både** beta- og produktions-databasen, før man antager en Fase er "deployet og klar til test" — "CI er grønt" og "koden er merget" siger intet om databasens faktiske skema. På sigt bør dette automatiseres som et build/deploy-trin i stedet for at være et huske-punkt.
 
 ---
 

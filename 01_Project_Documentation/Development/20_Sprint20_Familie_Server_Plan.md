@@ -126,6 +126,34 @@ rækkefølge.
   denne rettelses omfang. Verificeret med lint, build og hele den
   eksisterende testpakke (189/189); afventer manuel gentest.
 
+- **Fase 4, syvende og reelle rod-årsag, fundet ved direkte D1-opslag
+  (2026-08-15):** Efter sjette bug var rettet og deployet, fejlede
+  tildelingen *stadig* — samme synlige fejl. En direkte forespørgsel mod
+  beta-D1'en (`d1_database_query`) afslørede den egentlige årsag: tabellen
+  `calendar_member_mappings` fandtes slet ikke. Migration
+  `0004_calendar_member_mappings.sql` var aldrig blevet anvendt på
+  beta-databasen. Hverken `npm run build` eller Cloudflare Workers Builds
+  kører `wrangler d1 migrations apply` — der findes intet automatisk trin
+  nogen steder i pipelinen, der anvender nye migrationsfiler; det kræver en
+  manuel kommando, som tydeligvis blev glemt for denne migration. Enhver
+  `INSERT`/`SELECT` mod tabellen fejlede derfor med en server-side 500,
+  hvilket klientens generiske fejlhåndtering viste som "Kalender-tildelingen
+  kunne ikke gemmes" — præcis den samme meddelelse uanset den egentlige
+  årsag, hvilket er hvorfor de tre foregående (reelle, men forkerte)
+  rettelser aldrig løste symptomet. Rettet ved at anvende migrationen direkte
+  på beta (`cd369f99-abc2-44e0-9647-300ee6d85a13`) via
+  `d1_database_query`. **Bemærk:** samme opslag viste at
+  produktionsdatabasen (`9de10d3f-3178-4b63-838f-0d7377b0df1b`) mangler
+  migration 0003 *og* 0004 (hele families/invitations-featuren) — ikke
+  akut, da den kode endnu ikke er merget til `main`, men **skal huskes**
+  som et manuelt trin, når Fase 2-4 en dag merges til `main`.
+  **Proceslæring:** migrationer bør enten anvendes automatisk som en del af
+  deploy (fx et build-trin der kører `wrangler d1 migrations apply --remote`
+  før/efter `wrangler deploy`), eller som minimum stå som et eksplicit,
+  ufravigeligt tjekpunkt i denne plan ved enhver ny migration — en tabel der
+  bare ikke findes fejler tavst med en generisk klientfejl, hvilket gjorde
+  denne specifikke bug usædvanligt dyr at finde (fire forsøg).
+
 De første tre blev fundet ved at skrive rute-tests, ikke ved manuel
 gennemgang — et konsekvent mønster: server-ruter uden automatiserede tests
 i denne kodebase har hidtil altid indeholdt mindst én reel bug ved nærmere
