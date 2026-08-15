@@ -1,28 +1,33 @@
 # Project Status
 
-Senest opdateret: 2026-07-29
+Senest opdateret: 2026-08-15
 
 ## Aktuel fase
 
-Ekstern audit-stabilisering af React/TypeScript-webappen. Featureudvikling er
-midlertidigt pauset.
+Sprint 20 (multi-tenant familie-server, ADR-017) er funktionelt komplet på
+`develop` og klar til at merges til `main`. Herefter er appen ikke længere
+kun til Boholt-familien — enhver familie kan oprette sig selv og invitere
+medlemmer.
 
 ## Gennemført
 
 - Vision, produktstrategi, PRD, arkitektur, UX og roadmap.
 - Platformskift fra SwiftUI til React/TypeScript/PWA (ADR-010).
-- Sprint 0–15 på `develop`.
-- Lokale kalenderflows og Google Calendar læse-/skriveintegration.
-- Automatiserede enhedstests.
+- Sprint 0–19: kalendervisning, gentagne aftaler, familiemedlemmer,
+  Google- og Outlook-kalenderintegration, PWA, automatiseret CI/test.
+- **Sprint 20 (ADR-017), Fase 0-6**: Cloudflare Worker + D1-backend,
+  server-ejet Google-login, familier/medlemskab/invitationer, server-styret
+  Google Calendar-sync (krypteret refresh token i D1), delt
+  kalender-til-familiemedlem-tildeling, fjernelse af det lokale
+  (ikke-Google) aftale-lag, oprydning og ajourført dokumentation.
 
 ## I gang
 
-- Runtime-stabilisering i React Strict Mode.
-- Dataintegritet ved sletning af familiemedlemmer.
-- GitHub Actions-CI.
-- Opdatering af repositoryets indgangsdokumentation.
+- Nicolaj fjerner Cloudflare Access fra Worker'en (manuel dashboard-handling
+  — appens eget login + invitationssystem er nu det primære adgangslag).
 
 ## Næste fase
 
-Manuel brugertest, validering af `develop` og derefter release-merge til `main`.
-Sprint 16 genoptages først efter godkendt stabiliseringsmilepæl.
+Merge `develop` til `main` (produktion). Herefter: overvej flere
+Google-konti pr. familie (kræver egen ADR), og de resterende "Snart"-badges
+på forsiden (indkøbsliste, opgaver).
