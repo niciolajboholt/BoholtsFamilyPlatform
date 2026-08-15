@@ -45,6 +45,25 @@
       "migrations_dir": "./server/migrations"
     }
   ],
+  // Samme mønster som secrets_store_secrets ovenfor: slået til i
+  // dashboardet, men uden dette forsvinder det ved næste Git-udløste
+  // deploy. Logs persisteres (så et fejlet kald kan slås op bagefter), traces
+  // er bevidst fra — ingen nuværende behov, og det er den dyrere af de to.
+  "observability": {
+    "enabled": false,
+    "head_sampling_rate": 1,
+    "logs": {
+      "enabled": true,
+      "head_sampling_rate": 1,
+      "persist": true,
+      "invocation_logs": true
+    },
+    "traces": {
+      "enabled": false,
+      "persist": true,
+      "head_sampling_rate": 1
+    }
+  },
   // "beta"-miljøet deployer til en separat Worker (egen URL), brugt af et
   // andet Cloudflare Workers-projekt der forgrener sig fra `develop` i
   // stedet for `main` — så nye funktioner kan testes på en rigtig, delt
@@ -92,7 +111,22 @@
           "database_name": "boholtsfamilyplatform-beta",
           "database_id": "cd369f99-abc2-44e0-9647-300ee6d85a13"
         }
-      ]
+      ],
+      "observability": {
+        "enabled": false,
+        "head_sampling_rate": 1,
+        "logs": {
+          "enabled": true,
+          "head_sampling_rate": 1,
+          "persist": true,
+          "invocation_logs": true
+        },
+        "traces": {
+          "enabled": false,
+          "persist": true,
+          "head_sampling_rate": 1
+        }
+      }
     }
   }
 }
