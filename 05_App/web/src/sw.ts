@@ -42,10 +42,19 @@ self.addEventListener("push", (event) => {
     return;
   }
 
+  // Falder tilbage til rå tekst, hvis payloaden ikke kan parses som JSON —
+  // uden dette forsvinder en uventet payload sporløst, ligesom den tavse
+  // ikke-2xx-fejl i pushNotifications.ts gjorde, før den blev rettet.
   let payload: PushNotificationPayload;
   try {
     payload = event.data.json();
   } catch {
+    const fallbackText = event.data.text();
+    event.waitUntil(
+      self.registration.showNotification("Ny notifikation", {
+        body: fallbackText || undefined,
+      }),
+    );
     return;
   }
 
