@@ -6,6 +6,7 @@ import apiRoutes from "./routes/api";
 import calendarRoutes from "./routes/calendar";
 import familiesRoutes from "./routes/families";
 import pushRoutes from "./routes/push";
+import shoppingListsRoutes from "./routes/shoppingLists";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -25,6 +26,7 @@ app.use("/api/*", async (c, next) => {
 app.route("/auth", authRoutes);
 app.route("/api", apiRoutes);
 app.route("/api/families", familiesRoutes);
+app.route("/api/families", shoppingListsRoutes);
 app.route("/api/calendar", calendarRoutes);
 app.route("/api/push", pushRoutes);
 

@@ -3,6 +3,7 @@ import { Hono } from "hono";
 
 import type { Env } from "../env";
 import { familyMemberSeeds, generateInviteCode } from "../lib/familySeed";
+import { getMembership, getMembershipForFamily } from "../lib/familyMembership";
 import { getSessionUser, type SessionUser } from "../lib/session";
 
 type Variables = { user: SessionUser };
@@ -38,38 +39,6 @@ families.use("*", async (c, next) => {
   c.set("user", user);
   await next();
 });
-
-interface MembershipRow {
-  familyId: string;
-  role: "owner" | "admin" | "member";
-}
-
-async function getMembership(
-  db: D1Database,
-  userId: string,
-): Promise<MembershipRow | null> {
-  const row = await db
-    .prepare(`SELECT family_id AS familyId, role FROM family_memberships WHERE user_id = ?`)
-    .bind(userId)
-    .first<MembershipRow>();
-
-  return row ?? null;
-}
-
-async function getMembershipForFamily(
-  db: D1Database,
-  familyId: string,
-  userId: string,
-): Promise<MembershipRow | null> {
-  const row = await db
-    .prepare(
-      `SELECT family_id AS familyId, role FROM family_memberships WHERE family_id = ? AND user_id = ?`,
-    )
-    .bind(familyId, userId)
-    .first<MembershipRow>();
-
-  return row ?? null;
-}
 
 interface FamilyRow {
   id: string;

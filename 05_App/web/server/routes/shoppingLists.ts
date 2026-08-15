@@ -1,0 +1,356 @@
+// Sprint 21, Del B: familiens delte indkøbsliste(r). Mønster og
+// autorisation følger families.ts's calendar-mappings-ruter — enhver
+// familiemedlem må læse/skrive (indkøb er en fælles, uformel aktivitet, i
+// modsætning til kalender-tildeling og medlemsadministration, som kræver
+// ejer/admin).
+
+import type { Context } from "hono";
+import { Hono } from "hono";
+
+import type { Env } from "../env";
+import { getMembershipForFamily } from "../lib/familyMembership";
+import { sendPushNotificationToFamily } from "../lib/pushNotifications";
+import {
+  guessShoppingCategory,
+  isShoppingCategory,
+  normalizeItemName,
+} from "../lib/shoppingCategories";
+import { getSessionUser, type SessionUser } from "../lib/session";
+
+type Variables = { user: SessionUser };
+type AppContext = Context<{ Bindings: Env; Variables: Variables }>;
+
+const shoppingLists = new Hono<{ Bindings: Env; Variables: Variables }>();
+
+async function parseJsonBody<T extends object>(c: Context): Promise<Partial<T>> {
+  return c.req.json<Partial<T>>().catch(() => ({}) as Partial<T>);
+}
+
+shoppingLists.onError((error, c) => {
+  const message = error instanceof Error ? error.message : String(error);
+  console.error("Indkøbsliste-API fejlede:", message);
+  return c.json({ error: "Der skete en serverfejl. Prøv igen." }, 500);
+});
+
+shoppingLists.use("*", async (c, next) => {
+  const user = await getSessionUser(c);
+
+  if (!user) {
+    return c.json({ error: "Ikke logget ind." }, 401);
+  }
+
+  c.set("user", user);
+  await next();
+});
+
+interface ShoppingListRow {
+  id: string;
+  familyId: string;
+  name: string;
+  createdAt: string;
+}
+
+interface ShoppingListItemRow {
+  id: string;
+  listId: string;
+  name: string;
+  category: string;
+  isChecked: number;
+  addedByUserId: string;
+  createdAt: string;
+  checkedAt: string | null;
+}
+
+// Bekræfter både at brugeren er medlem af familien i URL'en, OG at den
+// angivne liste rent faktisk tilhører netop den familie — uden det sidste
+// tjek kunne en bruger i praksis tilgå en anden families liste ved blot at
+// gætte et listId (samme klasse fejl som Fase 4's cross-family
+// kalender-tildelingsbug tidligere i Sprint 20).
+async function requireListInFamily(
+  c: AppContext,
+  familyId: string,
+  listId: string,
+): Promise<ShoppingListRow | null> {
+  const membership = await getMembershipForFamily(c.env.DB, familyId, c.get("user").id);
+
+  if (!membership) {
+    return null;
+  }
+
+  const list = await c.env.DB.prepare(
+    "SELECT id, family_id AS familyId, name, created_at AS createdAt FROM shopping_lists WHERE id = ? AND family_id = ?",
+  )
+    .bind(listId, familyId)
+    .first<ShoppingListRow>();
+
+  return list ?? null;
+}
+
+async function listItemsForList(
+  db: D1Database,
+  listId: string,
+): Promise<ShoppingListItemRow[]> {
+  const { results } = await db
+    .prepare(
+      `SELECT id, list_id AS listId, name, category, is_checked AS isChecked,
+              added_by_user_id AS addedByUserId, created_at AS createdAt, checked_at AS checkedAt
+       FROM shopping_list_items
+       WHERE list_id = ?
+       ORDER BY is_checked ASC, category ASC, created_at ASC`,
+    )
+    .bind(listId)
+    .all<ShoppingListItemRow>();
+
+  return results;
+}
+
+// Familiens egne, tidligere rettelser har altid forrang over den indbyggede
+// ordbog — det er selve "selvlæringen" (se 21_Sprint21-planen).
+async function resolveCategory(
+  db: D1Database,
+  familyId: string,
+  itemName: string,
+): Promise<string> {
+  const normalized = normalizeItemName(itemName);
+
+  const override = await db
+    .prepare(
+      "SELECT category FROM shopping_item_category_overrides WHERE family_id = ? AND item_name_normalized = ?",
+    )
+    .bind(familyId, normalized)
+    .first<{ category: string }>();
+
+  if (override) {
+    return override.category;
+  }
+
+  return guessShoppingCategory(itemName);
+}
+
+async function saveOverride(
+  db: D1Database,
+  familyId: string,
+  itemName: string,
+  category: string,
+): Promise<void> {
+  await db
+    .prepare(
+      `INSERT INTO shopping_item_category_overrides (family_id, item_name_normalized, category)
+       VALUES (?, ?, ?)
+       ON CONFLICT(family_id, item_name_normalized) DO UPDATE SET category = excluded.category`,
+    )
+    .bind(familyId, normalizeItemName(itemName), category)
+    .run();
+}
+
+// GET/POST /:id/shopping-lists — familiens lister. Den første oprettes
+// automatisk ved første opslag, så klienten ikke selv skal håndtere
+// "opret en liste, hvis der ingen findes" som et separat trin — UI'et viser
+// i første omgang kun denne ene, men API'et understøtter allerede flere.
+shoppingLists.get("/:id/shopping-lists", async (c) => {
+  const familyId = c.req.param("id");
+  const membership = await getMembershipForFamily(c.env.DB, familyId, c.get("user").id);
+
+  if (!membership) {
+    return c.json({ error: "Ikke fundet." }, 404);
+  }
+
+  const { results } = await c.env.DB.prepare(
+    "SELECT id, family_id AS familyId, name, created_at AS createdAt FROM shopping_lists WHERE family_id = ? ORDER BY created_at ASC",
+  )
+    .bind(familyId)
+    .all<ShoppingListRow>();
+
+  if (results.length > 0) {
+    return c.json({ lists: results });
+  }
+
+  const now = new Date().toISOString();
+  const defaultList: ShoppingListRow = {
+    id: crypto.randomUUID(),
+    familyId,
+    name: "Indkøbsliste",
+    createdAt: now,
+  };
+
+  await c.env.DB.prepare(
+    "INSERT INTO shopping_lists (id, family_id, name, created_at) VALUES (?, ?, ?, ?)",
+  )
+    .bind(defaultList.id, familyId, defaultList.name, now)
+    .run();
+
+  return c.json({ lists: [defaultList] });
+});
+
+shoppingLists.post("/:id/shopping-lists", async (c) => {
+  const familyId = c.req.param("id");
+  const membership = await getMembershipForFamily(c.env.DB, familyId, c.get("user").id);
+
+  if (!membership) {
+    return c.json({ error: "Ikke fundet." }, 404);
+  }
+
+  const body = await parseJsonBody<{ name: string }>(c);
+  const name = body.name?.trim();
+
+  if (!name) {
+    return c.json({ error: "Listen skal have et navn." }, 400);
+  }
+
+  const now = new Date().toISOString();
+  const id = crypto.randomUUID();
+
+  await c.env.DB.prepare(
+    "INSERT INTO shopping_lists (id, family_id, name, created_at) VALUES (?, ?, ?, ?)",
+  )
+    .bind(id, familyId, name, now)
+    .run();
+
+  return c.json({ list: { id, familyId, name, createdAt: now } });
+});
+
+shoppingLists.get("/:id/shopping-lists/:listId/items", async (c) => {
+  const list = await requireListInFamily(c, c.req.param("id"), c.req.param("listId"));
+
+  if (!list) {
+    return c.json({ error: "Ikke fundet." }, 404);
+  }
+
+  const items = await listItemsForList(c.env.DB, list.id);
+
+  return c.json({ items });
+});
+
+shoppingLists.post("/:id/shopping-lists/:listId/items", async (c) => {
+  const familyId = c.req.param("id");
+  const list = await requireListInFamily(c, familyId, c.req.param("listId"));
+
+  if (!list) {
+    return c.json({ error: "Ikke fundet." }, 404);
+  }
+
+  const body = await parseJsonBody<{ name: string; category?: string }>(c);
+  const name = body.name?.trim();
+
+  if (!name) {
+    return c.json({ error: "Varen skal have et navn." }, 400);
+  }
+
+  if (body.category !== undefined && !isShoppingCategory(body.category)) {
+    return c.json({ error: "Ukendt kategori." }, 400);
+  }
+
+  const category = body.category ?? (await resolveCategory(c.env.DB, familyId, name));
+
+  if (body.category) {
+    // Et eksplicit valgt kategori er en bevidst rettelse fra brugeren —
+    // huskes med det samme, ligesom PATCH-kaldet nedenfor gør.
+    await saveOverride(c.env.DB, familyId, name, body.category);
+  }
+
+  const now = new Date().toISOString();
+  const id = crypto.randomUUID();
+  const userId = c.get("user").id;
+
+  await c.env.DB.prepare(
+    `INSERT INTO shopping_list_items (id, list_id, name, category, is_checked, added_by_user_id, created_at)
+     VALUES (?, ?, ?, ?, 0, ?, ?)`,
+  )
+    .bind(id, list.id, name, category, userId, now)
+    .run();
+
+  c.executionCtx.waitUntil(
+    sendPushNotificationToFamily(c.env, familyId, userId, {
+      title: "Ny vare på indkøbslisten",
+      body: `"${name}" er tilføjet.`,
+      url: "/shopping-list",
+    }).catch((error: unknown) => {
+      console.error("Kunne ikke sende indkøbsliste-push-notifikation:", error);
+    }),
+  );
+
+  const items = await listItemsForList(c.env.DB, list.id);
+
+  return c.json({ items });
+});
+
+shoppingLists.patch("/:id/shopping-lists/:listId/items/:itemId", async (c) => {
+  const familyId = c.req.param("id");
+  const list = await requireListInFamily(c, familyId, c.req.param("listId"));
+
+  if (!list) {
+    return c.json({ error: "Ikke fundet." }, 404);
+  }
+
+  const itemId = c.req.param("itemId");
+  const item = await c.env.DB.prepare(
+    "SELECT id, name FROM shopping_list_items WHERE id = ? AND list_id = ?",
+  )
+    .bind(itemId, list.id)
+    .first<{ id: string; name: string }>();
+
+  if (!item) {
+    return c.json({ error: "Ikke fundet." }, 404);
+  }
+
+  const body = await parseJsonBody<{ isChecked?: boolean; category?: string }>(c);
+
+  if (body.category !== undefined) {
+    if (!isShoppingCategory(body.category)) {
+      return c.json({ error: "Ukendt kategori." }, 400);
+    }
+
+    await saveOverride(c.env.DB, familyId, item.name, body.category);
+
+    await c.env.DB.prepare("UPDATE shopping_list_items SET category = ? WHERE id = ?")
+      .bind(body.category, itemId)
+      .run();
+  }
+
+  if (body.isChecked !== undefined) {
+    await c.env.DB.prepare(
+      "UPDATE shopping_list_items SET is_checked = ?, checked_at = ? WHERE id = ?",
+    )
+      .bind(body.isChecked ? 1 : 0, body.isChecked ? new Date().toISOString() : null, itemId)
+      .run();
+  }
+
+  const items = await listItemsForList(c.env.DB, list.id);
+
+  return c.json({ items });
+});
+
+shoppingLists.delete("/:id/shopping-lists/:listId/items/:itemId", async (c) => {
+  const list = await requireListInFamily(c, c.req.param("id"), c.req.param("listId"));
+
+  if (!list) {
+    return c.json({ error: "Ikke fundet." }, 404);
+  }
+
+  await c.env.DB.prepare("DELETE FROM shopping_list_items WHERE id = ? AND list_id = ?")
+    .bind(c.req.param("itemId"), list.id)
+    .run();
+
+  const items = await listItemsForList(c.env.DB, list.id);
+
+  return c.json({ items });
+});
+
+// Fjerner alle afkrydsede varer på én gang ("Ryd afkrydsede").
+shoppingLists.post("/:id/shopping-lists/:listId/clear-checked", async (c) => {
+  const list = await requireListInFamily(c, c.req.param("id"), c.req.param("listId"));
+
+  if (!list) {
+    return c.json({ error: "Ikke fundet." }, 404);
+  }
+
+  await c.env.DB.prepare("DELETE FROM shopping_list_items WHERE list_id = ? AND is_checked = 1")
+    .bind(list.id)
+    .run();
+
+  const items = await listItemsForList(c.env.DB, list.id);
+
+  return c.json({ items });
+});
+
+export default shoppingLists;
