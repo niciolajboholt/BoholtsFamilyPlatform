@@ -38,3 +38,10 @@ export function unsubscribeFromPush(endpoint: string) {
     body: JSON.stringify({ endpoint }),
   });
 }
+
+// Verificerer fundamentet ende-til-ende (abonnement, D1, VAPID, faktisk
+// levering) — sender kun til afsenderens egne devices. Midlertidig UI-knap,
+// fjernes igen når kalender/indkøbsliste er koblet til rigtige hændelser.
+export function sendTestPushNotification() {
+  return request<{ ok?: boolean; error?: string }>("/test", { method: "POST" });
+}

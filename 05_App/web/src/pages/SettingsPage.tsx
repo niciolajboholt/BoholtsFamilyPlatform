@@ -114,6 +114,7 @@ function SettingsPage() {
     isBusy: pushNotificationIsBusy,
     enable: enablePushNotificationsAction,
     disable: disablePushNotificationsAction,
+    sendTest: sendTestPushNotificationAction,
   } = usePushNotifications();
 
   const pushNotificationSubtitle = (() => {
@@ -587,6 +588,17 @@ function SettingsPage() {
               <Alert severity="error" sx={{ mb: 1.5 }}>
                 {pushNotificationError}
               </Alert>
+            )}
+
+            {pushNotificationStatus === "subscribed" && (
+              <Button
+                size="small"
+                onClick={sendTestPushNotificationAction}
+                disabled={pushNotificationIsBusy}
+                sx={{ mb: 1.5 }}
+              >
+                Send test-notifikation
+              </Button>
             )}
 
             <Divider />

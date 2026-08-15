@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 
+import { sendTestPushNotification } from "../notificationsApi";
 import {
   disablePushNotifications,
   enablePushNotifications,
@@ -19,6 +20,7 @@ interface UsePushNotificationsResult {
   isBusy: boolean;
   enable: () => void;
   disable: () => void;
+  sendTest: () => void;
 }
 
 /**
@@ -83,5 +85,19 @@ export function usePushNotifications(): UsePushNotificationsResult {
       .finally(() => setIsBusy(false));
   }, [refreshStatus]);
 
-  return { status, error, isBusy, enable, disable };
+  const sendTest = useCallback((): void => {
+    setError(null);
+    setIsBusy(true);
+
+    sendTestPushNotification()
+      .then((result) => {
+        if (!result.ok) {
+          setError("Test-notifikationen kunne ikke sendes.");
+        }
+      })
+      .catch(() => setError("Test-notifikationen kunne ikke sendes."))
+      .finally(() => setIsBusy(false));
+  }, []);
+
+  return { status, error, isBusy, enable, disable, sendTest };
 }
