@@ -308,7 +308,7 @@ function SettingsPage() {
                         py: 1.5,
                       }}
                     >
-                        <Box
+                      <Box
                         sx={{
                           display: "flex",
                           alignItems: "center",
@@ -327,7 +327,12 @@ function SettingsPage() {
                           {getInitials(member.name)}
                         </Avatar>
 
-                        <Box>
+                        {/* Avataren er venstrejusteret (fast x-position for
+                            hele rækken), men selve teksten centreres i sin
+                            egen kolonne — de tre linjer (navn/relation/
+                            kalender) kan have forskellig bredde, og ser
+                            pænere ud centreret om hinanden end venstrestillet. */}
+                        <Box sx={{ textAlign: "center" }}>
                           <Typography sx={{ fontWeight: 600 }}>
                             {member.name}
                           </Typography>
@@ -343,6 +348,7 @@ function SettingsPage() {
                               sx={{
                                 display: "flex",
                                 alignItems: "center",
+                                justifyContent: "center",
                                 gap: 0.5,
                               }}
                             >
