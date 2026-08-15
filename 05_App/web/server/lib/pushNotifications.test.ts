@@ -78,6 +78,31 @@ describe("pushNotifications", () => {
     expect(remaining?.count).toBe(0);
   });
 
+  it("logs the response status and body when the push service rejects the request with a non-404/410 error", async () => {
+    await seedUser(env.DB as never, { id: "nicolaj" });
+    await seedSubscription(env.DB as never, "nicolaj", "https://push.example.com/rejected");
+    fetchMock.mockResolvedValue(new Response("ugyldig VAPID-signatur", { status: 401 }));
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    await sendPushNotificationToUser(env, "nicolaj", { title: "x", body: "y" });
+
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      expect.stringContaining("401"),
+      "ugyldig VAPID-signatur",
+    );
+
+    // En afvist (ikke udløbet) subscription skal IKKE ryddes op — kun 404/410
+    // betyder reelt "denne subscription findes ikke længere".
+    const remaining = await env.DB.prepare(
+      "SELECT COUNT(*) AS count FROM push_subscriptions WHERE user_id = ?",
+    )
+      .bind("nicolaj")
+      .first<{ count: number }>();
+    expect(remaining?.count).toBe(1);
+
+    consoleErrorSpy.mockRestore();
+  });
+
   it("keeps other devices' subscriptions when one push call fails outright", async () => {
     await seedUser(env.DB as never, { id: "nicolaj" });
     await seedSubscription(env.DB as never, "nicolaj", "https://push.example.com/a");

@@ -71,6 +71,16 @@ export async function sendPushNotificationToUser(
           await env.DB.prepare("DELETE FROM push_subscriptions WHERE id = ?")
             .bind(row.id)
             .run();
+        } else if (!response.ok) {
+          // fetch() kaster kun ved netværksfejl, aldrig ved en HTTP-fejlstatus
+          // — en push-tjeneste, der afviser med fx 400/401/413, ville derfor
+          // ellers passere helt ubemærket herfra: hverken logget som fejl,
+          // eller ryddet op som en udløbet 404/410-subscription.
+          const body = await response.text().catch(() => "");
+          console.error(
+            `Push-notifikation afvist af push-tjenesten (status ${response.status}):`,
+            body,
+          );
         }
       } catch (error: unknown) {
         // Ét devices fejlende push (netværksfejl, ugyldigt endpoint) må
