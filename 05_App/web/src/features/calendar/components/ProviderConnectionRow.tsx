@@ -32,22 +32,25 @@ export function ProviderConnectionRow({
   return (
     <Box
       sx={{
-        display: "flex",
+        display: "grid",
+        // Yderkolonnerne holdes lige brede (1fr/1fr), så midterkolonnen altid
+        // ligger på rækkens rigtige, geometriske midte — uanset om
+        // højrekolonnen indeholder en pil-knap (Outlook) eller er tom
+        // (Google, forbindes allerede ved login, Fase 3). Et rent
+        // flexGrow-baseret layout centrerer kun i den PLADS der er tilbage
+        // efter knappen, så teksten driver skævt mellem de to rækker.
+        gridTemplateColumns: "1fr auto 1fr",
         alignItems: "center",
         py: 1.5,
       }}
     >
-      {/* Ikon og tekst grupperes og centreres sammen, i stedet for at teksten
-          centreres alene i den fulde resterende bredde — ellers ender
-          teksten langt fra ikonet, når der ikke er en kontrol i højre side
-          (Google-rækken efter Fase 3) til at afbalancere bredden. */}
+      <Box aria-hidden />
+
       <Box
         sx={{
           display: "flex",
           alignItems: "center",
-          justifyContent: "center",
           gap: 1.5,
-          flexGrow: 1,
         }}
       >
         <Avatar
@@ -70,19 +73,21 @@ export function ProviderConnectionRow({
         </Box>
       </Box>
 
-      {onToggleConnection && (
-        <IconButton
-          aria-label={isConnected ? `Afbryd ${label}` : `Forbind ${label}`}
-          disabled={!isConfigured || isBusy || isAttemptingSilentReconnect}
-          onClick={onToggleConnection}
-        >
-          {isBusy || isAttemptingSilentReconnect ? (
-            <CircularProgress size={20} />
-          ) : (
-            <ChevronRightRounded />
-          )}
-        </IconButton>
-      )}
+      <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+        {onToggleConnection && (
+          <IconButton
+            aria-label={isConnected ? `Afbryd ${label}` : `Forbind ${label}`}
+            disabled={!isConfigured || isBusy || isAttemptingSilentReconnect}
+            onClick={onToggleConnection}
+          >
+            {isBusy || isAttemptingSilentReconnect ? (
+              <CircularProgress size={20} />
+            ) : (
+              <ChevronRightRounded />
+            )}
+          </IconButton>
+        )}
+      </Box>
     </Box>
   );
 }
