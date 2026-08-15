@@ -50,11 +50,17 @@ self.addEventListener("push", (event) => {
   }
 
   event.waitUntil(
-    self.registration.showNotification(payload.title, {
-      body: payload.body,
-      icon: "/favicon.svg",
-      data: { url: payload.url ?? "/" },
-    }),
+    self.registration
+      .showNotification(payload.title, {
+        body: payload.body,
+        data: { url: payload.url ?? "/" },
+      })
+      // iOS Safaris Web Push-understøttelse har haft problemer med at vise
+      // notifikationer, der har et SVG-ikon (fjernet ovenfor af samme
+      // grund) — men falder showNotification() alligevel af en anden
+      // årsag, er et helt bart forsøg bedre end at pushen forsvinder
+      // sporløst, uden at brugeren nogensinde ser den.
+      .catch(() => self.registration.showNotification(payload.title)),
   );
 });
 
