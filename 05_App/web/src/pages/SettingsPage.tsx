@@ -308,15 +308,10 @@ function SettingsPage() {
                         py: 1.5,
                       }}
                     >
-                      {/* Avatar og tekst grupperes og centreres sammen, i
-                          stedet for at teksten centreres alene i den fulde
-                          resterende bredde mellem avatar og rediger-knap —
-                          ellers ender teksten langt fra avataren. */}
-                      <Box
+                        <Box
                         sx={{
                           display: "flex",
                           alignItems: "center",
-                          justifyContent: "center",
                           gap: 1.5,
                           flexGrow: 1,
                         }}
@@ -332,7 +327,7 @@ function SettingsPage() {
                           {getInitials(member.name)}
                         </Avatar>
 
-                        <Box sx={{ textAlign: "center" }}>
+                        <Box>
                           <Typography sx={{ fontWeight: 600 }}>
                             {member.name}
                           </Typography>
@@ -348,7 +343,6 @@ function SettingsPage() {
                               sx={{
                                 display: "flex",
                                 alignItems: "center",
-                                justifyContent: "center",
                                 gap: 0.5,
                               }}
                             >
