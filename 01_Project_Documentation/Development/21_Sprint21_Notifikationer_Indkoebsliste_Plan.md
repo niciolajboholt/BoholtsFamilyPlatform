@@ -218,11 +218,34 @@ ingen ny migration.
    kalender-svaret. Mangler stadig en rigtig to-personers test (Nicolaj
    opretter, Christine modtager) — kun teknisk verificeret via
    automatiserede tests indtil videre.
-3. **Del B — Indkøbsliste**: datamodel, server-ruter, kategori-ordbog, UI.
-4. **Del B, fortsat**: kobl notifikation til "ny vare tilføjet" (genbruger
-   Del A's fundament).
+3. ~~**Del B — Indkøbsliste**~~ ✅ **Gennemført (2026-08-15)**: datamodel
+   (migration `0006_shopping_lists.sql`), server-ruter
+   (`server/routes/shoppingLists.ts`, mønster fra `families.ts`), kategori-
+   ordbog med selvlæring (`shoppingCategories.ts` +
+   `shopping_item_category_overrides`), 16 automatiserede tests. **Migration
+   0006 er endnu ikke kørt på beta eller produktion** — samme blokering som
+   tidligere migrationer i dette sprint (Cloudflare D1 MCP-værktøjet
+   afviser konsekvent med "MCP tool call requires approval"). Skal køres
+   manuelt via D1-konsollen (SQL'et er selve migrationsfilen) på begge
+   databaser, før `GET /api/families/:id/shopping-lists` virker i praksis —
+   uden tabellerne fejler ruten med 500.
+4. ~~**Del B, fortsat**~~ ✅ **Gennemført (2026-08-15)**: `ShoppingListPage`
+   koblet til routeren (`/shopping-list`) og forsidens "Indkøbsliste"-knap
+   (ikke længere "Snart"). Tilføjelse af en vare sender en
+   push-notifikation til familiens øvrige medlemmer via Del A's fundament
+   (`sendPushNotificationToFamily`). Lint, `tsc -b`, 213/213 tests og build
+   verificeret grønne; deployet til `develop` (commit `e3533e1`), CI og
+   begge Cloudflare Workers Builds (beta + produktion) bekræftet grønne.
 5. Manuel test på beta af Nicolaj og Christine, inkl. eksplicit iOS/Safari
-   push-test (se "Kendte begrænsninger").
+   push-test (se "Kendte begrænsninger") — **afventer stadig**. Del A's
+   push-fundament virker bekræftet på Windows/Edge, men notifikationer
+   viser sig endnu ikke på hverken Nicolajs eller Christines iPhone, selvom
+   Apples push-tjeneste nu kvitterer med `200` uden fejl (to reelle bugs
+   fundet og rettet undervejs: tavs fejlhåndtering af ikke-2xx-svar, og et
+   dobbelt `mailto:`-præfiks i VAPID JWT'ets `sub`-claim). Årsagen til at
+   notifikationen stadig ikke vises på selve enheden er uafklaret — næste
+   skridt er enten Safari Remote Web Inspector (kræver Mac + kabel) eller
+   en fuld af-/geninstallation af PWA'en fra hjemmeskærmen.
 
 ---
 
