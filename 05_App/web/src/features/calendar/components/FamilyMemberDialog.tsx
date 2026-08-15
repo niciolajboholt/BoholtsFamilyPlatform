@@ -347,8 +347,9 @@ export function FamilyMemberDialog({
 
         <DialogContent>
           <DialogContentText>
-            Aftaler, der har {member?.name} som deltager, flyttes til
-            "Familien" i stedet for at blive slettet.
+            Profilen fjernes fra familien. Aftaler i en kalender, der er
+            tildelt {member?.name}, berøres ikke og forbliver i
+            Google/Outlook-kalenderen.
           </DialogContentText>
         </DialogContent>
 

@@ -23,13 +23,13 @@ const event: CalendarEvent = {
   allDay: false,
   ownerIds: ["family"],
   source: "internal",
-  sourceId: "local:family",
+  sourceId: "google:family",
 };
 
 const source: CalendarSource = {
-  id: "local:family",
+  id: "google:family",
   name: "Familien",
-  providerType: "local",
+  providerType: "google",
   color: "#6D597A",
   isVisible: true,
   isReadOnly: false,
@@ -121,7 +121,7 @@ describe("calendar loading in Strict Mode", () => {
 
     expect(latestResult).toMatchObject({
       calendarSources: [source],
-      visibleCalendarSourceIds: ["local:family"],
+      visibleCalendarSourceIds: ["google:family"],
       hasLoadedSources: true,
       isLoading: false,
       error: null,

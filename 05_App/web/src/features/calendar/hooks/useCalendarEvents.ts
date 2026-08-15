@@ -53,7 +53,7 @@ function getProviderHealth(
       .getProviderHealth();
   }
 
-  return [{ providerId: "local", status: "ready" }];
+  return [];
 }
 
 function getErrorMessage(

@@ -1,5 +1,4 @@
 export type CalendarProviderType =
-  | "local"
   | "google"
   | "outlook"
   | "apple";

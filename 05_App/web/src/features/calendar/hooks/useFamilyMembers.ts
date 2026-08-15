@@ -3,7 +3,6 @@ import { useCallback, useEffect, useState } from "react";
 import type { CalendarOwner } from "../data/calendarOwners";
 import { familyPseudoMemberId } from "../models/calendarEvent";
 import { getFamilyMembers } from "../preferences/familyMembersStorage";
-import { CalendarService } from "../services/CalendarService";
 import {
   addFamilyMember,
   deleteFamilyMember,
@@ -146,8 +145,6 @@ export function useFamilyMembers(): UseFamilyMembersResult {
       if (id === familyPseudoMemberId || !familyId) {
         return;
       }
-
-      await CalendarService.reassignOwner(id, familyPseudoMemberId);
 
       const result = await deleteFamilyMember(familyId, id);
 

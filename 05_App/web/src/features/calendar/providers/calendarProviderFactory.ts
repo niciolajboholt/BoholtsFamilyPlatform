@@ -1,8 +1,6 @@
 import type {
-  CalendarProviderType,
   CalendarSource,
 } from "../models/calendarProvider";
-import type { CalendarProvider } from "./CalendarProvider";
 import { CompositeCalendarProvider } from "./CompositeCalendarProvider";
 import type { ExternalCalendarProvider } from "./CompositeCalendarProvider";
 import { GoogleCalendarProvider } from "./google/GoogleCalendarProvider";
@@ -22,23 +20,6 @@ export const outlookCalendarSession =
 // tidlige kald ville en efterfølgende klient-side-navigation nå at rydde
 // URL'ens hash-fragment, før noget nogensinde læste login-svaret i den.
 void outlookCalendarSession.ensureInitialized();
-
-import { LocalCalendarProvider } from "./LocalCalendarProvider";
-
-export function createCalendarProvider(
-  providerType: CalendarProviderType,
-): CalendarProvider {
-  switch (providerType) {
-    case "local":
-      return new LocalCalendarProvider();
-    case "google":
-    case "outlook":
-    case "apple":
-      throw new Error(
-        `Calendar provider '${providerType}' er ikke implementeret endnu.`,
-      );
-  }
-}
 
 // Fase 3: Google er ikke længere valgfrit konfigureret via en klient
 // env-var — enhver logget-ind bruger har allerede givet kalender-samtykke
@@ -71,20 +52,15 @@ const externalProviders: ExternalCalendarProvider[] = [
 /**
  * Appens aktuelle provider vælges ét sted. Hooks kan stadig få en provider
  * som argument i tests uden at bruge global state eller React Context.
+ *
+ * Fase 5: intet lokalt fallback-lag længere (ADR-017) — Google er altid til
+ * stede i `externalProviders` (uafhængigt af forbindelsesstatus, se noten
+ * ovenfor), så denne liste er aldrig tom i praksis.
  */
 export const calendarProvider =
-  (() => {
-    const localProvider = createCalendarProvider("local");
-
-    if (externalProviders.length === 0) {
-      return localProvider;
-    }
-
-    return new CompositeCalendarProvider({
-      local: localProvider,
-      external: externalProviders,
-    });
-  })();
+  new CompositeCalendarProvider({
+    external: externalProviders,
+  });
 
 /**
  * Henter ALLE Google-kalendere, uanset eksklusionsvalg — bruges kun af
