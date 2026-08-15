@@ -13,6 +13,7 @@ const migrationFiles = [
   "0002_auth.sql",
   "0003_families.sql",
   "0004_calendar_member_mappings.sql",
+  "0005_push_subscriptions.sql",
 ];
 
 function loadMigrations(db: DatabaseSync): void {

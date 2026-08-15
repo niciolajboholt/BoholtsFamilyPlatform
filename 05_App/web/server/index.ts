@@ -5,6 +5,7 @@ import authRoutes from "./routes/auth";
 import apiRoutes from "./routes/api";
 import calendarRoutes from "./routes/calendar";
 import familiesRoutes from "./routes/families";
+import pushRoutes from "./routes/push";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -25,6 +26,7 @@ app.route("/auth", authRoutes);
 app.route("/api", apiRoutes);
 app.route("/api/families", familiesRoutes);
 app.route("/api/calendar", calendarRoutes);
+app.route("/api/push", pushRoutes);
 
 // Beviser at Worker + D1 hænger rigtigt sammen efter en deploy (Fase 0) —
 // resten af familie/kalender-ruterne kommer i senere faser.

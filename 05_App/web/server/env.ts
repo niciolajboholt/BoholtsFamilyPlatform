@@ -15,4 +15,13 @@ export interface Env {
   // 32 tilfældige bytes, base64-kodet — genereres én gang, bruges til at
   // kryptere Googles refresh-token før det gemmes i D1 (se tokenEncryption.ts).
   GOOGLE_TOKEN_ENCRYPTION_KEY: SecretsStoreSecret;
+  // Sprint 21, Del A: VAPID-nøglepar til Web Push. Den offentlige nøgle er
+  // IKKE hemmelig (klienten skal kende den, for at kunne abonnere via
+  // PushManager) — kun den private nøgle går gennem Secrets Store.
+  VAPID_PUBLIC_KEY: string;
+  VAPID_PRIVATE_KEY: SecretsStoreSecret;
+  // Kontakt-adgang push-tjenester (Google/Apple/Mozillas) kan bruge, hvis de
+  // skal nå appens ejer om et misbrugt/fejlkonfigureret abonnement — krævet
+  // af VAPID-specifikationen, skal være "mailto:" eller "https://".
+  VAPID_SUBJECT: string;
 }

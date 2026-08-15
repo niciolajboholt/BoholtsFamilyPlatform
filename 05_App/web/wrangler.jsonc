@@ -11,7 +11,11 @@
   // "--env beta" tilføjet, formentlig fordi den er bundet til Workerens
   // ikke-navngivne (produktions-)miljø, ikke det navngivne "beta"-miljø.
   "vars": {
-    "GOOGLE_CLIENT_ID": "621931405628-lc7afq5qp0ejmdks5hl9c6b7uclskiie.apps.googleusercontent.com"
+    "GOOGLE_CLIENT_ID": "621931405628-lc7afq5qp0ejmdks5hl9c6b7uclskiie.apps.googleusercontent.com",
+    // Sprint 21, Del A: ikke-hemmelig VAPID-nøgle (klienten henter den via
+    // /api/push/public-key for at abonnere) — se 21_Sprint21-planen.
+    "VAPID_PUBLIC_KEY": "BHVSXcjfORTKBlCSOyokP1Iq9Jwgnuetorda-TEqjEUjvK4hZjp-PE1p4qDJ7Tgq3dywzervtXgt0VKzMxfJZG8",
+    "VAPID_SUBJECT": "mailto:nicolajbach12@gmail.com"
   },
   // Antager samme secret-navne som beta (samme mønster) — ret disse, hvis
   // main's Secrets Store-bindinger reelt hedder noget andet.
@@ -25,6 +29,11 @@
       "binding": "GOOGLE_TOKEN_ENCRYPTION_KEY",
       "store_id": "2bc6325a385d4ca3bc555d66f5453a21",
       "secret_name": "google-token-encryption-key"
+    },
+    {
+      "binding": "VAPID_PRIVATE_KEY",
+      "store_id": "2bc6325a385d4ca3bc555d66f5453a21",
+      "secret_name": "vapid-private-key"
     }
   ],
   "assets": {
@@ -76,7 +85,9 @@
       "name": "boholtsfamilyplatform-beta",
       "main": "./server/index.ts",
       "vars": {
-        "GOOGLE_CLIENT_ID": "621931405628-lc7afq5qp0ejmdks5hl9c6b7uclskiie.apps.googleusercontent.com"
+        "GOOGLE_CLIENT_ID": "621931405628-lc7afq5qp0ejmdks5hl9c6b7uclskiie.apps.googleusercontent.com",
+        "VAPID_PUBLIC_KEY": "BHVSXcjfORTKBlCSOyokP1Iq9Jwgnuetorda-TEqjEUjvK4hZjp-PE1p4qDJ7Tgq3dywzervtXgt0VKzMxfJZG8",
+        "VAPID_SUBJECT": "mailto:nicolajbach12@gmail.com"
       },
       // Ligesom "vars" ovenfor: bindinger tilføjet kun via dashboardets
       // Bindings-fane forsvinder ved næste Git-udløste deploy ("Cannot read
@@ -93,6 +104,11 @@
           "binding": "GOOGLE_TOKEN_ENCRYPTION_KEY",
           "store_id": "2bc6325a385d4ca3bc555d66f5453a21",
           "secret_name": "google-token-encryption-key"
+        },
+        {
+          "binding": "VAPID_PRIVATE_KEY",
+          "store_id": "2bc6325a385d4ca3bc555d66f5453a21",
+          "secret_name": "vapid-private-key"
         }
       ],
       "assets": {
