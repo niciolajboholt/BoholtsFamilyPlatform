@@ -9,8 +9,10 @@ export const outlookCalendarScopes = ["Calendars.ReadWrite"];
 const wasConnectedStorageKey = "outlook-calendar-was-connected";
 
 // UI-only hint so the connect button can say "Genforbind" after a reload,
-// instead of "Forbind" — mirrors GoogleCalendarSession's own flag. Never the
-// access token itself, so it carries no security implication.
+// instead of "Forbind". Never the access token itself, so it carries no
+// security implication. Google has no equivalent flag — its connection is
+// established once at login (ADR-017) and owned entirely by the server, so
+// there is no separate client-side "connect" step to remember.
 function markWasConnected(): void {
   try {
     window.localStorage.setItem(wasConnectedStorageKey, "true");
@@ -81,12 +83,14 @@ function getMsalInstance(
 }
 
 /**
- * Holder kun et kortlivet Microsoft-adgangstoken i hukommelsen, samme
- * sikkerhedsprincip som GoogleCalendarSession. MSAL's egen cache
+ * Holder kun et kortlivet Microsoft-adgangstoken i hukommelsen — samme
+ * "hold aldrig et langtidsholdbart token i browseren"-princip Google fulgte,
+ * før ADR-017 flyttede Googles token server-side helt. MSAL's egen cache
  * (sessionStorage) bruges udelukkende til at kunne genoprette forbindelsen
  * stille inden for samme browser-session (se attemptSilentReconnect) — i
- * modsætning til Google, som tjekker en reel, langtidsholdbar session hos
- * Google selv og derfor virker på tværs af helt nye faner/genindlæsninger.
+ * modsætning til Google i dag, hvor forbindelsen er en krypteret refresh
+ * token ejet af serveren (D1) og derfor virker på tværs af helt nye
+ * faner/genindlæsninger uden nogen klient-side reconnect-logik overhovedet.
  * Denne forskel er en bevidst tilpasning til MSAL's arkitektur (se ADR-016),
  * ikke en fejl.
  */
@@ -174,10 +178,10 @@ export class OutlookCalendarSession {
   }
 
   /**
-   * Bruger en fuld sideomdirigering til Microsofts logind, i stedet for en
-   * pop-up (som GoogleCalendarSession bruger for Google) — Safari (særligt i
-   * en installeret PWA) blokerer ofte kommunikationen tilbage fra en
-   * pop-up-baseret login, så den hænger uden nogensinde at svare. En
+   * Bruger en fuld sideomdirigering til Microsofts logind (ligesom Googles
+   * eget server-side OAuth-flow, ADR-017), i stedet for en pop-up — Safari
+   * (særligt i en installeret PWA) blokerer ofte kommunikationen tilbage fra
+   * en pop-up-baseret login, så den hænger uden nogensinde at svare. En
    * omdirigering navigerer hele siden væk og tilbage i stedet, hvilket er
    * Microsofts egen anbefaling for Safari/mobil. Se ADR-016.
    */
@@ -212,8 +216,10 @@ export class OutlookCalendarSession {
   }
 
   /**
-   * Mirror af GoogleCalendarSession.attemptSilentReconnect — se class-doc
-   * ovenfor for forskellen i, hvor pålidelig denne er på tværs af sessioner.
+   * Genopretter forbindelsen stille inden for samme browser-session, uden at
+   * brugeren skal klikke "Forbind" igen — Google har intet ækvivalent behov
+   * (se class-doc ovenfor: serveren holder allerede en langtidsholdbar
+   * forbindelse, uafhængig af browser-session).
    */
   async attemptSilentReconnect(): Promise<boolean> {
     const config = getOutlookCalendarConfig();

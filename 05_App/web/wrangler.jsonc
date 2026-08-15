@@ -1,21 +1,131 @@
 {
   "name": "boholtsfamilyplatform",
   "compatibility_date": "2026-07-30",
+  // Fra Sprint 20: appen har fået en rigtig backend (Hono) ved siden af de
+  // statiske filer — "main" kører Worker-koden, som selv server'er de
+  // statiske filer for alt der ikke er en /api-rute, via ASSETS-bindingen.
+  "main": "./server/index.ts",
+  // Ikke-hemmelig, derfor tryg at have direkte i config i stedet for kun i
+  // Cloudflare-dashboardets "Variables and Secrets" — dashboard-variablen
+  // viste sig at ende som "undefined" efter deploy-kommandoen fik
+  // "--env beta" tilføjet, formentlig fordi den er bundet til Workerens
+  // ikke-navngivne (produktions-)miljø, ikke det navngivne "beta"-miljø.
+  "vars": {
+    "GOOGLE_CLIENT_ID": "621931405628-lc7afq5qp0ejmdks5hl9c6b7uclskiie.apps.googleusercontent.com"
+  },
+  // Antager samme secret-navne som beta (samme mønster) — ret disse, hvis
+  // main's Secrets Store-bindinger reelt hedder noget andet.
+  "secrets_store_secrets": [
+    {
+      "binding": "GOOGLE_CLIENT_SECRET",
+      "store_id": "2bc6325a385d4ca3bc555d66f5453a21",
+      "secret_name": "google-client-secret"
+    },
+    {
+      "binding": "GOOGLE_TOKEN_ENCRYPTION_KEY",
+      "store_id": "2bc6325a385d4ca3bc555d66f5453a21",
+      "secret_name": "google-token-encryption-key"
+    }
+  ],
   "assets": {
     "directory": "./dist",
-    "not_found_handling": "single-page-application"
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    // Uden dette kører Cloudflares eget SPA-fallback FØR vores
+    // Worker-script overhovedet får chancen — enhver rigtig sidenavigation
+    // (ikke fetch/XHR) til en ukendt sti fik den cachede index.html med det
+    // samme, så /auth/*-ruterne aldrig blev nået.
+    "run_worker_first": ["/auth/*", "/api/*"]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "boholtsfamilyplatform",
+      "database_id": "9de10d3f-3178-4b63-838f-0d7377b0df1b",
+      "migrations_dir": "./server/migrations"
+    }
+  ],
+  // Samme mønster som secrets_store_secrets ovenfor: slået til i
+  // dashboardet, men uden dette forsvinder det ved næste Git-udløste
+  // deploy. Logs persisteres (så et fejlet kald kan slås op bagefter), traces
+  // er bevidst fra — ingen nuværende behov, og det er den dyrere af de to.
+  "observability": {
+    "enabled": false,
+    "head_sampling_rate": 1,
+    "logs": {
+      "enabled": true,
+      "head_sampling_rate": 1,
+      "persist": true,
+      "invocation_logs": true
+    },
+    "traces": {
+      "enabled": false,
+      "persist": true,
+      "head_sampling_rate": 1
+    }
   },
   // "beta"-miljøet deployer til en separat Worker (egen URL), brugt af et
   // andet Cloudflare Workers-projekt der forgrener sig fra `develop` i
   // stedet for `main` — så nye funktioner kan testes på en rigtig, delt
   // URL, før de merges til den rigtige produktion. Aktiveres med
-  // `wrangler deploy --env beta`; ingen effekt uden det flag.
+  // `wrangler deploy --env beta`; ingen effekt uden det flag. Har sin EGEN
+  // D1-database, adskilt fra produktion, så beta-test aldrig kan ramme
+  // rigtig familiedata.
   "env": {
     "beta": {
       "name": "boholtsfamilyplatform-beta",
+      "main": "./server/index.ts",
+      "vars": {
+        "GOOGLE_CLIENT_ID": "621931405628-lc7afq5qp0ejmdks5hl9c6b7uclskiie.apps.googleusercontent.com"
+      },
+      // Ligesom "vars" ovenfor: bindinger tilføjet kun via dashboardets
+      // Bindings-fane forsvinder ved næste Git-udløste deploy ("Cannot read
+      // properties of undefined (reading 'get')") — skal stå her for at
+      // overleve fremtidige deploys, inkl. deploys udløst af rene
+      // dokumentations-commits.
+      "secrets_store_secrets": [
+        {
+          "binding": "GOOGLE_CLIENT_SECRET",
+          "store_id": "2bc6325a385d4ca3bc555d66f5453a21",
+          "secret_name": "google-client-secret"
+        },
+        {
+          "binding": "GOOGLE_TOKEN_ENCRYPTION_KEY",
+          "store_id": "2bc6325a385d4ca3bc555d66f5453a21",
+          "secret_name": "google-token-encryption-key"
+        }
+      ],
       "assets": {
         "directory": "./dist",
-        "not_found_handling": "single-page-application"
+        "binding": "ASSETS",
+        "not_found_handling": "single-page-application",
+        // Uden dette kører Cloudflares eget SPA-fallback FØR vores
+        // Worker-script overhovedet får chancen — enhver rigtig
+        // sidenavigation (ikke fetch/XHR) til en ukendt sti fik den cachede
+        // index.html med det samme, så /auth/*-ruterne aldrig blev nået.
+        "run_worker_first": ["/auth/*", "/api/*"]
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "boholtsfamilyplatform-beta",
+          "database_id": "cd369f99-abc2-44e0-9647-300ee6d85a13"
+        }
+      ],
+      "observability": {
+        "enabled": false,
+        "head_sampling_rate": 1,
+        "logs": {
+          "enabled": true,
+          "head_sampling_rate": 1,
+          "persist": true,
+          "invocation_logs": true
+        },
+        "traces": {
+          "enabled": false,
+          "persist": true,
+          "head_sampling_rate": 1
+        }
       }
     }
   }

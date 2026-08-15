@@ -1,40 +1,33 @@
 # Project Status
 
-Senest opdateret: 2026-08-13
+Senest opdateret: 2026-08-15
 
 ## Aktuel fase
 
-Version 1.1 (Sprint 0–19) af React/TypeScript-webappen er released til
-`main`. Sprint 20 (multi-tenant familie-server, ADR-017) er i gang på
-separate `feature/sprint-20-fase*`-branches — se "I gang / næste skridt".
+Sprint 20 (multi-tenant familie-server, ADR-017) er funktionelt komplet på
+`develop` og klar til at merges til `main`. Herefter er appen ikke længere
+kun til Boholt-familien — enhver familie kan oprette sig selv og invitere
+medlemmer.
 
 ## Gennemført
 
 - Vision, produktstrategi, PRD, arkitektur, UX og roadmap.
 - Platformskift fra SwiftUI til React/TypeScript/PWA (ADR-010).
-- Sprint 0–19 på `main` (se `01_Project_Documentation/AI_Knowledge_Base/05_Sprint_History.md`).
-- Lokale kalenderflows, gentagne aftaler, og Google Calendar
-  læse-/skriveintegration.
-- Førstegangs-onboarding med generiske standardnavne (ADR-015).
-- Outlook Calendar-integration bygget (ADR-016) — deaktiveret i kode,
-  afventer IT-godkendelse hos Nicolajs arbejdsgiver.
-- Dags- og "side-by-side" familieplanlægger-visning (Sprint 19).
-- Automatiserede enhedstests (Vitest) og GitHub Actions-CI.
+- Sprint 0–19: kalendervisning, gentagne aftaler, familiemedlemmer,
+  Google- og Outlook-kalenderintegration, PWA, automatiseret CI/test.
+- **Sprint 20 (ADR-017), Fase 0-6**: Cloudflare Worker + D1-backend,
+  server-ejet Google-login, familier/medlemskab/invitationer, server-styret
+  Google Calendar-sync (krypteret refresh token i D1), delt
+  kalender-til-familiemedlem-tildeling, fjernelse af det lokale
+  (ikke-Google) aftale-lag, oprydning og ajourført dokumentation.
 
-## I gang / næste skridt
+## I gang
 
-- **Sprint 20 (ADR-017)** — Cloudflare Worker + D1-server, så appen kan
-  deles mellem flere devices/familier (fx Christine):
-  - Fase 0–1 (server-fundament, Google-login): færdige, merget til `develop`.
-  - Fase 2 (familier/invitationer): bygget, afventer Christines test af
-    invitationsflowet + Nicolajs godkendelse før merge til `develop`.
-  - Fase 3 (server-ejet Google-sync): bygget, mangler rigtig beta-test og
-    godkendelse (en PR mod `main` blev lukket uden merge 2026-08-10).
-  - Fase 4 (kalender-medlem-mapping til delt database): første commit
-    2026-08-12.
-  - Fase 5 (udfas lokale aftaler) og Fase 6 (oprydning + Cloudflare
-    Access-beslutning på `main`): ikke startet.
-- IT-godkendelse af Outlook-integrationen, så den kan slås til i produktion.
-- Fortsat åbent fra stabiliseringen: komponent-/hook-tests i Strict Mode,
-  Playwright-flows, og fysisk iPhone/Safari/VoiceOver-test (kræver Nicolajs
-  egen enhed).
+- Nicolaj fjerner Cloudflare Access fra Worker'en (manuel dashboard-handling
+  — appens eget login + invitationssystem er nu det primære adgangslag).
+
+## Næste fase
+
+Merge `develop` til `main` (produktion). Herefter: overvej flere
+Google-konti pr. familie (kræver egen ADR), og de resterende "Snart"-badges
+på forsiden (indkøbsliste, opgaver).

@@ -14,7 +14,7 @@ function fakeSource(id: string): CalendarSource {
   return {
     id,
     name: id,
-    providerType: "local",
+    providerType: "google",
     color: "#000000",
     isVisible: true,
     isReadOnly: false,
@@ -56,61 +56,44 @@ function failingProvider(): CalendarProvider {
 }
 
 describe("CompositeCalendarProvider", () => {
-  const localProvider = succeedingProvider(
-    [fakeSource("local:family")],
-    [fakeEvent("local-event")],
-  );
+  it("returns nothing when there are no external providers, without throwing", async () => {
+    const composite = new CompositeCalendarProvider({ external: [] });
 
-  it("returns only local data when there are no external providers", async () => {
-    const composite = new CompositeCalendarProvider({ local: localProvider, external: [] });
-
-    expect(await composite.getCalendars()).toEqual([fakeSource("local:family")]);
-    expect(await composite.getEvents({ start: "", end: "" })).toEqual([
-      fakeEvent("local-event"),
-    ]);
+    expect(await composite.getCalendars()).toEqual([]);
+    expect(await composite.getEvents({ start: "", end: "" })).toEqual([]);
   });
 
-  it("merges local data with a succeeding external provider", async () => {
+  it("merges data from multiple succeeding external providers", async () => {
     const google = succeedingProvider(
       [fakeSource("google:primary")],
       [fakeEvent("google-event")],
     );
-    const composite = new CompositeCalendarProvider({
-      local: localProvider,
-      external: [{ providerId: "google", provider: google, sourceIdPrefix: "google:" }],
-    });
-
-    const calendars = await composite.getCalendars();
-    expect(calendars).toContainEqual(fakeSource("local:family"));
-    expect(calendars).toContainEqual(fakeSource("google:primary"));
-
-    const events = await composite.getEvents({ start: "", end: "" });
-    expect(events).toContainEqual(fakeEvent("local-event"));
-    expect(events).toContainEqual(fakeEvent("google-event"));
-  });
-
-  it("keeps local data when one external provider fails, without throwing", async () => {
-    const composite = new CompositeCalendarProvider({
-      local: localProvider,
-      external: [{ providerId: "google", provider: failingProvider(), sourceIdPrefix: "google:" }],
-    });
-
-    expect(await composite.getCalendars()).toEqual([fakeSource("local:family")]);
-    expect(await composite.getEvents({ start: "", end: "" })).toEqual([
-      fakeEvent("local-event"),
-    ]);
-
-    const health = composite.getProviderHealth().find((entry) => entry.providerId === "google");
-    expect(health?.status).toBe("error");
-  });
-
-  it("isolates a failing provider from a succeeding one when both are configured", async () => {
     const outlook = succeedingProvider(
       [fakeSource("outlook:primary")],
       [fakeEvent("outlook-event")],
     );
     const composite = new CompositeCalendarProvider({
-      local: localProvider,
+      external: [
+        { providerId: "google", provider: google, sourceIdPrefix: "google:" },
+        { providerId: "outlook", provider: outlook, sourceIdPrefix: "outlook:" },
+      ],
+    });
+
+    const calendars = await composite.getCalendars();
+    expect(calendars).toContainEqual(fakeSource("google:primary"));
+    expect(calendars).toContainEqual(fakeSource("outlook:primary"));
+
+    const events = await composite.getEvents({ start: "", end: "" });
+    expect(events).toContainEqual(fakeEvent("google-event"));
+    expect(events).toContainEqual(fakeEvent("outlook-event"));
+  });
+
+  it("isolates a failing provider from a succeeding one, without throwing", async () => {
+    const outlook = succeedingProvider(
+      [fakeSource("outlook:primary")],
+      [fakeEvent("outlook-event")],
+    );
+    const composite = new CompositeCalendarProvider({
       external: [
         { providerId: "google", provider: failingProvider(), sourceIdPrefix: "google:" },
         { providerId: "outlook", provider: outlook, sourceIdPrefix: "outlook:" },
@@ -118,14 +101,31 @@ describe("CompositeCalendarProvider", () => {
     });
 
     const calendars = await composite.getCalendars();
-    expect(calendars).toContainEqual(fakeSource("local:family"));
-    expect(calendars).toContainEqual(fakeSource("outlook:primary"));
-    expect(calendars.some((source) => source.id.startsWith("google:"))).toBe(false);
+    expect(calendars).toEqual([fakeSource("outlook:primary")]);
 
     const googleHealth = composite.getProviderHealth().find((entry) => entry.providerId === "google");
     const outlookHealth = composite.getProviderHealth().find((entry) => entry.providerId === "outlook");
     expect(googleHealth?.status).toBe("error");
     expect(outlookHealth?.status).toBe("ready");
+  });
+
+  it("marks a provider as disconnected on an authentication error, not a generic error", async () => {
+    const authFailure: CalendarProvider = {
+      getCalendars: () => Promise.reject(new CalendarProviderError("authentication", "ikke forbundet")),
+      getEvents: () => Promise.reject(new CalendarProviderError("authentication", "ikke forbundet")),
+      createEvent: notImplemented,
+      updateEvent: notImplemented,
+      deleteEvent: notImplemented,
+      restoreEvent: notImplemented,
+    };
+    const composite = new CompositeCalendarProvider({
+      external: [{ providerId: "google", provider: authFailure, sourceIdPrefix: "google:" }],
+    });
+
+    await composite.getCalendars();
+
+    const health = composite.getProviderHealth().find((entry) => entry.providerId === "google");
+    expect(health?.status).toBe("disconnected");
   });
 
   it("routes createEvent/updateEvent/deleteEvent to the matching provider by sourceId prefix", async () => {
@@ -142,7 +142,6 @@ describe("CompositeCalendarProvider", () => {
       restoreEvent: notImplemented,
     };
     const composite = new CompositeCalendarProvider({
-      local: localProvider,
       external: [{ providerId: "google", provider: google, sourceIdPrefix: "google:" }],
     });
 
@@ -158,13 +157,16 @@ describe("CompositeCalendarProvider", () => {
     expect(createdOnGoogle).toBe(true);
   });
 
-  it("throws not-found for an unknown sourceId prefix", () => {
-    const composite = new CompositeCalendarProvider({ local: localProvider, external: [] });
+  it("throws not-found for an unknown or missing sourceId", () => {
+    const composite = new CompositeCalendarProvider({ external: [] });
 
     // getProviderForSource throws synchronously, before a Promise even
     // exists to reject — mirrors the pre-existing behaviour of the class.
     expect(() =>
       composite.deleteEvent("some-id", "unknown-provider:123"),
     ).toThrow(CalendarProviderError);
+    expect(() => composite.deleteEvent("some-id", undefined)).toThrow(
+      CalendarProviderError,
+    );
   });
 });

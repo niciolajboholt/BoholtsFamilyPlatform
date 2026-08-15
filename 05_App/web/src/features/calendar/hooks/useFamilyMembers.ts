@@ -1,12 +1,15 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import type { CalendarOwner } from "../data/calendarOwners";
 import { familyPseudoMemberId } from "../models/calendarEvent";
+import { getFamilyMembers } from "../preferences/familyMembersStorage";
 import {
-  getFamilyMembers,
-  saveFamilyMembers,
-} from "../preferences/familyMembersStorage";
-import { CalendarService } from "../services/CalendarService";
+  addFamilyMember,
+  deleteFamilyMember,
+  getMyFamily,
+  updateFamilyMember,
+} from "../../family/familyApi";
+import { syncFamilyMembersFromServer } from "../../family/familyMembersSync";
 
 export interface FamilyMemberInput {
   name: string;
@@ -60,68 +63,98 @@ export function slugifyMemberName(
 
 interface UseFamilyMembersResult {
   members: CalendarOwner[];
-  addMember: (input: FamilyMemberInput) => CalendarOwner;
-  updateMember: (id: string, input: FamilyMemberInput) => void;
+  addMember: (input: FamilyMemberInput) => Promise<void>;
+  updateMember: (id: string, input: FamilyMemberInput) => Promise<void>;
   deleteMember: (id: string) => Promise<void>;
 }
 
+// Fase 2: medlemmer er nu familie-ejede (D1), ikke enheds-lokale — enhver
+// tilføjelse/redigering/sletning går derfor gennem serveren, og den
+// returnerede medlemsliste er altid det, der ender i localStorage bagefter
+// (via syncFamilyMembersFromServer), så alle familiens enheder til sidst
+// konvergerer på samme data. familyId hentes én gang ved mount; findes den
+// ikke endnu (fx et helt nyt device, før AppLayout har nået at synce),
+// bliver mutationer stille no-ops i stedet for at fejle synligt.
 export function useFamilyMembers(): UseFamilyMembersResult {
   const [members, setMembers] = useState<CalendarOwner[]>(() =>
     getFamilyMembers(),
   );
+  const [familyId, setFamilyId] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    getMyFamily().then((result) => {
+      if (!isCancelled && result.ok && result.data.family) {
+        setFamilyId(result.data.family.id);
+      }
+    });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
 
   const addMember = useCallback(
-    (input: FamilyMemberInput): CalendarOwner => {
-      let created!: CalendarOwner;
+    async (input: FamilyMemberInput): Promise<void> => {
+      if (!familyId) {
+        return;
+      }
 
-      setMembers((currentMembers) => {
-        const id = slugifyMemberName(
-          input.name,
-          currentMembers.map((member) => member.id),
-        );
-
-        created = { id, ...input };
-
-        const nextMembers = [...currentMembers, created];
-        saveFamilyMembers(nextMembers);
-        return nextMembers;
+      const result = await addFamilyMember(familyId, {
+        name: input.name,
+        color: input.color,
+        relation: input.relation ?? null,
       });
 
-      return created;
+      if (result.ok && result.data.members) {
+        syncFamilyMembersFromServer(result.data.members);
+        setMembers(getFamilyMembers());
+      }
     },
-    [],
+    [familyId],
   );
 
   const updateMember = useCallback(
-    (id: string, input: FamilyMemberInput): void => {
-      setMembers((currentMembers) => {
-        const nextMembers = currentMembers.map((member) =>
-          member.id === id ? { ...member, ...input, id } : member,
-        );
+    async (id: string, input: FamilyMemberInput): Promise<void> => {
+      if (!familyId) {
+        return;
+      }
 
-        saveFamilyMembers(nextMembers);
-        return nextMembers;
+      const isFamilyPseudoMember = id === familyPseudoMemberId;
+
+      const result = await updateFamilyMember(familyId, id, {
+        name: input.name,
+        color: input.color,
+        // relation=null er reserveret til familie-pseudomedlemmet på
+        // serveren og ignoreres for alle andre — at rydde et almindeligt
+        // medlems relation helt er en kendt, accepteret begrænsning her.
+        ...(isFamilyPseudoMember ? {} : { relation: input.relation ?? null }),
       });
+
+      if (result.ok && result.data.members) {
+        syncFamilyMembersFromServer(result.data.members);
+        setMembers(getFamilyMembers());
+      }
     },
-    [],
+    [familyId],
   );
 
-  const deleteMember = useCallback(async (id: string): Promise<void> => {
-    if (id === familyPseudoMemberId) {
-      return;
-    }
+  const deleteMember = useCallback(
+    async (id: string): Promise<void> => {
+      if (id === familyPseudoMemberId || !familyId) {
+        return;
+      }
 
-    await CalendarService.reassignOwner(id, familyPseudoMemberId);
+      const result = await deleteFamilyMember(familyId, id);
 
-    setMembers((currentMembers) => {
-      const nextMembers = currentMembers.filter(
-        (member) => member.id !== id,
-      );
-
-      saveFamilyMembers(nextMembers);
-      return nextMembers;
-    });
-  }, []);
+      if (result.ok && result.data.members) {
+        syncFamilyMembersFromServer(result.data.members);
+        setMembers(getFamilyMembers());
+      }
+    },
+    [familyId],
+  );
 
   return { members, addMember, updateMember, deleteMember };
 }

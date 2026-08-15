@@ -1,0 +1,5 @@
+-- Fase 0: etablerer selve migrations-mekanismen (kørt via
+-- `wrangler d1 migrations apply`), før der er noget rigtigt skema at bygge.
+-- /api/health bruger kun `SELECT 1`, som ikke kræver nogen tabel — den
+-- rigtige første tabel (users/sessions) kommer i 0002 (Fase 1), se
+-- planen i C:\Users\nbb\.claude\plans\lexical-dancing-liskov.md.

@@ -34,6 +34,11 @@ export default defineConfig({
         ],
       },
       workbox: {
+        // Serverens egne /auth- og /api-ruter er ikke SPA-sider — uden dette
+        // fanger service workerens navigations-fallback også et klik på
+        // "Log ind med Google" og server den cachede app i stedet for at
+        // lade browseren ramme den rigtige /auth/google/start-rute.
+        navigateFallbackDenylist: [/^\/auth\//, /^\/api\//],
         // Google Calendar-kald og OAuth må aldrig gå gennem service
         // workerens cache — appens app-skal (JS/CSS/HTML) precaches og
         // virker offline, men kalenderdata og adgangstoken skal altid være

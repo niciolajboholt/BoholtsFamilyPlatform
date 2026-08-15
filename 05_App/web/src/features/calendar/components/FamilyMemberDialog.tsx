@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import {
   Alert,
@@ -20,6 +20,13 @@ import { familyMemberRelations } from "../data/familyMemberRelations";
 import type { FamilyMemberRelation } from "../data/familyMemberRelations";
 import { familyPseudoMemberId } from "../models/calendarEvent";
 import type { FamilyMemberInput } from "../hooks/useFamilyMembers";
+import type { MappableCalendarOption } from "../providers/calendarProviderFactory";
+import { listAllMappableCalendars } from "../providers/calendarProviderFactory";
+import {
+  getCalendarIdForOwner,
+  refreshCalendarMemberMappingsFromServer,
+  setCalendarMemberMapping,
+} from "../preferences/calendarMemberMappingStorage";
 
 interface FamilyMemberDialogProps {
   open: boolean;
@@ -46,6 +53,17 @@ export function FamilyMemberDialog({
   const [color, setColor] = useState(member?.color ?? colorSwatches[0]);
   const [isNameTouched, setIsNameTouched] = useState(false);
   const [isDeleteConfirmVisible, setIsDeleteConfirmVisible] = useState(false);
+  const [selectedCalendarId, setSelectedCalendarId] = useState("");
+  const [calendarOptions, setCalendarOptions] = useState<
+    MappableCalendarOption[]
+  >([]);
+  const [isLoadingCalendarOptions, setIsLoadingCalendarOptions] =
+    useState(false);
+  const [calendarMappingError, setCalendarMappingError] = useState<
+    string | null
+  >(null);
+  const [isSavingCalendarMapping, setIsSavingCalendarMapping] =
+    useState(false);
 
   // Same render-phase reset pattern established in Sprint 13 (NewEventDialog/
   // EditEventDialog) — avoids a useEffect that the react-hooks/
@@ -61,13 +79,67 @@ export function FamilyMemberDialog({
     setColor(member?.color ?? colorSwatches[0]);
     setIsNameTouched(false);
     setIsDeleteConfirmVisible(false);
+    // Nulstillet her, ikke forudfyldt — den rigtige værdi (hvis nogen) sættes
+    // af effekten herunder, når mappings er hentet friskt fra serveren.
+    setSelectedCalendarId("");
+    setCalendarMappingError(null);
   }
+
+  // Et helt nyt medlem har intet id, før det er gemt server-side (Fase 2) —
+  // kalender-tildelingen kan derfor først sættes, når man redigerer medlemmet
+  // igen bagefter.
+  const canAssignCalendar = !isNew;
+
+  useEffect(() => {
+    if (!open || !canAssignCalendar) {
+      return;
+    }
+
+    let isCancelled = false;
+    // Synkron ved effektens start (dialogen lige åbnet), ikke en kaskade fra
+    // en tidligere renders state — samme mønster som Sprint 14's
+    // useGoogleCalendarConnection brugte til attemptSilentReconnect.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setIsLoadingCalendarOptions(true);
+
+    Promise.all([
+      listAllMappableCalendars(),
+      refreshCalendarMemberMappingsFromServer(),
+    ])
+      .then(([options]) => {
+        if (isCancelled) {
+          return;
+        }
+
+        setCalendarOptions(options);
+
+        // Mappings er nu friske fra serveren (Fase 4) — sikkert at læse
+        // den synkrone cache her.
+        if (member) {
+          setSelectedCalendarId(getCalendarIdForOwner(member.id) ?? "");
+        }
+      })
+      .catch(() => {
+        if (!isCancelled) {
+          setCalendarOptions([]);
+        }
+      })
+      .finally(() => {
+        if (!isCancelled) {
+          setIsLoadingCalendarOptions(false);
+        }
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [open, canAssignCalendar, member]);
 
   const trimmedName = name.trim();
   const nameError =
     isNameTouched && trimmedName.length === 0 ? "Skriv et navn." : null;
 
-  function handleSave() {
+  async function handleSave() {
     if (trimmedName.length === 0) {
       setIsNameTouched(true);
       return;
@@ -83,6 +155,37 @@ export function FamilyMemberDialog({
       color,
       isPlaceholderName: false,
     });
+
+    // Afventes og fejlhåndteres nu i stedet for `void`-kaldt fire-and-forget
+    // — en tidligere stille fejl her (kalender-tildeling, der bare ikke
+    // skete) var svær at opdage, netop fordi intet kald tjekkede resultatet.
+    // Dialogen holdes åben ved fejl, så brugeren ser det og kan prøve igen,
+    // i stedet for at antage succes og lukke.
+    if (canAssignCalendar && member) {
+      setCalendarMappingError(null);
+      setIsSavingCalendarMapping(true);
+
+      const previousCalendarId = getCalendarIdForOwner(member.id);
+      let ok = true;
+
+      if (previousCalendarId && previousCalendarId !== selectedCalendarId) {
+        ok = (await setCalendarMemberMapping(previousCalendarId, null)) && ok;
+      }
+
+      if (ok && selectedCalendarId) {
+        ok = await setCalendarMemberMapping(selectedCalendarId, member.id);
+      }
+
+      setIsSavingCalendarMapping(false);
+
+      if (!ok) {
+        setCalendarMappingError(
+          "Kalender-tildelingen kunne ikke gemmes. Prøv igen.",
+        );
+        return;
+      }
+    }
+
     onClose();
   }
 
@@ -142,6 +245,36 @@ export function FamilyMemberDialog({
               </TextField>
             )}
 
+            {canAssignCalendar && (
+              <TextField
+                select
+                label="Kalender"
+                value={selectedCalendarId}
+                fullWidth
+                disabled={isLoadingCalendarOptions}
+                helperText={
+                  isLoadingCalendarOptions
+                    ? "Henter forbundne kalendere…"
+                    : "Aftaler fra denne kalender vises som tilhørende dette medlem."
+                }
+                onChange={(event) => setSelectedCalendarId(event.target.value)}
+              >
+                <MenuItem value="">Ingen</MenuItem>
+                {calendarOptions.map((option) => (
+                  <MenuItem
+                    key={option.rawCalendarId}
+                    value={option.rawCalendarId}
+                  >
+                    {option.label}
+                  </MenuItem>
+                ))}
+              </TextField>
+            )}
+
+            {calendarMappingError && (
+              <Alert severity="error">{calendarMappingError}</Alert>
+            )}
+
             <Box>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>
                 Farve
@@ -193,8 +326,12 @@ export function FamilyMemberDialog({
 
           <Box sx={{ display: "flex", gap: 1 }}>
             <Button onClick={onClose}>Annuller</Button>
-            <Button variant="contained" onClick={handleSave}>
-              Gem
+            <Button
+              variant="contained"
+              onClick={() => void handleSave()}
+              disabled={isSavingCalendarMapping}
+            >
+              {isSavingCalendarMapping ? "Gemmer…" : "Gem"}
             </Button>
           </Box>
         </DialogActions>
@@ -210,8 +347,9 @@ export function FamilyMemberDialog({
 
         <DialogContent>
           <DialogContentText>
-            Aftaler, der har {member?.name} som deltager, flyttes til
-            "Familien" i stedet for at blive slettet.
+            Profilen fjernes fra familien. Aftaler i en kalender, der er
+            tildelt {member?.name}, berøres ikke og forbliver i
+            Google/Outlook-kalenderen.
           </DialogContentText>
         </DialogContent>
 

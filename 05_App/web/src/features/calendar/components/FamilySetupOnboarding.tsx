@@ -1,133 +1,96 @@
 import { useState } from "react";
 
-import AddIcon from "@mui/icons-material/Add";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlineRounded";
+import ContentCopyIcon from "@mui/icons-material/ContentCopyRounded";
 import {
   Box,
   Button,
   Container,
   IconButton,
-  MenuItem,
   Paper,
   TextField,
   Typography,
 } from "@mui/material";
 
-import { calendarOwners } from "../data/calendarOwners";
-import type { CalendarOwner } from "../data/calendarOwners";
-import { familyMemberColorSwatches as colorSwatches } from "../data/familyMemberColorSwatches";
-import { familyMemberRelations } from "../data/familyMemberRelations";
-import type { FamilyMemberRelation } from "../data/familyMemberRelations";
-import { familyPseudoMemberId } from "../models/calendarEvent";
-import { saveFamilyMembers } from "../preferences/familyMembersStorage";
-import { slugifyMemberName } from "../hooks/useFamilyMembers";
-
-const familyDefaultName = calendarOwners[familyPseudoMemberId].name;
-
-interface MemberRow {
-  key: string;
-  originalName: string;
-  name: string;
-  relation: FamilyMemberRelation | "";
-  color: string;
-}
-
-function seedRows(): MemberRow[] {
-  return Object.values(calendarOwners)
-    .filter((owner) => owner.id !== familyPseudoMemberId)
-    .map((owner) => ({
-      key: owner.id,
-      originalName: owner.name,
-      name: owner.name,
-      relation: owner.relation ?? "",
-      color: owner.color,
-    }));
-}
-
-function nextUnusedColor(rows: MemberRow[]): string {
-  const usedColors = new Set(rows.map((row) => row.color));
-  return (
-    colorSwatches.find((swatch) => !usedColors.has(swatch)) ?? colorSwatches[0]
-  );
-}
+import { acceptInvite, createFamily } from "../../family/familyApi";
+import { syncFamilyMembersFromServer } from "../../family/familyMembersSync";
 
 interface FamilySetupOnboardingProps {
   onDone: () => void;
 }
 
+type Mode = "choice" | "create" | "join" | "created";
+
 export function FamilySetupOnboarding({ onDone }: FamilySetupOnboardingProps) {
-  const [familyName, setFamilyName] = useState(familyDefaultName);
-  const [rows, setRows] = useState<MemberRow[]>(() => seedRows());
-  const [isTouched, setIsTouched] = useState(false);
+  const [mode, setMode] = useState<Mode>("choice");
+  const [familyName, setFamilyName] = useState("");
+  const [inviteCode, setInviteCode] = useState("");
+  const [createdInviteCode, setCreatedInviteCode] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const trimmedFamilyName = familyName.trim();
-  const familyNameError =
-    isTouched && trimmedFamilyName.length === 0 ? "Skriv et navn." : null;
+  async function handleCreate() {
+    const name = familyName.trim();
 
-  function updateRow(key: string, patch: Partial<MemberRow>) {
-    setRows((current) =>
-      current.map((row) => (row.key === key ? { ...row, ...patch } : row)),
-    );
-  }
-
-  function addRow() {
-    setRows((current) => [
-      ...current,
-      {
-        key: `new-${current.length}-${Date.now()}`,
-        originalName: "",
-        name: "",
-        relation: "",
-        color: nextUnusedColor(current),
-      },
-    ]);
-  }
-
-  function removeRow(key: string) {
-    setRows((current) => current.filter((row) => row.key !== key));
-  }
-
-  function buildMemberList(finalRows: MemberRow[], finalFamilyName: string) {
-    const ids: string[] = [];
-    const members: CalendarOwner[] = finalRows.map((row) => {
-      const trimmedRowName = row.name.trim();
-      const id = slugifyMemberName(trimmedRowName, ids);
-      ids.push(id);
-
-      return {
-        id,
-        name: trimmedRowName,
-        color: row.color,
-        relation: row.relation || undefined,
-        isPlaceholderName: trimmedRowName === row.originalName,
-      };
-    });
-
-    members.push({
-      id: familyPseudoMemberId,
-      name: finalFamilyName,
-      color: calendarOwners[familyPseudoMemberId].color,
-      isPlaceholderName: finalFamilyName === familyDefaultName,
-    });
-
-    return members;
-  }
-
-  function handleGetStarted() {
-    const hasEmptyRowName = rows.some((row) => row.name.trim().length === 0);
-
-    if (hasEmptyRowName || trimmedFamilyName.length === 0) {
-      setIsTouched(true);
+    if (!name) {
+      setError("Skriv et navn til familien.");
       return;
     }
 
-    saveFamilyMembers(buildMemberList(rows, trimmedFamilyName));
+    setIsSubmitting(true);
+    setError(null);
+
+    const result = await createFamily(name);
+
+    setIsSubmitting(false);
+
+    if (!result.ok || !result.data.members) {
+      setError(result.data.error ?? "Kunne ikke oprette familien. Prøv igen.");
+      return;
+    }
+
+    syncFamilyMembersFromServer(result.data.members);
+
+    // Koden vises kun her — der er endnu ingen "Del invitation"-visning i
+    // Indstillinger, så dette er brugerens eneste chance for at se den, før
+    // de fortsætter ind i appen.
+    if (result.data.inviteCode) {
+      setCreatedInviteCode(result.data.inviteCode);
+      setMode("created");
+      return;
+    }
+
     onDone();
   }
 
-  function handleSkip() {
-    saveFamilyMembers(Object.values(calendarOwners));
+  async function handleJoin() {
+    const code = inviteCode.trim();
+
+    if (!code) {
+      setError("Skriv den invitationskode, du har fået.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setError(null);
+
+    const result = await acceptInvite(code);
+
+    setIsSubmitting(false);
+
+    if (!result.ok || !result.data.members) {
+      setError(result.data.error ?? "Ugyldig invitationskode. Prøv igen.");
+      return;
+    }
+
+    syncFamilyMembersFromServer(result.data.members);
     onDone();
+  }
+
+  function handleCopyCode() {
+    navigator.clipboard?.writeText(createdInviteCode).catch(() => {
+      // Udklipsholder kan være utilgængelig (fx uden HTTPS) — koden står
+      // stadig synligt på skærmen, så brugeren kan skrive den af manuelt.
+    });
   }
 
   return (
@@ -144,116 +107,117 @@ export function FamilySetupOnboarding({ onDone }: FamilySetupOnboardingProps) {
         <Paper sx={{ p: 3, display: "grid", gap: 3 }}>
           <Box>
             <Typography variant="h5" sx={{ fontWeight: 700 }}>
-              Velkommen!
+              {mode === "created" ? "Familien er oprettet!" : "Velkommen!"}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Navngiv jeres familie og familiemedlemmer. I kan altid ændre det
-              igen senere under Indstillinger.
+              {mode === "choice" &&
+                "Opret jeres familie, eller tilslut jer med en invitationskode fra et andet familiemedlem."}
+              {mode === "create" &&
+                "Giv jeres familie et navn. I kan tilføje og navngive medlemmer bagefter under Indstillinger."}
+              {mode === "join" &&
+                "Indtast den invitationskode, du har fået af et familiemedlem."}
+              {mode === "created" &&
+                "Del denne kode med resten af familien, så de kan tilslutte sig. Du kan altid finde og lave en ny kode senere under Indstillinger."}
             </Typography>
           </Box>
 
-          <TextField
-            label="Familiens navn"
-            value={familyName}
-            fullWidth
-            error={Boolean(familyNameError)}
-            helperText={familyNameError}
-            onChange={(event) => setFamilyName(event.target.value)}
-            onBlur={() => setIsTouched(true)}
-          />
+          {mode === "choice" && (
+            <Box sx={{ display: "grid", gap: 1.5 }}>
+              <Button variant="contained" onClick={() => setMode("create")}>
+                Opret ny familie
+              </Button>
+              <Button variant="outlined" onClick={() => setMode("join")}>
+                Jeg har en invitationskode
+              </Button>
+            </Box>
+          )}
 
-          <Box sx={{ display: "grid", gap: 2 }}>
-            {rows.map((row) => {
-              const rowNameError =
-                isTouched && row.name.trim().length === 0
-                  ? "Skriv et navn."
-                  : null;
+          {mode === "create" && (
+            <Box sx={{ display: "grid", gap: 2 }}>
+              <TextField
+                label="Familiens navn"
+                value={familyName}
+                fullWidth
+                autoFocus
+                error={Boolean(error)}
+                helperText={error}
+                onChange={(event) => setFamilyName(event.target.value)}
+              />
 
-              return (
-                <Box
-                  key={row.key}
-                  sx={{ display: "flex", gap: 1, alignItems: "flex-start" }}
+              <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                <Button onClick={() => setMode("choice")} disabled={isSubmitting}>
+                  Tilbage
+                </Button>
+                <Button
+                  variant="contained"
+                  onClick={handleCreate}
+                  disabled={isSubmitting}
                 >
-                  <Box
-                    component="button"
-                    type="button"
-                    aria-label={`Vælg farven ${row.color}`}
-                    onClick={() =>
-                      updateRow(row.key, {
-                        color:
-                          colorSwatches[
-                            (colorSwatches.indexOf(row.color) + 1) %
-                              colorSwatches.length
-                          ],
-                      })
-                    }
-                    sx={{
-                      width: 40,
-                      height: 40,
-                      mt: 0.5,
-                      flexShrink: 0,
-                      borderRadius: "50%",
-                      backgroundColor: row.color,
-                      cursor: "pointer",
-                      border: "none",
-                      outline: "1px solid",
-                      outlineColor: "divider",
-                      outlineOffset: -1,
-                      p: 0,
-                    }}
-                  />
+                  Opret familie
+                </Button>
+              </Box>
+            </Box>
+          )}
 
-                  <TextField
-                    label="Navn"
-                    value={row.name}
-                    fullWidth
-                    error={Boolean(rowNameError)}
-                    helperText={rowNameError}
-                    onChange={(event) =>
-                      updateRow(row.key, { name: event.target.value })
-                    }
-                  />
+          {mode === "join" && (
+            <Box sx={{ display: "grid", gap: 2 }}>
+              <TextField
+                label="Invitationskode"
+                value={inviteCode}
+                fullWidth
+                autoFocus
+                error={Boolean(error)}
+                helperText={error}
+                onChange={(event) => setInviteCode(event.target.value)}
+              />
 
-                  <TextField
-                    select
-                    label="Relation"
-                    value={row.relation}
-                    sx={{ minWidth: 110 }}
-                    onChange={(event) =>
-                      updateRow(row.key, {
-                        relation: event.target.value as FamilyMemberRelation,
-                      })
-                    }
-                  >
-                    {familyMemberRelations.map((option) => (
-                      <MenuItem key={option} value={option}>
-                        {option}
-                      </MenuItem>
-                    ))}
-                  </TextField>
+              <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                <Button onClick={() => setMode("choice")} disabled={isSubmitting}>
+                  Tilbage
+                </Button>
+                <Button
+                  variant="contained"
+                  onClick={handleJoin}
+                  disabled={isSubmitting}
+                >
+                  Tilslut familie
+                </Button>
+              </Box>
+            </Box>
+          )}
 
-                  <IconButton
-                    aria-label="Fjern familiemedlem"
-                    onClick={() => removeRow(row.key)}
-                    sx={{ mt: 0.5 }}
-                  >
-                    <DeleteOutlineIcon />
-                  </IconButton>
-                </Box>
-              );
-            })}
+          {mode === "created" && (
+            <Box sx={{ display: "grid", gap: 2 }}>
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 1,
+                  p: 2,
+                  borderRadius: 2,
+                  bgcolor: "action.hover",
+                }}
+              >
+                <Typography
+                  variant="h5"
+                  sx={{ fontWeight: 700, letterSpacing: 2 }}
+                >
+                  {createdInviteCode}
+                </Typography>
+                <IconButton
+                  aria-label="Kopiér invitationskode"
+                  onClick={handleCopyCode}
+                >
+                  <ContentCopyIcon />
+                </IconButton>
+              </Box>
 
-            <Button startIcon={<AddIcon />} onClick={addRow} sx={{ justifySelf: "start" }}>
-              Tilføj familiemedlem
-            </Button>
-          </Box>
-
-          <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-            <Button onClick={handleSkip}>Spring over</Button>
-            <Button variant="contained" onClick={handleGetStarted}>
-              Kom i gang
-            </Button>
-          </Box>
+              <Button variant="contained" onClick={onDone}>
+                Fortsæt til appen
+              </Button>
+            </Box>
+          )}
         </Paper>
       </Container>
     </Box>

@@ -683,3 +683,78 @@ Teknisk muligt, men introducerer appens første server-side komponent og en ny s
 
 * ADR-008/009 (Google Calendar, læse-/skriveadgang)
 * ADR-014 (Google-kalendere tildelt familiemedlemmer)
+
+---
+
+# ADR-017: Multi-tenant familie-server med server-ejet Google-login (erstatter ADR-009 og ADR-011)
+
+## Status
+
+Accepteret 2026-07-31. Under implementering, fase for fase (se Konsekvenser → Status pr. fase).
+
+## Kontekst
+
+Da Nicolaj forsøgte at dele appen med Christine, viste to grundlæggende begrænsninger sig i praksis: siden er låst bag Cloudflare Access, og selv med adgang ville hun starte helt forfra, fordi ADR-011 (single-device) betyder, at intet — familiemedlemmer, indstillinger, tildelinger — deles mellem devices. Google Calendar-data har hele tiden været undtaget denne begrænsning (det synkroniseres allerede via Google selv, jf. ADR-011's egen note), men resten af appens data er reelt låst til det device, den blev sat op på.
+
+Samtidig er den nuværende Google-integration (ADR-009) bevidst client-only: tokenet ligger kun i hukommelsen, der er ingen refresh token, ingen backend, og hver ny fane/session kræver en ny brugerinitieret forbindelse. Det var en rimelig beslutning, da appen var single-device og server-fri (ADR-011, ADR-013 nævnte kun Workers/D1 som en "naturlig udvidelsesvej", ikke en besluttet retning).
+
+En samtale med Nicolaj afdækkede et ønske om at gå videre end blot at rette single-device-begrænsningen: appen skal kunne bruges af **enhver familie**, ikke kun Boholt-familien — én kørende installation, hvor forskellige familier opretter sig selv, inviterer medlemmer og forbinder deres egne Google-konti. Det er en kvalitativt anden beslutning end "del data mellem Nicolaj og Christines devices" og kræver en rigtig bruger- og familie-model, ikke kun en sync-mekanisme.
+
+## Beslutning
+
+Boholts Family Platform får en **server-del** (Cloudflare Worker + D1, jf. ADR-013's forudsete udvidelsesvej) med følgende principper:
+
+1. **Login udelukkende via Google**, i ét samlet samtykke-trin der giver både identitet (hvem er brugeren) og kalender-adgang (`calendar.events` + `calendar.calendarlist.readonly`, uændret fra ADR-009). Der findes intet separat "opret bruger med adgangskode"-flow.
+2. **Serveren, ikke browseren, ejer Google-tokenet.** OAuth 2.0 Authorization Code + PKCE mod Google, `access_type=offline&prompt=consent` sikrer en refresh token ved hvert login. Refresh tokenet krypteres (AES-GCM) og gemmes i D1, ikke i klar tekst. Dette **erstatter ADR-009's client-only token-flow** — begrundelsen dengang (undgå at sprede Google-typer/tokens til UI'et) gælder stadig og løses fortsat af `CalendarProvider`-abstraktionen (ADR-007), blot bag et tyndt server-proxy-lag i stedet for direkte browser→Google-kald.
+3. **Google Calendar forbliver den eneste kilde til selve aftalerne.** Appens egen database (D1) gemmer aldrig events — kun familie-, bruger-, medlemskabs- og invitationsdata. Dette er en bevidst afgrænsning: serveren tilføjes for at løse identitet og deling, ikke for at duplikere Googles rolle som kalenderdata-ejer.
+4. **Multi-tenant fra dag ét.** Én kørende Worker-installation kan være hjem for et vilkårligt antal familier. En familie oprettes af en **stifter** (bliver ejer), der kan invitere andre via en invitationskode. Roller: præcis én **ejer** (kan overdrages — forrige ejer degraderes til admin, ikke fjernes), et vilkårligt antal **admins**, almindelige **medlemmer**.
+5. **Børn har ingen egen konto.** De er en profil (navn/farve/relation), knyttet til en forælders Google-kalender — samme grundform som `CalendarOwner` i dag (ADR-014's tildelingsmodel), nu blot familie-scoped i D1 i stedet for pr. device i `localStorage`.
+6. **Lokale (ikke-Google) aftaler udfases.** Når server-ejet Google-sync er på plads, migreres eksisterende lokale aftaler én gang (bulk-oprettelse i Google Calendar, eller eksport som backup), og det lokale aftale-lag fjernes. Familiemedlemmer, tildelinger og indstillinger — modsat selve aftalerne — flytter til D1 og bliver dermed delt på tværs af familiens devices, hvilket **erstatter ADR-011s single-device-beslutning** for denne del af dataen. Enheds-specifikke præferencer (hvilke kalendere er skjult på *dette* device) forbliver bevidst lokale — se ADR-017's fase 4-note nedenfor.
+7. **Session** er D1-baseret (opaque session-id i en `HttpOnly; SameSite=Lax`-cookie, `Secure` betinget af protokol), ikke en JWT — en session skal altid kunne tilbagekaldes øjeblikkeligt, nødvendigt ved ejerskifte eller "log ud andre steder".
+
+Arbejdet er faset (Fase 0-6, se det tilhørende implementeringsplan-dokument), så hver fase kan afprøves selvstændigt på `beta` uden at påvirke det, familien bruger dagligt på `main`.
+
+## Alternativer overvejet
+
+### Kun løse single-device (udvide ADR-011 uden multi-tenant)
+
+En mindre ændring — blot synkronisere Nicolaj og Christines data via en simpel delt nøgle — blev overvejet, men afvist. Nicolajs eksplicitte ønske var en model, hvor "alle familier kan oprette deres egen version", hvilket kræver en rigtig bruger-/familie-model uanset omfang. At bygge single-device-sync først og multi-tenant bagefter ville betyde at bygge autentificering to gange.
+
+### Egen adgangskode-baseret konto, med Google som valgfri tilføjelse
+
+Afvist: Nicolaj bekræftede eksplicit, at kravet skal være "en Google-klient for at oprette sig på vores app" — det fjerner behovet for adgangskode-håndtering, glemte-adgangskode-flows og egen bruger-verifikation helt, og matcher at hele familiens kalenderdata alligevel skal komme fra Google.
+
+### Blive ved JWT-sessions (stateless) i stedet for D1-baserede
+
+Afvist: en JWT kan ikke tilbagekaldes før den udløber, hvilket er uforeneligt med kravet om at kunne overdrage ejerskab eller fjerne et medlems adgang med øjeblikkelig virkning.
+
+## Konsekvenser
+
+### Positivt
+
+* Appen kan reelt tages i brug af enhver familie, ikke kun geninstalleres pr. familie.
+* Løser det oprindelige problem (dele linket med Christine) som et biprodukt af en bredere, rigtigere løsning, i stedet for en engangs-lap.
+* `CalendarProvider`-abstraktionen (ADR-007) og hele kalender-UI-laget (måned/uge/dag/side-by-side) er upåvirket — kun transportlaget under `GoogleCalendarProvider` ændres.
+* Refresh token gør, at familien ikke skal genoprette Google-forbindelsen ved hver ny session, hvilket ADR-009's flow krævede.
+
+### Negativt
+
+* Appens første server-side sikkerhedsoverflade: krypterede refresh tokens i D1, en Worker-secret til kryptering, og en session-cookie der skal beskyttes korrekt. Øget kompleksitet sammenlignet med den tidligere, helt server-fri model.
+* Googles samtykke-skærm skal formentlig gennem Googles verificeringsproces, før andre end manuelt tilføjede testbrugere kan logge ind — en ekstern afhængighed uden for appens kontrol.
+* Alle eksisterende Google-forbindelser (inkl. Nicolajs egen) skal gentilsluttes én gang, da refresh tokens kun udstedes ved første samtykke pr. bruger+scope-kombination, medmindre `prompt=consent` tvinges igennem.
+* Cloudflare Access (den nuværende login-mur) bliver overflødig og bør fjernes efter fase 1-2, men er bevidst bevaret indtil da som et ekstra lag, mens Google-samtykkeskærmen stadig er under verificering.
+
+### Status pr. fase
+
+* **Fase 0** (Worker + D1-fundament): Færdig og verificeret på `beta`.
+* **Fase 1** (server-ejet Google-login, session): Færdig og verificeret på `beta` — fuld login-runde (Google-samtykke → session → familie-app) bekræftet virkende 2026-08-02.
+* **Fase 2-6** (familier/invitationer, server-ejet kalender-sync, migrering af enheds-lokal familiedata, udfasning af lokale aftaler, oprydning): Ikke påbegyndt.
+
+## Relaterede dokumenter
+
+* ADR-007 (Calendar Provider-abstraktion) — uændret, bevares som fundament.
+* ADR-009 (Google Calendar write access, client-only token-flow) — **erstattet** af denne ADR for token-håndteringens vedkommende.
+* ADR-011 (single-device) — **erstattet** af denne ADR for familiedata (medlemmer, tildelinger); enheds-specifikke UI-præferencer forbliver lokale.
+* ADR-012 (lokal datamodel) — de dele der handler om lokale aftaler udfases i fase 5; storage-versionerings-princippet videreføres for de data, der forbliver lokale.
+* ADR-013 (Cloudflare Pages/Workers) — denne ADR realiserer den udvidelsesvej, ADR-013 forudså.
+* ADR-014 (Google-kalendere tildelt familiemedlemmer) — tildelingsmodellen videreføres, flytter fra `localStorage` til D1 i fase 4.
