@@ -46,7 +46,7 @@ interface QuickAction {
 
 const quickActions: QuickAction[] = [
   { title: "Ny aftale", icon: <AddRounded />, isComingSoon: false },
-  { title: "Indkøbsliste", icon: <ShoppingCartOutlined />, isComingSoon: true },
+  { title: "Indkøbsliste", icon: <ShoppingCartOutlined />, isComingSoon: false },
   { title: "Opgaver", icon: <CheckCircleOutlineRounded />, isComingSoon: true },
 ];
 
@@ -361,6 +361,8 @@ function HomePage() {
                 onClick={() => {
                   if (action.title === "Ny aftale") {
                     navigate("/calendar");
+                  } else if (action.title === "Indkøbsliste") {
+                    navigate("/shopping-list");
                   }
                 }}
                 sx={{

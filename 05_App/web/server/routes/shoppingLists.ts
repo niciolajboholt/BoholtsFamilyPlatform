@@ -96,7 +96,7 @@ async function listItemsForList(
               added_by_user_id AS addedByUserId, created_at AS createdAt, checked_at AS checkedAt
        FROM shopping_list_items
        WHERE list_id = ?
-       ORDER BY is_checked ASC, category ASC, created_at ASC`,
+       ORDER BY category ASC, is_checked ASC, created_at ASC`,
     )
     .bind(listId)
     .all<ShoppingListItemRow>();
