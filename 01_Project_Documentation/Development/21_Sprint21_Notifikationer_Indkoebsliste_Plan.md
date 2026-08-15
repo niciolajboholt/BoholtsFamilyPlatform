@@ -204,9 +204,13 @@ ingen ny migration.
 
 ## Rækkefølge
 
-1. **Del A — Push-notifikationer**: datamodel, VAPID-fundament,
-   abonnements-flow, service worker-håndtering. Testes isoleret (fx en
-   simpel test-notifikation), før den kobles til rigtige hændelser.
+1. ~~**Del A — Push-notifikationer**~~ ✅ **Fundament gennemført og
+   verificeret (2026-08-15)**: datamodel, VAPID-fundament,
+   abonnements-flow, service worker-håndtering (skiftet PWA'en fra
+   generateSW til injectManifest for at kunne tilføje push/
+   notificationclick-lyttere). Testet isoleret med en reel test-notifikation
+   på beta (Windows/Edge) — bekræftet leveret. iOS Safari-testen (kræver
+   "føjet til hjemmeskærm", se "Kendte begrænsninger") er endnu ikke udført.
 2. **Del A, fortsat**: kobl til kalender-hændelser (opret/redigér/slet).
 3. **Del B — Indkøbsliste**: datamodel, server-ruter, kategori-ordbog, UI.
 4. **Del B, fortsat**: kobl notifikation til "ny vare tilføjet" (genbruger
