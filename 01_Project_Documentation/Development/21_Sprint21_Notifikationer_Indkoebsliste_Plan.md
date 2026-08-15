@@ -1,6 +1,6 @@
 # 21_Sprint21_Notifikationer_Indkoebsliste_Plan
 
-> Status: Afventer godkendelse
+> Status: Active
 
 Version: 1.0
 
