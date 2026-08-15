@@ -53,7 +53,7 @@ rækkefølge.
 | 3 | Server overtager Google Kalender-sync | ✅ **Merget til `develop`** (PR #28, 2026-08-14). Manuel beta-verificering (forbind/opret/redigér/slet, bekræftet i Google Kalender) gennemført og godkendt. |
 | 4 | Kalender-medlem-mapping → D1 | ✅ **Merget til `develop`** (PR #30, 2026-08-14). Rebaset mod opdateret `develop`, 27 rute-tests i alt, en cross-family valideringsbug fundet og rettet (se nedenfor). Mangler stadig rigtig beta-verificering af selve UI-flowet (Indstillinger → "Rediger familiemedlem"). |
 | 5 | Udfas lokale (ikke-Google) aftaler + migrering | ✅ **Merget til `develop`** (2026-08-15). Nicolaj bekræftede ingen lokal data skulle bevares, så ingen backup-eksport var nødvendig. `LocalCalendarProvider`, `CalendarService`s localStorage-CRUD, demo-seed-data og `CalendarProviderType`'s `"local"`-variant er fjernet. Kendt, accepteret adfærdsændring: et familiemedlem uden tildelt kalender har nu ingen kalenderkilde overhovedet. 180/180 tests. |
-| 6 | Oprydning + Cloudflare Access-beslutning | Ikke startet. 3 af planens DB-indekser er allerede tilstede (se nedenfor). |
+| 6 | Oprydning + Cloudflare Access-beslutning | ✅ **Merget til `develop`** (2026-08-15). Fjernet stale `GoogleCalendarSession`-kommentarer i `OutlookCalendarSession.ts`; `google-calendar-was-connected` var allerede væk. Ajourført `20_Calendar_Provider_Architecture.md`/`09_Data_Model.md` til den faktiske D1/Google+Outlook-arkitektur. Outlook-integrationen bekræftet urørt (kun kommentartekst ændret). Cloudflare Access-fjernelse er en separat, Nicolaj-udført dashboard-handling (se ovenfor). 3 af planens DB-indekser var allerede tilstede (se nedenfor). |
 
 **`develop` har nu login, familier/invitationer, server-styret Google-kalender-sync og delt kalender-medlem-mapping samlet.** Beta-Workeren kører denne kode efter merge af #29/#28/#30 (verificeret grønt CI + Cloudflare-build på alle tre PR'er).
 
@@ -210,10 +210,12 @@ hvor lille en anden ændring man laver samme dag.
    Nicolaj valgte "eksportér som backup" over "bulk-opret i Google", men
    bekræftede efterfølgende at der ikke var nogen lokal data at bevare —
    det lokale aftale-lag blev derfor fjernet direkte uden en eksport.
-7. **Resten af Fase 6**: ryd op i dødt kode (`GoogleCalendarSession`-
-   referencer, `google-calendar-was-connected`), opdatér
-   `20_Calendar_Provider_Architecture.md`/`09_Data_Model.md`, bekræft
-   Outlook-integrationen fortsat er urørt.
+7. ~~**Resten af Fase 6**~~ ✅ **Gennemført (2026-08-15)**: dødt kode ryddet
+   op, arkitektur-/datamodel-docs ajourført, Outlook bekræftet urørt.
+
+**Sprint 20 (Fase 0-6) er dermed funktionelt komplet.** Tilbage står kun
+Nicolajs egen, manuelle fjernelse af Cloudflare Access i dashboardet — ikke
+noget en AI-agent kan udføre.
 
 ---
 
