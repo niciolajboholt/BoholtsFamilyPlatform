@@ -55,6 +55,31 @@ describe("pushNotifications", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
+  it("signs the VAPID JWT's sub claim as a single mailto: URI, not a double-prefixed one", async () => {
+    // web-push-browser's sendPushNotification() takes a BARE email and
+    // prepends "mailto:" itself — passing our already-prefixed
+    // VAPID_SUBJECT straight through produced "mailto:mailto:..." in the
+    // JWT, a malformed claim that Apple's web.push.apple.com rejected with
+    // "BadJwtToken" (Windows/WNS accepted it regardless, which is why this
+    // only broke on iPhones during manual testing).
+    await seedUser(env.DB as never, { id: "nicolaj" });
+    await seedSubscription(env.DB as never, "nicolaj", "https://push.example.com/a");
+
+    await sendPushNotificationToUser(env, "nicolaj", { title: "x", body: "y" });
+
+    const [request] = fetchMock.mock.calls[0] as [Request];
+    const authHeader = request.headers.get("Authorization");
+    const jwt = authHeader?.match(/t=([^,]+)/)?.[1];
+    expect(jwt).toBeDefined();
+
+    const payloadSegment = jwt!.split(".")[1];
+    const payload: { sub: string } = JSON.parse(
+      Buffer.from(payloadSegment, "base64url").toString("utf-8"),
+    );
+
+    expect(payload.sub).toBe("mailto:test@example.com");
+  });
+
   it("does nothing when the user has no registered devices", async () => {
     await seedUser(env.DB as never, { id: "nicolaj" });
 

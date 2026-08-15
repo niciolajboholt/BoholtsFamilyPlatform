@@ -30,6 +30,17 @@ async function getVapidKeys(env: Env) {
   });
 }
 
+// web-push-browsers sendPushNotification() tager en BAR e-mail som sit
+// "email"-argument og sætter selv "mailto:" foran, når den bygger JWT'ens
+// sub-claim (se dens createJWT: `mailto:${email}`) — men VAPID_SUBJECT er
+// bevidst en fuld "mailto:"-URI (spec-korrekt, ADR/env-dokumentationen), så
+// uden dette blev claimet dobbelt-præfikset ("mailto:mailto:...").
+// Windows/WNS validerede det tilsyneladende ikke strengt, men Apples
+// web.push.apple.com afviste det som "BadJwtToken" — deraf kun fejl på iOS.
+function toBareEmail(vapidSubject: string): string {
+  return vapidSubject.replace(/^mailto:/, "");
+}
+
 /**
  * Sender til alle af én brugers registrerede devices. En 404/410 fra
  * push-tjenesten betyder abonnementet er udløbet eller tilbagekaldt af
@@ -63,7 +74,7 @@ export async function sendPushNotificationToUser(
             endpoint: row.endpoint,
             keys: { p256dh: row.p256dhKey, auth: row.authKey },
           },
-          env.VAPID_SUBJECT,
+          toBareEmail(env.VAPID_SUBJECT),
           serializedPayload,
         );
 
