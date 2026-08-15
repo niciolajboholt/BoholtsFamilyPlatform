@@ -211,7 +211,13 @@ ingen ny migration.
    notificationclick-lyttere). Testet isoleret med en reel test-notifikation
    på beta (Windows/Edge) — bekræftet leveret. iOS Safari-testen (kræver
    "føjet til hjemmeskærm", se "Kendte begrænsninger") er endnu ikke udført.
-2. **Del A, fortsat**: kobl til kalender-hændelser (opret/redigér/slet).
+2. ~~**Del A, fortsat**~~ ✅ **Gennemført (2026-08-15)**: opret/redigér/slet
+   af en aftale (`/api/calendar/calendars/:id/events`) sender nu en
+   push-notifikation til familiens øvrige medlemmer (afsenderen selv
+   undtaget), via `c.executionCtx.waitUntil()` så det ikke forsinker selve
+   kalender-svaret. Mangler stadig en rigtig to-personers test (Nicolaj
+   opretter, Christine modtager) — kun teknisk verificeret via
+   automatiserede tests indtil videre.
 3. **Del B — Indkøbsliste**: datamodel, server-ruter, kategori-ordbog, UI.
 4. **Del B, fortsat**: kobl notifikation til "ny vare tilføjet" (genbruger
    Del A's fundament).
