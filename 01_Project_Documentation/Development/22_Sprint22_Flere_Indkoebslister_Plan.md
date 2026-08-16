@@ -141,13 +141,22 @@ gruppe-overskrifter — for indkøb, der ikke passer ind i de to andre typer.
 
 ## Rækkefølge
 
-1. Migration 0007 (kør manuelt på beta og produktion, samme mønster som
-   0004-0006).
-2. Server: type-bevidst `shoppingCategories.ts`, opdaterede ruter.
-3. Klient: liste-vælger + "opret ny liste"-dialog med typevalg.
+1. ~~Migration 0007~~ ✅ **Kørt og bekræftet af Nicolaj på både beta og
+   produktion (2026-08-16)**. Uafhængig verifikation via D1-værktøjet var
+   ikke mulig denne gang (samme tilbagevendende "MCP tool call requires
+   approval"-blokering som resten af sprintet) — status bygger på Nicolajs
+   egen bekræftelse.
+2. ~~Server: type-bevidst `shoppingCategories.ts`, opdaterede ruter~~ ✅
+   **Gennemført (2026-08-16)**: 13 nye tests, deployet til `develop`
+   (commit `521dec3`), CI og begge Cloudflare Workers Builds bekræftet
+   grønne.
+3. ~~Klient: liste-vælger + "opret ny liste"-dialog med typevalg~~ ✅
+   **Gennemført (2026-08-16)**: faner til at skifte mellem lister, "+"-fane
+   åbner en opret-dialog (navn + type). Andet-typede lister vises fladt
+   uden kategori-overskrifter.
 4. Manuel test: opret en byggemarked-liste, tilføj et par varer, bekræft
    fornuftig kategorisering og at push-notifikationer stadig virker
-   uændret.
+   uændret — **afventer stadig** Nicolaj/Christines egen afprøvning.
 
 ---
 
