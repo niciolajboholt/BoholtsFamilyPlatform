@@ -1,14 +1,14 @@
 # 21_Sprint21_Notifikationer_Indkoebsliste_Plan
 
-> Status: Active
+> Status: Completed
 
-Version: 1.0
+Version: 1.1
 
 Project:
 Boholts Family Platform
 
 Last Updated:
-2026-08-15
+2026-08-16
 
 Owner:
 Nicolaj Bach Boholt
@@ -233,16 +233,17 @@ ingen ny migration.
    (`sendPushNotificationToFamily`). Lint, `tsc -b`, 213/213 tests og build
    verificeret grønne; deployet til `develop` (commit `e3533e1`), CI og
    begge Cloudflare Workers Builds (beta + produktion) bekræftet grønne.
-5. Manuel test på beta af Nicolaj og Christine, inkl. eksplicit iOS/Safari
-   push-test (se "Kendte begrænsninger") — **afventer stadig**. Del A's
-   push-fundament virker bekræftet på Windows/Edge, men notifikationer
-   viser sig endnu ikke på hverken Nicolajs eller Christines iPhone, selvom
-   Apples push-tjeneste nu kvitterer med `200` uden fejl (to reelle bugs
-   fundet og rettet undervejs: tavs fejlhåndtering af ikke-2xx-svar, og et
-   dobbelt `mailto:`-præfiks i VAPID JWT'ets `sub`-claim). Årsagen til at
-   notifikationen stadig ikke vises på selve enheden er uafklaret — næste
-   skridt er enten Safari Remote Web Inspector (kræver Mac + kabel) eller
-   en fuld af-/geninstallation af PWA'en fra hjemmeskærmen.
+5. ~~Manuel test på beta af Nicolaj og Christine, inkl. eksplicit iOS/Safari
+   push-test~~ ✅ **Gennemført og bekræftet (2026-08-16)**: Nicolaj
+   tilføjede en vare på indkøbslisten fra sin telefon — varen blev synlig
+   på Christines enhed, og hun modtog en push-notifikation på sin iPhone.
+   Dermed bekræftet ende-til-ende på tværs af familiemedlemmer og på iOS,
+   ikke kun på Windows/Edge som tidligere. Det tidligere uafklarede
+   "Apple-tjenesten svarer 200, men intet vises på enheden"-problem (to
+   reelle bugs undervejs: tavs fejlhåndtering af ikke-2xx-svar, og et
+   dobbelt `mailto:`-præfiks i VAPID JWT'ets `sub`-claim) er dermed løst —
+   den præcise afgørende faktor (en af rettelserne, eller blot tid/en
+   enheds-genstart) er ikke isoleret, men resultatet er bekræftet.
 
 ---
 
