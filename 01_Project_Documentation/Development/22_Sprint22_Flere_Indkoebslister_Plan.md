@@ -141,11 +141,19 @@ gruppe-overskrifter — for indkøb, der ikke passer ind i de to andre typer.
 
 ## Rækkefølge
 
-1. ~~Migration 0007~~ ✅ **Kørt og bekræftet af Nicolaj på både beta og
-   produktion (2026-08-16)**. Uafhængig verifikation via D1-værktøjet var
-   ikke mulig denne gang (samme tilbagevendende "MCP tool call requires
-   approval"-blokering som resten af sprintet) — status bygger på Nicolajs
-   egen bekræftelse.
+1. ~~Migration 0007~~ ✅ **Kørt og uafhængigt verificeret på både beta og
+   produktion (2026-08-16)**. Vigtig rettelse til den oprindelige status
+   her: Nicolajs første bekræftelse ("migration kørt på begge") viste sig
+   at være forkert for produktion — en fuld skema-sammenligning
+   (`SELECT type, name, sql FROM sqlite_master ...`, kørt af Nicolaj i
+   D1-konsollen og sendt til mig) afslørede, at produktion manglede BÅDE
+   migration 0007 (ingen `type`-kolonne på `shopping_lists`) OG hele
+   familie-datamodellen fra Sprint 20 (`families`,
+   `family_memberships`, `family_members`, `family_invites`,
+   `calendar_member_mappings` fandtes slet ikke) — sandsynligvis fordi
+   tidligere migrationer reelt kun blev kørt på beta, ikke produktion,
+   selvom det så ud til at lykkes. Begge dele er nu genskabt/kørt korrekt
+   på produktion og bekræftet identisk med beta linje for linje.
 2. ~~Server: type-bevidst `shoppingCategories.ts`, opdaterede ruter~~ ✅
    **Gennemført (2026-08-16)**: 13 nye tests, deployet til `develop`
    (commit `521dec3`), CI og begge Cloudflare Workers Builds bekræftet
