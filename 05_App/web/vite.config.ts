@@ -9,6 +9,21 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      // Sprint 21, Del A: skiftet fra generateSW til injectManifest — kun
+      // injectManifest lader os skrive vores egen service worker-kode
+      // (src/sw.ts) og dermed tilføje "push"/"notificationclick"-lyttere.
+      // Precaching og navigations-fallback (herunder /auth+/api-undtagelsen,
+      // tidligere sat via workbox.navigateFallbackDenylist) er nu
+      // implementeret direkte i src/sw.ts i stedet for konfigureret her.
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.ts',
+      injectManifest: {
+        // Google Calendar-kald og OAuth må aldrig cache — de precaches ikke
+        // (kun app-skallens egne build-outputs matcher globPatterns), så
+        // de går altid direkte til netværket uden nogen ekstra regel.
+        globPatterns: ['**/*.{js,css,html,svg,png,ico}'],
+      },
       manifest: {
         name: 'Boholts Familieapp',
         short_name: 'Boholts',
@@ -30,25 +45,6 @@ export default defineConfig({
             sizes: 'any',
             type: 'image/svg+xml',
             purpose: 'maskable',
-          },
-        ],
-      },
-      workbox: {
-        // Serverens egne /auth- og /api-ruter er ikke SPA-sider — uden dette
-        // fanger service workerens navigations-fallback også et klik på
-        // "Log ind med Google" og server den cachede app i stedet for at
-        // lade browseren ramme den rigtige /auth/google/start-rute.
-        navigateFallbackDenylist: [/^\/auth\//, /^\/api\//],
-        // Google Calendar-kald og OAuth må aldrig gå gennem service
-        // workerens cache — appens app-skal (JS/CSS/HTML) precaches og
-        // virker offline, men kalenderdata og adgangstoken skal altid være
-        // friske og går derfor altid direkte til netværket (Audit F-04).
-        runtimeCaching: [
-          {
-            urlPattern: ({ url }) =>
-              url.origin === 'https://www.googleapis.com' ||
-              url.origin === 'https://accounts.google.com',
-            handler: 'NetworkOnly',
           },
         ],
       },

@@ -33,10 +33,23 @@ Se `05_Sprint_History.md` for detaljer pr. sprint.
 [x] Fase 4: Kalender-til-familiemedlem-tildeling → D1 (delt på tværs af devices)
 [x] Fase 5: Lokalt (ikke-Google) aftale-lag fjernet — alle aftaler ejes af en ekstern kalender
 [x] Fase 6: Oprydning i dødt kode, ajourført arkitektur-/datamodel-dokumentation
-[ ] Cloudflare Access fjernet fra Worker'en (manuel dashboard-handling, Nicolaj)
+[x] Cloudflare Access fjernet fra Worker'en (manuel dashboard-handling, Nicolaj)
+[x] Merget til `main` (produktion)
+
+## Sprint 21 - Push-notifikationer + delt indkøbsliste
+
+[x] Del A: Web Push (VAPID)-fundament — datamodel, abonnements-flow, service
+    worker (push/notificationclick)
+[x] Del A, fortsat: push-notifikation ved ny/ændret/slettet kalenderaftale
+[x] Del B: delt indkøbsliste — datamodel, server-ruter, selvlærende dansk
+    kategori-ordbog, UI
+[x] Del B, fortsat: push-notifikation ved ny vare på indkøbslisten
+[x] Manuel to-personers test på beta/produktion, inkl. iOS Safari-push
+    (bekræftet: Nicolaj tilføjer vare → Christine modtager notifikation)
 
 ## Ikke planlagt endnu
 
 [ ] Flere Google-konti pr. familie (kræver egen ADR — se `10_Future_Roadmap.md`)
-[ ] Indkøbsliste, Opgaver (i dag "Snart"-badges på forsiden)
-[ ] Fysisk iPhone/Safari/VoiceOver-test (kræver fysisk enhed, ikke en AI-agent-opgave)
+[ ] Opgaver ("Snart"-badge på forsiden)
+[ ] Flere navngivne indkøbslister i UI'et (API'et understøtter det allerede)
+[ ] Fysisk VoiceOver-test (kræver fysisk enhed, ikke en AI-agent-opgave)

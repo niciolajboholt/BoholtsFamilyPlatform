@@ -48,6 +48,7 @@ import {
   restoreDataBackup,
 } from "../features/calendar/preferences/dataBackupStorage";
 import { clearExcludedOutlookCalendars } from "../features/calendar/providers/outlook/outlookCalendarExclusionStorage";
+import { usePushNotifications } from "../features/notifications/hooks/usePushNotifications";
 import type { MappableCalendarOption } from "../features/calendar/providers/calendarProviderFactory";
 import { listAllMappableCalendars } from "../features/calendar/providers/calendarProviderFactory";
 import { getInitials } from "../features/calendar/utils/getInitials";
@@ -106,6 +107,28 @@ function SettingsPage() {
     connect: connectOutlookCalendar,
     disconnect: disconnectOutlookCalendar,
   } = useOutlookCalendarConnection();
+
+  const {
+    status: pushNotificationStatus,
+    error: pushNotificationError,
+    isBusy: pushNotificationIsBusy,
+    enable: enablePushNotificationsAction,
+    disable: disablePushNotificationsAction,
+    sendTest: sendTestPushNotificationAction,
+  } = usePushNotifications();
+
+  const pushNotificationSubtitle = (() => {
+    switch (pushNotificationStatus) {
+      case "unsupported":
+        return "Ikke understøttet i denne browser";
+      case "denied":
+        return "Blokeret i browserens indstillinger";
+      case "subscribed":
+        return "Får besked ved ændringer i kalender og indkøbsliste";
+      default:
+        return "Påmindelser om aftaler og ændringer";
+    }
+  })();
 
   const [isOutlookCalendarBusy, setIsOutlookCalendarBusy] = useState(false);
 
@@ -540,13 +563,43 @@ function SettingsPage() {
                   </Typography>
 
                   <Typography variant="body2" color="text.secondary">
-                    Påmindelser om aftaler og opgaver
+                    {pushNotificationSubtitle}
                   </Typography>
                 </Box>
               </Box>
 
-              <Switch defaultChecked />
+              <Switch
+                checked={pushNotificationStatus === "subscribed"}
+                disabled={
+                  pushNotificationIsBusy ||
+                  pushNotificationStatus === "loading" ||
+                  pushNotificationStatus === "unsupported" ||
+                  pushNotificationStatus === "denied"
+                }
+                onChange={(event) =>
+                  event.target.checked
+                    ? enablePushNotificationsAction()
+                    : disablePushNotificationsAction()
+                }
+              />
             </Box>
+
+            {pushNotificationError && (
+              <Alert severity="error" sx={{ mb: 1.5 }}>
+                {pushNotificationError}
+              </Alert>
+            )}
+
+            {pushNotificationStatus === "subscribed" && (
+              <Button
+                size="small"
+                onClick={sendTestPushNotificationAction}
+                disabled={pushNotificationIsBusy}
+                sx={{ mb: 1.5 }}
+              >
+                Send test-notifikation
+              </Button>
+            )}
 
             <Divider />
 

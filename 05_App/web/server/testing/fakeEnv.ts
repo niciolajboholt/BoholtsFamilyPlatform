@@ -8,6 +8,16 @@ import { createFakeD1 } from "./fakeD1";
 // tokenEncryption.ts fejler ellers på nøglelængden.
 export const testGoogleTokenEncryptionKey = Buffer.alloc(32, 7).toString("base64");
 
+// Et rigtigt, gyldigt VAPID-nøglepar (genereret én gang via
+// web-push-browsers egen generateVapidKeys/serializeVapidKeys) — et
+// vilkårligt base64url-tal ville ikke deserialisere som et gyldigt
+// EC-nøglepar, og pushNotifications.ts's tests skal kunne kalde den rigtige
+// krypteringssti, ikke en mock af den.
+export const testVapidPublicKey =
+  "BMzDnFt0l5jcko0iMkfbN6xg4k7KtVnvQybf3IvAoyjhehc2om4B8axcag_9YWMw0L1_yszV8p8hP4eVnHZxlpc";
+export const testVapidPrivateKey =
+  "MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgire2f9ixKfrAOMs6pDmx9WBIQDacVrHEXAvkHMx8RcWhRANCAATMw5xbdJeY3JKNIjJH2zesYOJOyrVZ70Mm39yLwKMo4XoXNqJuAfGsXGoP_WFjMNC9f8rM1fKfIT-HlZx2cZaX";
+
 export function createFakeEnv(overrides: Partial<Env> = {}): Env {
   return {
     DB: createFakeD1() as unknown as Env["DB"],
@@ -17,6 +27,11 @@ export function createFakeEnv(overrides: Partial<Env> = {}): Env {
     GOOGLE_TOKEN_ENCRYPTION_KEY: {
       get: async () => testGoogleTokenEncryptionKey,
     } as unknown as Env["GOOGLE_TOKEN_ENCRYPTION_KEY"],
+    VAPID_PUBLIC_KEY: testVapidPublicKey,
+    VAPID_PRIVATE_KEY: {
+      get: async () => testVapidPrivateKey,
+    } as unknown as Env["VAPID_PRIVATE_KEY"],
+    VAPID_SUBJECT: "mailto:test@example.com",
     ...overrides,
   };
 }

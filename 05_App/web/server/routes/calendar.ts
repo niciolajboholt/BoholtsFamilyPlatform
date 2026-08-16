@@ -12,6 +12,7 @@ import { Hono } from "hono";
 
 import type { Env } from "../env";
 import { GoogleNotConnectedError, getGoogleAccessToken } from "../lib/googleConnection";
+import { sendPushNotificationToFamily } from "../lib/pushNotifications";
 import { getSessionUser, type SessionUser } from "../lib/session";
 
 type Variables = { user: SessionUser };
@@ -105,30 +106,102 @@ function calendarPath(c: AppContext): string {
   return `/calendars/${encodeURIComponent(c.req.param("calendarId")!)}`;
 }
 
+// Sprint 21, Del A (fortsat): giver familiens andre medlemmer besked, når
+// nogen opretter/redigerer/sletter en aftale. Kører via waitUntil() — svaret
+// sendes til klienten med det samme, uden at vente på push-leveringen, og en
+// fejlet/langsom push må aldrig få selve kalenderhandlingen (allerede
+// gennemført hos Google) til at fejle eller blive forsinket.
+function notifyFamilyOfCalendarChange(
+  c: AppContext,
+  title: string,
+  body: string,
+): void {
+  const userId = c.get("user").id;
+
+  const task = c.env.DB.prepare(
+    "SELECT family_id AS familyId FROM family_memberships WHERE user_id = ? LIMIT 1",
+  )
+    .bind(userId)
+    .first<{ familyId: string }>()
+    .then((membership) => {
+      if (!membership) {
+        return;
+      }
+
+      return sendPushNotificationToFamily(c.env, membership.familyId, userId, {
+        title,
+        body,
+        url: "/calendar",
+      });
+    })
+    .catch((error: unknown) => {
+      console.error("Kunne ikke sende kalender-push-notifikation:", error);
+    });
+
+  c.executionCtx.waitUntil(task);
+}
+
+async function readEventSummary(response: Response): Promise<string | undefined> {
+  const event = await response
+    .clone()
+    .json<{ summary?: string }>()
+    .catch(() => undefined);
+
+  return event?.summary;
+}
+
 calendar.get("/calendars", (c) => proxyToGoogle(c, "GET", "/users/me/calendarList"));
 
 calendar.get("/calendars/:calendarId/events", (c) =>
   proxyToGoogle(c, "GET", `${calendarPath(c)}/events`),
 );
 
-calendar.post("/calendars/:calendarId/events", (c) =>
-  proxyToGoogle(c, "POST", `${calendarPath(c)}/events`),
-);
+calendar.post("/calendars/:calendarId/events", async (c) => {
+  const response = await proxyToGoogle(c, "POST", `${calendarPath(c)}/events`);
 
-calendar.patch("/calendars/:calendarId/events/:eventId", (c) =>
-  proxyToGoogle(
+  if (response.ok) {
+    const summary = await readEventSummary(response);
+    notifyFamilyOfCalendarChange(
+      c,
+      "Ny aftale",
+      summary ? `"${summary}" er tilføjet til kalenderen.` : "En ny aftale er tilføjet til kalenderen.",
+    );
+  }
+
+  return response;
+});
+
+calendar.patch("/calendars/:calendarId/events/:eventId", async (c) => {
+  const response = await proxyToGoogle(
     c,
     "PATCH",
     `${calendarPath(c)}/events/${encodeURIComponent(c.req.param("eventId")!)}`,
-  ),
-);
+  );
 
-calendar.delete("/calendars/:calendarId/events/:eventId", (c) =>
-  proxyToGoogle(
+  if (response.ok) {
+    const summary = await readEventSummary(response);
+    notifyFamilyOfCalendarChange(
+      c,
+      "Aftale ændret",
+      summary ? `"${summary}" er blevet opdateret.` : "En aftale er blevet opdateret.",
+    );
+  }
+
+  return response;
+});
+
+calendar.delete("/calendars/:calendarId/events/:eventId", async (c) => {
+  const response = await proxyToGoogle(
     c,
     "DELETE",
     `${calendarPath(c)}/events/${encodeURIComponent(c.req.param("eventId")!)}`,
-  ),
-);
+  );
+
+  if (response.ok) {
+    notifyFamilyOfCalendarChange(c, "Aftale slettet", "En aftale er fjernet fra kalenderen.");
+  }
+
+  return response;
+});
 
 export default calendar;
