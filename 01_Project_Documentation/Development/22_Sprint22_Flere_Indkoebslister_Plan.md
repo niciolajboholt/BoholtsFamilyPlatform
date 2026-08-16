@@ -1,8 +1,8 @@
 # 22_Sprint22_Flere_Indkoebslister_Plan
 
-> Status: Active
+> Status: Completed
 
-Version: 1.0
+Version: 1.1
 
 Project:
 Boholts Family Platform
@@ -164,9 +164,16 @@ gruppe-overskrifter — for indkøb, der ikke passer ind i de to andre typer.
    **Gennemført (2026-08-16)**: faner til at skifte mellem lister, "+"-fane
    åbner en opret-dialog (navn + type). Andet-typede lister vises fladt
    uden kategori-overskrifter.
-4. Manuel test: opret en byggemarked-liste, tilføj et par varer, bekræft
+4. ~~Manuel test: opret en byggemarked-liste, tilføj et par varer, bekræft
    fornuftig kategorisering og at push-notifikationer stadig virker
-   uændret — **afventer stadig** Nicolaj/Christines egen afprøvning.
+   uændret~~ ✅ **Gennemført og bekræftet af Nicolaj (2026-08-16)**: "Det
+   virker rigtig fint."
+5. ~~Ekstra, efterspurgt undervejs: redigering af listenavn, varenavn og
+   manuel kategori-rettelse~~ ✅ **Gennemført (2026-08-16)**: ny
+   `PATCH /:id/shopping-lists/:listId` (omdøb liste), item-PATCH udvidet
+   med `name`, og en kategori-menu pr. vare i UI'et (skjult for
+   "andet"-typede lister). 4 nye tests, deployet (commit `141e042`), CI og
+   begge Workers Builds bekræftet grønne.
 
 ---
 

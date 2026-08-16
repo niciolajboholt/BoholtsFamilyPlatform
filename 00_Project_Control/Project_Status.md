@@ -4,10 +4,8 @@ Senest opdateret: 2026-08-16
 
 ## Aktuel fase
 
-Sprint 20 er merget til `main` (produktion). Sprint 21
-(push-notifikationer + delt indkøbsliste) er gennemført og deployet til
-`develop`/produktion — se
-`01_Project_Documentation/Development/21_Sprint21_Notifikationer_Indkoebsliste_Plan.md`.
+`main` er 1:1 med `develop` (Sprint 20-22 alle merget og deployet).
+Ingen aktiv sprint lige nu.
 
 ## Gennemført
 
@@ -19,16 +17,27 @@ Sprint 20 er merget til `main` (produktion). Sprint 21
   Google-login, familier/medlemskab/invitationer, server-styret Google
   Calendar-sync (krypteret refresh token i D1), delt
   kalender-til-familiemedlem-tildeling, fjernelse af det lokale
-  (ikke-Google) aftale-lag. Merget til `main`.
+  (ikke-Google) aftale-lag.
 - **Sprint 21**: Web Push (VAPID)-fundament brugt af både kalender og
   indkøbsliste (notifikation ved ny/ændret/slettet aftale, og ved ny vare
   på indkøbslisten — afsenderen selv undtaget), samt en delt indkøbsliste
-  pr. familie med selvlærende dansk kategori-ordbog
-  (`shopping_item_category_overrides`) og "del som tekst". Bekræftet
+  pr. familie med selvlærende dansk kategori-ordbog. Bekræftet
   ende-til-ende, inkl. iOS Safari-push på tværs af familiemedlemmer.
+- **Sprint 22**: flere navngivne indkøbslister med fast type
+  (dagligvarer/byggemarked/andet), hver med sit eget kategorisæt og
+  ordbog. Byggemarked-ordbog eksporteret til et Excel-ark, som Nicolaj og
+  Christine selv kan rette/udvide og sende tilbage. Bekræftet virkende af
+  Nicolaj efter afprøvning på produktion, inkl. efterfølgende tilføjede
+  redigeringsmuligheder (omdøb liste, ret varenavn, skift kategori
+  manuelt).
+- **Driftsincident (2026-08-16)**: produktionsdatabasen manglede reelt
+  hele familie-datamodellen (Sprint 20) og migration 0007 (Sprint 22),
+  selvom begge var bekræftet kørt — kun beta havde dem korrekt. Fundet via
+  en fuld skema-sammenligning mellem beta og produktion, rettet, og
+  bekræftet identisk. Se lektionen i
+  `01_Project_Documentation/AI_Knowledge_Base/09_Lessons_Learned.md`.
 
 ## Næste fase
 
 Ingen aktiv sprint lige nu. Kandidater: flere Google-konti pr. familie
-(kræver egen ADR), "Opgaver"-badget på forsiden (stadig "Snart"), flere
-navngivne indkøbslister i UI'et (API'et understøtter det allerede).
+(kræver egen ADR), "Opgaver"-badget på forsiden (stadig "Snart").
