@@ -153,7 +153,9 @@ gruppe-overskrifter — for indkøb, der ikke passer ind i de to andre typer.
    `calendar_member_mappings` fandtes slet ikke) — sandsynligvis fordi
    tidligere migrationer reelt kun blev kørt på beta, ikke produktion,
    selvom det så ud til at lykkes. Begge dele er nu genskabt/kørt korrekt
-   på produktion og bekræftet identisk med beta linje for linje.
+   på produktion og bekræftet identisk med beta linje for linje. Nicolaj
+   har efterfølgende bekræftet, at familieoprettelse igen virker uden
+   serverfejl på produktion (`boholtsfamilyplatform.nicolajbach12.workers.dev`).
 2. ~~Server: type-bevidst `shoppingCategories.ts`, opdaterede ruter~~ ✅
    **Gennemført (2026-08-16)**: 13 nye tests, deployet til `develop`
    (commit `521dec3`), CI og begge Cloudflare Workers Builds bekræftet
