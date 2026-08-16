@@ -9,6 +9,7 @@ import type { Context } from "hono";
 import { Hono } from "hono";
 
 import type { Env } from "../env";
+import { generateRoutineDraft } from "../lib/aiAssistant";
 import { getMembershipForFamily } from "../lib/familyMembership";
 import { sendPushNotificationToFamily, sendPushNotificationToUser } from "../lib/pushNotifications";
 import { isTaskIcon } from "../lib/taskIcons";
@@ -516,6 +517,34 @@ tasks.post("/:id/task-routines", async (c) => {
       createdAt: now,
     },
   });
+});
+
+// Genererer et rutine-UDKAST fra fritekst — gemmer intet. Sprogmodeller kan
+// tage fejl eller opfinde ting, så et forslag skal altid gennemgås og
+// eksplicit gemmes af et menneske (POST /task-routines ovenfor), aldrig
+// automatisk (se 23_Sprint23-planen, beslutning 4).
+tasks.post("/:id/task-routines/generate-draft", async (c) => {
+  const familyId = c.req.param("id");
+  const membership = await getMembershipForFamily(c.env.DB, familyId, c.get("user").id);
+
+  if (!membership) {
+    return c.json({ error: "Ikke fundet." }, 404);
+  }
+
+  const body = await parseJsonBody<{ description: string }>(c);
+  const description = body.description?.trim();
+
+  if (!description) {
+    return c.json({ error: "Beskriv rutinen først." }, 400);
+  }
+
+  const draft = await generateRoutineDraft(c.env, description);
+
+  if (!draft) {
+    return c.json({ error: "Kunne ikke generere et forslag. Prøv at omformulere." }, 502);
+  }
+
+  return c.json({ draft });
 });
 
 tasks.patch("/:id/task-routines/:routineId", async (c) => {

@@ -8,6 +8,7 @@ import type { Context } from "hono";
 import { Hono } from "hono";
 
 import type { Env } from "../env";
+import { generateIngredientsDraft } from "../lib/aiAssistant";
 import { getMembershipForFamily } from "../lib/familyMembership";
 import { sendPushNotificationToFamily } from "../lib/pushNotifications";
 import {
@@ -252,6 +253,41 @@ shoppingLists.get("/:id/shopping-lists/:listId/items", async (c) => {
   }
 
   const items = await listItemsForList(c.env.DB, list.id);
+
+  return c.json({ items });
+});
+
+// Genererer et ingrediens-UDKAST fra en ret — gemmer intet. Kategorien
+// gættes af den eksisterende ordbog/selvlæring (resolveCategory), ikke af
+// AI'en selv, så kategoriseringen forbliver konsistent med resten af
+// listen (se 23_Sprint23-planen, beslutning 4).
+shoppingLists.post("/:id/shopping-lists/:listId/generate-ingredients-draft", async (c) => {
+  const familyId = c.req.param("id");
+  const list = await requireListInFamily(c, familyId, c.req.param("listId"));
+
+  if (!list) {
+    return c.json({ error: "Ikke fundet." }, 404);
+  }
+
+  const body = await parseJsonBody<{ dish: string }>(c);
+  const dish = body.dish?.trim();
+
+  if (!dish) {
+    return c.json({ error: "Skriv navnet på en ret først." }, 400);
+  }
+
+  const draftItems = await generateIngredientsDraft(c.env, dish);
+
+  if (!draftItems) {
+    return c.json({ error: "Kunne ikke generere et forslag. Prøv at omformulere." }, 502);
+  }
+
+  const items = await Promise.all(
+    draftItems.map(async (item) => ({
+      name: item.name,
+      category: await resolveCategory(c.env.DB, familyId, list.type, item.name),
+    })),
+  );
 
   return c.json({ items });
 });

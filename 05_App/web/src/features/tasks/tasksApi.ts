@@ -130,3 +130,21 @@ export function deleteTaskRoutine(familyId: string, routineId: string) {
     { method: "DELETE" },
   );
 }
+
+export interface RoutineDraftItem {
+  name: string;
+  icon: string;
+  timeOfDay: string | null;
+}
+
+export interface RoutineDraft {
+  name: string;
+  items: RoutineDraftItem[];
+}
+
+export function generateRoutineDraft(familyId: string, description: string) {
+  return request<{ draft?: RoutineDraft; error?: string }>(
+    `/api/families/${familyId}/task-routines/generate-draft`,
+    { method: "POST", body: JSON.stringify({ description }) },
+  );
+}

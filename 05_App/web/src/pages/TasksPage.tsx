@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
 
-import { AddRounded, DeleteOutlineRounded } from "@mui/icons-material";
+import { AddRounded, AutoAwesomeOutlined, DeleteOutlineRounded } from "@mui/icons-material";
 import {
   Alert,
   Box,
@@ -30,7 +30,7 @@ import {
 import { useCurrentMember } from "../features/calendar/hooks/useCurrentMember";
 import { useTasks } from "../features/tasks/hooks/useTasks";
 import { taskIconComponents, taskIconLabels, taskIcons, type TaskIconKey } from "../features/tasks/taskIcons";
-import type { NewRoutineItemInput, TaskDto } from "../features/tasks/tasksApi";
+import type { NewRoutineItemInput, RoutineDraft, TaskDto } from "../features/tasks/tasksApi";
 
 type ViewMode = "mine" | "family";
 
@@ -65,6 +65,7 @@ function TasksPage() {
     clearDone,
     createRoutine,
     removeRoutine,
+    suggestRoutine,
   } = useTasks();
 
   const [viewMode, setViewMode] = useState<ViewMode>("mine");
@@ -261,6 +262,7 @@ function TasksPage() {
         onClose={() => setIsRoutineDialogOpen(false)}
         members={members}
         onCreate={createRoutine}
+        onSuggest={suggestRoutine}
       />
     </Box>
   );
@@ -386,24 +388,50 @@ interface RoutineCreateDialogProps {
     items: NewRoutineItemInput[],
     assignedMemberId?: string | null,
   ) => void;
+  onSuggest: (description: string) => Promise<RoutineDraft>;
 }
 
-function RoutineCreateDialog({ open, onClose, members, onCreate }: RoutineCreateDialogProps) {
+function RoutineCreateDialog({ open, onClose, members, onCreate, onSuggest }: RoutineCreateDialogProps) {
   const [name, setName] = useState("");
   const [weekdays, setWeekdays] = useState<number[]>([]);
   const [assignedMemberId, setAssignedMemberId] = useState("");
   const [items, setItems] = useState<NewRoutineItemInput[]>([{ name: "", icon: "fritid" }]);
+  const [aiDescription, setAiDescription] = useState("");
+  const [isSuggesting, setIsSuggesting] = useState(false);
+  const [suggestError, setSuggestError] = useState<string | null>(null);
 
   function reset(): void {
     setName("");
     setWeekdays([]);
     setAssignedMemberId("");
     setItems([{ name: "", icon: "fritid" }]);
+    setAiDescription("");
+    setSuggestError(null);
   }
 
   function handleClose(): void {
     reset();
     onClose();
+  }
+
+  function handleSuggest(): void {
+    if (!aiDescription.trim()) {
+      return;
+    }
+
+    setIsSuggesting(true);
+    setSuggestError(null);
+
+    onSuggest(aiDescription)
+      .then((draft) => {
+        setName(draft.name);
+        setItems(draft.items.map((item) => ({ name: item.name, icon: item.icon, timeOfDay: item.timeOfDay })));
+      })
+      .catch((error: unknown) => {
+        const message = error instanceof Error ? error.message : "Kunne ikke generere et forslag.";
+        setSuggestError(message);
+      })
+      .finally(() => setIsSuggesting(false));
   }
 
   function updateItem(index: number, patch: Partial<NewRoutineItemInput>): void {
@@ -434,6 +462,45 @@ function RoutineCreateDialog({ open, onClose, members, onCreate }: RoutineCreate
       <DialogTitle>Opret rutine</DialogTitle>
 
       <DialogContent sx={{ display: "grid", gap: 2 }}>
+        <Box>
+          <Typography variant="caption" color="text.secondary">
+            Beskriv rutinen, så foreslår AI'en opgaverne (valgfrit)
+          </Typography>
+          <Box sx={{ display: "flex", gap: 1, mt: 0.5 }}>
+            <TextField
+              fullWidth
+              size="small"
+              placeholder="Fx morgenrutine med tandbørstning, tøj og skoletaske"
+              value={aiDescription}
+              onChange={(event) => setAiDescription(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  handleSuggest();
+                }
+              }}
+            />
+            <Button
+              variant="outlined"
+              startIcon={<AutoAwesomeOutlined />}
+              onClick={handleSuggest}
+              disabled={!aiDescription.trim() || isSuggesting}
+            >
+              Foreslå
+            </Button>
+          </Box>
+          {isSuggesting && (
+            <Box sx={{ display: "flex", justifyContent: "center", py: 1 }}>
+              <CircularProgress size={20} />
+            </Box>
+          )}
+          {suggestError && (
+            <Alert severity="error" sx={{ mt: 1 }}>
+              {suggestError}
+            </Alert>
+          )}
+        </Box>
+
         <TextField
           autoFocus
           fullWidth

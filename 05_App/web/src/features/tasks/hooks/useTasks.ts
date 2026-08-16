@@ -7,10 +7,12 @@ import {
   createTaskRoutine,
   deleteTask,
   deleteTaskRoutine,
+  generateRoutineDraft,
   getTaskRoutines,
   getTasks,
   updateTask,
   type NewRoutineItemInput,
+  type RoutineDraft,
   type TaskDto,
   type TaskRoutineDto,
 } from "../tasksApi";
@@ -48,6 +50,7 @@ interface UseTasksResult {
     assignedMemberId?: string | null,
   ) => void;
   removeRoutine: (routineId: string) => void;
+  suggestRoutine: (description: string) => Promise<RoutineDraft>;
 }
 
 /**
@@ -254,6 +257,27 @@ export function useTasks(): UseTasksResult {
     [familyId],
   );
 
+  // Returnerer AI'ens forslag uden at gemme noget — UI'et forudfylder
+  // navn/opgaver i opret-dialogen, men brugeren vælger stadig selv ugedage
+  // og tildeling, og skal aktivt trykke "Opret" (se
+  // 23_Sprint23-planen, beslutning 4).
+  const suggestRoutine = useCallback(
+    async (description: string): Promise<RoutineDraft> => {
+      if (!familyId || !description.trim()) {
+        throw new Error("Beskriv rutinen først.");
+      }
+
+      const result = await generateRoutineDraft(familyId, description.trim());
+
+      if (!result.ok || !result.data.draft) {
+        throw new Error(result.data.error ?? "Kunne ikke generere et forslag.");
+      }
+
+      return result.data.draft;
+    },
+    [familyId],
+  );
+
   return {
     isLoading,
     error,
@@ -269,5 +293,6 @@ export function useTasks(): UseTasksResult {
     clearDone,
     createRoutine,
     removeRoutine,
+    suggestRoutine,
   };
 }

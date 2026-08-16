@@ -602,6 +602,75 @@ describe("shopping list routes", () => {
     expect(renameResponse.status).toBe(400);
   });
 
+  it("generates an ingredients draft from a dish name, categorized by the existing dictionary", async () => {
+    const { cookieHeader, userId } = await seedLoggedInUser(env.DB as never, { id: "nicolaj" });
+    await seedFamily(env, "family-1", [userId]);
+    const { lists } = (await (
+      await shoppingLists.request(
+        "/family-1/shopping-lists",
+        { headers: { Cookie: cookieHeader } },
+        env,
+      )
+    ).json()) as { lists: ShoppingListDto[] };
+    const listId = lists[0]!.id;
+
+    env.AI.run = vi.fn().mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({ items: [{ name: "Hakket oksekød" }, { name: "Løg" }] }),
+          },
+        },
+      ],
+    }) as never;
+
+    const response = await shoppingLists.request(
+      `/family-1/shopping-lists/${listId}/generate-ingredients-draft`,
+      {
+        method: "POST",
+        headers: { Cookie: cookieHeader, "Content-Type": "application/json" },
+        body: JSON.stringify({ dish: "spaghetti bolognese" }),
+      },
+      env,
+    );
+    const body: { items: { name: string; category: string }[] } = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.items).toEqual([
+      { name: "Hakket oksekød", category: "Kød" },
+      { name: "Løg", category: "Frugt & grønt" },
+    ]);
+  });
+
+  it("returns 502 when the AI response cannot be parsed as an ingredients draft", async () => {
+    const { cookieHeader, userId } = await seedLoggedInUser(env.DB as never, { id: "nicolaj" });
+    await seedFamily(env, "family-1", [userId]);
+    const { lists } = (await (
+      await shoppingLists.request(
+        "/family-1/shopping-lists",
+        { headers: { Cookie: cookieHeader } },
+        env,
+      )
+    ).json()) as { lists: ShoppingListDto[] };
+    const listId = lists[0]!.id;
+
+    env.AI.run = vi.fn().mockResolvedValue({
+      choices: [{ message: { content: "Det ved jeg desværre ikke." } }],
+    }) as never;
+
+    const response = await shoppingLists.request(
+      `/family-1/shopping-lists/${listId}/generate-ingredients-draft`,
+      {
+        method: "POST",
+        headers: { Cookie: cookieHeader, "Content-Type": "application/json" },
+        body: JSON.stringify({ dish: "noget uklart" }),
+      },
+      env,
+    );
+
+    expect(response.status).toBe(502);
+  });
+
   it("returns 404 when the list belongs to a different family (cross-family isolation)", async () => {
     const { cookieHeader: ownerCookie, userId: ownerId } = await seedLoggedInUser(
       env.DB as never,

@@ -586,6 +586,92 @@ describe("task routes", () => {
     expect(noItems.status).toBe(400);
   });
 
+  it("generates a routine draft from free text without saving anything", async () => {
+    const { cookieHeader, userId } = await seedLoggedInUser(env.DB as never, { id: "nicolaj" });
+    await seedFamily(env, "family-1", [userId]);
+
+    env.AI.run = vi.fn().mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              name: "Morgenrutine",
+              items: [
+                { name: "Tandbørstning", icon: "hygiejne", timeOfDay: "07:00" },
+                { name: "Tag tøj på", icon: "ukendt-ikon-fra-ai", timeOfDay: null },
+              ],
+            }),
+          },
+        },
+      ],
+    }) as never;
+
+    const response = await tasks.request(
+      "/family-1/task-routines/generate-draft",
+      {
+        method: "POST",
+        headers: { Cookie: cookieHeader, "Content-Type": "application/json" },
+        body: JSON.stringify({ description: "morgenrutine med tandbørstning og tøj" }),
+      },
+      env,
+    );
+    const body: { draft: { name: string; items: { name: string; icon: string }[] } } =
+      await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.draft.name).toBe("Morgenrutine");
+    expect(body.draft.items).toHaveLength(2);
+    // Et ukendt ikon fra AI'en falder tilbage til "fritid" i stedet for at
+    // blive afvist eller gemt som en ugyldig værdi.
+    expect(body.draft.items[1]?.icon).toBe("fritid");
+
+    const listResponse = await tasks.request(
+      "/family-1/task-routines",
+      { headers: { Cookie: cookieHeader } },
+      env,
+    );
+    const listBody = (await listResponse.json()) as { routines: unknown[] };
+    expect(listBody.routines).toHaveLength(0);
+  });
+
+  it("returns 502 when the AI response cannot be parsed as a routine draft", async () => {
+    const { cookieHeader, userId } = await seedLoggedInUser(env.DB as never, { id: "nicolaj" });
+    await seedFamily(env, "family-1", [userId]);
+
+    env.AI.run = vi.fn().mockResolvedValue({
+      choices: [{ message: { content: "Beklager, det kan jeg ikke hjælpe med." } }],
+    }) as never;
+
+    const response = await tasks.request(
+      "/family-1/task-routines/generate-draft",
+      {
+        method: "POST",
+        headers: { Cookie: cookieHeader, "Content-Type": "application/json" },
+        body: JSON.stringify({ description: "noget uklart" }),
+      },
+      env,
+    );
+
+    expect(response.status).toBe(502);
+  });
+
+  it("rejects an empty description for the routine draft", async () => {
+    const { cookieHeader, userId } = await seedLoggedInUser(env.DB as never, { id: "nicolaj" });
+    await seedFamily(env, "family-1", [userId]);
+
+    const response = await tasks.request(
+      "/family-1/task-routines/generate-draft",
+      {
+        method: "POST",
+        headers: { Cookie: cookieHeader, "Content-Type": "application/json" },
+        body: JSON.stringify({ description: "  " }),
+      },
+      env,
+    );
+
+    expect(response.status).toBe(400);
+  });
+
   it("returns 404 when the task belongs to a different family (cross-family isolation)", async () => {
     const { cookieHeader: ownerCookie, userId: ownerId } = await seedLoggedInUser(
       env.DB as never,

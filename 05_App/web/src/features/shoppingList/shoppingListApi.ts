@@ -98,6 +98,18 @@ export function getShoppingListItems(familyId: string, listId: string) {
   );
 }
 
+export interface IngredientDraftItem {
+  name: string;
+  category: string;
+}
+
+export function generateIngredientsDraft(familyId: string, listId: string, dish: string) {
+  return request<{ items?: IngredientDraftItem[]; error?: string }>(
+    `/api/families/${familyId}/shopping-lists/${listId}/generate-ingredients-draft`,
+    { method: "POST", body: JSON.stringify({ dish }) },
+  );
+}
+
 export function addShoppingListItem(
   familyId: string,
   listId: string,
