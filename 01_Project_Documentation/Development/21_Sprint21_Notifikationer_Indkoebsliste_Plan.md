@@ -222,13 +222,10 @@ ingen ny migration.
    (migration `0006_shopping_lists.sql`), server-ruter
    (`server/routes/shoppingLists.ts`, mønster fra `families.ts`), kategori-
    ordbog med selvlæring (`shoppingCategories.ts` +
-   `shopping_item_category_overrides`), 16 automatiserede tests. **Migration
-   0006 er endnu ikke kørt på beta eller produktion** — samme blokering som
-   tidligere migrationer i dette sprint (Cloudflare D1 MCP-værktøjet
-   afviser konsekvent med "MCP tool call requires approval"). Skal køres
-   manuelt via D1-konsollen (SQL'et er selve migrationsfilen) på begge
-   databaser, før `GET /api/families/:id/shopping-lists` virker i praksis —
-   uden tabellerne fejler ruten med 500.
+   `shopping_item_category_overrides`), 16 automatiserede tests. Migration
+   0006 er kørt manuelt via D1-konsollen på både beta og produktion
+   (2026-08-16) og bekræftet — alle tre tabeller findes nu i begge
+   databaser.
 4. ~~**Del B, fortsat**~~ ✅ **Gennemført (2026-08-15)**: `ShoppingListPage`
    koblet til routeren (`/shopping-list`) og forsidens "Indkøbsliste"-knap
    (ikke længere "Snart"). Tilføjelse af en vare sender en
