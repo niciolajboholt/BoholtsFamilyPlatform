@@ -160,9 +160,14 @@ samtidig.
    rutine-opsætning, kobling til forsiden~~ ✅ **Gennemført (2026-08-16)**:
    ny side koblet til routeren og forsidens "Opgaver"-knap. Lint, tsc -b,
    test og build alle grønne.
-3. AI-modul: Workers AI-binding i `wrangler.jsonc`, de to
-   generate-draft-ruter, klient-UI til at vise og vælge blandt forslag.
-4. Manuel test på beta/produktion, inkl. AI-forslagenes kvalitet.
+3. ~~AI-modul: Workers AI-binding i `wrangler.jsonc`, de to
+   generate-draft-ruter, klient-UI til at vise og vælge blandt forslag~~ ✅
+   **Gennemført (2026-08-16)**: `@cf/zai-org/glm-4.7-flash`, 5 nye tests
+   (252/252 i alt), "Foreslå med AI" i rutine-opret-dialogen og "Foreslå
+   ud fra en ret" på indkøbslisten. Intet gemmes automatisk — begge steder
+   vises AI'ens forslag som noget, der aktivt skal godkendes/vælges.
+4. Manuel test på beta/produktion, inkl. AI-forslagenes kvalitet —
+   **afventer** Nicolaj/Christines egen afprøvning.
 
 ---
 
