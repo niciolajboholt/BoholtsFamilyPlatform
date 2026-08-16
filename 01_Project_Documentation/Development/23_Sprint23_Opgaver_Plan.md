@@ -1,6 +1,6 @@
 # 23_Sprint23_Opgaver_Plan
 
-> Status: Afventer godkendelse
+> Status: Active
 
 Version: 2.0
 
@@ -151,11 +151,15 @@ samtidig.
 
 ## Rækkefølge
 
-1. Migration + server-ruter for opgaver og rutiner (uden AI), med
-   automatiserede tests — den lazy-materialisering er den vigtigste logik
-   at få testet grundigt.
-2. Klient: `TasksPage`, ikon-vælger, "Min dag"/"Familien"-faner, manuel
-   rutine-opsætning, kobling til forsiden.
+1. ~~Migration + server-ruter for opgaver og rutiner (uden AI), med
+   automatiserede tests~~ ✅ **Gennemført (2026-08-16)**: migration 0008
+   (`task_routines`, `task_routine_items`, `tasks`), fuld CRUD +
+   lazy-materialisering i `server/routes/tasks.ts`, 17 nye tests (247/247
+   i alt).
+2. ~~Klient: `TasksPage`, ikon-vælger, "Min dag"/"Familien"-faner, manuel
+   rutine-opsætning, kobling til forsiden~~ ✅ **Gennemført (2026-08-16)**:
+   ny side koblet til routeren og forsidens "Opgaver"-knap. Lint, tsc -b,
+   test og build alle grønne.
 3. AI-modul: Workers AI-binding i `wrangler.jsonc`, de to
    generate-draft-ruter, klient-UI til at vise og vælge blandt forslag.
 4. Manuel test på beta/produktion, inkl. AI-forslagenes kvalitet.
