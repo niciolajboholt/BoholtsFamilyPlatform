@@ -12,10 +12,24 @@ export const shoppingCategories = [
 
 export type ShoppingCategory = (typeof shoppingCategories)[number];
 
+// Fast sæt, matcher server/lib/shoppingCategories.ts's ShoppingListType —
+// listetyper er bevidst ikke brugerdefinerbare (se
+// 22_Sprint22_Flere_Indkoebslister_Plan.md).
+export const shoppingListTypes = ["dagligvarer", "byggemarked", "andet"] as const;
+
+export type ShoppingListType = (typeof shoppingListTypes)[number];
+
+export const shoppingListTypeLabels: Record<ShoppingListType, string> = {
+  dagligvarer: "Dagligvarer",
+  byggemarked: "Byggemarked",
+  andet: "Andet",
+};
+
 export interface ShoppingListDto {
   id: string;
   familyId: string;
   name: string;
+  type: ShoppingListType;
   createdAt: string;
 }
 
@@ -48,6 +62,13 @@ async function request<T>(
 export function getShoppingLists(familyId: string) {
   return request<{ lists?: ShoppingListDto[]; error?: string }>(
     `/api/families/${familyId}/shopping-lists`,
+  );
+}
+
+export function createShoppingList(familyId: string, name: string, type: ShoppingListType) {
+  return request<{ list?: ShoppingListDto; error?: string }>(
+    `/api/families/${familyId}/shopping-lists`,
+    { method: "POST", body: JSON.stringify({ name, type }) },
   );
 }
 

@@ -25,6 +25,7 @@ interface ShoppingListDto {
   id: string;
   familyId: string;
   name: string;
+  type: string;
   createdAt: string;
 }
 
@@ -110,6 +111,142 @@ describe("shopping list routes", () => {
     const secondBody: { lists: ShoppingListDto[] } = await secondResponse.json();
     expect(secondBody.lists).toHaveLength(1);
     expect(secondBody.lists[0]?.id).toBe(body.lists[0]?.id);
+  });
+
+  it("auto-created default list has type dagligvarer", async () => {
+    const { cookieHeader, userId } = await seedLoggedInUser(env.DB as never, { id: "nicolaj" });
+    await seedFamily(env, "family-1", [userId]);
+
+    const response = await shoppingLists.request(
+      "/family-1/shopping-lists",
+      { headers: { Cookie: cookieHeader } },
+      env,
+    );
+    const body: { lists: ShoppingListDto[] } = await response.json();
+
+    expect(body.lists[0]?.type).toBe("dagligvarer");
+  });
+
+  it("creates a new list with an explicit type", async () => {
+    const { cookieHeader, userId } = await seedLoggedInUser(env.DB as never, { id: "nicolaj" });
+    await seedFamily(env, "family-1", [userId]);
+
+    const response = await shoppingLists.request(
+      "/family-1/shopping-lists",
+      {
+        method: "POST",
+        headers: { Cookie: cookieHeader, "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "Bauhaus", type: "byggemarked" }),
+      },
+      env,
+    );
+    const body: { list: ShoppingListDto } = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.list.name).toBe("Bauhaus");
+    expect(body.list.type).toBe("byggemarked");
+  });
+
+  it("rejects creating a list without a valid type", async () => {
+    const { cookieHeader, userId } = await seedLoggedInUser(env.DB as never, { id: "nicolaj" });
+    await seedFamily(env, "family-1", [userId]);
+
+    const response = await shoppingLists.request(
+      "/family-1/shopping-lists",
+      {
+        method: "POST",
+        headers: { Cookie: cookieHeader, "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "Bauhaus", type: "ukendt-type" }),
+      },
+      env,
+    );
+
+    expect(response.status).toBe(400);
+  });
+
+  it("guesses categories from the byggemarked dictionary for a byggemarked-typed list", async () => {
+    const { cookieHeader, userId } = await seedLoggedInUser(env.DB as never, { id: "nicolaj" });
+    await seedFamily(env, "family-1", [userId]);
+
+    const createResponse = await shoppingLists.request(
+      "/family-1/shopping-lists",
+      {
+        method: "POST",
+        headers: { Cookie: cookieHeader, "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "Bauhaus", type: "byggemarked" }),
+      },
+      env,
+    );
+    const { list } = (await createResponse.json()) as { list: ShoppingListDto };
+
+    const response = await shoppingLists.request(
+      `/family-1/shopping-lists/${list.id}/items`,
+      {
+        method: "POST",
+        headers: { Cookie: cookieHeader, "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "Hammer" }),
+      },
+      env,
+      fakeExecutionCtx,
+    );
+    const body: { items: ShoppingListItemDto[] } = await response.json();
+    await lastWaitUntilTask;
+
+    expect(body.items[0]?.category).toBe("Værktøj");
+  });
+
+  it("scopes category overrides per list type, not just per family", async () => {
+    const { cookieHeader, userId } = await seedLoggedInUser(env.DB as never, { id: "nicolaj" });
+    await seedFamily(env, "family-1", [userId]);
+
+    const { lists } = (await (
+      await shoppingLists.request(
+        "/family-1/shopping-lists",
+        { headers: { Cookie: cookieHeader } },
+        env,
+      )
+    ).json()) as { lists: ShoppingListDto[] };
+    const dagligvarerListId = lists[0]!.id;
+
+    const createResponse = await shoppingLists.request(
+      "/family-1/shopping-lists",
+      {
+        method: "POST",
+        headers: { Cookie: cookieHeader, "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "Bauhaus", type: "byggemarked" }),
+      },
+      env,
+    );
+    const { list: byggemarkedList } = (await createResponse.json()) as { list: ShoppingListDto };
+
+    // Retter "olie" til "Mejeri" på dagligvarer-listen — skal ikke smitte
+    // af på byggemarked-listens gæt for samme varenavn.
+    await shoppingLists.request(
+      `/family-1/shopping-lists/${dagligvarerListId}/items`,
+      {
+        method: "POST",
+        headers: { Cookie: cookieHeader, "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "Olie", category: "Mejeri" }),
+      },
+      env,
+      fakeExecutionCtx,
+    );
+    await lastWaitUntilTask;
+
+    const byggemarkedResponse = await shoppingLists.request(
+      `/family-1/shopping-lists/${byggemarkedList.id}/items`,
+      {
+        method: "POST",
+        headers: { Cookie: cookieHeader, "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "Olie" }),
+      },
+      env,
+      fakeExecutionCtx,
+    );
+    const byggemarkedBody: { items: ShoppingListItemDto[] } = await byggemarkedResponse.json();
+    await lastWaitUntilTask;
+
+    expect(byggemarkedBody.items[0]?.category).toBe("Andet");
   });
 
   it("adds an item with an auto-guessed category and notifies the family", async () => {

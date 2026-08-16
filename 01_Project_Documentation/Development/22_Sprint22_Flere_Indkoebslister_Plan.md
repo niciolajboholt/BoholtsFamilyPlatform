@@ -1,6 +1,6 @@
 # 22_Sprint22_Flere_Indkoebslister_Plan
 
-> Status: Afventer godkendelse
+> Status: Active
 
 Version: 1.0
 

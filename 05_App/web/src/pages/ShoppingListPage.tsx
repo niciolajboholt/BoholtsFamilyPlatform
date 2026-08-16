@@ -1,7 +1,8 @@
 import { useState } from "react";
-import type { FormEvent } from "react";
+import type { FormEvent, SyntheticEvent } from "react";
 
 import {
+  AddRounded,
   DeleteOutlineRounded,
   IosShareRounded,
   ShoppingCartOutlined,
@@ -15,14 +16,30 @@ import {
   CardContent,
   Checkbox,
   CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Divider,
+  FormControlLabel,
   IconButton,
+  Radio,
+  RadioGroup,
+  Tab,
+  Tabs,
   TextField,
   Typography,
 } from "@mui/material";
 
 import { useShoppingList } from "../features/shoppingList/hooks/useShoppingList";
-import type { ShoppingListItemDto } from "../features/shoppingList/shoppingListApi";
+import {
+  shoppingListTypeLabels,
+  shoppingListTypes,
+  type ShoppingListItemDto,
+  type ShoppingListType,
+} from "../features/shoppingList/shoppingListApi";
+
+const newListTabValue = "__new__";
 
 function groupItemsByCategory(
   items: ShoppingListItemDto[],
@@ -60,11 +77,27 @@ async function shareItemsAsText(items: ShoppingListItemDto[]): Promise<void> {
 }
 
 function ShoppingListPage() {
-  const { isLoading, error, items, addItem, toggleChecked, deleteItem, clearChecked } =
-    useShoppingList();
+  const {
+    isLoading,
+    error,
+    lists,
+    selectedListId,
+    selectList,
+    createList,
+    items,
+    addItem,
+    toggleChecked,
+    deleteItem,
+    clearChecked,
+  } = useShoppingList();
   const [newItemName, setNewItemName] = useState("");
   const [shareError, setShareError] = useState<string | null>(null);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [newListName, setNewListName] = useState("");
+  const [newListType, setNewListType] = useState<ShoppingListType>("dagligvarer");
 
+  const selectedList = lists.find((list) => list.id === selectedListId);
+  const isFlatList = selectedList?.type === "andet";
   const hasCheckedItems = items.some((item) => item.isChecked);
   const groupedItems = groupItemsByCategory(items);
 
@@ -93,6 +126,26 @@ function ShoppingListPage() {
     });
   }
 
+  function handleTabChange(_event: SyntheticEvent, value: string): void {
+    if (value === newListTabValue) {
+      setNewListName("");
+      setNewListType("dagligvarer");
+      setIsCreateDialogOpen(true);
+      return;
+    }
+
+    selectList(value);
+  }
+
+  function handleCreateList(): void {
+    if (!newListName.trim()) {
+      return;
+    }
+
+    createList(newListName, newListType);
+    setIsCreateDialogOpen(false);
+  }
+
   return (
     <Box sx={{ maxWidth: 900, mx: "auto", pb: 4 }}>
       <Box sx={{ mb: 3 }}>
@@ -102,6 +155,21 @@ function ShoppingListPage() {
           Delt med hele familien — alle kan tilføje og krydse af.
         </Typography>
       </Box>
+
+      {lists.length > 0 && (
+        <Tabs
+          value={selectedListId ?? false}
+          onChange={handleTabChange}
+          variant="scrollable"
+          scrollButtons="auto"
+          sx={{ mb: 2 }}
+        >
+          {lists.map((list) => (
+            <Tab key={list.id} value={list.id} label={list.name} />
+          ))}
+          <Tab value={newListTabValue} icon={<AddRounded />} aria-label="Opret ny liste" />
+        </Tabs>
+      )}
 
       <Card>
         <CardContent sx={{ p: 3 }}>
@@ -118,7 +186,15 @@ function ShoppingListPage() {
             </Avatar>
 
             <Box sx={{ flexGrow: 1 }}>
-              <Typography variant="h6">Varer</Typography>
+              <Typography variant="h6">
+                {selectedList ? selectedList.name : "Varer"}
+              </Typography>
+
+              {selectedList && (
+                <Typography variant="caption" color="text.secondary">
+                  {shoppingListTypeLabels[selectedList.type]}
+                </Typography>
+              )}
             </Box>
 
             <IconButton
@@ -157,6 +233,25 @@ function ShoppingListPage() {
             <Typography color="text.secondary" sx={{ textAlign: "center", py: 4 }}>
               Listen er tom — tilføj den første vare ovenfor.
             </Typography>
+          ) : isFlatList ? (
+            <Box>
+              {items.map((item) => (
+                <ItemRow
+                  key={item.id}
+                  item={item}
+                  onToggleChecked={toggleChecked}
+                  onDelete={deleteItem}
+                />
+              ))}
+
+              {hasCheckedItems && (
+                <Box sx={{ mt: 2, textAlign: "right" }}>
+                  <Button size="small" onClick={clearChecked}>
+                    Ryd afkrydsede
+                  </Button>
+                </Box>
+              )}
+            </Box>
           ) : (
             <Box>
               {Array.from(groupedItems.entries()).map(([category, categoryItems], groupIndex) => (
@@ -172,37 +267,12 @@ function ShoppingListPage() {
                   </Typography>
 
                   {categoryItems.map((item) => (
-                    <Box
+                    <ItemRow
                       key={item.id}
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 0.5,
-                        opacity: item.isChecked ? 0.5 : 1,
-                      }}
-                    >
-                      <Checkbox
-                        checked={Boolean(item.isChecked)}
-                        onChange={(event) => toggleChecked(item.id, event.target.checked)}
-                      />
-
-                      <Typography
-                        sx={{
-                          flexGrow: 1,
-                          textDecoration: item.isChecked ? "line-through" : "none",
-                        }}
-                      >
-                        {item.name}
-                      </Typography>
-
-                      <IconButton
-                        aria-label={`Fjern ${item.name}`}
-                        size="small"
-                        onClick={() => deleteItem(item.id)}
-                      >
-                        <DeleteOutlineRounded fontSize="small" />
-                      </IconButton>
-                    </Box>
+                      item={item}
+                      onToggleChecked={toggleChecked}
+                      onDelete={deleteItem}
+                    />
                   ))}
                 </Box>
               ))}
@@ -218,6 +288,80 @@ function ShoppingListPage() {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={isCreateDialogOpen} onClose={() => setIsCreateDialogOpen(false)} fullWidth maxWidth="xs">
+        <DialogTitle>Opret ny liste</DialogTitle>
+
+        <DialogContent>
+          <TextField
+            autoFocus
+            fullWidth
+            margin="dense"
+            label="Navn"
+            value={newListName}
+            onChange={(event) => setNewListName(event.target.value)}
+          />
+
+          <RadioGroup
+            value={newListType}
+            onChange={(event) => setNewListType(event.target.value as ShoppingListType)}
+            sx={{ mt: 1 }}
+          >
+            {shoppingListTypes.map((type) => (
+              <FormControlLabel
+                key={type}
+                value={type}
+                control={<Radio />}
+                label={shoppingListTypeLabels[type]}
+              />
+            ))}
+          </RadioGroup>
+        </DialogContent>
+
+        <DialogActions>
+          <Button onClick={() => setIsCreateDialogOpen(false)}>Annuller</Button>
+          <Button variant="contained" onClick={handleCreateList} disabled={!newListName.trim()}>
+            Opret
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Box>
+  );
+}
+
+interface ItemRowProps {
+  item: ShoppingListItemDto;
+  onToggleChecked: (itemId: string, isChecked: boolean) => void;
+  onDelete: (itemId: string) => void;
+}
+
+function ItemRow({ item, onToggleChecked, onDelete }: ItemRowProps) {
+  return (
+    <Box
+      sx={{
+        display: "flex",
+        alignItems: "center",
+        gap: 0.5,
+        opacity: item.isChecked ? 0.5 : 1,
+      }}
+    >
+      <Checkbox
+        checked={Boolean(item.isChecked)}
+        onChange={(event) => onToggleChecked(item.id, event.target.checked)}
+      />
+
+      <Typography
+        sx={{
+          flexGrow: 1,
+          textDecoration: item.isChecked ? "line-through" : "none",
+        }}
+      >
+        {item.name}
+      </Typography>
+
+      <IconButton aria-label={`Fjern ${item.name}`} size="small" onClick={() => onDelete(item.id)}>
+        <DeleteOutlineRounded fontSize="small" />
+      </IconButton>
     </Box>
   );
 }

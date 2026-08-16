@@ -13,7 +13,9 @@ import { sendPushNotificationToFamily } from "../lib/pushNotifications";
 import {
   guessShoppingCategory,
   isShoppingCategory,
+  isShoppingListType,
   normalizeItemName,
+  type ShoppingListType,
 } from "../lib/shoppingCategories";
 import { getSessionUser, type SessionUser } from "../lib/session";
 
@@ -47,6 +49,7 @@ interface ShoppingListRow {
   id: string;
   familyId: string;
   name: string;
+  type: ShoppingListType;
   createdAt: string;
 }
 
@@ -78,7 +81,7 @@ async function requireListInFamily(
   }
 
   const list = await c.env.DB.prepare(
-    "SELECT id, family_id AS familyId, name, created_at AS createdAt FROM shopping_lists WHERE id = ? AND family_id = ?",
+    "SELECT id, family_id AS familyId, name, type, created_at AS createdAt FROM shopping_lists WHERE id = ? AND family_id = ?",
   )
     .bind(listId, familyId)
     .first<ShoppingListRow>();
@@ -105,41 +108,46 @@ async function listItemsForList(
 }
 
 // Familiens egne, tidligere rettelser har altid forrang over den indbyggede
-// ordbog — det er selve "selvlæringen" (se 21_Sprint21-planen).
+// ordbog — det er selve "selvlæringen" (se 21_Sprint21-planen). Overrides
+// er skalaret pr. listetype (Sprint 22): samme varenavn kan gætte
+// forskelligt afhængig af om det er en dagligvarer- eller
+// byggemarked-liste.
 async function resolveCategory(
   db: D1Database,
   familyId: string,
+  listType: ShoppingListType,
   itemName: string,
 ): Promise<string> {
   const normalized = normalizeItemName(itemName);
 
   const override = await db
     .prepare(
-      "SELECT category FROM shopping_item_category_overrides WHERE family_id = ? AND item_name_normalized = ?",
+      "SELECT category FROM shopping_item_category_overrides WHERE family_id = ? AND list_type = ? AND item_name_normalized = ?",
     )
-    .bind(familyId, normalized)
+    .bind(familyId, listType, normalized)
     .first<{ category: string }>();
 
   if (override) {
     return override.category;
   }
 
-  return guessShoppingCategory(itemName);
+  return guessShoppingCategory(itemName, listType);
 }
 
 async function saveOverride(
   db: D1Database,
   familyId: string,
+  listType: ShoppingListType,
   itemName: string,
   category: string,
 ): Promise<void> {
   await db
     .prepare(
-      `INSERT INTO shopping_item_category_overrides (family_id, item_name_normalized, category)
-       VALUES (?, ?, ?)
-       ON CONFLICT(family_id, item_name_normalized) DO UPDATE SET category = excluded.category`,
+      `INSERT INTO shopping_item_category_overrides (family_id, list_type, item_name_normalized, category)
+       VALUES (?, ?, ?, ?)
+       ON CONFLICT(family_id, list_type, item_name_normalized) DO UPDATE SET category = excluded.category`,
     )
-    .bind(familyId, normalizeItemName(itemName), category)
+    .bind(familyId, listType, normalizeItemName(itemName), category)
     .run();
 }
 
@@ -156,7 +164,7 @@ shoppingLists.get("/:id/shopping-lists", async (c) => {
   }
 
   const { results } = await c.env.DB.prepare(
-    "SELECT id, family_id AS familyId, name, created_at AS createdAt FROM shopping_lists WHERE family_id = ? ORDER BY created_at ASC",
+    "SELECT id, family_id AS familyId, name, type, created_at AS createdAt FROM shopping_lists WHERE family_id = ? ORDER BY created_at ASC",
   )
     .bind(familyId)
     .all<ShoppingListRow>();
@@ -170,13 +178,14 @@ shoppingLists.get("/:id/shopping-lists", async (c) => {
     id: crypto.randomUUID(),
     familyId,
     name: "Indkøbsliste",
+    type: "dagligvarer",
     createdAt: now,
   };
 
   await c.env.DB.prepare(
-    "INSERT INTO shopping_lists (id, family_id, name, created_at) VALUES (?, ?, ?, ?)",
+    "INSERT INTO shopping_lists (id, family_id, name, type, created_at) VALUES (?, ?, ?, ?, ?)",
   )
-    .bind(defaultList.id, familyId, defaultList.name, now)
+    .bind(defaultList.id, familyId, defaultList.name, defaultList.type, now)
     .run();
 
   return c.json({ lists: [defaultList] });
@@ -190,23 +199,28 @@ shoppingLists.post("/:id/shopping-lists", async (c) => {
     return c.json({ error: "Ikke fundet." }, 404);
   }
 
-  const body = await parseJsonBody<{ name: string }>(c);
+  const body = await parseJsonBody<{ name: string; type: string }>(c);
   const name = body.name?.trim();
 
   if (!name) {
     return c.json({ error: "Listen skal have et navn." }, 400);
   }
 
+  if (!body.type || !isShoppingListType(body.type)) {
+    return c.json({ error: "Listen skal have en gyldig type." }, 400);
+  }
+
+  const type = body.type;
   const now = new Date().toISOString();
   const id = crypto.randomUUID();
 
   await c.env.DB.prepare(
-    "INSERT INTO shopping_lists (id, family_id, name, created_at) VALUES (?, ?, ?, ?)",
+    "INSERT INTO shopping_lists (id, family_id, name, type, created_at) VALUES (?, ?, ?, ?, ?)",
   )
-    .bind(id, familyId, name, now)
+    .bind(id, familyId, name, type, now)
     .run();
 
-  return c.json({ list: { id, familyId, name, createdAt: now } });
+  return c.json({ list: { id, familyId, name, type, createdAt: now } });
 });
 
 shoppingLists.get("/:id/shopping-lists/:listId/items", async (c) => {
@@ -236,16 +250,16 @@ shoppingLists.post("/:id/shopping-lists/:listId/items", async (c) => {
     return c.json({ error: "Varen skal have et navn." }, 400);
   }
 
-  if (body.category !== undefined && !isShoppingCategory(body.category)) {
+  if (body.category !== undefined && !isShoppingCategory(body.category, list.type)) {
     return c.json({ error: "Ukendt kategori." }, 400);
   }
 
-  const category = body.category ?? (await resolveCategory(c.env.DB, familyId, name));
+  const category = body.category ?? (await resolveCategory(c.env.DB, familyId, list.type, name));
 
   if (body.category) {
     // Et eksplicit valgt kategori er en bevidst rettelse fra brugeren —
     // huskes med det samme, ligesom PATCH-kaldet nedenfor gør.
-    await saveOverride(c.env.DB, familyId, name, body.category);
+    await saveOverride(c.env.DB, familyId, list.type, name, body.category);
   }
 
   const now = new Date().toISOString();
@@ -296,11 +310,11 @@ shoppingLists.patch("/:id/shopping-lists/:listId/items/:itemId", async (c) => {
   const body = await parseJsonBody<{ isChecked?: boolean; category?: string }>(c);
 
   if (body.category !== undefined) {
-    if (!isShoppingCategory(body.category)) {
+    if (!isShoppingCategory(body.category, list.type)) {
       return c.json({ error: "Ukendt kategori." }, 400);
     }
 
-    await saveOverride(c.env.DB, familyId, item.name, body.category);
+    await saveOverride(c.env.DB, familyId, list.type, item.name, body.category);
 
     await c.env.DB.prepare("UPDATE shopping_list_items SET category = ? WHERE id = ?")
       .bind(body.category, itemId)

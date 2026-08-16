@@ -4,18 +4,25 @@ import { getMyFamily } from "../../family/familyApi";
 import {
   addShoppingListItem,
   clearCheckedShoppingListItems,
+  createShoppingList,
   deleteShoppingListItem,
   getShoppingListItems,
   getShoppingLists,
   setShoppingListItemCategory,
   setShoppingListItemChecked,
   type ShoppingCategory,
+  type ShoppingListDto,
   type ShoppingListItemDto,
+  type ShoppingListType,
 } from "../shoppingListApi";
 
 interface UseShoppingListResult {
   isLoading: boolean;
   error: string | null;
+  lists: ShoppingListDto[];
+  selectedListId: string | null;
+  selectList: (listId: string) => void;
+  createList: (name: string, type: ShoppingListType) => void;
   items: ShoppingListItemDto[];
   addItem: (name: string) => void;
   toggleChecked: (itemId: string, isChecked: boolean) => void;
@@ -25,18 +32,21 @@ interface UseShoppingListResult {
 }
 
 /**
- * Sprint 21, Del B: appens ene sted for indkøbsliste-tilstand. Første
- * version viser kun familiens ene (auto-oprettede) liste — API'et
- * understøtter allerede flere, men UI'et for at vælge mellem dem er ikke
- * bygget endnu.
+ * Sprint 21, Del B (udvidet i Sprint 22): appens ene sted for
+ * indkøbsliste-tilstand. Familien kan have flere navngivne lister
+ * (hver med en fast type, der styrer kategoriseringen) — hooket henter dem
+ * alle, vælger den første som udgangspunkt, og lader UI'et skifte mellem
+ * dem eller oprette nye.
  */
 export function useShoppingList(): UseShoppingListResult {
   const [familyId, setFamilyId] = useState<string | null>(null);
-  const [listId, setListId] = useState<string | null>(null);
+  const [lists, setLists] = useState<ShoppingListDto[]>([]);
+  const [selectedListId, setSelectedListId] = useState<string | null>(null);
   const [items, setItems] = useState<ShoppingListItemDto[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Henter familien og dens lister ved mount.
   useEffect(() => {
     let isCancelled = false;
 
@@ -61,27 +71,79 @@ export function useShoppingList(): UseShoppingListResult {
       const firstList = listsResult.data.lists?.[0];
 
       if (!listsResult.ok || !firstList) {
-        setError("Kunne ikke hente indkøbslisten.");
+        setError("Kunne ikke hente indkøbslisterne.");
         setIsLoading(false);
         return;
       }
 
-      const itemsResult = await getShoppingListItems(resolvedFamilyId, firstList.id);
-
-      if (isCancelled) {
-        return;
-      }
-
       setFamilyId(resolvedFamilyId);
-      setListId(firstList.id);
-      setItems(itemsResult.data.items ?? []);
-      setIsLoading(false);
+      setLists(listsResult.data.lists ?? []);
+      setSelectedListId(firstList.id);
     });
 
     return () => {
       isCancelled = true;
     };
   }, []);
+
+  // Henter varerne for den valgte liste — kører igen, hver gang
+  // selectedListId skifter (inkl. første gang, når mount-effekten ovenfor
+  // har sat den).
+  useEffect(() => {
+    if (!familyId || !selectedListId) {
+      return;
+    }
+
+    let isCancelled = false;
+
+    getShoppingListItems(familyId, selectedListId).then((itemsResult) => {
+      if (isCancelled) {
+        return;
+      }
+
+      if (!itemsResult.ok) {
+        setError("Kunne ikke hente varerne.");
+      } else {
+        setItems(itemsResult.data.items ?? []);
+      }
+
+      setIsLoading(false);
+    });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [familyId, selectedListId]);
+
+  const selectList = useCallback((listId: string): void => {
+    setIsLoading(true);
+    setSelectedListId(listId);
+  }, []);
+
+  const createList = useCallback(
+    (name: string, type: ShoppingListType): void => {
+      const trimmed = name.trim();
+      if (!trimmed || !familyId) {
+        return;
+      }
+
+      setError(null);
+
+      createShoppingList(familyId, trimmed, type)
+        .then((result) => {
+          if (result.ok && result.data.list) {
+            const newList = result.data.list;
+            setLists((previousLists) => [...previousLists, newList]);
+            setIsLoading(true);
+            setSelectedListId(newList.id);
+          } else {
+            setError("Listen kunne ikke oprettes.");
+          }
+        })
+        .catch(() => setError("Listen kunne ikke oprettes."));
+    },
+    [familyId],
+  );
 
   const withMutation = useCallback(
     (action: () => Promise<{ ok: boolean; data: { items?: ShoppingListItemDto[] } }>) => {
@@ -103,55 +165,68 @@ export function useShoppingList(): UseShoppingListResult {
   const addItem = useCallback(
     (name: string): void => {
       const trimmed = name.trim();
-      if (!trimmed || !familyId || !listId) {
+      if (!trimmed || !familyId || !selectedListId) {
         return;
       }
 
-      withMutation(() => addShoppingListItem(familyId, listId, trimmed));
+      withMutation(() => addShoppingListItem(familyId, selectedListId, trimmed));
     },
-    [familyId, listId, withMutation],
+    [familyId, selectedListId, withMutation],
   );
 
   const toggleChecked = useCallback(
     (itemId: string, isChecked: boolean): void => {
-      if (!familyId || !listId) {
+      if (!familyId || !selectedListId) {
         return;
       }
 
-      withMutation(() => setShoppingListItemChecked(familyId, listId, itemId, isChecked));
+      withMutation(() => setShoppingListItemChecked(familyId, selectedListId, itemId, isChecked));
     },
-    [familyId, listId, withMutation],
+    [familyId, selectedListId, withMutation],
   );
 
   const setCategory = useCallback(
     (itemId: string, category: ShoppingCategory): void => {
-      if (!familyId || !listId) {
+      if (!familyId || !selectedListId) {
         return;
       }
 
-      withMutation(() => setShoppingListItemCategory(familyId, listId, itemId, category));
+      withMutation(() => setShoppingListItemCategory(familyId, selectedListId, itemId, category));
     },
-    [familyId, listId, withMutation],
+    [familyId, selectedListId, withMutation],
   );
 
   const deleteItem = useCallback(
     (itemId: string): void => {
-      if (!familyId || !listId) {
+      if (!familyId || !selectedListId) {
         return;
       }
 
-      withMutation(() => deleteShoppingListItem(familyId, listId, itemId));
+      withMutation(() => deleteShoppingListItem(familyId, selectedListId, itemId));
     },
-    [familyId, listId, withMutation],
+    [familyId, selectedListId, withMutation],
   );
 
   const clearChecked = useCallback((): void => {
-    if (!familyId || !listId) {
+    if (!familyId || !selectedListId) {
       return;
     }
 
-    withMutation(() => clearCheckedShoppingListItems(familyId, listId));
-  }, [familyId, listId, withMutation]);
+    withMutation(() => clearCheckedShoppingListItems(familyId, selectedListId));
+  }, [familyId, selectedListId, withMutation]);
 
-  return { isLoading, error, items, addItem, toggleChecked, setCategory, deleteItem, clearChecked };
+  return {
+    isLoading,
+    error,
+    lists,
+    selectedListId,
+    selectList,
+    createList,
+    items,
+    addItem,
+    toggleChecked,
+    setCategory,
+    deleteItem,
+    clearChecked,
+  };
 }
