@@ -4,7 +4,9 @@ import type { FormEvent, SyntheticEvent } from "react";
 import {
   AddRounded,
   DeleteOutlineRounded,
+  EditRounded,
   IosShareRounded,
+  LabelOutlined,
   ShoppingCartOutlined,
 } from "@mui/icons-material";
 import {
@@ -23,6 +25,8 @@ import {
   Divider,
   FormControlLabel,
   IconButton,
+  Menu,
+  MenuItem,
   Radio,
   RadioGroup,
   Tab,
@@ -33,6 +37,7 @@ import {
 
 import { useShoppingList } from "../features/shoppingList/hooks/useShoppingList";
 import {
+  shoppingCategoriesByListType,
   shoppingListTypeLabels,
   shoppingListTypes,
   type ShoppingListItemDto,
@@ -84,9 +89,12 @@ function ShoppingListPage() {
     selectedListId,
     selectList,
     createList,
+    renameList,
     items,
     addItem,
     toggleChecked,
+    setCategory,
+    renameItem,
     deleteItem,
     clearChecked,
   } = useShoppingList();
@@ -95,6 +103,8 @@ function ShoppingListPage() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [newListName, setNewListName] = useState("");
   const [newListType, setNewListType] = useState<ShoppingListType>("dagligvarer");
+  const [isEditingListName, setIsEditingListName] = useState(false);
+  const [listNameDraft, setListNameDraft] = useState("");
 
   const selectedList = lists.find((list) => list.id === selectedListId);
   const isFlatList = selectedList?.type === "andet";
@@ -146,6 +156,25 @@ function ShoppingListPage() {
     setIsCreateDialogOpen(false);
   }
 
+  function startEditingListName(): void {
+    if (!selectedList) {
+      return;
+    }
+
+    setListNameDraft(selectedList.name);
+    setIsEditingListName(true);
+  }
+
+  function commitListNameEdit(): void {
+    setIsEditingListName(false);
+
+    if (!selectedList || !listNameDraft.trim() || listNameDraft.trim() === selectedList.name) {
+      return;
+    }
+
+    renameList(listNameDraft);
+  }
+
   return (
     <Box sx={{ maxWidth: 900, mx: "auto", pb: 4 }}>
       <Box sx={{ mb: 3 }}>
@@ -186,9 +215,38 @@ function ShoppingListPage() {
             </Avatar>
 
             <Box sx={{ flexGrow: 1 }}>
-              <Typography variant="h6">
-                {selectedList ? selectedList.name : "Varer"}
-              </Typography>
+              {isEditingListName ? (
+                <TextField
+                  autoFocus
+                  size="small"
+                  value={listNameDraft}
+                  onChange={(event) => setListNameDraft(event.target.value)}
+                  onBlur={commitListNameEdit}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.currentTarget.blur();
+                    } else if (event.key === "Escape") {
+                      setIsEditingListName(false);
+                    }
+                  }}
+                />
+              ) : (
+                <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                  <Typography variant="h6">
+                    {selectedList ? selectedList.name : "Varer"}
+                  </Typography>
+
+                  {selectedList && (
+                    <IconButton
+                      aria-label="Omdøb liste"
+                      size="small"
+                      onClick={startEditingListName}
+                    >
+                      <EditRounded fontSize="small" />
+                    </IconButton>
+                  )}
+                </Box>
+              )}
 
               {selectedList && (
                 <Typography variant="caption" color="text.secondary">
@@ -239,7 +297,9 @@ function ShoppingListPage() {
                 <ItemRow
                   key={item.id}
                   item={item}
+                  categories={[]}
                   onToggleChecked={toggleChecked}
+                  onRename={renameItem}
                   onDelete={deleteItem}
                 />
               ))}
@@ -270,7 +330,12 @@ function ShoppingListPage() {
                     <ItemRow
                       key={item.id}
                       item={item}
+                      categories={
+                        selectedList ? shoppingCategoriesByListType[selectedList.type] : []
+                      }
                       onToggleChecked={toggleChecked}
+                      onChangeCategory={setCategory}
+                      onRename={renameItem}
                       onDelete={deleteItem}
                     />
                   ))}
@@ -331,11 +396,40 @@ function ShoppingListPage() {
 
 interface ItemRowProps {
   item: ShoppingListItemDto;
+  categories: readonly string[];
   onToggleChecked: (itemId: string, isChecked: boolean) => void;
+  onChangeCategory?: (itemId: string, category: string) => void;
+  onRename: (itemId: string, name: string) => void;
   onDelete: (itemId: string) => void;
 }
 
-function ItemRow({ item, onToggleChecked, onDelete }: ItemRowProps) {
+function ItemRow({
+  item,
+  categories,
+  onToggleChecked,
+  onChangeCategory,
+  onRename,
+  onDelete,
+}: ItemRowProps) {
+  const [categoryMenuAnchor, setCategoryMenuAnchor] = useState<HTMLElement | null>(null);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState(item.name);
+
+  function startEditingName(): void {
+    setNameDraft(item.name);
+    setIsEditingName(true);
+  }
+
+  function commitNameEdit(): void {
+    setIsEditingName(false);
+
+    if (!nameDraft.trim() || nameDraft.trim() === item.name) {
+      return;
+    }
+
+    onRename(item.id, nameDraft);
+  }
+
   return (
     <Box
       sx={{
@@ -350,14 +444,66 @@ function ItemRow({ item, onToggleChecked, onDelete }: ItemRowProps) {
         onChange={(event) => onToggleChecked(item.id, event.target.checked)}
       />
 
-      <Typography
-        sx={{
-          flexGrow: 1,
-          textDecoration: item.isChecked ? "line-through" : "none",
-        }}
-      >
-        {item.name}
-      </Typography>
+      {isEditingName ? (
+        <TextField
+          autoFocus
+          size="small"
+          fullWidth
+          value={nameDraft}
+          onChange={(event) => setNameDraft(event.target.value)}
+          onBlur={commitNameEdit}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.currentTarget.blur();
+            } else if (event.key === "Escape") {
+              setIsEditingName(false);
+            }
+          }}
+          sx={{ flexGrow: 1 }}
+        />
+      ) : (
+        <Typography
+          onClick={startEditingName}
+          sx={{
+            flexGrow: 1,
+            cursor: "pointer",
+            textDecoration: item.isChecked ? "line-through" : "none",
+          }}
+        >
+          {item.name}
+        </Typography>
+      )}
+
+      {onChangeCategory && categories.length > 0 && (
+        <>
+          <IconButton
+            aria-label={`Skift kategori for ${item.name}`}
+            size="small"
+            onClick={(event) => setCategoryMenuAnchor(event.currentTarget)}
+          >
+            <LabelOutlined fontSize="small" />
+          </IconButton>
+
+          <Menu
+            anchorEl={categoryMenuAnchor}
+            open={Boolean(categoryMenuAnchor)}
+            onClose={() => setCategoryMenuAnchor(null)}
+          >
+            {categories.map((category) => (
+              <MenuItem
+                key={category}
+                selected={category === item.category}
+                onClick={() => {
+                  setCategoryMenuAnchor(null);
+                  onChangeCategory(item.id, category);
+                }}
+              >
+                {category}
+              </MenuItem>
+            ))}
+          </Menu>
+        </>
+      )}
 
       <IconButton aria-label={`Fjern ${item.name}`} size="small" onClick={() => onDelete(item.id)}>
         <DeleteOutlineRounded fontSize="small" />

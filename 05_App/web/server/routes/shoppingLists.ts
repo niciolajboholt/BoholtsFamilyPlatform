@@ -223,6 +223,27 @@ shoppingLists.post("/:id/shopping-lists", async (c) => {
   return c.json({ list: { id, familyId, name, type, createdAt: now } });
 });
 
+shoppingLists.patch("/:id/shopping-lists/:listId", async (c) => {
+  const list = await requireListInFamily(c, c.req.param("id"), c.req.param("listId"));
+
+  if (!list) {
+    return c.json({ error: "Ikke fundet." }, 404);
+  }
+
+  const body = await parseJsonBody<{ name: string }>(c);
+  const name = body.name?.trim();
+
+  if (!name) {
+    return c.json({ error: "Listen skal have et navn." }, 400);
+  }
+
+  await c.env.DB.prepare("UPDATE shopping_lists SET name = ? WHERE id = ?")
+    .bind(name, list.id)
+    .run();
+
+  return c.json({ list: { ...list, name } });
+});
+
 shoppingLists.get("/:id/shopping-lists/:listId/items", async (c) => {
   const list = await requireListInFamily(c, c.req.param("id"), c.req.param("listId"));
 
@@ -307,7 +328,7 @@ shoppingLists.patch("/:id/shopping-lists/:listId/items/:itemId", async (c) => {
     return c.json({ error: "Ikke fundet." }, 404);
   }
 
-  const body = await parseJsonBody<{ isChecked?: boolean; category?: string }>(c);
+  const body = await parseJsonBody<{ isChecked?: boolean; category?: string; name?: string }>(c);
 
   if (body.category !== undefined) {
     if (!isShoppingCategory(body.category, list.type)) {
@@ -318,6 +339,22 @@ shoppingLists.patch("/:id/shopping-lists/:listId/items/:itemId", async (c) => {
 
     await c.env.DB.prepare("UPDATE shopping_list_items SET category = ? WHERE id = ?")
       .bind(body.category, itemId)
+      .run();
+  }
+
+  if (body.name !== undefined) {
+    const trimmedName = body.name.trim();
+
+    if (!trimmedName) {
+      return c.json({ error: "Varen skal have et navn." }, 400);
+    }
+
+    // Kun selve navnet rettes — kategorien ændres bevidst ikke automatisk,
+    // så en tastefejlsrettelse ikke utilsigtet ændrer en allerede korrekt
+    // kategori. Vil brugeren også ændre kategori, sker det som et separat
+    // kald (samme mønster som category ovenfor).
+    await c.env.DB.prepare("UPDATE shopping_list_items SET name = ? WHERE id = ?")
+      .bind(trimmedName, itemId)
       .run();
   }
 

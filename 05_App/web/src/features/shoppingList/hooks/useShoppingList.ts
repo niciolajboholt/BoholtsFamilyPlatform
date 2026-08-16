@@ -8,6 +8,8 @@ import {
   deleteShoppingListItem,
   getShoppingListItems,
   getShoppingLists,
+  renameShoppingList,
+  renameShoppingListItem,
   setShoppingListItemCategory,
   setShoppingListItemChecked,
   type ShoppingCategory,
@@ -23,10 +25,12 @@ interface UseShoppingListResult {
   selectedListId: string | null;
   selectList: (listId: string) => void;
   createList: (name: string, type: ShoppingListType) => void;
+  renameList: (name: string) => void;
   items: ShoppingListItemDto[];
   addItem: (name: string) => void;
   toggleChecked: (itemId: string, isChecked: boolean) => void;
   setCategory: (itemId: string, category: ShoppingCategory) => void;
+  renameItem: (itemId: string, name: string) => void;
   deleteItem: (itemId: string) => void;
   clearChecked: () => void;
 }
@@ -145,6 +149,31 @@ export function useShoppingList(): UseShoppingListResult {
     [familyId],
   );
 
+  const renameList = useCallback(
+    (name: string): void => {
+      const trimmed = name.trim();
+      if (!trimmed || !familyId || !selectedListId) {
+        return;
+      }
+
+      setError(null);
+
+      renameShoppingList(familyId, selectedListId, trimmed)
+        .then((result) => {
+          if (result.ok && result.data.list) {
+            const updatedList = result.data.list;
+            setLists((previousLists) =>
+              previousLists.map((list) => (list.id === updatedList.id ? updatedList : list)),
+            );
+          } else {
+            setError("Listen kunne ikke omdøbes.");
+          }
+        })
+        .catch(() => setError("Listen kunne ikke omdøbes."));
+    },
+    [familyId, selectedListId],
+  );
+
   const withMutation = useCallback(
     (action: () => Promise<{ ok: boolean; data: { items?: ShoppingListItemDto[] } }>) => {
       setError(null);
@@ -196,6 +225,18 @@ export function useShoppingList(): UseShoppingListResult {
     [familyId, selectedListId, withMutation],
   );
 
+  const renameItem = useCallback(
+    (itemId: string, name: string): void => {
+      const trimmed = name.trim();
+      if (!trimmed || !familyId || !selectedListId) {
+        return;
+      }
+
+      withMutation(() => renameShoppingListItem(familyId, selectedListId, itemId, trimmed));
+    },
+    [familyId, selectedListId, withMutation],
+  );
+
   const deleteItem = useCallback(
     (itemId: string): void => {
       if (!familyId || !selectedListId) {
@@ -222,10 +263,12 @@ export function useShoppingList(): UseShoppingListResult {
     selectedListId,
     selectList,
     createList,
+    renameList,
     items,
     addItem,
     toggleChecked,
     setCategory,
+    renameItem,
     deleteItem,
     clearChecked,
   };

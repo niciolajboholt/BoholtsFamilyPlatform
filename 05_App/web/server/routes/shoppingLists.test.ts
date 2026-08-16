@@ -458,6 +458,150 @@ describe("shopping list routes", () => {
     expect(body.items[0]?.name).toBe("Mælk");
   });
 
+  it("renames a list", async () => {
+    const { cookieHeader, userId } = await seedLoggedInUser(env.DB as never, { id: "nicolaj" });
+    await seedFamily(env, "family-1", [userId]);
+    const { lists } = (await (
+      await shoppingLists.request(
+        "/family-1/shopping-lists",
+        { headers: { Cookie: cookieHeader } },
+        env,
+      )
+    ).json()) as { lists: ShoppingListDto[] };
+    const listId = lists[0]!.id;
+
+    const response = await shoppingLists.request(
+      `/family-1/shopping-lists/${listId}`,
+      {
+        method: "PATCH",
+        headers: { Cookie: cookieHeader, "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "Bilka" }),
+      },
+      env,
+    );
+    const body: { list: ShoppingListDto } = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.list.name).toBe("Bilka");
+
+    const { lists: listsAfter } = (await (
+      await shoppingLists.request(
+        "/family-1/shopping-lists",
+        { headers: { Cookie: cookieHeader } },
+        env,
+      )
+    ).json()) as { lists: ShoppingListDto[] };
+    expect(listsAfter[0]?.name).toBe("Bilka");
+  });
+
+  it("rejects renaming a list to an empty name", async () => {
+    const { cookieHeader, userId } = await seedLoggedInUser(env.DB as never, { id: "nicolaj" });
+    await seedFamily(env, "family-1", [userId]);
+    const { lists } = (await (
+      await shoppingLists.request(
+        "/family-1/shopping-lists",
+        { headers: { Cookie: cookieHeader } },
+        env,
+      )
+    ).json()) as { lists: ShoppingListDto[] };
+    const listId = lists[0]!.id;
+
+    const response = await shoppingLists.request(
+      `/family-1/shopping-lists/${listId}`,
+      {
+        method: "PATCH",
+        headers: { Cookie: cookieHeader, "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "   " }),
+      },
+      env,
+    );
+
+    expect(response.status).toBe(400);
+  });
+
+  it("renames an item without changing its category", async () => {
+    const { cookieHeader, userId } = await seedLoggedInUser(env.DB as never, { id: "nicolaj" });
+    await seedFamily(env, "family-1", [userId]);
+    const { lists } = (await (
+      await shoppingLists.request(
+        "/family-1/shopping-lists",
+        { headers: { Cookie: cookieHeader } },
+        env,
+      )
+    ).json()) as { lists: ShoppingListDto[] };
+    const listId = lists[0]!.id;
+
+    const addResponse = await shoppingLists.request(
+      `/family-1/shopping-lists/${listId}/items`,
+      {
+        method: "POST",
+        headers: { Cookie: cookieHeader, "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "Mælk" }),
+      },
+      env,
+      fakeExecutionCtx,
+    );
+    const { items } = (await addResponse.json()) as { items: ShoppingListItemDto[] };
+    const itemId = items[0]!.id;
+    await lastWaitUntilTask;
+
+    const renameResponse = await shoppingLists.request(
+      `/family-1/shopping-lists/${listId}/items/${itemId}`,
+      {
+        method: "PATCH",
+        headers: { Cookie: cookieHeader, "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "Sødmælk" }),
+      },
+      env,
+      fakeExecutionCtx,
+    );
+    const body: { items: ShoppingListItemDto[] } = await renameResponse.json();
+
+    expect(renameResponse.status).toBe(200);
+    expect(body.items[0]?.name).toBe("Sødmælk");
+    expect(body.items[0]?.category).toBe("Mejeri");
+  });
+
+  it("rejects renaming an item to an empty name", async () => {
+    const { cookieHeader, userId } = await seedLoggedInUser(env.DB as never, { id: "nicolaj" });
+    await seedFamily(env, "family-1", [userId]);
+    const { lists } = (await (
+      await shoppingLists.request(
+        "/family-1/shopping-lists",
+        { headers: { Cookie: cookieHeader } },
+        env,
+      )
+    ).json()) as { lists: ShoppingListDto[] };
+    const listId = lists[0]!.id;
+
+    const addResponse = await shoppingLists.request(
+      `/family-1/shopping-lists/${listId}/items`,
+      {
+        method: "POST",
+        headers: { Cookie: cookieHeader, "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "Mælk" }),
+      },
+      env,
+      fakeExecutionCtx,
+    );
+    const { items } = (await addResponse.json()) as { items: ShoppingListItemDto[] };
+    const itemId = items[0]!.id;
+    await lastWaitUntilTask;
+
+    const renameResponse = await shoppingLists.request(
+      `/family-1/shopping-lists/${listId}/items/${itemId}`,
+      {
+        method: "PATCH",
+        headers: { Cookie: cookieHeader, "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "  " }),
+      },
+      env,
+      fakeExecutionCtx,
+    );
+
+    expect(renameResponse.status).toBe(400);
+  });
+
   it("returns 404 when the list belongs to a different family (cross-family isolation)", async () => {
     const { cookieHeader: ownerCookie, userId: ownerId } = await seedLoggedInUser(
       env.DB as never,
