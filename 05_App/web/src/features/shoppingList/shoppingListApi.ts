@@ -1,16 +1,11 @@
 // Tynd klient for /api/families/:id/shopping-lists-ruterne (Sprint 21, Del
 // B). Samme mønster som familyApi.ts's request()-wrapper.
 
-export const shoppingCategories = [
-  "Frugt & grønt",
-  "Mejeri",
-  "Kød",
-  "Bageri",
-  "Frost",
-  "Andet",
-] as const;
-
-export type ShoppingCategory = (typeof shoppingCategories)[number];
+// Kategorier valideres server-side pr. listetype (se
+// server/lib/shoppingCategories.ts) — klienten har derfor ikke ét fast,
+// globalt kategorisæt, kun én liste pr. type til at vise valgmuligheder i
+// UI'et.
+export type ShoppingCategory = string;
 
 // Fast sæt, matcher server/lib/shoppingCategories.ts's ShoppingListType —
 // listetyper er bevidst ikke brugerdefinerbare (se
@@ -23,6 +18,24 @@ export const shoppingListTypeLabels: Record<ShoppingListType, string> = {
   dagligvarer: "Dagligvarer",
   byggemarked: "Byggemarked",
   andet: "Andet",
+};
+
+// Skal holdes i sync med server/lib/shoppingCategories.ts's kategorisæt pr.
+// type — bruges kun til at vise gyldige valgmuligheder ved manuel
+// kategori-rettelse, den faktiske validering sker altid server-side.
+export const shoppingCategoriesByListType: Record<ShoppingListType, readonly string[]> = {
+  dagligvarer: ["Frugt & grønt", "Mejeri", "Kød", "Bageri", "Frost", "Andet"],
+  byggemarked: [
+    "Værktøj",
+    "Tømmer & plader",
+    "Skruer, søm & beslag",
+    "Maling & overflade",
+    "El & belysning",
+    "VVS",
+    "Have & udendørs",
+    "Andet",
+  ],
+  andet: ["Ukategoriseret"],
 };
 
 export interface ShoppingListDto {
@@ -72,6 +85,13 @@ export function createShoppingList(familyId: string, name: string, type: Shoppin
   );
 }
 
+export function renameShoppingList(familyId: string, listId: string, name: string) {
+  return request<{ list?: ShoppingListDto; error?: string }>(
+    `/api/families/${familyId}/shopping-lists/${listId}`,
+    { method: "PATCH", body: JSON.stringify({ name }) },
+  );
+}
+
 export function getShoppingListItems(familyId: string, listId: string) {
   return request<{ items?: ShoppingListItemDto[]; error?: string }>(
     `/api/families/${familyId}/shopping-lists/${listId}/items`,
@@ -111,6 +131,18 @@ export function setShoppingListItemCategory(
   return request<{ items?: ShoppingListItemDto[]; error?: string }>(
     `/api/families/${familyId}/shopping-lists/${listId}/items/${itemId}`,
     { method: "PATCH", body: JSON.stringify({ category }) },
+  );
+}
+
+export function renameShoppingListItem(
+  familyId: string,
+  listId: string,
+  itemId: string,
+  name: string,
+) {
+  return request<{ items?: ShoppingListItemDto[]; error?: string }>(
+    `/api/families/${familyId}/shopping-lists/${listId}/items/${itemId}`,
+    { method: "PATCH", body: JSON.stringify({ name }) },
   );
 }
 

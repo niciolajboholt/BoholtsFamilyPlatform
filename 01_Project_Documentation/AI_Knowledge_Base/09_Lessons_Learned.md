@@ -2,13 +2,13 @@
 
 > Status: Active
 
-Version: 1.4
+Version: 1.5
 
 Project:
 Boholts Family Platform
 
 Last Updated:
-2026-08-14 (Sprint 20, Fase 0-4)
+2026-08-16 (Sprint 22)
 
 Owner:
 Nicolaj Bach Boholt
@@ -132,6 +132,16 @@ Alle fire ovenstående server-bugs (Fase 2's slettebeskyttelse, Fase 3's 204-kra
 Fase 4's kalender-tildeling blev "rettet" tre gange (id-oversættelse, `resolveFamilyId`-cache, `AppLayout`-effekt) uden at symptomet forsvandt, fordi ingen af de tre var den reelle årsag: tabellen `calendar_member_mappings` fandtes slet ikke i beta-databasen. Hverken `npm run build`, `npm test` eller Cloudflare Workers Builds kører `wrangler d1 migrations apply` — der er intet trin i pipelinen, der anvender nye migrationsfiler på den faktiske (beta/produktions-)database. Det er en ren manuel kommando, som skal huskes hver gang en ny migrationsfil tilføjes, og som blev glemt her. En manglende tabel fejler tavst med en generisk server-500, som klienten viser som en generisk "kunne ikke gemmes"-fejl — umuligt at skelne fra en rigtig valideringsfejl uden at slå direkte op i databasen.
 
 **Erfaring**: efter enhver ny migrationsfil, bekræft eksplicit (fx via `d1_database_query` mod `sqlite_master`) at tabellen findes i **både** beta- og produktions-databasen, før man antager en Fase er "deployet og klar til test" — "CI er grønt" og "koden er merget" siger intet om databasens faktiske skema. På sigt bør dette automatiseres som et build/deploy-trin i stedet for at være et huske-punkt.
+
+---
+
+## "Migration kørt" fra en bruger er en påstand, ikke en verifikation
+
+Sprint 22 afslørede, at produktions-databasen manglede *hele* familie-datamodellen (`families`, `family_memberships`, `family_members`, `family_invites`, `calendar_member_mappings`) OG migration 0007's ændringer — selvom Nicolaj to gange tidligere havde bekræftet "migration kørt på begge" (både for de oprindelige Fase 4/Sprint 20-migrationer og for 0007), og selvom Claude havde noteret det som fuldført i sprint-planerne. Beta havde hele tiden alle migrationerne korrekt anvendt; kun produktion manglede dem — sandsynligvis fordi migrationerne reelt kun blev kørt mod beta-fanen i D1-konsollen, uden at det blev opdaget.
+
+- **Observation**: Claudes eget D1-forespørgselsværktøj var blokeret ("MCP tool call requires approval") netop i de øjeblikke, hvor en uafhængig verifikation var mest nødvendig — hvilket førte til, at en brugerpåstand blev accepteret og dokumenteret som bekræftet fakta uden selv at kunne tjekkes.
+- **Konsekvens**: To sprints' funktionalitet (kalender-tildeling, indkøbslister) var reelt i stykker i produktion i en periode, uden at nogen opdagede det, fordi dokumentationen sagde "gennemført".
+- **Fremtidig regel**: Skriv aldrig "bekræftet"/"kørt" i et sprint-dokument alene på baggrund af en brugers besked — enten verificér selv via en direkte databaseforespørgsel (`SELECT type, name, sql FROM sqlite_master ...` er den mest pålidelige, da den viser hele det faktiske skema, ikke kun tabelnavne), eller bed eksplicit brugeren om at køre og indsætte resultatet af netop den forespørgsel, og vent med at opdatere dokumentationen til svaret er set. Hvis værktøjet er blokeret, er "afventer uafhængig verifikation" den ærlige status — ikke "bekræftet".
 
 ---
 

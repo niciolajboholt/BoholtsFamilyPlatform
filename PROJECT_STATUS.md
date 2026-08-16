@@ -4,9 +4,8 @@ Senest opdateret: 2026-08-16
 
 ## Aktuel fase
 
-Sprint 20 (multi-tenant familie-server, ADR-017) er merget til `main`
-(produktion). Sprint 21 (push-notifikationer + delt indkøbsliste) er
-gennemført og deployet.
+`main` er 1:1 med `develop` — Sprint 20, 21 og 22 er alle merget og
+deployet til produktion. Ingen aktiv sprint lige nu.
 
 ## Leveret
 
@@ -21,25 +20,28 @@ gennemført og deployet.
 - Dynamiske familiemedlemmer og personlige farver.
 - **Sprint 21**: Web Push (VAPID)-fundament, brugt af både kalender
   (ny/ændret/slettet aftale) og indkøbsliste (ny vare) — afsenderen selv
-  undtaget. Delt indkøbsliste pr. familie med selvlærende dansk
-  kategori-ordbog og "del som tekst"-funktion. Bekræftet ende-til-ende på
-  tværs af familiemedlemmer, inkl. iOS Safari-push.
-- Vitest-testpakke (213 tests) + GitHub Actions-CI.
+  undtaget. Bekræftet ende-til-ende på tværs af familiemedlemmer, inkl.
+  iOS Safari-push.
+- **Sprint 22**: flere navngivne indkøbslister med fast type
+  (dagligvarer/byggemarked/andet), hver med eget kategorisæt/ordbog og
+  selvlæring pr. familie og type. Redigering af listenavn, varenavn og
+  manuel kategori-rettelse. Bekræftet af Nicolaj på produktion.
+- Vitest-testpakke (230 tests) + GitHub Actions-CI.
 
 ## Kvalitetsstatus
 
-`develop` består:
+`develop`/`main` består:
 
 - `npm run lint`
 - `npm run build`
-- `npm test` (213 tests)
+- `npm test` (230 tests)
 - Grøn GitHub Actions-CI og Cloudflare Workers Build (produktion + beta)
 
 Verificeret manuelt af Nicolaj og Christine på beta og produktion, inkl.
-push-notifikation leveret på tværs af to iPhones.
+push-notifikation leveret på tværs af to iPhones og indkøbsliste-flowet
+ende-til-ende.
 
 ## Næste skridt
 
 Ingen aktiv sprint. Kandidater: flere Google-konti pr. familie (kræver
-egen ADR), "Opgaver"-badget på forsiden (stadig "Snart"), flere navngivne
-indkøbslister i UI'et (API'et understøtter det allerede).
+egen ADR), "Opgaver"-badget på forsiden (stadig "Snart").

@@ -46,10 +46,21 @@ Se `05_Sprint_History.md` for detaljer pr. sprint.
 [x] Del B, fortsat: push-notifikation ved ny vare på indkøbslisten
 [x] Manuel to-personers test på beta/produktion, inkl. iOS Safari-push
     (bekræftet: Nicolaj tilføjer vare → Christine modtager notifikation)
+[x] Merget til `main` (PR #32, sammen med Sprint 22)
+
+## Sprint 22 - Flere navngivne indkøbslister med type
+
+[x] Migration 0007: type-felt på lister, list_type-skalerede overrides
+[x] Server: type-bevidste kategorisæt/ordbøger (dagligvarer, byggemarked,
+    andet), opdaterede ruter
+[x] Klient: liste-vælger (faner) + "opret ny liste"-dialog med typevalg
+[x] Manuel test på produktion (bekræftet af Nicolaj: "Det virker rigtig
+    fint")
+[x] Ekstra: redigering af listenavn, varenavn og manuel kategori-rettelse
+[x] Byggemarked-ordbog eksporteret til Excel til fælles KS/udvidelse
 
 ## Ikke planlagt endnu
 
 [ ] Flere Google-konti pr. familie (kræver egen ADR — se `10_Future_Roadmap.md`)
 [ ] Opgaver ("Snart"-badge på forsiden)
-[ ] Flere navngivne indkøbslister i UI'et (API'et understøtter det allerede)
 [ ] Fysisk VoiceOver-test (kræver fysisk enhed, ikke en AI-agent-opgave)

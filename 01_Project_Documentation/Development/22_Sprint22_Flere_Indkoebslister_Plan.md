@@ -1,8 +1,8 @@
 # 22_Sprint22_Flere_Indkoebslister_Plan
 
-> Status: Active
+> Status: Completed
 
-Version: 1.0
+Version: 1.1
 
 Project:
 Boholts Family Platform
@@ -141,11 +141,21 @@ gruppe-overskrifter — for indkøb, der ikke passer ind i de to andre typer.
 
 ## Rækkefølge
 
-1. ~~Migration 0007~~ ✅ **Kørt og bekræftet af Nicolaj på både beta og
-   produktion (2026-08-16)**. Uafhængig verifikation via D1-værktøjet var
-   ikke mulig denne gang (samme tilbagevendende "MCP tool call requires
-   approval"-blokering som resten af sprintet) — status bygger på Nicolajs
-   egen bekræftelse.
+1. ~~Migration 0007~~ ✅ **Kørt og uafhængigt verificeret på både beta og
+   produktion (2026-08-16)**. Vigtig rettelse til den oprindelige status
+   her: Nicolajs første bekræftelse ("migration kørt på begge") viste sig
+   at være forkert for produktion — en fuld skema-sammenligning
+   (`SELECT type, name, sql FROM sqlite_master ...`, kørt af Nicolaj i
+   D1-konsollen og sendt til mig) afslørede, at produktion manglede BÅDE
+   migration 0007 (ingen `type`-kolonne på `shopping_lists`) OG hele
+   familie-datamodellen fra Sprint 20 (`families`,
+   `family_memberships`, `family_members`, `family_invites`,
+   `calendar_member_mappings` fandtes slet ikke) — sandsynligvis fordi
+   tidligere migrationer reelt kun blev kørt på beta, ikke produktion,
+   selvom det så ud til at lykkes. Begge dele er nu genskabt/kørt korrekt
+   på produktion og bekræftet identisk med beta linje for linje. Nicolaj
+   har efterfølgende bekræftet, at familieoprettelse igen virker uden
+   serverfejl på produktion (`boholtsfamilyplatform.nicolajbach12.workers.dev`).
 2. ~~Server: type-bevidst `shoppingCategories.ts`, opdaterede ruter~~ ✅
    **Gennemført (2026-08-16)**: 13 nye tests, deployet til `develop`
    (commit `521dec3`), CI og begge Cloudflare Workers Builds bekræftet
@@ -154,9 +164,16 @@ gruppe-overskrifter — for indkøb, der ikke passer ind i de to andre typer.
    **Gennemført (2026-08-16)**: faner til at skifte mellem lister, "+"-fane
    åbner en opret-dialog (navn + type). Andet-typede lister vises fladt
    uden kategori-overskrifter.
-4. Manuel test: opret en byggemarked-liste, tilføj et par varer, bekræft
+4. ~~Manuel test: opret en byggemarked-liste, tilføj et par varer, bekræft
    fornuftig kategorisering og at push-notifikationer stadig virker
-   uændret — **afventer stadig** Nicolaj/Christines egen afprøvning.
+   uændret~~ ✅ **Gennemført og bekræftet af Nicolaj (2026-08-16)**: "Det
+   virker rigtig fint."
+5. ~~Ekstra, efterspurgt undervejs: redigering af listenavn, varenavn og
+   manuel kategori-rettelse~~ ✅ **Gennemført (2026-08-16)**: ny
+   `PATCH /:id/shopping-lists/:listId` (omdøb liste), item-PATCH udvidet
+   med `name`, og en kategori-menu pr. vare i UI'et (skjult for
+   "andet"-typede lister). 4 nye tests, deployet (commit `141e042`), CI og
+   begge Workers Builds bekræftet grønne.
 
 ---
 
