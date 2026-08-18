@@ -4,9 +4,10 @@ Senest opdateret: 2026-08-18
 
 ## Aktuel fase
 
-Sprint 23 er gennemført og merget til `main` (PR #34). Sprint 24
-(drift-hygiejne) er i gang — se
-`01_Project_Documentation/Development/24_Sprint24_Drift_Hygiejne_Plan.md`.
+Sprint 23 og Sprint 24 (drift-hygiejne) er begge gennemført og merget til
+`main`. Ingen aktiv sprint lige nu — se
+`01_Project_Documentation/AI_Knowledge_Base/10_Future_Roadmap.md` for
+Sprint 25-28.
 
 ## Leveret
 
@@ -50,8 +51,7 @@ ende-til-ende, og opgave-/AI-modulet.
 
 ## Næste skridt
 
-Sprint 24 (drift-hygiejne) er i gang. Herefter: Sprint 25
-(kalender-sync/PWA-ikoner), 26 (kalender-konflikter/delelink), 27
-(tidsbaserede påmindelser), 28 (AI-ugeresumé) — se
-`01_Project_Documentation/AI_Knowledge_Base/10_Future_Roadmap.md`. Flere
-Google-konti pr. familie forbliver ikke planlagt (kræver egen ADR).
+Ingen aktiv sprint. Kandidater: Sprint 25 (kalender-sync/PWA-ikoner), 26
+(kalender-konflikter/delelink), 27 (tidsbaserede påmindelser), 28
+(AI-ugeresumé) — se `10_Future_Roadmap.md`. Flere Google-konti pr. familie
+forbliver ikke planlagt (kræver egen ADR).
