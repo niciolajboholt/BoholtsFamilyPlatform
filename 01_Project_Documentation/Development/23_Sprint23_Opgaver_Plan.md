@@ -1,8 +1,8 @@
 # 23_Sprint23_Opgaver_Plan
 
-> Status: Active
+> Status: Completed
 
-Version: 2.0
+Version: 2.1
 
 Project:
 Boholts Family Platform
@@ -166,8 +166,8 @@ samtidig.
    (252/252 i alt), "Foreslå med AI" i rutine-opret-dialogen og "Foreslå
    ud fra en ret" på indkøbslisten. Intet gemmes automatisk — begge steder
    vises AI'ens forslag som noget, der aktivt skal godkendes/vælges.
-4. Manuel test på beta/produktion, inkl. AI-forslagenes kvalitet —
-   **afventer** Nicolaj/Christines egen afprøvning.
+4. ~~Manuel test på beta/produktion, inkl. AI-forslagenes kvalitet~~ ✅
+   **Gennemført og bekræftet af Nicolaj (2026-08-16)**: "Det virker."
 
 ---
 

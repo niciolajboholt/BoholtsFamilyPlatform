@@ -4,7 +4,8 @@ Senest opdateret: 2026-08-16
 
 ## Aktuel fase
 
-`main` er 1:1 med `develop` (Sprint 20-22 alle merget og deployet).
+Sprint 23 (Opgaver + AI-modul) er gennemført og deployet til `develop`.
+`main` er endnu ikke opdateret med Sprint 23 (indeholder t.o.m. Sprint 22).
 Ingen aktiv sprint lige nu.
 
 ## Gennemført
@@ -36,8 +37,15 @@ Ingen aktiv sprint lige nu.
   en fuld skema-sammenligning mellem beta og produktion, rettet, og
   bekræftet identisk. Se lektionen i
   `01_Project_Documentation/AI_Knowledge_Base/09_Lessons_Learned.md`.
+- **Sprint 23**: Tiimo-inspireret opgaveløsning — engangsopgaver og faste
+  rutiner (dovent materialiseret dag for dag, intet planlagt baggrundsjob),
+  personlige eller familie-rettede, "Min dag"/"Familien"-visning. Et
+  AI-modul via Cloudflare Workers AI (ikke en ekstern udbyder — data
+  forlader ikke Cloudflares infrastruktur) foreslår rutiner ud fra fritekst
+  og indkøbsliste-ingredienser ud fra en ret; intet gemmes automatisk uden
+  et menneskes godkendelse. Bekræftet af Nicolaj på produktion.
 
 ## Næste fase
 
 Ingen aktiv sprint lige nu. Kandidater: flere Google-konti pr. familie
-(kræver egen ADR), "Opgaver"-badget på forsiden (stadig "Snart").
+(kræver egen ADR), merge Sprint 23 til `main`.

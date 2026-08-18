@@ -59,8 +59,20 @@ Se `05_Sprint_History.md` for detaljer pr. sprint.
 [x] Ekstra: redigering af listenavn, varenavn og manuel kategori-rettelse
 [x] Byggemarked-ordbog eksporteret til Excel til fælles KS/udvidelse
 
+## Sprint 23 - Opgaver (Tiimo-inspireret) + AI-modul
+
+[x] Migration 0008: task_routines, task_routine_items, tasks
+[x] Server: fuld CRUD for opgaver/rutiner, dovent materialiserede
+    rutine-opgaver, push-notifikation ved oprettelse
+[x] Klient: TasksPage ("Min dag"/"Familien", ikon-vælger,
+    rutine-opret-dialog), koblet til forsiden
+[x] AI-modul (Cloudflare Workers AI): rutine-forslag fra fritekst,
+    ingrediens-forslag fra en ret til indkøbslisten — intet gemmes
+    automatisk, altid en menneskelig godkendelse
+[x] Manuel test på produktion (bekræftet af Nicolaj: "Det virker")
+
 ## Ikke planlagt endnu
 
 [ ] Flere Google-konti pr. familie (kræver egen ADR — se `10_Future_Roadmap.md`)
-[ ] Opgaver ("Snart"-badge på forsiden)
+[ ] Merge Sprint 23 til `main`
 [ ] Fysisk VoiceOver-test (kræver fysisk enhed, ikke en AI-agent-opgave)
