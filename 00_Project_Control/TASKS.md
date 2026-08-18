@@ -71,8 +71,19 @@ Se `05_Sprint_History.md` for detaljer pr. sprint.
     automatisk, altid en menneskelig godkendelse
 [x] Manuel test på produktion (bekræftet af Nicolaj: "Det virker")
 
+[x] Merget til `main` (PR #34)
+
+## Sprint 24 - Drift-hygiejne
+
+[x] README.md/CHANGELOG.md rettet til Worker+D1-arkitekturen
+[ ] Bekræftelse af `secrets_store_secrets`-navne i produktion (afventer
+    Nicolajs opslag i Cloudflare-dashboardet)
+[x] Cron Trigger til periodisk session- og rate-limit-oprydning
+[x] Rate-limiting på invite-accept (D1-baseret, 10 forsøg/10 min pr. bruger)
+[x] Dependabot aktiveret (npm + github-actions)
+[ ] Merget til `main`
+
 ## Ikke planlagt endnu
 
 [ ] Flere Google-konti pr. familie (kræver egen ADR — se `10_Future_Roadmap.md`)
-[ ] Merge Sprint 23 til `main`
 [ ] Fysisk VoiceOver-test (kræver fysisk enhed, ikke en AI-agent-opgave)

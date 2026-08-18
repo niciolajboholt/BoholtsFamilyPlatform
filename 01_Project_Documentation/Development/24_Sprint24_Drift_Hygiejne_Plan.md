@@ -1,8 +1,8 @@
 # 24_Sprint24_Drift_Hygiejne_Plan
 
-> Status: Afventer godkendelse
+> Status: Godkendt, under udførelse
 
-Version: 1.0
+Version: 1.1
 
 Project:
 Boholts Family Platform
@@ -117,21 +117,26 @@ Sprint 24 er første del af en ny roadmap besluttet i chat (2026-08-18):
 
 ## Rækkefølge
 
-1. Bekræft `secrets_store_secrets`-navne i Cloudflare-dashboardet (Nicolaj) —
-   afklares først, da resten af sprintet ikke afhænger af det, men det er
-   den eneste opgave der kræver et menneske i Cloudflare-dashboardet i
-   stedet for kode.
-2. Skriv `README.md` og `CHANGELOG.md` om.
-3. Opdatér `10_Future_Roadmap.md` og `07_Product_Roadmap.md`.
-4. Ret de tre statusdokumenter (`PROJECT_STATUS.md`,
-   `00_Project_Control/Project_Status.md`, `00_Project_Control/TASKS.md`),
-   som i dag fejlagtigt stadig siger "Sprint 23 er endnu ikke merget til
-   main" — det blev merget (PR #34) umiddelbart efter de blev skrevet.
-5. Cron Trigger til session-oprydning, med automatiseret test (fake tidsstempler,
-   verificér at kun udløbne sessioner slettes).
-6. Rate-limiting på invite-accept, med automatiseret test (for mange forsøg
-   → afvist).
-7. `.github/dependabot.yml`.
+1. ~~Bekræft `secrets_store_secrets`-navne i Cloudflare-dashboardet
+   (Nicolaj)~~ **Afventer**: Nicolaj undersøger produktions-workerens
+   Bindings-fane; ikke blokerende for resten af sprintet.
+2. ~~Skriv `README.md` og `CHANGELOG.md` om~~ ✅ **Gennemført
+   (2026-08-18)**.
+3. ~~Opdatér `10_Future_Roadmap.md` og `07_Product_Roadmap.md`~~ ✅
+   **Gennemført (2026-08-18)**.
+4. ~~Ret de tre statusdokumenter~~ ✅ **Gennemført (2026-08-18)**.
+5. ~~Cron Trigger til session-oprydning~~ ✅ **Gennemført (2026-08-18)**:
+   `server/lib/session.ts`s `cleanupExpiredSessions()`, kaldt fra en ny
+   `scheduled()`-handler i `index.ts` (`wrangler.jsonc`s `triggers.crons`,
+   dagligt kl. 04:00 UTC), med automatiserede tests.
+6. ~~Rate-limiting på invite-accept~~ ✅ **Gennemført (2026-08-18)**: en ny,
+   genanvendelig D1-baseret rate-limiter (migration 0009, `lib/rateLimit.ts`)
+   — 10 forsøg pr. 10 minutter pr. bruger på `POST
+   /invites/:code/accept`, med automatiserede tests (blokerer efter for
+   mange forsøg, adskiller brugere/scopes korrekt). Gamle forsøg ryddes op
+   af samme daglige Cron Trigger som session-oprydningen.
+7. ~~`.github/dependabot.yml`~~ ✅ **Gennemført (2026-08-18)**: npm
+   (`05_App/web`) + github-actions, begge ugentligt.
 8. Kvalitetskontrol (`lint`, `tsc -b`, `test`, `build`) → commit → push →
    verificér grøn CI + begge Workers Builds → merge `develop` til `main`.
 
