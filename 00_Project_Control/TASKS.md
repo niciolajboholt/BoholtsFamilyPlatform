@@ -76,8 +76,8 @@ Se `05_Sprint_History.md` for detaljer pr. sprint.
 ## Sprint 24 - Drift-hygiejne
 
 [x] README.md/CHANGELOG.md rettet til Worker+D1-arkitekturen
-[ ] Bekræftelse af `secrets_store_secrets`-navne i produktion (afventer
-    Nicolajs opslag i Cloudflare-dashboardet)
+[x] Bekræftelse af `secrets_store_secrets`-navne i produktion (bekræftet
+    identisk med koden, 2026-08-18)
 [x] Cron Trigger til periodisk session- og rate-limit-oprydning
 [x] Rate-limiting på invite-accept (D1-baseret, 10 forsøg/10 min pr. bruger)
 [x] Dependabot aktiveret (npm + github-actions)

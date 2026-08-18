@@ -118,8 +118,10 @@ Sprint 24 er første del af en ny roadmap besluttet i chat (2026-08-18):
 ## Rækkefølge
 
 1. ~~Bekræft `secrets_store_secrets`-navne i Cloudflare-dashboardet
-   (Nicolaj)~~ **Afventer**: Nicolaj undersøger produktions-workerens
-   Bindings-fane; ikke blokerende for resten af sprintet.
+   (Nicolaj)~~ ✅ **Gennemført (2026-08-18)**: bekræftet identisk med
+   antagelsen i `wrangler.jsonc` — `google-client-secret`,
+   `google-token-encryption-key`, `vapid-private-key`, samme `store_id` som
+   beta.
 2. ~~Skriv `README.md` og `CHANGELOG.md` om~~ ✅ **Gennemført
    (2026-08-18)**.
 3. ~~Opdatér `10_Future_Roadmap.md` og `07_Product_Roadmap.md`~~ ✅
