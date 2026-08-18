@@ -84,6 +84,14 @@ Se `05_Sprint_History.md` for detaljer pr. sprint.
 [x] Dependabot aktiveret (npm + github-actions) — allerede leveret 11 PR'er
 [x] Merget til `main` (PR #35, #44)
 
+## Sprint 25 - Kalender-sync + PWA-ikoner
+
+[x] nextSyncToken-inkrementel Google-synk (klient-cache + delta-flet)
+[x] PNG-ikonsæt (192/512, maskable, apple-touch-icon)
+[ ] Manuel test på beta/produktion (kræver fysisk adgang/browser, ikke en
+    AI-agent-opgave)
+[ ] Merget til `main`
+
 ## Ikke planlagt endnu
 
 [ ] Flere Google-konti pr. familie (kræver egen ADR — se `10_Future_Roadmap.md`)

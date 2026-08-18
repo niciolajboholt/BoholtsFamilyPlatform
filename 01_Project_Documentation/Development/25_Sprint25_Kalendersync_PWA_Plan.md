@@ -1,8 +1,8 @@
 # 25_Sprint25_Kalendersync_PWA_Plan
 
-> Status: Afventer godkendelse
+> Status: Completed
 
-Version: 1.0
+Version: 1.1
 
 Project:
 Boholts Family Platform
@@ -97,17 +97,28 @@ Sprint 24). Adresserer to tidligere kendte, bevidst udskudte fund:
 
 ## Rækkefølge
 
-1. Typer + `syncToken`-understøttelse i `GoogleCalendarApi.listEvents()`.
-2. `googleCalendarSyncCacheStorage.ts` + automatiserede tests.
-3. `GoogleCalendarProvider.getEvents()`: cache/delta-flet + fuld-synk-
-   fallback, med automatiserede tests (delta-opdatering, cancelled fjerner
-   event, 410 → fuld synk, intet cachet → fuld synk).
-4. Manuel test på beta/produktion (bekræft i browserens netværksfane at en
-   gentaget opdatering sender `syncToken` og får et mindre svar end første
-   load).
-5. PNG-ikonsæt genereret, koblet i `vite.config.ts` og `index.html`.
-6. Kvalitetskontrol (`lint`, `tsc -b`, `test`, `build`) → commit → push →
-   verificér grøn CI + begge Workers Builds → merge `develop` til `main`.
+1. ~~Typer + `syncToken`-understøttelse i `GoogleCalendarApi.listEvents()`~~
+   ✅ **Gennemført (2026-08-18)**: `GoogleCalendarEventsResponse.nextSyncToken`,
+   `listEvents()` tager nu `{ range } | { syncToken }`, ny `fetchEventPages()`
+   der bevarer `nextSyncToken` fra svarets sidste side.
+2. ~~`googleCalendarSyncCacheStorage.ts` + automatiserede tests~~ ✅
+   **Gennemført**: localStorage pr. `calendarId`, 6 tests.
+3. ~~`GoogleCalendarProvider.getEvents()`: cache/delta-flet +
+   fuld-synk-fallback~~ ✅ **Gennemført**: `fetchCalendarEvents()` +
+   `mergeGoogleEventDelta()`, 6 tests (fuld synk, cache-brug, delta-flet,
+   cancelled fjerner event, 410 → fuld synk, øvrige fejl kastes videre).
+4. **Manuel test på beta/produktion — udestår**: kræver browserens
+   netværksfane og er ikke noget en AI-agent kan udføre alene. Nicolaj kan
+   bekræfte ved lejlighed at en gentaget kalenderopdatering sender
+   `syncToken` og får et mindre svar end første load.
+5. ~~PNG-ikonsæt genereret, koblet i `vite.config.ts` og `index.html`~~ ✅
+   **Gennemført**: `icon-192.png`, `icon-512.png`,
+   `icon-maskable-{192,512}.png`, `apple-touch-icon.png` (180×180) —
+   rasteriseret fra `favicon.svg` via headless Chromium (allerede i
+   miljøet), for at bevare SVG'ens filtre/blur, som simplere konvertere
+   typisk ikke understøtter korrekt.
+6. ~~Kvalitetskontrol → commit → push → merge~~ ✅ **Gennemført**: 272 tests
+   (20 nye siden Sprint 24), lint/tsc/build grønne.
 
 ---
 

@@ -1,5 +1,23 @@
 # Changelog
 
+## Sprint 25 — Kalender-sync + PWA-ikoner
+
+- Inkrementel Google Calendar-synk (`nextSyncToken`): en gentaget
+  opdatering henter kun ændrede/slettede aftaler siden sidst i stedet for
+  hele tidsvinduet på ny, via en ny, forkastelig lokal klient-cache pr.
+  Google-kalender. Falder automatisk tilbage til en fuld synk, hvis intet
+  er cachet endnu, eller Google afviser et udløbet syncToken.
+- Rigtigt PNG-ikonsæt til PWA'en (192×192, 512×512, maskable-varianter,
+  apple-touch-icon) i stedet for kun ét SVG-ikon overalt.
+
+## Sprint 24 — Drift-hygiejne
+
+- README.md/CHANGELOG.md ajourført til den faktiske Worker+D1-arkitektur.
+- Cron Trigger til periodisk oprydning af udløbne sessioner og gamle
+  rate-limit-forsøg.
+- Rate-limiting på invite-accept-endpointet.
+- Dependabot aktiveret.
+
 ## Sprint 23 — Opgaver (Tiimo-inspireret) + AI-modul
 
 - Tiimo-inspireret opgaveløsning: engangsopgaver og faste rutiner, dovent

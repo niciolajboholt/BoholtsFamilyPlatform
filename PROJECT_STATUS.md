@@ -4,10 +4,11 @@ Senest opdateret: 2026-08-18
 
 ## Aktuel fase
 
-Sprint 23 og Sprint 24 (drift-hygiejne) er begge gennemført og merget til
-`main`. Ingen aktiv sprint lige nu — se
+Sprint 23, 24 (drift-hygiejne) og 25 (kalender-sync + PWA-ikoner) er
+gennemført. Sprint 25's manuelle beta/produktions-test udestår (kræver
+browser, ikke en AI-agent-opgave) — se
 `01_Project_Documentation/AI_Knowledge_Base/10_Future_Roadmap.md` for
-Sprint 25-28.
+Sprint 26-28.
 
 ## Leveret
 
@@ -34,11 +35,18 @@ Sprint 25-28.
   indkøbsliste-ingredienser fra en ret — intet gemmes automatisk). Data
   forlader ikke Cloudflares infrastruktur. Bekræftet af Nicolaj på
   produktion.
-- Vitest-testpakke (252 tests) + GitHub Actions-CI.
+- **Sprint 24**: drift-hygiejne efter et eksternt review — README/CHANGELOG
+  ajourført til Worker+D1-arkitekturen, Cron Trigger til periodisk
+  session-/rate-limit-oprydning, rate-limiting på invite-accept, Dependabot.
+- **Sprint 25**: `nextSyncToken`-inkrementel Google-kalendersynk (en ny,
+  forkastelig lokal klient-cache af aftaler pr. Google-kalender, med
+  fuld-synk-fallback ved udløbet token) samt et rigtigt PNG-ikonsæt til
+  PWA'en (192/512, maskable, apple-touch-icon) i stedet for kun ét SVG-ikon.
+- Vitest-testpakke (272 tests) + GitHub Actions-CI.
 
 ## Kvalitetsstatus
 
-`develop` og `main` er ens t.o.m. Sprint 23:
+`develop` og `main` er ens t.o.m. Sprint 24 (Sprint 25 afventer merge):
 
 - `npm run lint`
 - `npm run build`
@@ -51,7 +59,7 @@ ende-til-ende, og opgave-/AI-modulet.
 
 ## Næste skridt
 
-Ingen aktiv sprint. Kandidater: Sprint 25 (kalender-sync/PWA-ikoner), 26
-(kalender-konflikter/delelink), 27 (tidsbaserede påmindelser), 28
-(AI-ugeresumé) — se `10_Future_Roadmap.md`. Flere Google-konti pr. familie
-forbliver ikke planlagt (kræver egen ADR).
+Sprint 25's kode merges til `main`, når CI/Workers Builds er grønne.
+Kandidater herefter: Sprint 26 (kalender-konflikter/delelink), 27
+(tidsbaserede påmindelser), 28 (AI-ugeresumé) — se `10_Future_Roadmap.md`.
+Flere Google-konti pr. familie forbliver ikke planlagt (kræver egen ADR).
