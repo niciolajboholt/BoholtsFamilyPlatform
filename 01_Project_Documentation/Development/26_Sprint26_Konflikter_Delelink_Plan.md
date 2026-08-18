@@ -2,7 +2,7 @@
 
 > Status: Afventer godkendelse
 
-Version: 1.0
+Version: 1.1
 
 Project:
 Boholts Family Platform
@@ -44,7 +44,15 @@ udenforstående (fx bedsteforældre) uden login.
    den lavere privatlivsbeskyttelse, hvis linket lækkes; linket kan til
    enhver tid deaktiveres/regenereres (samme mønster som familiens
    invitationskode).
-3. **Delelinket bruger ét familiemedlems Google-forbindelse** — den, der
+3. **Man vælger hvilke familiemedlemmers kalendere der deles, ikke
+   alt-eller-intet.** Rejst af Nicolaj (2026-08-18): et link til
+   bedsteforældre bør fx kunne vise kun børnenes kalendere, ikke de
+   voksnes. Valget sker pr. familiemedlem (ikke pr. rå Google-kalender) —
+   samme begreb som resten af appen allerede taler i
+   (`calendar_member_mappings`). Et familiemedlem kan have flere
+   Google-kalendere tildelt; vælges medlemmet, følger alle vedkommendes
+   kalendere med.
+4. **Delelinket bruger ét familiemedlems Google-forbindelse** — den, der
    opretter linket. Appen understøtter i dag ikke flere Google-konti pr.
    familie (se "Flere Google-konti pr. familie",
    `10_Future_Roadmap.md`) — at løse det er en selvstændig, større
@@ -53,14 +61,14 @@ udenforstående (fx bedsteforældre) uden login.
    opretterens Google-kalendere (med familiemedlems-tildeling via
    `calendar_member_mappings`), ikke en aggregering på tværs af flere
    familiemedlemmers separate Google-konti.
-4. **Delelinket er skrivebeskyttet og har intet UI for handlinger** — ingen
+5. **Delelinket er skrivebeskyttet og har intet UI for handlinger** — ingen
    opret/redigér/slet, intet login-flow, ingen adgang til andre dele af
    appen. Rent en visning.
-5. **Rate-limiting på det offentlige endpoint** (genbruger Sprint 24's
+6. **Rate-limiting på det offentlige endpoint** (genbruger Sprint 24's
    `checkRateLimit`, nøglet på selve linkets token) — beskytter mod at et
    lækket/misbrugt link kan bruges til at hamre Google Calendar-API'et på
    familiens vegne.
-6. **Fast tidsvindue for den offentlige visning** (fx ±1 måned) i stedet
+7. **Fast tidsvindue for den offentlige visning** (fx ±1 måned) i stedet
    for appens normale ±1/2 år — det er en "hvad sker der lige nu"-visning
    for en udenforstående, ikke en fuld historisk kalender.
 
@@ -86,30 +94,37 @@ udenforstående (fx bedsteforældre) uden login.
 ### Delelink
 
 - Ny migration: `family_share_links (id TEXT PK, family_id, token TEXT
-  UNIQUE, created_by_user_id, created_at, revoked_at)`. Token er en lang,
-  tilfældig streng (fx 32 bytes, base64url) — i modsætning til
-  familieinvitationens 8-tegns kode (som et menneske taster ind), er dette
-  link beregnet til at blive kopieret/delt direkte, så det kan (og bør)
-  være langt nok til at være praktisk ugætteligt.
+  UNIQUE, created_by_user_id, included_member_ids TEXT NOT NULL,
+  created_at, revoked_at)`. Token er en lang, tilfældig streng (fx 32
+  bytes, base64url) — i modsætning til familieinvitationens 8-tegns kode
+  (som et menneske taster ind), er dette link beregnet til at blive
+  kopieret/delt direkte, så det kan (og bør) være langt nok til at være
+  praktisk ugætteligt. `included_member_ids` er en kommasepareret liste af
+  `family_members.id` (samme CSV-mønster som `task_routines.weekdays`) —
+  de familiemedlemmer, hvis kalendere linket viser.
 - Ny, **uautentificeret** rute (uden for `/api/families`s session-krav):
   `GET /api/public/family-calendar/:token`. Slår token op (skal ikke være
   `revoked_at`), henter opretterens Google-kalendere server-side (samme
   krypterede refresh-token-mønster som i dag, `getGoogleAccessToken()`),
-  filtrerer til kalendere med en familiemedlems-tildeling
-  (`calendar_member_mappings`), henter aftaler i det faste tidsvindue, og
-  returnerer en forenklet, skrivebeskyttet liste (titel, tid, sted,
-  beskrivelse, medlemsnavn/-farve) — ingen adgangstoken eller andre
-  hemmeligheder eksponeres til klienten.
-- `POST /api/families/:id/share-link` (opret/regenerér, kræver ejer/admin)
-  og `DELETE /api/families/:id/share-link` (deaktivér) — samme
-  autorisationsmønster som invitations-regenerering
+  filtrerer til kalendere mappet til et af de valgte medlemmer
+  (`calendar_member_mappings` skåret til `included_member_ids` — opslås
+  dynamisk ved hvert kald, ikke en statisk snapshot, så en senere ændret
+  medlems-tildeling automatisk afspejles), henter aftaler i det faste
+  tidsvindue, og returnerer en forenklet, skrivebeskyttet liste (titel,
+  tid, sted, beskrivelse, medlemsnavn/-farve) — ingen adgangstoken eller
+  andre hemmeligheder eksponeres til klienten.
+- `POST /api/families/:id/share-link` (opret/regenerér med et sæt
+  `memberIds`, kræver ejer/admin) og `DELETE /api/families/:id/share-link`
+  (deaktivér) — samme autorisationsmønster som invitations-regenerering
   (`families.ts`s `/:id/invites/regenerate`).
 - Klient: ny offentlig rute `/share/:token` (uden for den almindelige
   login-gate i `AppRouter.tsx`), en minimal skrivebeskyttet kalendervisning
   (genbruger eksisterende måned/uge-visningskomponenter i en
   read-only-tilstand, ingen opret/redigér-handlinger tilgængelige).
   Familiens Indstillinger-side får en ny "Delelink"-sektion, samme
-  UI-mønster som `InviteCodeCard.tsx` (kopiér-knap, regenerér, deaktivér).
+  UI-mønster som `InviteCodeCard.tsx` (kopiér-knap, regenerér, deaktivér),
+  plus en afkrydsningsliste over familiemedlemmer til at vælge hvem der
+  skal med.
 
 ---
 
@@ -123,7 +138,7 @@ udenforstående (fx bedsteforældre) uden login.
    ejer/admin-krævet) + det offentlige `/api/public/family-calendar/:token`
    -endpoint (rate-limitet), med automatiserede tests.
 4. Klient: `/share/:token`-rute + read-only kalendervisning, samt
-   "Delelink"-sektionen i Indstillinger.
+   "Delelink"-sektionen i Indstillinger med medlems-afkrydsningsliste.
 5. Manuel test på beta/produktion (bekræft delelinket virker uden login i
    et separat/inkognito-vindue, og at konfliktmarkeringen vises korrekt i
    alle fire visninger).
