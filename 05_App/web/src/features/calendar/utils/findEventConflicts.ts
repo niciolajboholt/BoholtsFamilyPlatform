@@ -9,7 +9,10 @@ export interface EventConflictCandidate {
   ownerIds: CalendarOwnerId[];
 }
 
-function hasSharedOwner(
+// Eksporteret så findAllCalendarConflicts.ts (Sprint 26) kan genbruge
+// præcis samme regel til at markere konflikter i selve kalendervisningen,
+// i stedet for at duplikere den.
+export function hasSharedOwner(
   firstOwnerIds: CalendarOwnerId[],
   secondOwnerIds: CalendarOwnerId[],
 ): boolean {
@@ -18,7 +21,7 @@ function hasSharedOwner(
   );
 }
 
-function eventsOverlap(
+export function eventsOverlap(
   firstStart: string,
   firstEnd: string,
   secondStart: string,

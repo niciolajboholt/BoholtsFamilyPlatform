@@ -10,6 +10,7 @@ import {
 import type { CalendarOwner } from "../data/calendarOwners";
 import { getEventOwnerColor } from "../utils/getEventOwnerColor";
 import type { CalendarEvent } from "../models/calendarEvent";
+import ConflictBadge from "./ConflictBadge";
 
 const unknownOwnerColor = "#607d8b";
 
@@ -17,6 +18,7 @@ interface EventListProps {
   selectedDate: Date;
   events: CalendarEvent[];
   members: readonly CalendarOwner[];
+  conflictEventIds?: ReadonlySet<string>;
   onSelectEvent: (event: CalendarEvent) => void;
 }
 
@@ -47,6 +49,7 @@ function EventList({
   selectedDate,
   events,
   members,
+  conflictEventIds,
   onSelectEvent,
 }: EventListProps) {
   return (
@@ -105,6 +108,7 @@ function EventList({
               key={event.id}
               event={event}
               members={members}
+              isConflict={conflictEventIds?.has(event.id) ?? false}
               onSelectEvent={onSelectEvent}
             />
           ))}
@@ -117,12 +121,14 @@ function EventList({
 interface EventCardProps {
   event: CalendarEvent;
   members: readonly CalendarOwner[];
+  isConflict: boolean;
   onSelectEvent: (event: CalendarEvent) => void;
 }
 
 function EventCard({
   event,
   members,
+  isConflict,
   onSelectEvent,
 }: EventCardProps) {
   const sourceColor = getEventOwnerColor(event, members);
@@ -173,12 +179,16 @@ function EventCard({
                   )}`}
               </Typography>
 
-              <Typography
-                variant="h6"
-                sx={{ mt: 0.5 }}
-              >
-                {event.title}
-              </Typography>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
+                <Typography
+                  variant="h6"
+                  sx={{ mt: 0.5 }}
+                >
+                  {event.title}
+                </Typography>
+
+                <ConflictBadge isConflict={isConflict} />
+              </Box>
 
               {event.description && (
                 <Typography
