@@ -31,6 +31,7 @@ import {
 import { FamilyMemberDialog } from "../features/calendar/components/FamilyMemberDialog";
 import { useSession } from "../features/auth/hooks/useSession";
 import { InviteCodeCard } from "../features/family/InviteCodeCard";
+import { ShareLinkCard } from "../features/family/ShareLinkCard";
 import { CurrentMemberPickerDialog } from "../features/calendar/components/CurrentMemberPickerDialog";
 import { ProviderConnectionRow } from "../features/calendar/components/ProviderConnectionRow";
 import type { CalendarOwner } from "../features/calendar/data/calendarOwners";
@@ -407,6 +408,8 @@ function SettingsPage() {
         />
 
         <InviteCodeCard />
+
+        <ShareLinkCard />
 
         <Card>
           <CardContent sx={{ p: 3 }}>
