@@ -107,3 +107,13 @@ export async function destroySession<E extends { Bindings: Env }>(
 
   deleteCookie(c, sessionCookieName, { path: "/" });
 }
+
+// Sprint 24: en session slettes ellers kun, når den selv bruges efter
+// udløb (getSessionUser ovenfor) — sessioner der aldrig bruges igen (fx en
+// enhed der forsvinder) blev aldrig ryddet op. Kaldes fra scheduled()
+// i index.ts (Cron Trigger), ikke fra en bruger-request.
+export async function cleanupExpiredSessions(env: Env): Promise<void> {
+  await env.DB.prepare("DELETE FROM sessions WHERE expires_at < ?")
+    .bind(new Date().toISOString())
+    .run();
+}

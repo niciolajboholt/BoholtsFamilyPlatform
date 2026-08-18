@@ -2,13 +2,14 @@
 
 > Status: Active
 
-Version: 1.10
+Version: 1.11
 
 Project:
 Boholts Family Platform
 
 Last Updated:
-2026-08-13 (Sprint 17–19 og Sprint 20 (ADR-017, i gang) tilføjet til nedenstående oversigt; se 05_Sprint_History.md for detaljer)
+2026-08-18 (Sprint 20-23 markeret gennemført; ny Sprint 24-28-roadmap
+tilføjet efter eksternt review 2026-08-18, se Sprint24-planen)
 
 Owner:
 Nicolaj Bach Boholt
@@ -26,9 +27,23 @@ Dette dokument samler den planlagte udviklingsretning fra `Product/07_Product_Ro
 
 ## Nuværende status
 
-Fase 1 (Proof of Concept) er delvist gennemført: familieoverblik, kalendervisning, og opret/redigér/slet af aftaler findes. Google Calendar-integration er gennemført med både læse- og skriveadgang samt stille genoprettelse ved appstart (ud over hvad Fase 1 oprindeligt krævede). Sprint 13 tilføjede automatiseret test (Vitest) og formaliserede platformstrategien som ADR-10. Sprint 15 gjorde familiemedlemmer til dynamisk, redigerbar data (navn, relation, farve, tilføj/slet) i stedet for en fast liste. Sprint 16 tilføjede gentagne aftaler, Sprint 17 førstegangs-onboarding (ADR-015), Sprint 18 en Outlook-kalenderintegration (ADR-016, aktuelt deaktiveret i kode, afventer IT-godkendelse), og Sprint 19 en dags- og "side-by-side" familieplanlægger-visning. v1.1 (Sprint 0–19) er released til `main`. Sprint 20 (ADR-017) er i gang: en Cloudflare Worker + D1-server, der erstatter ADR-009/ADR-011 og gør appen multi-tenant/delt på tværs af devices — se ADR-017 i `01_Project_Documentation/Architecture/05_ADR_Architecture_Decisions.md` og Sprint 20-afsnittet i [05_Sprint_History](05_Sprint_History.md) for fase-status. Se [05_Sprint_History](05_Sprint_History.md).
+v1.1 (Sprint 0–19) blev released til `main`: familieoverblik,
+kalendervisning (måned/uge/dag/side-by-side), Google Calendar (læse- og
+skriveadgang, stille genoprettelse), gentagne aftaler, dynamiske
+familiemedlemmer, førstegangs-onboarding (ADR-015), Outlook-integration
+(ADR-016, deaktiveret i kode, afventer IT-godkendelse). Sprint 20 (ADR-017)
+erstattede derefter hele klient-only-arkitekturen med en Cloudflare Worker +
+D1-server: server-ejet Google-login, familier/medlemskab/invitationer,
+server-styret Google Calendar-sync, delt kalender-til-familiemedlem-
+tildeling på tværs af devices. Sprint 21 tilføjede Web Push (VAPID) og en
+delt indkøbsliste. Sprint 22 udvidede indkøbslisten til flere navngivne,
+typede lister. Sprint 23 tilføjede en Tiimo-inspireret opgave-/rutineløsning
+samt et AI-modul via Cloudflare Workers AI. Alle fire er merget til `main`.
+Se [05_Sprint_History](05_Sprint_History.md) for fuld detalje pr. sprint.
 
-Ikke inkluderet endnu, som forudsat i Release Plan: login, deling mellem brugere, push-notifikationer, widgets.
+Den nye roadmap efter Sprint 23 (Sprint 24-28, se nedenfor) blev besluttet
+efter et eksternt review 2026-08-18 — se
+`01_Project_Documentation/Development/24_Sprint24_Drift_Hygiejne_Plan.md`.
 
 ---
 
@@ -104,40 +119,59 @@ Dette vurderes at være en væsentligt større og mere risikofyldt ændring end 
 
 ---
 
-## Fase 2 — MVP
+## Sprint 20-23 — Gennemført
 
-- ~~Personlige farver og redigerbare familiemedlemmer~~ — se Sprint 15 ovenfor.
-- ~~Gentagne aftaler~~ — se Sprint 16 ovenfor (gennemført).
-- Familie-tidslinje.
-- Konfliktvisning.
-- Notifikationer.
+Se sammenfatningen under "Nuværende status" ovenfor og
+[05_Sprint_History](05_Sprint_History.md) for fuld detalje.
 
 ---
 
-## Fase 3 — Udvidelser
+## Sprint 24-28 — Ny roadmap efter eksternt review (2026-08-18)
 
-- Apple Calendar-integration.
-- Outlook-integration.
-- Widgets.
-- Apple Watch.
+Besluttet i chat 2026-08-18, efter et nyt uafhængigt review pegede på
+dokumentationsdrift og et par mindre driftsrisici. Se
+`01_Project_Documentation/Development/24_Sprint24_Drift_Hygiejne_Plan.md`
+for det fulde Sprint 24-indhold.
+
+- **Sprint 24 — Drift-hygiejne**: README/CHANGELOG-oprydning, bekræftelse af
+  `secrets_store_secrets`-navne i produktion, Cron Trigger til periodisk
+  session-oprydning, rate-limiting på invite-accept, Dependabot.
+- **Sprint 25**: `nextSyncToken`-inkrementel Google-sync (tidligere
+  nedprioriteret, se Fase 2/F-05 ovenfor) + et rigtigt PWA-ikonsæt i flere
+  PNG-størrelser (i dag kun ét SVG-ikon, se Fase 3-noten under Sprint 15's
+  stabiliseringsmilepæl).
+- **Sprint 26**: kalender-konfliktdetektion + en read-only delelink til
+  familiens kalender.
+- **Sprint 27**: tidsbaserede rutine-/opgave-påmindelser (kræver en ny type
+  infrastruktur — Cloudflare Cron Trigger — som Sprint 24 introducerer i
+  lille skala til session-oprydning).
+- **Sprint 28**: AI-ugeresumé til familien, via Cloudflare Workers AI (samme
+  mønster som Sprint 23's AI-modul).
 
 ---
 
-## Fase 4 — Family OS
+## Fase 4 — Family OS (udskudt)
 
-- Opgavestyring.
+**Status: udskudt indtil videre — besluttet i chat 2026-08-18 ("Vent til
+senere").** Opgavestyring og indkøbslister (to af de oprindelige
+Fase 4-punkter) er allerede leveret i Sprint 21-23, langt tidligere end
+oprindeligt planlagt. Tilbageværende Fase 4-omfang, som ikke er en del af
+Sprint 24-28:
+
 - Madplanlægning.
-- Indkøbslister.
-- AI-familieassistent.
+- Budget.
+- Dokumenter.
+- En bredere AI-familieassistent (ud over Sprint 23/28's afgrænsede
+  rutine-/ingrediens-/ugeresumé-forslag).
 
 ---
 
-## Versionsplan (jf. Release Plan)
+## Versionsplan (historisk — se Sprint 20-28 ovenfor for det faktiske forløb)
 
-- **v1.0**: Familieoversigt, kalender, Google Calendar, offline first, agenda-, uge- og månedvisning, opret/redigér/slet aftaler, familieprofiler.
-- **v1.1**: Widgets, Apple Calendar, hurtige handlinger, flere kalenderfiltre.
-- **v1.2**: Opgaver, indkøbsliste, påmindelser, gentagne aftaler.
-- **v2.0**: Budget, madplan, dokumenter, ferieplanlægning, AI-assistent.
+- ~~**v1.0**: Familieoversigt, kalender, Google Calendar, offline first, agenda-, uge- og månedvisning, opret/redigér/slet aftaler, familieprofiler.~~ Gennemført, Sprint 0-14.
+- ~~**v1.1**: Widgets, Apple Calendar, hurtige handlinger, flere kalenderfiltre.~~ Delvist erstattet — i stedet blev Sprint 15-19 gentagne aftaler, onboarding, Outlook og dags-/side-by-side-visning; widgets/Apple Calendar er ikke bygget.
+- ~~**v1.2**: Opgaver, indkøbsliste, påmindelser, gentagne aftaler.~~ Gennemført langt tidligere end planlagt, som Sprint 20-23 (multi-tenant server, indkøbsliste, opgaver/rutiner) i stedet for en selvstændig "v1.2".
+- **v2.0**: Budget, madplan, dokumenter, ferieplanlægning, AI-assistent — se "Fase 4 — Family OS (udskudt)" ovenfor.
 
 ---
 

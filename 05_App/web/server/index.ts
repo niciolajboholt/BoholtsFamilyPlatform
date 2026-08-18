@@ -8,6 +8,8 @@ import familiesRoutes from "./routes/families";
 import pushRoutes from "./routes/push";
 import shoppingListsRoutes from "./routes/shoppingLists";
 import tasksRoutes from "./routes/tasks";
+import { cleanupOldRateLimitAttempts } from "./lib/rateLimit";
+import { cleanupExpiredSessions } from "./lib/session";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -48,4 +50,12 @@ app.get("/api/health", async (c) => {
 // "assets"-bindingen i wrangler.jsonc leverer.
 app.get("*", (c) => c.env.ASSETS.fetch(c.req.raw));
 
-export default app;
+export default {
+  fetch: app.fetch,
+  // Sprint 24: Cron Trigger (se wrangler.jsonc's "triggers"), rydder
+  // udløbne sessioner og gamle rate-limit-forsøg periodisk op.
+  async scheduled(_controller, env, ctx) {
+    ctx.waitUntil(cleanupExpiredSessions(env));
+    ctx.waitUntil(cleanupOldRateLimitAttempts(env.DB));
+  },
+} satisfies ExportedHandler<Env>;

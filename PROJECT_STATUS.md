@@ -1,12 +1,12 @@
 # Projektstatus
 
-Senest opdateret: 2026-08-16
+Senest opdateret: 2026-08-18
 
 ## Aktuel fase
 
-Sprint 23 er gennemført og deployet til `develop`. `main` indeholder
-t.o.m. Sprint 22 — Sprint 23 er endnu ikke merget dertil. Ingen aktiv
-sprint lige nu.
+Sprint 23 er gennemført og merget til `main` (PR #34). Sprint 24
+(drift-hygiejne) er i gang — se
+`01_Project_Documentation/Development/24_Sprint24_Drift_Hygiejne_Plan.md`.
 
 ## Leveret
 
@@ -37,7 +37,7 @@ sprint lige nu.
 
 ## Kvalitetsstatus
 
-`develop` består (Sprint 23 endnu ikke merget til `main`):
+`develop` og `main` er ens t.o.m. Sprint 23:
 
 - `npm run lint`
 - `npm run build`
@@ -50,5 +50,8 @@ ende-til-ende, og opgave-/AI-modulet.
 
 ## Næste skridt
 
-Ingen aktiv sprint. Kandidater: flere Google-konti pr. familie (kræver
-egen ADR), merge Sprint 23 til `main`.
+Sprint 24 (drift-hygiejne) er i gang. Herefter: Sprint 25
+(kalender-sync/PWA-ikoner), 26 (kalender-konflikter/delelink), 27
+(tidsbaserede påmindelser), 28 (AI-ugeresumé) — se
+`01_Project_Documentation/AI_Knowledge_Base/10_Future_Roadmap.md`. Flere
+Google-konti pr. familie forbliver ikke planlagt (kræver egen ADR).

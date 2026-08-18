@@ -1,5 +1,42 @@
 # Changelog
 
+## Sprint 23 — Opgaver (Tiimo-inspireret) + AI-modul
+
+- Tiimo-inspireret opgaveløsning: engangsopgaver og faste rutiner, dovent
+  materialiseret dag for dag (ingen Cloudflare Cron Trigger nødvendig),
+  personlige eller familie-rettede, "Min dag"/"Familien"-visning.
+- AI-modul via Cloudflare Workers AI: rutine-forslag fra fritekst,
+  indkøbsliste-ingredienser fra en ret — altid som et udkast, intet gemmes
+  automatisk uden en menneskelig godkendelse.
+
+## Sprint 22 — Flere navngivne indkøbslister med type
+
+- Flere navngivne indkøbslister med fast type (dagligvarer/byggemarked/
+  andet), hver med eget kategorisæt/ordbog og selvlæring pr. familie og
+  type.
+- Redigering af listenavn, varenavn og manuel kategori-rettelse.
+- Byggemarked-ordbogen eksporteret til Excel til fælles KS/udvidelse.
+
+## Sprint 21 — Push-notifikationer + delt indkøbsliste
+
+- Web Push (VAPID)-fundament, brugt af både kalender (ny/ændret/slettet
+  aftale) og en ny, delt indkøbsliste pr. familie (ny vare) — afsenderen
+  selv undtaget.
+- Selvlærende dansk kategori-ordbog til indkøbslisten.
+- Bekræftet ende-til-ende på tværs af familiemedlemmer, inkl. iOS
+  Safari-push.
+
+## Sprint 20 — Multi-tenant familie-server (ADR-017)
+
+- Ny Cloudflare Worker + D1-backend, der erstatter den klient-only PWA.
+- Server-ejet Google-login (krypteret refresh token i D1) og
+  server-styret Google Calendar-sync.
+- Familier: oprettelse, invitationer, medlemskab (ejer/admin/medlem).
+- Kalender-til-familiemedlem-tildeling delt på tværs af familiens devices
+  (D1) i stedet for kun lokalt.
+- Det lokale (ikke-Google) aftale-lag fjernet — alle aftaler ejes af en
+  ekstern kalender.
+
 ## Version 1.1
 
 - Ny dagsvisning (time-for-time-tidslinje) og "Side by side"-familieplanlægger

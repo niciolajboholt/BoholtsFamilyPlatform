@@ -4,7 +4,14 @@ import { Hono } from "hono";
 import type { Env } from "../env";
 import { familyMemberSeeds, generateInviteCode } from "../lib/familySeed";
 import { getMembership, getMembershipForFamily } from "../lib/familyMembership";
+import { checkRateLimit } from "../lib/rateLimit";
 import { getSessionUser, type SessionUser } from "../lib/session";
+
+// Sprint 24: en invitationskode har rigelig entropi til at gøre reel
+// brute-force upraktisk (8 tegn fra et 33-tegns alfabet), men uden nogen
+// grænse kunne en logget-ind bruger stadig hamre løs på ruten. 10 forsøg
+// pr. 10 minutter er rigeligt til en legitim brugers tastefejl.
+const inviteAcceptRateLimit = { maxAttempts: 10, windowMs: 10 * 60 * 1000 };
 
 type Variables = { user: SessionUser };
 const families = new Hono<{ Bindings: Env; Variables: Variables }>();
@@ -171,6 +178,16 @@ families.get("/mine", async (c) => {
 families.post("/invites/:code/accept", async (c) => {
   const user = c.get("user");
   const code = c.req.param("code").trim().toUpperCase();
+
+  const { allowed } = await checkRateLimit(c.env.DB, {
+    scope: "invite-accept",
+    key: user.id,
+    ...inviteAcceptRateLimit,
+  });
+
+  if (!allowed) {
+    return c.json({ error: "For mange forsøg. Prøv igen om lidt." }, 429);
+  }
 
   const existing = await getMembership(c.env.DB, user.id);
 

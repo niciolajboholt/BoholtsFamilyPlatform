@@ -161,6 +161,48 @@ describe("families routes", () => {
 
       expect(response.status).toBe(404);
     });
+
+    it("rejects further attempts after too many invalid codes (rate-limit)", async () => {
+      const { cookieHeader } = await seedLoggedInUser(env.DB as never, { id: "someone" });
+
+      let lastResponse: Response | undefined;
+      for (let i = 0; i < 11; i++) {
+        lastResponse = await families.request(
+          "/invites/NOTREAL1/accept",
+          { method: "POST", headers: { Cookie: cookieHeader } },
+          env,
+        );
+      }
+
+      expect(lastResponse?.status).toBe(429);
+    });
+
+    it("does not rate-limit a different user's attempts", async () => {
+      const { cookieHeader: hammered } = await seedLoggedInUser(env.DB as never, {
+        id: "attacker",
+      });
+      for (let i = 0; i < 10; i++) {
+        await families.request(
+          "/invites/NOTREAL1/accept",
+          { method: "POST", headers: { Cookie: hammered } },
+          env,
+        );
+      }
+
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader, "Boholt");
+      const { cookieHeader: freshUser } = await seedLoggedInUser(env.DB as never, {
+        id: "christine",
+      });
+
+      const response = await families.request(
+        `/invites/${created.inviteCode}/accept`,
+        { method: "POST", headers: { Cookie: freshUser } },
+        env,
+      );
+
+      expect(response.status).toBe(200);
+    });
   });
 
   describe("POST /:id/invites/regenerate", () => {
