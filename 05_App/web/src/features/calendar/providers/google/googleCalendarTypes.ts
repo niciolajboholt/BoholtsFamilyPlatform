@@ -43,4 +43,8 @@ export interface GoogleCalendarEventRequest {
 export interface GoogleCalendarEventsResponse {
   items?: GoogleCalendarEvent[];
   nextPageToken?: string;
+  // Sprint 25: kun til stede på svarets sidste side (når nextPageToken er
+  // fraværende) — bruges til den næste inkrementelle synk i stedet for
+  // timeMin/timeMax. Se GoogleCalendarProvider.getEvents().
+  nextSyncToken?: string;
 }

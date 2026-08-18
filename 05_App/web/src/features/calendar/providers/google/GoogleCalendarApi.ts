@@ -42,24 +42,36 @@ function toProviderError(response: Response): CalendarProviderError {
   );
 }
 
+export interface GoogleCalendarEventsPage {
+  events: GoogleCalendarEvent[];
+  nextSyncToken?: string;
+}
+
 export class GoogleCalendarApi {
   async listCalendars(): Promise<GoogleCalendarListEntry[]> {
     return this.fetchAllPages<GoogleCalendarListResponse>("/calendars");
   }
 
+  // Sprint 25: to hentemåder. Med "range" hentes alt i tidsvinduet (dagens
+  // adfærd, bruges ved første synk eller når et syncToken er udløbet).
+  // Med "syncToken" sender Google kun ÆNDRINGER siden sidst — Googles API
+  // tillader ikke at kombinere syncToken med timeMin/timeMax/singleEvents/
+  // orderBy, så de to grene sender helt forskellige forespørgselsparametre.
   async listEvents(
     calendarId: string,
-    range: CalendarEventRange,
-  ): Promise<GoogleCalendarEvent[]> {
-    return this.fetchAllPages<GoogleCalendarEventsResponse>(
-      `/calendars/${encodeURIComponent(calendarId)}/events`,
-      {
-        timeMin: range.start,
-        timeMax: range.end,
-        singleEvents: "true",
-        orderBy: "startTime",
-      },
-    );
+    params: { range: CalendarEventRange } | { syncToken: string },
+  ): Promise<GoogleCalendarEventsPage> {
+    const query: Record<string, string> =
+      "syncToken" in params
+        ? { syncToken: params.syncToken }
+        : {
+            timeMin: params.range.start,
+            timeMax: params.range.end,
+            singleEvents: "true",
+            orderBy: "startTime",
+          };
+
+    return this.fetchEventPages(`/calendars/${encodeURIComponent(calendarId)}/events`, query);
   }
 
   createEvent(calendarId: string, request: GoogleCalendarEventRequest): Promise<GoogleCalendarEvent> {
@@ -100,6 +112,50 @@ export class GoogleCalendarApi {
     }).catch((error: unknown) => { throw new CalendarProviderError("network", "Google Kalender kunne ikke kontaktes. Dine lokale aftaler er ikke påvirket.", { cause: error }); });
     if (!response.ok) throw toProviderError(response);
     return response;
+  }
+
+  // Ligesom fetchAllPages, men bevarer nextSyncToken (kun til stede på
+  // svarets sidste side) — fetchAllPages selv kasserer alt undtagen items,
+  // og bruges fortsat af listCalendars(), som ikke har brug for et syncToken.
+  private async fetchEventPages(
+    path: string,
+    query: Record<string, string>,
+  ): Promise<GoogleCalendarEventsPage> {
+    const events: GoogleCalendarEvent[] = [];
+    let pageToken: string | undefined;
+    let nextSyncToken: string | undefined;
+
+    do {
+      const searchParams = new URLSearchParams(query);
+      if (pageToken) {
+        searchParams.set("pageToken", pageToken);
+      }
+
+      let response: Response;
+      try {
+        response = await fetch(
+          `${calendarApiBaseUrl}${path}?${searchParams.toString()}`,
+          { credentials: "same-origin" },
+        );
+      } catch (error: unknown) {
+        throw new CalendarProviderError(
+          "network",
+          "Google Kalender kunne ikke indlæses.",
+          { cause: error },
+        );
+      }
+
+      if (!response.ok) {
+        throw toProviderError(response);
+      }
+
+      const payload = await response.json() as GoogleCalendarEventsResponse;
+      events.push(...(payload.items ?? []));
+      pageToken = payload.nextPageToken;
+      nextSyncToken = payload.nextSyncToken ?? nextSyncToken;
+    } while (pageToken);
+
+    return { events, nextSyncToken };
   }
 
   private async fetchAllPages<
