@@ -1,8 +1,8 @@
 # 24_Sprint24_Drift_Hygiejne_Plan
 
-> Status: Godkendt, under udførelse
+> Status: Completed
 
-Version: 1.1
+Version: 1.2
 
 Project:
 Boholts Family Platform
@@ -145,10 +145,11 @@ Sprint 24 er første del af en ny roadmap besluttet i chat (2026-08-18):
    merget til `main` (PR #35, commit `58f23e6`). `main` og `develop`
    verificeret identiske (`git diff --stat` tomt).
 
-**Resterende, afventer Nicolaj**: migration 0009 skal køres manuelt på
-både beta og produktion (D1-migrationer anvendes aldrig automatisk af
-Workers Builds) og verificeres uafhængigt, samt bekræftelse af
-`secrets_store_secrets`-navne i produktion (opgave 1 ovenfor).
+**Migration 0009**: kørt og verificeret af Nicolaj på både
+`boholtsfamilyplatform` og `boholtsfamilyplatform-beta` (2026-08-18,
+`SELECT name FROM sqlite_master WHERE type = 'table' AND name =
+'rate_limit_attempts'` — samme resultat begge steder). Sammen med opgave
+1's bekræftelse er alle Sprint 24-opgaver nu afsluttet.
 
 ---
 
