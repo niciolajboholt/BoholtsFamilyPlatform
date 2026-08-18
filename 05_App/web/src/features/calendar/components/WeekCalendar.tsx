@@ -20,12 +20,14 @@ import {
   getDayActionLabel,
   getEventActionLabel,
 } from "../utils/calendarAccessibility";
+import ConflictBadge from "./ConflictBadge";
 
 interface WeekCalendarProps {
   selectedDate: Date;
   events: CalendarEvent[];
   members: readonly CalendarOwner[];
   selectedOwnerId?: CalendarOwnerId | "all";
+  conflictEventIds?: ReadonlySet<string>;
   onSelectDate: (date: Date) => void;
   onSelectEvent: (event: CalendarEvent) => void;
 }
@@ -81,6 +83,7 @@ interface EventCardProps {
   event: CalendarEvent;
   showTime: boolean;
   members: readonly CalendarOwner[];
+  isConflict: boolean;
   onSelectEvent: (event: CalendarEvent) => void;
 }
 
@@ -88,6 +91,7 @@ function EventCard({
   event,
   showTime,
   members,
+  isConflict,
   onSelectEvent,
 }: EventCardProps) {
   const ownerColor = getEventOwnerColor(event, members);
@@ -130,13 +134,17 @@ function EventCard({
         </Typography>
       )}
 
-      <Typography
-        variant="body2"
-        noWrap
-        sx={{ fontWeight: 600 }}
-      >
-        {event.title}
-      </Typography>
+      <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, minWidth: 0 }}>
+        <Typography
+          variant="body2"
+          noWrap
+          sx={{ fontWeight: 600, minWidth: 0 }}
+        >
+          {event.title}
+        </Typography>
+
+        <ConflictBadge isConflict={isConflict} />
+      </Box>
 
       <Box
         sx={{
@@ -183,6 +191,7 @@ function WeekCalendar({
   events,
   members,
   selectedOwnerId = "all",
+  conflictEventIds,
   onSelectDate,
   onSelectEvent,
 }: WeekCalendarProps) {
@@ -358,6 +367,9 @@ function WeekCalendar({
                             event={event}
                             showTime={false}
                             members={members}
+                            isConflict={
+                              conflictEventIds?.has(event.id) ?? false
+                            }
                             onSelectEvent={
                               onSelectEvent
                             }
@@ -421,6 +433,9 @@ function WeekCalendar({
                             event={event}
                             showTime
                             members={members}
+                            isConflict={
+                              conflictEventIds?.has(event.id) ?? false
+                            }
                             onSelectEvent={
                               onSelectEvent
                             }

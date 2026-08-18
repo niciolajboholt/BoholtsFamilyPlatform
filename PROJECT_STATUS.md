@@ -4,11 +4,10 @@ Senest opdateret: 2026-08-18
 
 ## Aktuel fase
 
-Sprint 23, 24 (drift-hygiejne) og 25 (kalender-sync + PWA-ikoner) er
-gennemført. Sprint 25's manuelle beta/produktions-test udestår (kræver
-browser, ikke en AI-agent-opgave) — se
+Sprint 23-26 er gennemført. Sprint 25 og 26's manuelle beta/produktions-test
+udestår begge (kræver browser, ikke en AI-agent-opgave) — se
 `01_Project_Documentation/AI_Knowledge_Base/10_Future_Roadmap.md` for
-Sprint 26-28.
+Sprint 27-28.
 
 ## Leveret
 
@@ -42,15 +41,20 @@ Sprint 26-28.
   forkastelig lokal klient-cache af aftaler pr. Google-kalender, med
   fuld-synk-fallback ved udløbet token) samt et rigtigt PNG-ikonsæt til
   PWA'en (192/512, maskable, apple-touch-icon) i stedet for kun ét SVG-ikon.
-- Vitest-testpakke (272 tests) + GitHub Actions-CI.
+- **Sprint 26**: vedvarende visuel konfliktmarkering i alle kalendervisninger
+  (måned/uge/dag/side-by-side/dagsliste), og en read-only delelink til
+  udvalgte familiemedlemmers kalendere for udenforstående (fx
+  bedsteforældre) uden login — appens første og eneste uautentificerede
+  API-rute, rate-limitet pr. token.
+- Vitest-testpakke (296 tests) + GitHub Actions-CI.
 
 ## Kvalitetsstatus
 
-`develop` og `main` er ens t.o.m. Sprint 24 (Sprint 25 afventer merge):
+`develop` og `main` er ens t.o.m. Sprint 24 (Sprint 25 og 26 afventer merge):
 
 - `npm run lint`
 - `npm run build`
-- `npm test` (252 tests)
+- `npm test` (296 tests)
 - Grøn GitHub Actions-CI og Cloudflare Workers Build (produktion + beta)
 
 Verificeret manuelt af Nicolaj og Christine på beta og produktion, inkl.
@@ -59,7 +63,7 @@ ende-til-ende, og opgave-/AI-modulet.
 
 ## Næste skridt
 
-Sprint 25's kode merges til `main`, når CI/Workers Builds er grønne.
-Kandidater herefter: Sprint 26 (kalender-konflikter/delelink), 27
-(tidsbaserede påmindelser), 28 (AI-ugeresumé) — se `10_Future_Roadmap.md`.
-Flere Google-konti pr. familie forbliver ikke planlagt (kræver egen ADR).
+Sprint 25 og 26's kode merges til `main`, når CI/Workers Builds er grønne.
+Kandidater herefter: Sprint 27 (tidsbaserede påmindelser), 28
+(AI-ugeresumé) — se `10_Future_Roadmap.md`. Flere Google-konti pr. familie
+forbliver ikke planlagt (kræver egen ADR).

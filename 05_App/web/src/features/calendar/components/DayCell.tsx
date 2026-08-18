@@ -15,6 +15,7 @@ import {
   getDayActionLabel,
   getEventActionLabel,
 } from "../utils/calendarAccessibility";
+import ConflictBadge from "./ConflictBadge";
 
 interface DayCellProps {
   date: Date;
@@ -23,6 +24,7 @@ interface DayCellProps {
   isCurrentMonth: boolean;
   isSelected: boolean;
   isToday: boolean;
+  conflictEventIds?: ReadonlySet<string>;
   onSelect: (date: Date) => void;
   onSelectEvent: (event: CalendarEvent) => void;
 }
@@ -172,6 +174,7 @@ function DayCell({
   isCurrentMonth,
   isSelected,
   isToday,
+  conflictEventIds,
   onSelect,
   onSelectEvent,
 }: DayCellProps) {
@@ -422,6 +425,10 @@ function DayCell({
                       >
                         {event.title}
                       </Typography>
+
+                      <ConflictBadge
+                        isConflict={conflictEventIds?.has(event.id) ?? false}
+                      />
 
                       {multiDayLabel && (
                         <Chip

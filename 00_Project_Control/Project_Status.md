@@ -4,11 +4,10 @@ Senest opdateret: 2026-08-18
 
 ## Aktuel fase
 
-Sprint 23 (Opgaver + AI-modul) og Sprint 24 (drift-hygiejne, efter et nyt
-eksternt review 2026-08-18) er begge gennemført og merget til `main`.
-Sprint 25 (kalender-sync + PWA-ikoner) er gennemført på `develop`; kun den
-manuelle beta/produktions-test (kræver browser, ikke en AI-agent-opgave)
-udestår før merge til `main`.
+Sprint 23 og 24 er gennemført og merget til `main`. Sprint 25 (kalender-sync
++ PWA-ikoner) og Sprint 26 (kalender-konflikter + delelink) er begge
+gennemført på `develop`; kun deres manuelle beta/produktions-test (kræver
+browser, ikke en AI-agent-opgave) udestår før merge til `main`.
 
 ## Gennemført
 
@@ -47,14 +46,21 @@ udestår før merge til `main`.
   og indkøbsliste-ingredienser ud fra en ret; intet gemmes automatisk uden
   et menneskes godkendelse. Bekræftet af Nicolaj på produktion.
 
+- **Sprint 24**: drift-hygiejne efter et eksternt review — README/CHANGELOG
+  ajourført til Worker+D1-arkitekturen, Cron Trigger til periodisk
+  session-/rate-limit-oprydning, rate-limiting på invite-accept, Dependabot.
 - **Sprint 25**: inkrementel Google-kalendersynk (`nextSyncToken`) via en ny,
   forkastelig lokal klient-cache af aftaler pr. Google-kalender (med
   fuld-synk-fallback ved udløbet token) samt et rigtigt PNG-ikonsæt til
   PWA'en (192/512, maskable, apple-touch-icon).
+- **Sprint 26**: vedvarende visuel konfliktmarkering i alle
+  kalendervisninger, og en read-only delelink til udvalgte
+  familiemedlemmers kalendere for udenforstående uden login — appens
+  første og eneste uautentificerede API-rute, rate-limitet pr. token.
 
 ## Næste fase
 
-Sprint 25 merges til `main`, når CI/Workers Builds er grønne. Kandidater
-herefter: Sprint 26-28 (kalender-konflikter/delelink, tidsbaserede
-påmindelser, AI-ugeresumé) — se `10_Future_Roadmap.md`. Flere Google-konti
-pr. familie forbliver ikke planlagt (kræver egen ADR).
+Sprint 25 og 26 merges til `main`, når CI/Workers Builds er grønne.
+Kandidater herefter: Sprint 27 (tidsbaserede påmindelser), 28
+(AI-ugeresumé) — se `10_Future_Roadmap.md`. Flere Google-konti pr. familie
+forbliver ikke planlagt (kræver egen ADR).

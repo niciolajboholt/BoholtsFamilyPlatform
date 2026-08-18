@@ -40,6 +40,7 @@ import type { CreateCalendarEventInput } from "../features/calendar/models/calen
 import type { CalendarEventRange } from "../features/calendar/models/calendarProvider";
 import type { CalendarView } from "../features/calendar/models/calendarView";
 import { expandRecurringEvents } from "../features/calendar/utils/expandRecurringEvents";
+import { findAllCalendarConflicts } from "../features/calendar/utils/findAllCalendarConflicts";
 import { getEventsForDate } from "../features/calendar/utils/getEventsForDate";
 
 type SnackbarSeverity =
@@ -330,6 +331,14 @@ function CalendarPage() {
         visibleSourceIds.has(event.sourceId),
       );
     }, [expandedEvents, visibleCalendarSourceIds]);
+
+  // Sprint 26: vedvarende visuel markering af overlappende aftaler direkte i
+  // kalendervisningen — beregnes over det viste sæt (samme grundlag som
+  // eventsForSelectedDate nedenfor), ikke over ALLE hentede aftaler.
+  const conflictEventIds = useMemo(
+    () => findAllCalendarConflicts(visibleEvents),
+    [visibleEvents],
+  );
 
   // Planlæggeren udfolder selv gentagne aftaler internt over sit eget,
   // dynamisk voksende rulle-vindue (se FamilyPlannerCalendar) — sourceId er
@@ -877,6 +886,7 @@ function CalendarPage() {
           selectedDate={selectedDate}
           events={visibleEvents}
           members={members}
+          conflictEventIds={conflictEventIds}
           onSelectDate={handleSelectDate}
           onSelectEvent={handleSelectEvent}
         />
@@ -885,6 +895,7 @@ function CalendarPage() {
           selectedDate={selectedDate}
           events={visibleEvents}
           members={members}
+          conflictEventIds={conflictEventIds}
           onSelectDate={handleSelectDate}
           onSelectEvent={handleSelectEvent}
         />
@@ -893,6 +904,7 @@ function CalendarPage() {
           selectedDate={selectedDate}
           events={visibleEvents}
           members={members}
+          conflictEventIds={conflictEventIds}
           onSelectEvent={handleSelectEvent}
         />
       ) : (
@@ -910,6 +922,7 @@ function CalendarPage() {
           selectedDate={selectedDate}
           events={eventsForSelectedDate}
           members={members}
+          conflictEventIds={conflictEventIds}
           onSelectEvent={handleSelectEvent}
         />
       )}

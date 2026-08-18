@@ -23,6 +23,7 @@ import {
 } from "../models/calendarEvent";
 import type { RecurrenceException } from "../preferences/recurrenceExceptionsStorage";
 import { expandRecurringEvents } from "../utils/expandRecurringEvents";
+import { findAllCalendarConflicts } from "../utils/findAllCalendarConflicts";
 import { getDayKey, groupEventsByDay } from "../utils/groupEventsByDay";
 import { getIsoWeekNumber } from "../utils/getIsoWeekNumber";
 import {
@@ -30,6 +31,7 @@ import {
   windowReducer,
 } from "../utils/plannerWindowReducer";
 import { getEventActionLabel } from "../utils/calendarAccessibility";
+import ConflictBadge from "./ConflictBadge";
 import EventSourceBadge from "./EventSourceBadge";
 
 interface FamilyPlannerCalendarProps {
@@ -166,6 +168,11 @@ function FamilyPlannerCalendar({
         recurrenceExceptions,
       ),
     [events, windowRange, recurrenceExceptions],
+  );
+
+  const conflictEventIds = useMemo(
+    () => findAllCalendarConflicts(expandedEvents),
+    [expandedEvents],
   );
 
   const eventsByDay = useMemo(
@@ -512,6 +519,10 @@ function FamilyPlannerCalendar({
                                   </Typography>
 
                                   <EventSourceBadge source={event.source} />
+
+                                  <ConflictBadge
+                                    isConflict={conflictEventIds.has(event.id)}
+                                  />
                                 </Box>
 
                                 <Typography

@@ -23,6 +23,7 @@ interface MonthCalendarProps {
   events: CalendarEvent[];
   members: readonly CalendarOwner[];
   selectedOwnerId?: CalendarOwnerId | "all";
+  conflictEventIds?: ReadonlySet<string>;
   onSelectDate: (date: Date) => void;
   onSelectEvent: (event: CalendarEvent) => void;
 }
@@ -67,6 +68,7 @@ function MonthCalendar({
   events,
   members,
   selectedOwnerId = "all",
+  conflictEventIds,
   onSelectDate,
   onSelectEvent,
 }: MonthCalendarProps) {
@@ -158,6 +160,7 @@ function MonthCalendar({
                     date,
                     today,
                   )}
+                  conflictEventIds={conflictEventIds}
                   onSelect={onSelectDate}
                   onSelectEvent={
                     onSelectEvent

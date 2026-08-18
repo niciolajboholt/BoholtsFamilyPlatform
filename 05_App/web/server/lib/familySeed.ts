@@ -29,3 +29,21 @@ export function generateInviteCode(): string {
 
   return code;
 }
+
+// Sprint 26: familiens delelink-token. I modsætning til invitationskoden
+// (som et menneske taster ind, derfor kort og fra et læsevenligt alfabet)
+// bliver dette kopieret/delt direkte som en URL — langt nok (32 bytes) til
+// at være praktisk ugætteligt.
+export function generateShareToken(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(32));
+  let binary = "";
+
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte);
+  }
+
+  return btoa(binary)
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+}

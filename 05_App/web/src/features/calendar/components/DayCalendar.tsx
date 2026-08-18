@@ -15,11 +15,13 @@ import type { CalendarEvent } from "../models/calendarEvent";
 import { getEventsForDate } from "../utils/getEventsForDate";
 import { layoutDayTimelineEvents } from "../utils/layoutDayTimelineEvents";
 import { getEventActionLabel } from "../utils/calendarAccessibility";
+import ConflictBadge from "./ConflictBadge";
 
 interface DayCalendarProps {
   selectedDate: Date;
   events: CalendarEvent[];
   members: readonly CalendarOwner[];
+  conflictEventIds?: ReadonlySet<string>;
   onSelectEvent: (event: CalendarEvent) => void;
 }
 
@@ -63,6 +65,7 @@ function DayCalendar({
   selectedDate,
   events,
   members,
+  conflictEventIds,
   onSelectEvent,
 }: DayCalendarProps) {
   const isToday = isSameDate(selectedDate, new Date());
@@ -156,13 +159,19 @@ function DayCalendar({
                       },
                     }}
                   >
-                    <Typography
-                      variant="body2"
-                      noWrap
-                      sx={{ fontWeight: 600 }}
-                    >
-                      {event.title}
-                    </Typography>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, minWidth: 0 }}>
+                      <Typography
+                        variant="body2"
+                        noWrap
+                        sx={{ fontWeight: 600, minWidth: 0 }}
+                      >
+                        {event.title}
+                      </Typography>
+
+                      <ConflictBadge
+                        isConflict={conflictEventIds?.has(event.id) ?? false}
+                      />
+                    </Box>
                   </ButtonBase>
                 );
               })}
@@ -299,13 +308,19 @@ function DayCalendar({
                       {formatEventTimeRange(entry.event)}
                     </Typography>
 
-                    <Typography
-                      variant="body2"
-                      noWrap
-                      sx={{ display: "block", fontWeight: 600 }}
-                    >
-                      {entry.event.title}
-                    </Typography>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, minWidth: 0 }}>
+                      <Typography
+                        variant="body2"
+                        noWrap
+                        sx={{ display: "block", fontWeight: 600, minWidth: 0 }}
+                      >
+                        {entry.event.title}
+                      </Typography>
+
+                      <ConflictBadge
+                        isConflict={conflictEventIds?.has(entry.event.id) ?? false}
+                      />
+                    </Box>
                   </ButtonBase>
                 );
               })}

@@ -1,5 +1,14 @@
 # Changelog
 
+## Sprint 26 — Kalender-konflikter + delelink
+
+- Vedvarende visuel markering af overlappende aftaler direkte i
+  kalendervisningen (måned/uge/dag/side-by-side/dagsliste) — tidligere
+  fandtes konfliktdetektion kun midlertidigt i opret/redigér-dialogen.
+- Read-only delelink til udvalgte familiemedlemmers kalendere, til
+  udenforstående (fx bedsteforældre) uden login. Kan til enhver tid
+  deaktiveres/regenereres fra Indstillinger.
+
 ## Sprint 25 — Kalender-sync + PWA-ikoner
 
 - Inkrementel Google Calendar-synk (`nextSyncToken`): en gentaget

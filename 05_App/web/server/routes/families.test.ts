@@ -254,6 +254,150 @@ describe("families routes", () => {
     });
   });
 
+  describe("share-link", () => {
+    it("GET returns null when no link has been created", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader);
+
+      const response = await families.request(
+        `/${created.family.id}/share-link`,
+        { headers: { Cookie: owner.cookieHeader } },
+        env,
+      );
+
+      expect(await response.json()).toEqual({ shareLink: null });
+    });
+
+    it("POST rejects a plain member", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader);
+      const member = await seedLoggedInUser(env.DB as never, { id: "member" });
+      await families.request(
+        `/invites/${created.inviteCode}/accept`,
+        { method: "POST", headers: { Cookie: member.cookieHeader } },
+        env,
+      );
+
+      const response = await families.request(
+        `/${created.family.id}/share-link`,
+        {
+          method: "POST",
+          headers: { Cookie: member.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({ memberIds: [created.members[0].id] }),
+        },
+        env,
+      );
+
+      expect(response.status).toBe(403);
+    });
+
+    it("POST rejects an empty member selection", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader);
+
+      const response = await families.request(
+        `/${created.family.id}/share-link`,
+        {
+          method: "POST",
+          headers: { Cookie: owner.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({ memberIds: [] }),
+        },
+        env,
+      );
+
+      expect(response.status).toBe(400);
+    });
+
+    it("POST rejects a member id that does not belong to the family", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader);
+
+      const response = await families.request(
+        `/${created.family.id}/share-link`,
+        {
+          method: "POST",
+          headers: { Cookie: owner.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({ memberIds: ["not-a-real-member"] }),
+        },
+        env,
+      );
+
+      expect(response.status).toBe(400);
+    });
+
+    it("POST creates a link, GET then returns it, and regenerating issues a different token", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader);
+      const [firstMember, secondMember] = created.members;
+
+      const createResponse = await families.request(
+        `/${created.family.id}/share-link`,
+        {
+          method: "POST",
+          headers: { Cookie: owner.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({ memberIds: [firstMember.id, secondMember.id] }),
+        },
+        env,
+      );
+      const createBody: { shareLink: { token: string; includedMemberIds: string[] } } =
+        await createResponse.json();
+
+      expect(createResponse.status).toBe(200);
+      expect([...createBody.shareLink.includedMemberIds].sort()).toEqual(
+        [firstMember.id, secondMember.id].sort(),
+      );
+
+      const getResponse = await families.request(
+        `/${created.family.id}/share-link`,
+        { headers: { Cookie: owner.cookieHeader } },
+        env,
+      );
+      expect(await getResponse.json()).toEqual(createBody);
+
+      const regenerateResponse = await families.request(
+        `/${created.family.id}/share-link`,
+        {
+          method: "POST",
+          headers: { Cookie: owner.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({ memberIds: [firstMember.id] }),
+        },
+        env,
+      );
+      const regenerateBody: { shareLink: { token: string } } = await regenerateResponse.json();
+
+      expect(regenerateBody.shareLink.token).not.toBe(createBody.shareLink.token);
+    });
+
+    it("DELETE deactivates the link so GET no longer returns it", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader);
+
+      await families.request(
+        `/${created.family.id}/share-link`,
+        {
+          method: "POST",
+          headers: { Cookie: owner.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({ memberIds: [created.members[0].id] }),
+        },
+        env,
+      );
+
+      const deleteResponse = await families.request(
+        `/${created.family.id}/share-link`,
+        { method: "DELETE", headers: { Cookie: owner.cookieHeader } },
+        env,
+      );
+      expect(deleteResponse.status).toBe(200);
+
+      const getResponse = await families.request(
+        `/${created.family.id}/share-link`,
+        { headers: { Cookie: owner.cookieHeader } },
+        env,
+      );
+      expect(await getResponse.json()).toEqual({ shareLink: null });
+    });
+  });
+
   describe("PATCH /:id (rename)", () => {
     it("rejects a non-admin", async () => {
       const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });

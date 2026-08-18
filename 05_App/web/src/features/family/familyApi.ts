@@ -162,3 +162,29 @@ export function clearAllCalendarMappings(familyId: string) {
     { method: "DELETE" },
   );
 }
+
+// Sprint 26: read-only delelink til familiens kalender.
+export interface ShareLinkDto {
+  token: string;
+  includedMemberIds: string[];
+}
+
+export function getShareLink(familyId: string) {
+  return request<{ shareLink?: ShareLinkDto | null; error?: string }>(
+    `/api/families/${familyId}/share-link`,
+  );
+}
+
+export function createShareLink(familyId: string, memberIds: string[]) {
+  return request<{ shareLink?: ShareLinkDto; error?: string }>(
+    `/api/families/${familyId}/share-link`,
+    { method: "POST", body: JSON.stringify({ memberIds }) },
+  );
+}
+
+export function deleteShareLink(familyId: string) {
+  return request<{ ok?: boolean; error?: string }>(
+    `/api/families/${familyId}/share-link`,
+    { method: "DELETE" },
+  );
+}
