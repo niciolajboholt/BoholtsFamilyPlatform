@@ -47,7 +47,7 @@ interface QuickAction {
 const quickActions: QuickAction[] = [
   { title: "Ny aftale", icon: <AddRounded />, isComingSoon: false },
   { title: "Indkøbsliste", icon: <ShoppingCartOutlined />, isComingSoon: false },
-  { title: "Opgaver", icon: <CheckCircleOutlineRounded />, isComingSoon: true },
+  { title: "Opgaver", icon: <CheckCircleOutlineRounded />, isComingSoon: false },
 ];
 
 function formatEventTime(value: string, allDay: boolean): string {
@@ -363,6 +363,8 @@ function HomePage() {
                     navigate("/calendar");
                   } else if (action.title === "Indkøbsliste") {
                     navigate("/shopping-list");
+                  } else if (action.title === "Opgaver") {
+                    navigate("/tasks");
                   }
                 }}
                 sx={{

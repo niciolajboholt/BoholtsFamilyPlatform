@@ -6,12 +6,14 @@ import {
   clearCheckedShoppingListItems,
   createShoppingList,
   deleteShoppingListItem,
+  generateIngredientsDraft,
   getShoppingListItems,
   getShoppingLists,
   renameShoppingList,
   renameShoppingListItem,
   setShoppingListItemCategory,
   setShoppingListItemChecked,
+  type IngredientDraftItem,
   type ShoppingCategory,
   type ShoppingListDto,
   type ShoppingListItemDto,
@@ -33,6 +35,8 @@ interface UseShoppingListResult {
   renameItem: (itemId: string, name: string) => void;
   deleteItem: (itemId: string) => void;
   clearChecked: () => void;
+  suggestIngredients: (dish: string) => Promise<IngredientDraftItem[]>;
+  addSuggestedItems: (itemNames: string[]) => Promise<void>;
 }
 
 /**
@@ -256,6 +260,52 @@ export function useShoppingList(): UseShoppingListResult {
     withMutation(() => clearCheckedShoppingListItems(familyId, selectedListId));
   }, [familyId, selectedListId, withMutation]);
 
+  // Returnerer AI'ens forslag, uden at gemme noget — kalderen (UI'et) viser
+  // dem som afkrydsningsbare forslag og beslutter selv, hvilke der reelt
+  // skal tilføjes via addSuggestedItems.
+  const suggestIngredients = useCallback(
+    async (dish: string): Promise<IngredientDraftItem[]> => {
+      if (!familyId || !selectedListId || !dish.trim()) {
+        return [];
+      }
+
+      const result = await generateIngredientsDraft(familyId, selectedListId, dish.trim());
+
+      if (!result.ok || !result.data.items) {
+        throw new Error(result.data.error ?? "Kunne ikke generere et forslag.");
+      }
+
+      return result.data.items;
+    },
+    [familyId, selectedListId],
+  );
+
+  // Tilføjes ét ad gangen (afventet, ikke parallelt) — undgår at flere
+  // samtidige POST-svar med hver deres "fulde liste på det tidspunkt"
+  // kapløber om at være det sidste, der sætter tilstanden.
+  const addSuggestedItems = useCallback(
+    async (itemNames: string[]): Promise<void> => {
+      if (!familyId || !selectedListId) {
+        return;
+      }
+
+      setError(null);
+
+      try {
+        for (const name of itemNames) {
+          const result = await addShoppingListItem(familyId, selectedListId, name);
+
+          if (result.ok && result.data.items) {
+            setItems(result.data.items);
+          }
+        }
+      } catch {
+        setError("Varerne kunne ikke tilføjes. Prøv igen.");
+      }
+    },
+    [familyId, selectedListId],
+  );
+
   return {
     isLoading,
     error,
@@ -271,5 +321,7 @@ export function useShoppingList(): UseShoppingListResult {
     renameItem,
     deleteItem,
     clearChecked,
+    suggestIngredients,
+    addSuggestedItems,
   };
 }

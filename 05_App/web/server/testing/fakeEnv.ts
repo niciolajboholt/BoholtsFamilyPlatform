@@ -32,6 +32,11 @@ export function createFakeEnv(overrides: Partial<Env> = {}): Env {
       get: async () => testVapidPrivateKey,
     } as unknown as Env["VAPID_PRIVATE_KEY"],
     VAPID_SUBJECT: "mailto:test@example.com",
+    // Tests der bruger AI-modulet stubber selv .run() til det svar, de vil
+    // teste imod — dette default-stub svarer aldrig noget brugbart, så en
+    // test, der glemmer at stubbe det, fejler tydeligt i stedet for at
+    // ramme et rigtigt netværkskald.
+    AI: { run: async () => ({ choices: [] }) } as unknown as Env["AI"],
     ...overrides,
   };
 }

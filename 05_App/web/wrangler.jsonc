@@ -54,6 +54,12 @@
       "migrations_dir": "./server/migrations"
     }
   ],
+  // Sprint 23: AI-modul (rutine-/ingrediens-forslag). Cloudflare Workers AI
+  // kører i egen infrastruktur — ingen API-nøgle, intet data forlader
+  // Cloudflare. 10.000 Neurons/dag er gratis; se 23_Sprint23-planen.
+  "ai": {
+    "binding": "AI"
+  },
   // Samme mønster som secrets_store_secrets ovenfor: slået til i
   // dashboardet, men uden dette forsvinder det ved næste Git-udløste
   // deploy. Logs persisteres (så et fejlet kald kan slås op bagefter), traces
@@ -128,6 +134,9 @@
           "database_id": "cd369f99-abc2-44e0-9647-300ee6d85a13"
         }
       ],
+      "ai": {
+        "binding": "AI"
+      },
       "observability": {
         "enabled": false,
         "head_sampling_rate": 1,

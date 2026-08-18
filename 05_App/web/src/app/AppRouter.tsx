@@ -4,6 +4,7 @@ import CalendarPage from '../pages/CalendarPage'
 import HomePage from "../pages/HomePage";
 import ShoppingListPage from "../pages/ShoppingListPage";
 import SettingsPage from "../pages/SettingsPage";
+import TasksPage from "../pages/TasksPage";
 
 export function AppRouter() {
   return (
@@ -13,6 +14,7 @@ export function AppRouter() {
           <Route index element={<HomePage />} />
           <Route path="calendar" element={<CalendarPage />} />
           <Route path="shopping-list" element={<ShoppingListPage />} />
+          <Route path="tasks" element={<TasksPage />} />
           <Route path="settings" element={<SettingsPage />} />
         </Route>
 

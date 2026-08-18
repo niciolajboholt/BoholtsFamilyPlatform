@@ -4,8 +4,9 @@ Senest opdateret: 2026-08-16
 
 ## Aktuel fase
 
-`main` er 1:1 med `develop` — Sprint 20, 21 og 22 er alle merget og
-deployet til produktion. Ingen aktiv sprint lige nu.
+Sprint 23 er gennemført og deployet til `develop`. `main` indeholder
+t.o.m. Sprint 22 — Sprint 23 er endnu ikke merget dertil. Ingen aktiv
+sprint lige nu.
 
 ## Leveret
 
@@ -26,22 +27,28 @@ deployet til produktion. Ingen aktiv sprint lige nu.
   (dagligvarer/byggemarked/andet), hver med eget kategorisæt/ordbog og
   selvlæring pr. familie og type. Redigering af listenavn, varenavn og
   manuel kategori-rettelse. Bekræftet af Nicolaj på produktion.
-- Vitest-testpakke (230 tests) + GitHub Actions-CI.
+- **Sprint 23**: Tiimo-inspireret opgaveløsning (engangsopgaver og faste
+  rutiner, personlige eller familie-rettede, "Min dag"/"Familien"-visning)
+  samt et AI-modul via Cloudflare Workers AI (rutine-forslag fra fritekst,
+  indkøbsliste-ingredienser fra en ret — intet gemmes automatisk). Data
+  forlader ikke Cloudflares infrastruktur. Bekræftet af Nicolaj på
+  produktion.
+- Vitest-testpakke (252 tests) + GitHub Actions-CI.
 
 ## Kvalitetsstatus
 
-`develop`/`main` består:
+`develop` består (Sprint 23 endnu ikke merget til `main`):
 
 - `npm run lint`
 - `npm run build`
-- `npm test` (230 tests)
+- `npm test` (252 tests)
 - Grøn GitHub Actions-CI og Cloudflare Workers Build (produktion + beta)
 
 Verificeret manuelt af Nicolaj og Christine på beta og produktion, inkl.
-push-notifikation leveret på tværs af to iPhones og indkøbsliste-flowet
-ende-til-ende.
+push-notifikation leveret på tværs af to iPhones, indkøbsliste-flowet
+ende-til-ende, og opgave-/AI-modulet.
 
 ## Næste skridt
 
 Ingen aktiv sprint. Kandidater: flere Google-konti pr. familie (kræver
-egen ADR), "Opgaver"-badget på forsiden (stadig "Snart").
+egen ADR), merge Sprint 23 til `main`.

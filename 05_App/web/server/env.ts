@@ -24,4 +24,9 @@ export interface Env {
   // skal nå appens ejer om et misbrugt/fejlkonfigureret abonnement — krævet
   // af VAPID-specifikationen, skal være "mailto:" eller "https://".
   VAPID_SUBJECT: string;
+  // Sprint 23: AI-modul (rutine- og ingrediens-forslag). Cloudflare Workers
+  // AI, ikke en ekstern udbyder — data forlader ikke Cloudflares egen
+  // infrastruktur, og der er ingen API-nøgle at opsætte (se
+  // 23_Sprint23_Opgaver_Plan.md).
+  AI: Ai;
 }
