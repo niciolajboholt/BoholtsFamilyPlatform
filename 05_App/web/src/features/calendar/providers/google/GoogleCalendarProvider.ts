@@ -4,13 +4,23 @@ import type { CalendarEventRange, CalendarSource } from "../../models/calendarPr
 import type { CalendarProvider } from "../CalendarProvider";
 import { CalendarProviderError } from "../calendarProviderErrors";
 import { GoogleCalendarApi } from "./GoogleCalendarApi";
+import type { GoogleCalendarEvent } from "./googleCalendarTypes";
 import {
   mapGoogleCalendarEvent,
   mapGoogleCalendarSource,
 } from "./googleCalendarMapper";
-import { decodeGoogleEventId, decodeGoogleCalendarSourceId } from "./googleCalendarIds";
+import {
+  decodeGoogleEventId,
+  decodeGoogleCalendarSourceId,
+  encodeGoogleEventId,
+} from "./googleCalendarIds";
 import { mapGoogleEventWriteRequest } from "./googleCalendarWriteMapper";
 import { getExcludedGoogleCalendarIds } from "../../preferences/googleCalendarExclusionStorage";
+import {
+  clearCachedCalendarSyncState,
+  getCachedCalendarSyncState,
+  setCachedCalendarSyncState,
+} from "../../preferences/googleCalendarSyncCacheStorage";
 import {
   getCalendarMemberMappings,
   getMappedOwnersByCalendarId,
@@ -66,26 +76,57 @@ export class GoogleCalendarProvider implements CalendarProvider {
     const eventsByCalendar = await Promise.all(
       calendars
         .filter((calendar) => Boolean(calendar.id) && !excludedIds.has(calendar.id!))
-        .map(async (calendar) => {
-          const calendarId = calendar.id!;
-          const events = await this.api.listEvents(
-            calendarId,
-            range,
-          );
-          const mappedOwnerId: CalendarOwnerId | undefined = mappings[calendarId];
-
-          return events
-            .map((event) =>
-              mapGoogleCalendarEvent(calendarId, event, mappedOwnerId),
-            )
-            .filter(
-              (event): event is CalendarEvent =>
-                event !== null,
-            );
-        }),
+        .map((calendar) =>
+          this.fetchCalendarEvents(calendar.id!, range, mappings[calendar.id!]),
+        ),
     );
 
     return eventsByCalendar.flat();
+  }
+
+  // Sprint 25: bruger et cachet syncToken, hvis et findes, til kun at hente
+  // ÆNDRINGER siden sidst (F-05) — falder tilbage til en fuld
+  // tidsvindue-synk (dagens hidtidige adfærd) hvis intet er cachet endnu,
+  // eller hvis Google afviser tokenet som udløbet (410 Gone, mappes til
+  // CalendarProviderError med code "not-found").
+  private async fetchCalendarEvents(
+    calendarId: string,
+    range: CalendarEventRange,
+    mappedOwnerId: CalendarOwnerId | undefined,
+  ): Promise<CalendarEvent[]> {
+    const cached = getCachedCalendarSyncState(calendarId);
+
+    if (cached) {
+      try {
+        const page = await this.api.listEvents(calendarId, { syncToken: cached.syncToken });
+        const merged = mergeGoogleEventDelta(cached.events, page.events, calendarId, mappedOwnerId);
+
+        if (page.nextSyncToken) {
+          setCachedCalendarSyncState(calendarId, { events: merged, syncToken: page.nextSyncToken });
+        } else {
+          clearCachedCalendarSyncState(calendarId);
+        }
+
+        return merged;
+      } catch (error) {
+        if (!(error instanceof CalendarProviderError) || error.code !== "not-found") {
+          throw error;
+        }
+
+        clearCachedCalendarSyncState(calendarId);
+      }
+    }
+
+    const page = await this.api.listEvents(calendarId, { range });
+    const mapped = page.events
+      .map((event) => mapGoogleCalendarEvent(calendarId, event, mappedOwnerId))
+      .filter((event): event is CalendarEvent => event !== null);
+
+    if (page.nextSyncToken) {
+      setCachedCalendarSyncState(calendarId, { events: mapped, syncToken: page.nextSyncToken });
+    }
+
+    return mapped;
   }
 
   async createEvent(input: CreateCalendarEventInput): Promise<CalendarEvent> {
@@ -133,4 +174,33 @@ export class GoogleCalendarProvider implements CalendarProvider {
     if (!mapped) throw new CalendarProviderError("unknown", "Google Kalender sendte en ugyldig aftale.");
     return mapped;
   }
+}
+
+// Sprint 25: en inkrementel synk returnerer kun ÆNDREDE/SLETTEDE events, ikke
+// hele listen — denne funktion anvender de ændringer på den cachede liste
+// fra sidste synk. En aflyst/slettet event mapper til null (se
+// mapGoogleCalendarEvent) og fjernes derfor fra resultatet i stedet for at
+// blive indsat som en ugyldig aftale.
+function mergeGoogleEventDelta(
+  cachedEvents: CalendarEvent[],
+  deltaEvents: GoogleCalendarEvent[],
+  calendarId: string,
+  mappedOwnerId: CalendarOwnerId | undefined,
+): CalendarEvent[] {
+  const eventsById = new Map(cachedEvents.map((event) => [event.id, event]));
+
+  for (const rawEvent of deltaEvents) {
+    if (!rawEvent.id) continue;
+
+    const id = encodeGoogleEventId(calendarId, rawEvent.id);
+    const mapped = mapGoogleCalendarEvent(calendarId, rawEvent, mappedOwnerId);
+
+    if (mapped) {
+      eventsById.set(id, mapped);
+    } else {
+      eventsById.delete(id);
+    }
+  }
+
+  return [...eventsById.values()];
 }
