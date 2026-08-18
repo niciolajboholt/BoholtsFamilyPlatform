@@ -81,7 +81,7 @@ Se `05_Sprint_History.md` for detaljer pr. sprint.
 [x] Cron Trigger til periodisk session- og rate-limit-oprydning
 [x] Rate-limiting på invite-accept (D1-baseret, 10 forsøg/10 min pr. bruger)
 [x] Dependabot aktiveret (npm + github-actions)
-[ ] Merget til `main`
+[x] Merget til `main` (PR #35)
 
 ## Ikke planlagt endnu
 

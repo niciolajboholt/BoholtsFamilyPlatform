@@ -137,8 +137,16 @@ Sprint 24 er første del af en ny roadmap besluttet i chat (2026-08-18):
    af samme daglige Cron Trigger som session-oprydningen.
 7. ~~`.github/dependabot.yml`~~ ✅ **Gennemført (2026-08-18)**: npm
    (`05_App/web`) + github-actions, begge ugentligt.
-8. Kvalitetskontrol (`lint`, `tsc -b`, `test`, `build`) → commit → push →
-   verificér grøn CI + begge Workers Builds → merge `develop` til `main`.
+8. ~~Kvalitetskontrol (`lint`, `tsc -b`, `test`, `build`) → commit → push →
+   verificér grøn CI + begge Workers Builds → merge `develop` til `main`~~ ✅
+   **Gennemført (2026-08-18)**: 260 tests, grøn CI + begge Workers Builds,
+   merget til `main` (PR #35, commit `58f23e6`). `main` og `develop`
+   verificeret identiske (`git diff --stat` tomt).
+
+**Resterende, afventer Nicolaj**: migration 0009 skal køres manuelt på
+både beta og produktion (D1-migrationer anvendes aldrig automatisk af
+Workers Builds) og verificeres uafhængigt, samt bekræftelse af
+`secrets_store_secrets`-navne i produktion (opgave 1 ovenfor).
 
 ---
 
