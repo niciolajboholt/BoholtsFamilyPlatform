@@ -90,6 +90,16 @@ Se `05_Sprint_History.md` for detaljer pr. sprint.
 [x] PNG-ikonsæt (192/512, maskable, apple-touch-icon)
 [ ] Manuel test på beta/produktion (kræver fysisk adgang/browser, ikke en
     AI-agent-opgave)
+[x] Merget til `main` (PR #50)
+
+## Sprint 26 - Kalender-konflikter + delelink
+
+[x] Vedvarende visuel konfliktmarkering i alle fem kalendervisninger
+[x] Migration 0010: family_share_links
+[x] Server: share-link CRUD + offentligt /api/public/family-calendar/:token
+[x] Klient: /share/:token-side + Delelink-sektion i Indstillinger
+[ ] Manuel test på beta/produktion (kræver browser + rigtig
+    Google-forbindelse, ikke en AI-agent-opgave)
 [ ] Merget til `main`
 
 ## Ikke planlagt endnu

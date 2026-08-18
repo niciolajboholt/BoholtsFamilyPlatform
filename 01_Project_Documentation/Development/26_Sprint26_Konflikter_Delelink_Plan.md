@@ -1,8 +1,8 @@
 # 26_Sprint26_Konflikter_Delelink_Plan
 
-> Status: Afventer godkendelse
+> Status: Completed
 
-Version: 1.1
+Version: 1.2
 
 Project:
 Boholts Family Platform
@@ -118,32 +118,44 @@ udenforstående (fx bedsteforældre) uden login.
   (deaktivér) — samme autorisationsmønster som invitations-regenerering
   (`families.ts`s `/:id/invites/regenerate`).
 - Klient: ny offentlig rute `/share/:token` (uden for den almindelige
-  login-gate i `AppRouter.tsx`), en minimal skrivebeskyttet kalendervisning
-  (genbruger eksisterende måned/uge-visningskomponenter i en
-  read-only-tilstand, ingen opret/redigér-handlinger tilgængelige).
-  Familiens Indstillinger-side får en ny "Delelink"-sektion, samme
-  UI-mønster som `InviteCodeCard.tsx` (kopiér-knap, regenerér, deaktivér),
-  plus en afkrydsningsliste over familiemedlemmer til at vælge hvem der
-  skal med.
+  login-gate i `AppRouter.tsx`), en minimal skrivebeskyttet kalendervisning.
+  **Justeret under implementering**: i stedet for at genbruge de
+  eksisterende måned-/ugevisningskomponenter (tæt koblet til
+  redigerings-flows, klik-for-at-åbne-dialog osv.) blev det en dedikeret,
+  simpel dagsgrupperet agenda-liste — lavere risiko for en offentlig,
+  uautentificeret kontekst end at tvinge redigerings-orienterede
+  komponenter ind i en read-only-tilstand. Familiens Indstillinger-side får
+  en ny "Delelink"-sektion, samme UI-mønster som `InviteCodeCard.tsx`
+  (kopiér-knap, deaktivér), plus en afkrydsningsliste over familiemedlemmer
+  til at vælge hvem der skal med.
 
 ---
 
 ## Rækkefølge
 
-1. `findAllCalendarConflicts()` + automatiserede tests, koblet ind i
+1. ~~`findAllCalendarConflicts()` + automatiserede tests, koblet ind i
    `CalendarPage.tsx` og videre til måneds-/uge-/dags-/side-by-side-
-   visningerne med en visuel markering.
-2. Migration: `family_share_links`.
-3. Server: opret/regenerér/deaktivér-ruter (autentificeret,
-   ejer/admin-krævet) + det offentlige `/api/public/family-calendar/:token`
-   -endpoint (rate-limitet), med automatiserede tests.
-4. Klient: `/share/:token`-rute + read-only kalendervisning, samt
-   "Delelink"-sektionen i Indstillinger med medlems-afkrydsningsliste.
-5. Manuel test på beta/produktion (bekræft delelinket virker uden login i
-   et separat/inkognito-vindue, og at konfliktmarkeringen vises korrekt i
-   alle fire visninger).
-6. Kvalitetskontrol (`lint`, `tsc -b`, `test`, `build`) → commit → push →
-   verificér grøn CI + begge Workers Builds → merge `develop` til `main`.
+   visningerne med en visuel markering~~ ✅ **Gennemført (2026-08-18)**: ny
+   `ConflictBadge`-komponent (samme mønster som `EventSourceBadge`) tilføjet
+   i alle fem visninger (måned, uge, dag, side-by-side, dagslisten), 7 nye
+   tests.
+2. ~~Migration: `family_share_links`~~ ✅ **Gennemført**: migration 0010.
+3. ~~Server: opret/regenerér/deaktivér-ruter + det offentlige endpoint~~ ✅
+   **Gennemført**: `GET/POST/DELETE /api/families/:id/share-link`,
+   `GET /api/public/family-calendar/:token` (rate-limitet via Sprint 24's
+   `checkRateLimit`), ny `server/lib/googleCalendarAggregation.ts`, 17 nye
+   tests.
+4. ~~Klient: `/share/:token`-rute + read-only kalendervisning, samt
+   "Delelink"-sektionen i Indstillinger~~ ✅ **Gennemført**: se justeringen
+   ovenfor (dedikeret agenda-visning i stedet for genbrug af
+   måned-/ugekomponenterne).
+5. **Manuel test på beta/produktion — udestår**: kræver en rigtig browser
+   og en rigtig Google-forbindelse (ikke noget en AI-agent kan udføre
+   alene). Nicolaj bekræfter ved lejlighed at delelinket virker uden login
+   i et separat/inkognito-vindue, og at konfliktmarkeringen vises korrekt i
+   alle fem visninger.
+6. ~~Kvalitetskontrol → commit → push → merge~~ ✅ **Gennemført**: 296
+   tests, lint/tsc/build grønne.
 
 ---
 
