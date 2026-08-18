@@ -2,7 +2,7 @@ import type { Context } from "hono";
 import { Hono } from "hono";
 
 import type { Env } from "../env";
-import { familyMemberSeeds, generateInviteCode } from "../lib/familySeed";
+import { familyMemberSeeds, generateInviteCode, generateShareToken } from "../lib/familySeed";
 import { getMembership, getMembershipForFamily } from "../lib/familyMembership";
 import { checkRateLimit } from "../lib/rateLimit";
 import { getSessionUser, type SessionUser } from "../lib/session";
@@ -247,6 +247,112 @@ families.post("/:id/invites/regenerate", async (c) => {
     .run();
 
   return c.json({ inviteCode: newCode });
+});
+
+interface ShareLinkRow {
+  token: string;
+  includedMemberIds: string;
+}
+
+function parseIncludedMemberIds(csv: string): string[] {
+  return csv.split(",").filter((id) => id.length > 0);
+}
+
+// Familiens aktive delelink, hvis nogen — bruges af Indstillinger til at
+// vise den aktuelle status uden at skulle regenerere for at se den.
+families.get("/:id/share-link", async (c) => {
+  const user = c.get("user");
+  const familyId = c.req.param("id");
+  const membership = await getMembershipForFamily(c.env.DB, familyId, user.id);
+
+  if (!membership) {
+    return c.json({ error: "Ikke medlem af denne familie." }, 403);
+  }
+
+  const row = await c.env.DB.prepare(
+    "SELECT token, included_member_ids AS includedMemberIds FROM family_share_links WHERE family_id = ? AND revoked_at IS NULL",
+  )
+    .bind(familyId)
+    .first<ShareLinkRow>();
+
+  if (!row) {
+    return c.json({ shareLink: null });
+  }
+
+  return c.json({
+    shareLink: { token: row.token, includedMemberIds: parseIncludedMemberIds(row.includedMemberIds) },
+  });
+});
+
+// Opret/regenerér delelinket med et valgt sæt familiemedlemmer — kun
+// ejer/admin, ligesom invitations-regenerering. Et gammelt link spærres
+// (revoked_at) i stedet for slettes, samme mønster som family_invites.
+families.post("/:id/share-link", async (c) => {
+  const user = c.get("user");
+  const familyId = c.req.param("id");
+  const membership = await getMembershipForFamily(c.env.DB, familyId, user.id);
+
+  if (!membership || (membership.role !== "owner" && membership.role !== "admin")) {
+    return c.json({ error: "Kun ejer eller admin kan oprette en delelink." }, 403);
+  }
+
+  const body = await parseJsonBody<{ memberIds: string[] }>(c);
+  const memberIds = Array.isArray(body.memberIds)
+    ? [...new Set(body.memberIds.filter((id) => typeof id === "string" && id.length > 0))]
+    : [];
+
+  if (memberIds.length === 0) {
+    return c.json({ error: "Vælg mindst ét familiemedlem." }, 400);
+  }
+
+  const existingMembers = await c.env.DB.prepare(
+    "SELECT id FROM family_members WHERE family_id = ?",
+  )
+    .bind(familyId)
+    .all<{ id: string }>();
+  const validMemberIds = new Set(existingMembers.results.map((row) => row.id));
+
+  if (!memberIds.every((id) => validMemberIds.has(id))) {
+    return c.json({ error: "Et eller flere familiemedlemmer findes ikke." }, 400);
+  }
+
+  const now = new Date().toISOString();
+
+  await c.env.DB.prepare(
+    "UPDATE family_share_links SET revoked_at = ? WHERE family_id = ? AND revoked_at IS NULL",
+  )
+    .bind(now, familyId)
+    .run();
+
+  const token = generateShareToken();
+
+  await c.env.DB.prepare(
+    `INSERT INTO family_share_links (id, family_id, token, created_by_user_id, included_member_ids, created_at)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+  )
+    .bind(crypto.randomUUID(), familyId, token, user.id, memberIds.join(","), now)
+    .run();
+
+  return c.json({ shareLink: { token, includedMemberIds: memberIds } });
+});
+
+// Deaktivér delelinket — kun ejer/admin.
+families.delete("/:id/share-link", async (c) => {
+  const user = c.get("user");
+  const familyId = c.req.param("id");
+  const membership = await getMembershipForFamily(c.env.DB, familyId, user.id);
+
+  if (!membership || (membership.role !== "owner" && membership.role !== "admin")) {
+    return c.json({ error: "Kun ejer eller admin kan deaktivere delelinket." }, 403);
+  }
+
+  await c.env.DB.prepare(
+    "UPDATE family_share_links SET revoked_at = ? WHERE family_id = ? AND revoked_at IS NULL",
+  )
+    .bind(new Date().toISOString(), familyId)
+    .run();
+
+  return c.json({ ok: true });
 });
 
 // Omdøb familien — ejer/admin.

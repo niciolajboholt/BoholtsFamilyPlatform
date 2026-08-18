@@ -5,6 +5,7 @@ import authRoutes from "./routes/auth";
 import apiRoutes from "./routes/api";
 import calendarRoutes from "./routes/calendar";
 import familiesRoutes from "./routes/families";
+import publicCalendarRoutes from "./routes/publicCalendar";
 import pushRoutes from "./routes/push";
 import shoppingListsRoutes from "./routes/shoppingLists";
 import tasksRoutes from "./routes/tasks";
@@ -33,6 +34,9 @@ app.route("/api/families", shoppingListsRoutes);
 app.route("/api/families", tasksRoutes);
 app.route("/api/calendar", calendarRoutes);
 app.route("/api/push", pushRoutes);
+// Sprint 26: bevidst UDEN FOR /api/families's session-krav — se
+// publicCalendar.ts's egen kommentar. Eneste uautentificerede API-rute.
+app.route("/api/public", publicCalendarRoutes);
 
 // Beviser at Worker + D1 hænger rigtigt sammen efter en deploy (Fase 0) —
 // resten af familie/kalender-ruterne kommer i senere faser.

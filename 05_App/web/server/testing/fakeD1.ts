@@ -18,6 +18,7 @@ const migrationFiles = [
   "0007_shopping_list_types.sql",
   "0008_tasks.sql",
   "0009_rate_limits.sql",
+  "0010_family_share_links.sql",
 ];
 
 function loadMigrations(db: DatabaseSync): void {
