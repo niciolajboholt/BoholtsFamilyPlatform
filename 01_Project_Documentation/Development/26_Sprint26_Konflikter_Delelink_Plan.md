@@ -153,11 +153,14 @@ udenforstående (fx bedsteforældre) uden login.
    `boholtsfamilyplatform` og `boholtsfamilyplatform-beta` (2026-08-18,
    `SELECT name FROM sqlite_master WHERE type = 'table' AND name =
    'family_share_links'` — samme resultat begge steder).
-   **Resterende, udestår**: den funktionelle manuelle test på
-   beta/produktion (bekræft delelinket virker uden login i et separat/
-   inkognito-vindue, og at konfliktmarkeringen vises korrekt i alle fem
-   visninger) — kræver en rigtig browser og Google-forbindelse, ikke noget
-   en AI-agent kan udføre alene.
+   ~~Manuel test af delelinket~~ ✅ **Bekræftet af Nicolaj (2026-08-19)**:
+   "Dele linket virker" — desuden en opfølgende ændring fra agenda-liste
+   til en rigtig månedsvisning (samme `MonthCalendar`/`EventList` som
+   resten af appen), godkendt samme dag.
+   **Resterende, udestår**: den funktionelle manuelle test af
+   konfliktmarkeringen på beta/produktion (bekræft den vises korrekt i
+   alle fem visninger) — kræver en rigtig browser, ikke noget en
+   AI-agent kan udføre alene.
 6. ~~Kvalitetskontrol → commit → push → merge~~ ✅ **Gennemført**: 296
    tests, lint/tsc/build grønne.
 
