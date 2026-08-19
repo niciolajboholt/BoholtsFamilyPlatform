@@ -72,6 +72,7 @@ function TasksPage() {
   const [newTaskName, setNewTaskName] = useState("");
   const [newTaskIcon, setNewTaskIcon] = useState<TaskIconKey>("fritid");
   const [newTaskAssignee, setNewTaskAssignee] = useState<string>("");
+  const [newTaskTime, setNewTaskTime] = useState<string>("");
   const [iconMenuAnchor, setIconMenuAnchor] = useState<HTMLElement | null>(null);
   const [isRoutineDialogOpen, setIsRoutineDialogOpen] = useState(false);
 
@@ -92,8 +93,9 @@ function TasksPage() {
       return;
     }
 
-    addNewTask(newTaskName, newTaskIcon, newTaskAssignee || null);
+    addNewTask(newTaskName, newTaskIcon, newTaskAssignee || null, newTaskTime || null);
     setNewTaskName("");
+    setNewTaskTime("");
   }
 
   function memberName(memberId: string | null): string | null {
@@ -168,6 +170,16 @@ function TasksPage() {
                 </MenuItem>
               ))}
             </TextField>
+
+            <TextField
+              type="time"
+              size="small"
+              label="Påmindelse"
+              slotProps={{ inputLabel: { shrink: true } }}
+              value={newTaskTime}
+              onChange={(event) => setNewTaskTime(event.target.value)}
+              sx={{ minWidth: 130 }}
+            />
 
             <Button type="submit" variant="contained" disabled={!newTaskName.trim()}>
               Tilføj
@@ -395,7 +407,7 @@ function RoutineCreateDialog({ open, onClose, members, onCreate, onSuggest }: Ro
   const [name, setName] = useState("");
   const [weekdays, setWeekdays] = useState<number[]>([]);
   const [assignedMemberId, setAssignedMemberId] = useState("");
-  const [items, setItems] = useState<NewRoutineItemInput[]>([{ name: "", icon: "fritid" }]);
+  const [items, setItems] = useState<NewRoutineItemInput[]>([{ name: "", icon: "fritid", timeOfDay: null }]);
   const [aiDescription, setAiDescription] = useState("");
   const [isSuggesting, setIsSuggesting] = useState(false);
   const [suggestError, setSuggestError] = useState<string | null>(null);
@@ -404,7 +416,7 @@ function RoutineCreateDialog({ open, onClose, members, onCreate, onSuggest }: Ro
     setName("");
     setWeekdays([]);
     setAssignedMemberId("");
-    setItems([{ name: "", icon: "fritid" }]);
+    setItems([{ name: "", icon: "fritid", timeOfDay: null }]);
     setAiDescription("");
     setSuggestError(null);
   }
@@ -571,6 +583,16 @@ function RoutineCreateDialog({ open, onClose, members, onCreate, onSuggest }: Ro
                 sx={{ flexGrow: 1 }}
               />
 
+              <TextField
+                type="time"
+                size="small"
+                label="Påmindelse"
+                slotProps={{ inputLabel: { shrink: true } }}
+                value={item.timeOfDay ?? ""}
+                onChange={(event) => updateItem(index, { timeOfDay: event.target.value || null })}
+                sx={{ minWidth: 130 }}
+              />
+
               <IconButton
                 aria-label="Fjern opgave fra rutine"
                 size="small"
@@ -585,7 +607,9 @@ function RoutineCreateDialog({ open, onClose, members, onCreate, onSuggest }: Ro
           <Button
             size="small"
             startIcon={<AddRounded />}
-            onClick={() => setItems((previousItems) => [...previousItems, { name: "", icon: "fritid" }])}
+            onClick={() =>
+              setItems((previousItems) => [...previousItems, { name: "", icon: "fritid", timeOfDay: null }])
+            }
             sx={{ mt: 1 }}
           >
             Tilføj opgave
