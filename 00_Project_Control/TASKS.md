@@ -99,9 +99,21 @@ Se `05_Sprint_History.md` for detaljer pr. sprint.
 [x] Server: share-link CRUD + offentligt /api/public/family-calendar/:token
 [x] Klient: /share/:token-side + Delelink-sektion i Indstillinger
 [x] Migration 0010 kørt og verificeret på beta og produktion (2026-08-18)
-[ ] Manuel test på beta/produktion (kræver browser + rigtig
-    Google-forbindelse, ikke en AI-agent-opgave)
-[x] Merget til `main` (PR #51)
+[x] Manuel test af delelinket bekræftet af Nicolaj (2026-08-19: "Dele
+    linket virker") + opfølgende ændring til månedsvisning
+[ ] Manuel test af konfliktmarkeringen på beta/produktion udestår
+[x] Merget til `main` (PR #51, #52, #53)
+
+## Sprint 27 - Tidsbaserede opgave-påmindelser
+
+[x] Migration 0011: tasks.reminded_at
+[x] server/lib/taskReminders.ts: sendDueTaskReminders(), Cron Trigger
+    hvert 5. minut, Europe/Copenhagen-tidszonelogik
+[x] 7 nye tests, inkl. eksplicit CEST- og CET-test
+[ ] Migration 0011 skal køres manuelt på beta og produktion
+[ ] Manuel test på beta/produktion (kræver at vente på et rigtigt
+    cron-tick, ikke en AI-agent-opgave)
+[x] Merget til `main` (PR #55)
 
 ## Ikke planlagt endnu
 
