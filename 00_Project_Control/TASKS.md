@@ -125,6 +125,20 @@ Se `05_Sprint_History.md` for detaljer pr. sprint.
     rigtigt cron-tick, ikke en AI-agent-opgave)
 [x] Merget til `main` (PR #55, #58, #60, #61)
 
+## Sprint 28 - AI-ugeresumé
+
+[x] Migration 0012: family_weekly_summaries
+[x] generateWeeklySummary() i aiAssistant.ts (fri tekst, ikke JSON) + 5 tests
+[x] server/lib/weeklySummary.ts: sendWeeklySummaries(), Cron Trigger
+    søndag kl. 17 UTC, springer tomme/allerede-genererede familier over
+[x] 6 nye tests, inkl. manglende Google-forbindelse og materialisering af
+    alle 7 dage
+[x] GET /:id/weekly-summary + WeeklySummaryCard på forsiden (vises kun
+    når et resumé findes)
+[ ] Manuel funktionel test på beta/produktion (kræver at vente på et
+    rigtigt ugentligt cron-tick, ikke en AI-agent-opgave)
+[ ] Merget til `main`
+
 ## Ikke planlagt endnu
 
 [ ] Flere Google-konti pr. familie (kræver egen ADR — se `10_Future_Roadmap.md`)

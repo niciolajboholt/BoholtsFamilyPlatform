@@ -23,6 +23,7 @@ import {
   Typography,
 } from "@mui/material";
 
+import { WeeklySummaryCard } from "../features/family/WeeklySummaryCard";
 import { useCalendarEvents } from "../features/calendar/hooks/useCalendarEvents";
 import { useCurrentMember } from "../features/calendar/hooks/useCurrentMember";
 import { useFamilyMembers } from "../features/calendar/hooks/useFamilyMembers";
@@ -335,6 +336,8 @@ function HomePage() {
             </Box>
           </CardContent>
         </Card>
+
+        <WeeklySummaryCard />
 
         <Box sx={{ gridColumn: { xs: "auto", md: "1 / -1" } }}>
           <Typography variant="h6" sx={{ mb: 1.5 }}>

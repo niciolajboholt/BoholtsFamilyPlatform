@@ -12,6 +12,7 @@ import tasksRoutes from "./routes/tasks";
 import { cleanupOldRateLimitAttempts } from "./lib/rateLimit";
 import { cleanupExpiredSessions } from "./lib/session";
 import { sendDueTaskReminders } from "./lib/taskReminders";
+import { sendWeeklySummaries } from "./lib/weeklySummary";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -57,13 +58,19 @@ app.get("*", (c) => c.env.ASSETS.fetch(c.req.raw));
 
 export default {
   fetch: app.fetch,
-  // To Cron Triggers (se wrangler.jsonc's "triggers"), adskilt på
+  // Tre Cron Triggers (se wrangler.jsonc's "triggers"), adskilt på
   // controller.cron: den daglige (Sprint 24) rydder udløbne sessioner og
-  // gamle rate-limit-forsøg op; den nye hvert 5. minut (Sprint 27) sender
-  // tidsbaserede opgave-påmindelser.
+  // gamle rate-limit-forsøg op; hvert 5. minut (Sprint 27) sender
+  // tidsbaserede opgave-påmindelser; ugentligt søndag (Sprint 28) sender
+  // et AI-genereret ugeresumé.
   async scheduled(controller, env, ctx) {
     if (controller.cron === "*/5 * * * *") {
       ctx.waitUntil(sendDueTaskReminders(env));
+      return;
+    }
+
+    if (controller.cron === "0 17 * * SUN") {
+      ctx.waitUntil(sendWeeklySummaries(env));
       return;
     }
 

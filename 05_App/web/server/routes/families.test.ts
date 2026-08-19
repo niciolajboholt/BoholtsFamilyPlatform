@@ -613,6 +613,63 @@ describe("families routes", () => {
     });
   });
 
+  describe("GET /:id/weekly-summary", () => {
+    it("returns null when no summary has been generated yet", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader);
+
+      const response = await families.request(
+        `/${created.family.id}/weekly-summary`,
+        { headers: { Cookie: owner.cookieHeader } },
+        env,
+      );
+      const body: { summary: { weekStart: string; content: string } | null } = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(body.summary).toBeNull();
+    });
+
+    it("returns the newest saved summary", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader);
+
+      await env.DB.prepare(
+        "INSERT INTO family_weekly_summaries (id, family_id, week_start, content, created_at) VALUES (?, ?, ?, ?, ?)",
+      )
+        .bind("summary-old", created.family.id, "2026-08-10", "Gammelt resumé.", new Date().toISOString())
+        .run();
+      await env.DB.prepare(
+        "INSERT INTO family_weekly_summaries (id, family_id, week_start, content, created_at) VALUES (?, ?, ?, ?, ?)",
+      )
+        .bind("summary-new", created.family.id, "2026-08-17", "Nyt resumé.", new Date().toISOString())
+        .run();
+
+      const response = await families.request(
+        `/${created.family.id}/weekly-summary`,
+        { headers: { Cookie: owner.cookieHeader } },
+        env,
+      );
+      const body: { summary: { weekStart: string; content: string } | null } = await response.json();
+
+      expect(body.summary?.content).toBe("Nyt resumé.");
+      expect(body.summary?.weekStart).toBe("2026-08-17");
+    });
+
+    it("rejects a user who is not a member of the family", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader);
+      const outsider = await seedLoggedInUser(env.DB as never, { id: "outsider" });
+
+      const response = await families.request(
+        `/${created.family.id}/weekly-summary`,
+        { headers: { Cookie: outsider.cookieHeader } },
+        env,
+      );
+
+      expect(response.status).toBe(403);
+    });
+  });
+
   describe("role and ownership management", () => {
     async function createFamilyWithMember(): Promise<{
       familyId: string;

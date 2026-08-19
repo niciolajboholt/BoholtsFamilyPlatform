@@ -20,6 +20,7 @@ const migrationFiles = [
   "0009_rate_limits.sql",
   "0010_family_share_links.sql",
   "0011_task_reminders.sql",
+  "0012_weekly_summaries.sql",
 ];
 
 function loadMigrations(db: DatabaseSync): void {

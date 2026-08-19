@@ -1,5 +1,12 @@
 # Changelog
 
+## Sprint 28 — AI-ugeresumé
+
+- Et kort, AI-genereret ugeresumé (kalenderaftaler, opgaver og
+  indkøbsliste for den kommende uge) genereres ugentligt og sendes som en
+  push-notifikation, samt vises på forsiden. Springer stille en familie
+  over, hvis der intet er at opsummere.
+
 ## Sprint 27 — Tidsbaserede opgave-påmindelser
 
 - Et sat tidspunkt på en opgave sender nu en push-notifikation, når tiden
