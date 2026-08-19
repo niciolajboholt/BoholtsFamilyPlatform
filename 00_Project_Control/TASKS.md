@@ -135,9 +135,14 @@ Se `05_Sprint_History.md` for detaljer pr. sprint.
     alle 7 dage
 [x] GET /:id/weekly-summary + WeeklySummaryCard på forsiden (vises kun
     når et resumé findes)
-[ ] Manuel funktionel test på beta/produktion (kræver at vente på et
-    rigtigt ugentligt cron-tick, ikke en AI-agent-opgave)
-[ ] Merget til `main`
+[ ] Manuel funktionel test på beta (kræver at vente på et rigtigt
+    ugentligt cron-tick, ikke en AI-agent-opgave)
+[x] Produktionsmiljøets cron-triggers tømt (2026-08-19) — Cloudflares
+    konto-brede 5-cron-loft (Free-plan) blev ramt af 2 miljøer × 3
+    cron'er. Nicolaj bekræftede at produktion reelt ikke bruges (beta er
+    familiens rigtige, daglige miljø/PWA), så produktion fik en tom
+    `triggers.crons`-liste i stedet for en betalt Cloudflare-opgradering
+[x] Merget til `main` (PR #63, #64)
 
 ## Ikke planlagt endnu
 
