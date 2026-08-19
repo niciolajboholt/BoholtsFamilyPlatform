@@ -61,6 +61,7 @@ function TasksPage() {
     toggleDone,
     renameTask,
     setTaskIcon,
+    setTaskTime,
     removeTask,
     clearDone,
     createRoutine,
@@ -210,6 +211,7 @@ function TasksPage() {
                   onToggleDone={toggleDone}
                   onRename={renameTask}
                   onChangeIcon={setTaskIcon}
+                  onChangeTime={setTaskTime}
                   onDelete={removeTask}
                 />
               ))}
@@ -286,13 +288,29 @@ interface TaskRowProps {
   onToggleDone: (taskId: string, isDone: boolean) => void;
   onRename: (taskId: string, name: string) => void;
   onChangeIcon: (taskId: string, icon: string) => void;
+  onChangeTime: (taskId: string, timeOfDay: string | null) => void;
   onDelete: (taskId: string) => void;
 }
 
-function TaskRow({ task, assigneeName, onToggleDone, onRename, onChangeIcon, onDelete }: TaskRowProps) {
+function TaskRow({
+  task,
+  assigneeName,
+  onToggleDone,
+  onRename,
+  onChangeIcon,
+  onChangeTime,
+  onDelete,
+}: TaskRowProps) {
   const [iconMenuAnchor, setIconMenuAnchor] = useState<HTMLElement | null>(null);
   const [isEditingName, setIsEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState(task.name);
+  const [isEditingTime, setIsEditingTime] = useState(false);
+  const [timeDraft, setTimeDraft] = useState(task.timeOfDay ?? "");
+
+  function commitTimeEdit(): void {
+    setIsEditingTime(false);
+    onChangeTime(task.id, timeDraft || null);
+  }
 
   function commitNameEdit(): void {
     setIsEditingName(false);
@@ -367,15 +385,41 @@ function TaskRow({ task, assigneeName, onToggleDone, onRename, onChangeIcon, onD
             {task.name}
           </Typography>
 
-          <Box sx={{ display: "flex", gap: 0.75 }}>
-            {task.timeOfDay && (
-              <Typography variant="caption" color="text.secondary">
-                {task.timeOfDay}
+          <Box sx={{ display: "flex", gap: 0.75, alignItems: "center" }} onClick={(event) => event.stopPropagation()}>
+            {isEditingTime ? (
+              <TextField
+                autoFocus
+                type="time"
+                size="small"
+                variant="standard"
+                value={timeDraft}
+                onChange={(event) => setTimeDraft(event.target.value)}
+                onBlur={commitTimeEdit}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.currentTarget.blur();
+                  } else if (event.key === "Escape") {
+                    setIsEditingTime(false);
+                  }
+                }}
+                sx={{ width: 90 }}
+              />
+            ) : (
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ cursor: "pointer" }}
+                onClick={() => {
+                  setTimeDraft(task.timeOfDay ?? "");
+                  setIsEditingTime(true);
+                }}
+              >
+                {task.timeOfDay ?? "+ Påmindelse"}
               </Typography>
             )}
             {assigneeName && (
               <Typography variant="caption" color="text.secondary">
-                {task.timeOfDay ? "· " : ""}
+                {task.timeOfDay || isEditingTime ? "· " : ""}
                 {assigneeName}
               </Typography>
             )}

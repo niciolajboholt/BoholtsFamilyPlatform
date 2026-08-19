@@ -478,6 +478,51 @@ families.patch("/:id/members/:memberId", async (c) => {
   return c.json({ members });
 });
 
+// Kobl den nuværende bruger til et familiemedlem ("Min profil" i
+// Indstillinger) — det er den kobling (linked_user_id), der afgør, om en
+// personligt tildelt opgave/rutine kan sende en push til brugerens egen
+// konto (se notifyForTask() i tasks.ts). Selvbetjening: ethvert
+// familiemedlem må sætte dette på sig selv, ikke kun ejer/admin.
+families.post("/:id/members/:memberId/link-me", async (c) => {
+  const user = c.get("user");
+  const familyId = c.req.param("id");
+  const memberId = c.req.param("memberId");
+  const membership = await getMembershipForFamily(c.env.DB, familyId, user.id);
+
+  if (!membership) {
+    return c.json({ error: "Ikke fundet." }, 404);
+  }
+
+  const member = await c.env.DB.prepare(
+    "SELECT id, relation, linked_user_id AS linkedUserId FROM family_members WHERE id = ? AND family_id = ?",
+  )
+    .bind(memberId, familyId)
+    .first<{ id: string; relation: string | null; linkedUserId: string | null }>();
+
+  if (!member || member.relation === null) {
+    return c.json({ error: "Ukendt familiemedlem." }, 400);
+  }
+
+  if (member.linkedUserId && member.linkedUserId !== user.id) {
+    return c.json({ error: "Dette familiemedlem er allerede koblet til en anden konto." }, 409);
+  }
+
+  await c.env.DB.batch([
+    // Kun ét medlem pr. bruger pr. familie — fjern en evt. tidligere
+    // kobling, hvis brugeren skifter, hvem de vælger som "Min profil".
+    c.env.DB.prepare(
+      "UPDATE family_members SET linked_user_id = NULL WHERE family_id = ? AND linked_user_id = ?",
+    ).bind(familyId, user.id),
+    c.env.DB.prepare(
+      "UPDATE family_members SET linked_user_id = ? WHERE id = ? AND family_id = ?",
+    ).bind(user.id, memberId, familyId),
+  ]);
+
+  const members = await listFamilyMembers(c.env.DB, familyId);
+
+  return c.json({ members });
+});
+
 // Fjern et familiemedlem — ejer/admin. "family"-pseudomedlemmet må ikke
 // slettes, ligesom i den nuværende lokale model. Medlemmer sås med
 // crypto.randomUUID() (se families.post("/") ovenfor), ikke seedets faste

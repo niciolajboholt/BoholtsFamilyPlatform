@@ -41,6 +41,7 @@ interface UseTasksResult {
   toggleDone: (taskId: string, isDone: boolean) => void;
   renameTask: (taskId: string, name: string) => void;
   setTaskIcon: (taskId: string, icon: string) => void;
+  setTaskTime: (taskId: string, timeOfDay: string | null) => void;
   removeTask: (taskId: string) => void;
   clearDone: () => void;
   createRoutine: (
@@ -179,6 +180,17 @@ export function useTasks(): UseTasksResult {
     [familyId, withTaskMutation],
   );
 
+  const setTaskTime = useCallback(
+    (taskId: string, timeOfDay: string | null): void => {
+      if (!familyId) {
+        return;
+      }
+
+      withTaskMutation(() => updateTask(familyId, taskId, { timeOfDay }));
+    },
+    [familyId, withTaskMutation],
+  );
+
   const removeTask = useCallback(
     (taskId: string): void => {
       if (!familyId) {
@@ -289,6 +301,7 @@ export function useTasks(): UseTasksResult {
     toggleDone,
     renameTask,
     setTaskIcon,
+    setTaskTime,
     removeTask,
     clearDone,
     createRoutine,

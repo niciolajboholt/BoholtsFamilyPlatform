@@ -10,6 +10,7 @@ interface FamilyMemberJson {
   color: string;
   relation: string | null;
   isPlaceholderName: number;
+  linkedUserId: string | null;
 }
 
 interface CreateFamilyResponse {
@@ -528,6 +529,87 @@ describe("families routes", () => {
       const body: { members: FamilyMemberJson[] } = await response.json();
 
       expect(body.members.some((m) => m.id === familyPseudoMember!.id)).toBe(true);
+    });
+  });
+
+  describe("POST /:id/members/:memberId/link-me", () => {
+    it("links the acting user to a member as their own profile", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader);
+      const member = created.members.find((m) => m.relation !== null)!;
+
+      const response = await families.request(
+        `/${created.family.id}/members/${member.id}/link-me`,
+        { method: "POST", headers: { Cookie: owner.cookieHeader } },
+        env,
+      );
+      const body: { members: FamilyMemberJson[] } = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(body.members.find((m) => m.id === member.id)?.linkedUserId).toBe("owner");
+    });
+
+    it("moves the link when the user picks a different member afterwards", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader);
+      const [firstMember, secondMember] = created.members.filter((m) => m.relation !== null);
+
+      await families.request(
+        `/${created.family.id}/members/${firstMember.id}/link-me`,
+        { method: "POST", headers: { Cookie: owner.cookieHeader } },
+        env,
+      );
+
+      const response = await families.request(
+        `/${created.family.id}/members/${secondMember.id}/link-me`,
+        { method: "POST", headers: { Cookie: owner.cookieHeader } },
+        env,
+      );
+      const body: { members: FamilyMemberJson[] } = await response.json();
+
+      expect(body.members.find((m) => m.id === firstMember.id)?.linkedUserId).toBeNull();
+      expect(body.members.find((m) => m.id === secondMember.id)?.linkedUserId).toBe("owner");
+    });
+
+    it("rejects linking the reserved 'Familien' pseudo-member", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader);
+      const familyPseudoMember = created.members.find((m) => m.relation === null)!;
+
+      const response = await families.request(
+        `/${created.family.id}/members/${familyPseudoMember.id}/link-me`,
+        { method: "POST", headers: { Cookie: owner.cookieHeader } },
+        env,
+      );
+
+      expect(response.status).toBe(400);
+    });
+
+    it("rejects linking a member already linked to a different user", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader);
+      const member = created.members.find((m) => m.relation !== null)!;
+
+      await families.request(
+        `/${created.family.id}/members/${member.id}/link-me`,
+        { method: "POST", headers: { Cookie: owner.cookieHeader } },
+        env,
+      );
+
+      const otherUser = await seedLoggedInUser(env.DB as never, { id: "other" });
+      await families.request(
+        `/invites/${created.inviteCode}/accept`,
+        { method: "POST", headers: { Cookie: otherUser.cookieHeader } },
+        env,
+      );
+
+      const response = await families.request(
+        `/${created.family.id}/members/${member.id}/link-me`,
+        { method: "POST", headers: { Cookie: otherUser.cookieHeader } },
+        env,
+      );
+
+      expect(response.status).toBe(409);
     });
   });
 

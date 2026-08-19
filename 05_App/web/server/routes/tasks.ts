@@ -324,7 +324,12 @@ tasks.patch("/:id/tasks/:taskId", async (c) => {
     return c.json({ error: "Ikke fundet." }, 404);
   }
 
-  const body = await parseJsonBody<{ isDone?: boolean; name?: string; icon?: string }>(c);
+  const body = await parseJsonBody<{
+    isDone?: boolean;
+    name?: string;
+    icon?: string;
+    timeOfDay?: string | null;
+  }>(c);
 
   if (body.name !== undefined) {
     const trimmedName = body.name.trim();
@@ -342,6 +347,15 @@ tasks.patch("/:id/tasks/:taskId", async (c) => {
     }
 
     await c.env.DB.prepare("UPDATE tasks SET icon = ? WHERE id = ?").bind(body.icon, taskId).run();
+  }
+
+  if (body.timeOfDay !== undefined) {
+    // reminded_at nulstilles, så et ændret tidspunkt kan udløse en ny
+    // påmindelse — uden dette ville en allerede afsendt/udeblevet
+    // påmindelse for det gamle tidspunkt blokere for en ny ved det nye.
+    await c.env.DB.prepare("UPDATE tasks SET time_of_day = ?, reminded_at = NULL WHERE id = ?")
+      .bind(body.timeOfDay, taskId)
+      .run();
   }
 
   if (body.isDone !== undefined) {

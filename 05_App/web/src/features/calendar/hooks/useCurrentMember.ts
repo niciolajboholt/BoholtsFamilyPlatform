@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import type { CalendarOwner } from "../data/calendarOwners";
 import { familyPseudoMemberId } from "../models/calendarEvent";
@@ -6,23 +6,42 @@ import {
   getCurrentMemberId,
   setCurrentMemberId as saveCurrentMemberId,
 } from "../preferences/currentMemberStorage";
+import { getMyFamily, linkFamilyMemberToMe } from "../../family/familyApi";
 import { useFamilyMembers } from "./useFamilyMembers";
 
 interface UseCurrentMemberResult {
   currentMember: CalendarOwner | null;
-  setCurrentMemberId: (memberId: string | null) => void;
+  setCurrentMemberId: (memberId: string | null) => Promise<string | null>;
 }
 
 /**
  * Hvilket familiemedlem "er mig" på denne enhed (Sprint 18) — bruges af
  * forsidens hilsen og "Min profil" i Indstillinger, i stedet for et
- * hardcodet navn.
+ * hardcodet navn. Ud over den lokale enhedsindstilling kobles brugeren nu
+ * også server-side til medlemmet (linked_user_id) — det er den kobling,
+ * der afgør, om personligt tildelte opgaver kan sende en push til
+ * brugerens egen konto.
  */
 export function useCurrentMember(): UseCurrentMemberResult {
   const { members } = useFamilyMembers();
   const [currentMemberId, setCurrentMemberIdState] = useState(() =>
     getCurrentMemberId(),
   );
+  const [familyId, setFamilyId] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    getMyFamily().then((result) => {
+      if (!isCancelled && result.ok && result.data.family) {
+        setFamilyId(result.data.family.id);
+      }
+    });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
 
   const currentMember =
     members.find(
@@ -30,9 +49,24 @@ export function useCurrentMember(): UseCurrentMemberResult {
         member.id === currentMemberId && member.id !== familyPseudoMemberId,
     ) ?? null;
 
-  function setCurrentMemberId(memberId: string | null): void {
+  // Returnerer en fejlbesked, hvis server-koblingen fejlede (fx medlemmet
+  // er allerede en andens "Min profil") — den lokale enhedsindstilling
+  // sættes uanset, så UI'et ikke låses af en midlertidig serverfejl.
+  async function setCurrentMemberId(memberId: string | null): Promise<string | null> {
     setCurrentMemberIdState(memberId);
     saveCurrentMemberId(memberId);
+
+    if (!memberId || !familyId) {
+      return null;
+    }
+
+    const result = await linkFamilyMemberToMe(familyId, memberId);
+
+    if (!result.ok) {
+      return result.data.error ?? "Kunne ikke koble profilen til din konto.";
+    }
+
+    return null;
   }
 
   return { currentMember, setCurrentMemberId };

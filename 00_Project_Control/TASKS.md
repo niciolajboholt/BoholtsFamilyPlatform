@@ -114,9 +114,16 @@ Se `05_Sprint_History.md` for detaljer pr. sprint.
 [x] Manuelt tidspunkt-felt i UI (hurtig-tilføj + rutine-opgaver) —
     oversete i den oprindelige sprint-scope, tilføjet efter Nicolajs
     spørgsmål "Hvordan sætter jeg en påmindelse" (2026-08-19)
+[x] Rodårsag fundet og rettet: `linked_user_id` blev aldrig sat noget
+    sted i koden, så personligt tildelte opgaver aldrig kunne sende en
+    push. "Min profil" i Indstillinger kobler nu reelt kontoen til
+    familiemedlemmet server-side (nyt selvbetjenings-endpoint
+    `POST /:id/members/:memberId/link-me`) (2026-08-19)
+[x] Opgavens tidspunkt kan nu redigeres direkte på opgavelinjen efter
+    oprettelse, ikke kun sættes ved oprettelsen (2026-08-19)
 [ ] Manuel funktionel test på beta/produktion (kræver at vente på et
     rigtigt cron-tick, ikke en AI-agent-opgave)
-[x] Merget til `main` (PR #55, #58)
+[x] Merget til `main` (PR #55, #58, …)
 
 ## Ikke planlagt endnu
 

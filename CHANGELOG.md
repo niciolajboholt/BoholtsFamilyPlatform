@@ -4,6 +4,13 @@
 
 - Et sat tidspunkt på en opgave sender nu en push-notifikation, når tiden
   kommer, i stedet for kun at blive brugt til sortering.
+- Efterfølgende rettelser (2026-08-19): manuelt tidspunkt-felt tilføjet i
+  UI'et (hurtig-tilføj + rutine-opgaver, som var overset i den
+  oprindelige sprint-scope); "Min profil" i Indstillinger kobler nu reelt
+  brugerens konto til familiemedlemmet server-side (linked_user_id var
+  aldrig blevet sat nogen steder i koden, så personligt tildelte
+  opgave-notifikationer aldrig kunne leveres); opgavens tidspunkt kan nu
+  redigeres direkte på opgavelinjen efter oprettelse.
 
 ## Sprint 26 — Kalender-konflikter + delelink
 
