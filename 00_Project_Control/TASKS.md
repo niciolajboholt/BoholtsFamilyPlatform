@@ -110,9 +110,9 @@ Se `05_Sprint_History.md` for detaljer pr. sprint.
 [x] server/lib/taskReminders.ts: sendDueTaskReminders(), Cron Trigger
     hvert 5. minut, Europe/Copenhagen-tidszonelogik
 [x] 7 nye tests, inkl. eksplicit CEST- og CET-test
-[ ] Migration 0011 skal køres manuelt på beta og produktion
-[ ] Manuel test på beta/produktion (kræver at vente på et rigtigt
-    cron-tick, ikke en AI-agent-opgave)
+[x] Migration 0011 kørt og verificeret på beta og produktion (2026-08-19)
+[ ] Manuel funktionel test på beta/produktion (kræver at vente på et
+    rigtigt cron-tick, ikke en AI-agent-opgave)
 [x] Merget til `main` (PR #55)
 
 ## Ikke planlagt endnu

@@ -120,8 +120,12 @@ push-notifikation, når tiden kommer.
 3. ~~Cron Trigger tilføjet i `wrangler.jsonc` (prod + beta), koblet ind i
    `index.ts`s `scheduled()`~~ ✅ **Gennemført**: `scheduled()` skelner de
    to cron'er via `controller.cron`.
-4. Manuel test på beta/produktion — udestår i sagens natur til bagefter
-   (kræver at vente på et rigtigt cron-tick og se en rigtig push
+~~Migration 0011 kørt og verificeret af Nicolaj på både
+   `boholtsfamilyplatform` og `boholtsfamilyplatform-beta`~~ ✅
+   **Bekræftet (2026-08-19)**: `reminded_at TEXT` indgår i
+   `tasks`-tabellens skema begge steder.
+4. Manuel funktionel test på beta/produktion — udestår i sagens natur til
+   bagefter (kræver at vente på et rigtigt cron-tick og se en rigtig push
    ankomme), Nicolaj bekræfter ved lejlighed.
 5. Kvalitetskontrol (`lint`, `tsc -b`, `test`, `build`) → commit → push →
    verificér grøn CI + begge Workers Builds → merge `develop` til `main`.
