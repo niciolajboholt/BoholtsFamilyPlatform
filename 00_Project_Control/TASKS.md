@@ -111,9 +111,12 @@ Se `05_Sprint_History.md` for detaljer pr. sprint.
     hvert 5. minut, Europe/Copenhagen-tidszonelogik
 [x] 7 nye tests, inkl. eksplicit CEST- og CET-test
 [x] Migration 0011 kørt og verificeret på beta og produktion (2026-08-19)
+[x] Manuelt tidspunkt-felt i UI (hurtig-tilføj + rutine-opgaver) —
+    oversete i den oprindelige sprint-scope, tilføjet efter Nicolajs
+    spørgsmål "Hvordan sætter jeg en påmindelse" (2026-08-19)
 [ ] Manuel funktionel test på beta/produktion (kræver at vente på et
     rigtigt cron-tick, ikke en AI-agent-opgave)
-[x] Merget til `main` (PR #55)
+[x] Merget til `main` (PR #55, #58)
 
 ## Ikke planlagt endnu
 

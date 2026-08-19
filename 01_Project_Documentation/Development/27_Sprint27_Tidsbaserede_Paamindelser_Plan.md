@@ -129,6 +129,13 @@ push-notifikation, når tiden kommer.
    ankomme), Nicolaj bekræfter ved lejlighed.
 5. Kvalitetskontrol (`lint`, `tsc -b`, `test`, `build`) → commit → push →
    verificér grøn CI + begge Workers Builds → merge `develop` til `main`.
+6. ~~**Efterfølgende rettelse (2026-08-19)**: Nicolaj spurgte fra
+   opgavesiden "Hvordan sætter jeg en påmindelse" — det viste sig, at
+   sprintets scope aldrig indeholdt en UI-kontrol til selv at sætte
+   `time_of_day` (kun backend/cron), selvom API'et og `useTasks`-hooket
+   allerede understøttede det fuldt ud. Tilføjet: et `type="time"`-felt i
+   hurtig-tilføj-formularen og pr. opgave-række i rutine-opret-dialogen~~
+   ✅ **Gennemført (PR #58, merget)**.
 
 ---
 
