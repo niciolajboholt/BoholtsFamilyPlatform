@@ -4,8 +4,9 @@ Senest opdateret: 2026-08-18
 
 ## Aktuel fase
 
-Sprint 23-26 er gennemført. Sprint 25 og 26's manuelle beta/produktions-test
-udestår begge (kræver browser, ikke en AI-agent-opgave) — se
+Sprint 23-26 er gennemført og merget til `main`. Sprint 25 og 26's
+manuelle beta/produktions-test udestår begge (kræver browser, ikke en
+AI-agent-opgave) — se
 `01_Project_Documentation/AI_Knowledge_Base/10_Future_Roadmap.md` for
 Sprint 27-28.
 
@@ -50,7 +51,7 @@ Sprint 27-28.
 
 ## Kvalitetsstatus
 
-`develop` og `main` er ens t.o.m. Sprint 24 (Sprint 25 og 26 afventer merge):
+`develop` og `main` er ens t.o.m. Sprint 26:
 
 - `npm run lint`
 - `npm run build`
@@ -63,7 +64,7 @@ ende-til-ende, og opgave-/AI-modulet.
 
 ## Næste skridt
 
-Sprint 25 og 26's kode merges til `main`, når CI/Workers Builds er grønne.
-Kandidater herefter: Sprint 27 (tidsbaserede påmindelser), 28
-(AI-ugeresumé) — se `10_Future_Roadmap.md`. Flere Google-konti pr. familie
-forbliver ikke planlagt (kræver egen ADR).
+Sprint 25 og 26's manuelle beta/produktions-test udestår (Nicolaj, kræver
+browser). Ellers ingen aktiv sprint. Kandidater: Sprint 27 (tidsbaserede
+påmindelser), 28 (AI-ugeresumé) — se `10_Future_Roadmap.md`. Flere
+Google-konti pr. familie forbliver ikke planlagt (kræver egen ADR).
