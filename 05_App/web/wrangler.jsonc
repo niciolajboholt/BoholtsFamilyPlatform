@@ -60,20 +60,18 @@
   "ai": {
     "binding": "AI"
   },
-  // Sprint 24: rydder udløbne sessioner op dagligt (se
-  // server/lib/session.ts's cleanupExpiredSessions() og index.ts's
-  // scheduled()-handler) — før dette blev en session kun slettet, når den
-  // selv blev brugt efter udløb, så tabellen voksede ubegrænset.
-  // Sprint 27: sender tidsbaserede opgave-påmindelser hvert 5. minut (se
-  // server/lib/taskReminders.ts) — index.ts's scheduled()-handler skelner
-  // cron'erne via controller.cron.
-  // Sprint 28: AI-ugeresumé søndag kl. 17 UTC (~18-19 dansk tid, se
-  // server/lib/weeklySummary.ts). Cloudflares cron-dialekt bruger 1-7 for
-  // ugedage (1=søndag), IKKE unix-standardens 0=søndag — "SUN" bruges i
-  // stedet for et tal for at undgå den forveksling (jf. Cloudflares egen
-  // anbefaling).
+  // Sprint 28 (2026-08-19): ingen cron-triggers på det ikke-navngivne
+  // (produktions-)miljø længere — Nicolaj bekræftede, at familiens
+  // rigtige, daglige data ligger i "beta"-miljøet, ikke her, så dette
+  // miljø reelt ikke bruges. Cloudflares Free-plan har en KONTO-BRED
+  // grænse på 5 cron-triggers i alt, på tværs af alle Workers/miljøer —
+  // beta's 3 (session-oprydning, opgave-påmindelser, ugeresumé, se
+  // env.beta.triggers nedenfor) er nok til at ramme loftet, hvis dette
+  // miljø også havde 3. Selve Workeren kører stadig (så evt. direkte
+  // opkald til den ikke bare fejler), den modtager blot aldrig et
+  // scheduled()-kald.
   "triggers": {
-    "crons": ["0 4 * * *", "*/5 * * * *", "0 17 * * SUN"]
+    "crons": []
   },
   // Samme mønster som secrets_store_secrets ovenfor: slået til i
   // dashboardet, men uden dette forsvinder det ved næste Git-udløste
@@ -152,6 +150,11 @@
       "ai": {
         "binding": "AI"
       },
+      // Det reelt brugte miljø (Nicolaj og Christines PWA på hjemmeskærmen
+      // peger her, ikke på det ikke-navngivne produktionsmiljø ovenfor) —
+      // har derfor alle tre cron-triggers. Se den ikke-navngivne sektions
+      // "triggers"-kommentar for hvorfor produktion har en tom liste
+      // (Cloudflares konto-brede 5-cron-loft på Free-planen).
       "triggers": {
         "crons": ["0 4 * * *", "*/5 * * * *", "0 17 * * SUN"]
       },

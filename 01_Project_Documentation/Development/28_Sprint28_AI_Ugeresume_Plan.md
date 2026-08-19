@@ -113,13 +113,23 @@ som en push-notifikation og synlig i appen, via Cloudflare Workers AI
 4. ~~Cron Trigger tilføjet i `wrangler.jsonc` (prod + beta), koblet ind i
    `index.ts`s `scheduled()`.~~ ✅ **Gennemført**: tredje cron
    (`0 17 * * SUN`), skelnes fra de to øvrige via `controller.cron`.
-   **Justeret under implementering**: oprindeligt skrevet som
-   `0 17 * * 0` (unix-konventionen, 0=søndag) — Cloudflares cron-dialekt
-   bruger i stedet `1-7` for ugedage (1=søndag), så det tal fejlede
-   deploybuildet til beta med "invalid cron string" (produktionsbuildet
-   nåede at deploye, INDEN beta-fejlen blev opdaget — se
-   "Kendte risici" nedenfor). Rettet til `SUN` (Cloudflares egen
-   anbefalede notation, undgår enhver tvetydighed).
+   **Justeret under implementering, to runder**:
+   1. Oprindeligt skrevet som `0 17 * * 0` (unix-konventionen,
+      0=søndag) — Cloudflares cron-dialekt bruger i stedet `1-7` for
+      ugedage (1=søndag), så det tal fejlede beta-deploybuildet med
+      "invalid cron string". Rettet til `SUN` (Cloudflares egen
+      anbefalede notation, undgår enhver tvetydighed).
+   2. Med det rettet, fejlede produktionsmiljøets deploy i stedet med
+      "This account has reached the Workers Free limit of 5 cron
+      triggers per account" — en KONTO-BRED grænse, ikke pr. Worker:
+      2 miljøer × 3 cron'er hver = 6, over loftet. Under afklaringen
+      bekræftede Nicolaj, at det ikke-navngivne produktionsmiljø reelt
+      ikke bruges — familiens rigtige, daglige data (og PWA'en på
+      hjemmeskærmen) er på "beta". Løsning: produktionsmiljøets
+      `triggers.crons` sat til en tom liste (`[]`) i stedet for at
+      opgradere til en betalt Cloudflare-plan — se `wrangler.jsonc`s
+      kommentarer for detaljer. Ingen kodeændring nødvendig, kun
+      config.
 5. ~~`GET /:id/weekly-summary`-rute + klient-kort på `HomePage.tsx`.~~ ✅
    **Gennemført**: `WeeklySummaryCard` vises kun, når et resumé rent
    faktisk findes (ingen permanent tom-tilstand indtil første søndag).
