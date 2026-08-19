@@ -11,6 +11,7 @@ import shoppingListsRoutes from "./routes/shoppingLists";
 import tasksRoutes from "./routes/tasks";
 import { cleanupOldRateLimitAttempts } from "./lib/rateLimit";
 import { cleanupExpiredSessions } from "./lib/session";
+import { sendDueTaskReminders } from "./lib/taskReminders";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -56,9 +57,16 @@ app.get("*", (c) => c.env.ASSETS.fetch(c.req.raw));
 
 export default {
   fetch: app.fetch,
-  // Sprint 24: Cron Trigger (se wrangler.jsonc's "triggers"), rydder
-  // udløbne sessioner og gamle rate-limit-forsøg periodisk op.
-  async scheduled(_controller, env, ctx) {
+  // To Cron Triggers (se wrangler.jsonc's "triggers"), adskilt på
+  // controller.cron: den daglige (Sprint 24) rydder udløbne sessioner og
+  // gamle rate-limit-forsøg op; den nye hvert 5. minut (Sprint 27) sender
+  // tidsbaserede opgave-påmindelser.
+  async scheduled(controller, env, ctx) {
+    if (controller.cron === "*/5 * * * *") {
+      ctx.waitUntil(sendDueTaskReminders(env));
+      return;
+    }
+
     ctx.waitUntil(cleanupExpiredSessions(env));
     ctx.waitUntil(cleanupOldRateLimitAttempts(env.DB));
   },

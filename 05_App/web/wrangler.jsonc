@@ -64,8 +64,11 @@
   // server/lib/session.ts's cleanupExpiredSessions() og index.ts's
   // scheduled()-handler) — før dette blev en session kun slettet, når den
   // selv blev brugt efter udløb, så tabellen voksede ubegrænset.
+  // Sprint 27: sender tidsbaserede opgave-påmindelser hvert 5. minut (se
+  // server/lib/taskReminders.ts) — index.ts's scheduled()-handler skelner
+  // de to cron'er via controller.cron.
   "triggers": {
-    "crons": ["0 4 * * *"]
+    "crons": ["0 4 * * *", "*/5 * * * *"]
   },
   // Samme mønster som secrets_store_secrets ovenfor: slået til i
   // dashboardet, men uden dette forsvinder det ved næste Git-udløste
@@ -145,7 +148,7 @@
         "binding": "AI"
       },
       "triggers": {
-        "crons": ["0 4 * * *"]
+        "crons": ["0 4 * * *", "*/5 * * * *"]
       },
       "observability": {
         "enabled": false,
