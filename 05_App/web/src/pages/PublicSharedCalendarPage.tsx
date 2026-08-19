@@ -1,30 +1,37 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 
+import ChevronLeftRounded from "@mui/icons-material/ChevronLeftRounded";
+import ChevronRightRounded from "@mui/icons-material/ChevronRightRounded";
 import {
   Alert,
   Box,
-  Card,
-  CardContent,
   CircularProgress,
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  IconButton,
   Typography,
 } from "@mui/material";
+
+import type { CalendarEvent } from "../features/calendar/models/calendarEvent";
+import MonthCalendar from "../features/calendar/components/MonthCalendar";
+import EventList from "../features/calendar/components/EventList";
+import { getEventsForDate } from "../features/calendar/utils/getEventsForDate";
+import {
+  addMonths,
+  startOfMonth,
+  toCalendarModel,
+  toMonthNavBounds,
+  type PublicCalendarEvent,
+} from "../features/calendar/utils/publicSharedCalendarModel";
 
 // Sprint 26: den eneste side i appen, der ikke går gennem AppLayout's
 // login-gate (se AppRouter.tsx — monteret som en søskende-rute, ikke inde i
 // AppLayout's <Route>). Rent skrivebeskyttet: ingen navigation til resten
-// af appen, ingen opret/redigér/slet-handlinger.
-
-interface PublicCalendarEvent {
-  title: string;
-  start: string;
-  end: string;
-  allDay: boolean;
-  description?: string;
-  location?: string;
-  memberName: string;
-  memberColor: string;
-}
+// af appen, ingen opret/redigér/slet-handlinger — genbruger de samme
+// måned-/dagslistevisningskomponenter som den almindelige kalenderside,
+// blot med et informationsdialog i stedet for et redigér-flow ved klik.
 
 interface PublicCalendarResponse {
   familyName: string;
@@ -52,15 +59,7 @@ function errorMessageForStatus(status: number): string {
   return "Kalenderen kunne ikke indlæses.";
 }
 
-function formatDayHeading(date: Date): string {
-  return new Intl.DateTimeFormat("da-DK", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-  }).format(date);
-}
-
-function formatTimeRange(event: PublicCalendarEvent): string {
+function formatTimeRange(event: CalendarEvent): string {
   if (event.allDay) {
     return "Hele dagen";
   }
@@ -69,39 +68,20 @@ function formatTimeRange(event: PublicCalendarEvent): string {
   return `${formatter.format(new Date(event.start))}–${formatter.format(new Date(event.end))}`;
 }
 
-function dayKey(event: PublicCalendarEvent): string {
-  const date = new Date(event.start);
-  return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
-}
-
-function groupEventsByDay(
-  events: PublicCalendarEvent[],
-): { key: string; date: Date; events: PublicCalendarEvent[] }[] {
-  const sorted = [...events].sort(
-    (a, b) => new Date(a.start).getTime() - new Date(b.start).getTime(),
-  );
-  const groups = new Map<string, { date: Date; events: PublicCalendarEvent[] }>();
-
-  for (const event of sorted) {
-    const key = dayKey(event);
-    const existing = groups.get(key);
-
-    if (existing) {
-      existing.events.push(event);
-    } else {
-      groups.set(key, { date: new Date(event.start), events: [event] });
-    }
-  }
-
-  return [...groups.entries()].map(([key, group]) => ({ key, ...group }));
+function formatMonthLabel(date: Date): string {
+  return new Intl.DateTimeFormat("da-DK", { month: "long", year: "numeric" }).format(date);
 }
 
 function PublicSharedCalendarPage() {
   const { token } = useParams<{ token: string }>();
   const [state, setState] = useState<LoadState>({ status: "loading" });
-  const effectiveState: LoadState = token
-    ? state
-    : { status: "error", message: "Linket mangler et token." };
+  const [visibleMonth, setVisibleMonth] = useState(() => startOfMonth(new Date()));
+  const [selectedDate, setSelectedDate] = useState(() => new Date());
+  const [detailsEvent, setDetailsEvent] = useState<CalendarEvent | null>(null);
+  const effectiveState: LoadState = useMemo(
+    () => (token ? state : { status: "error", message: "Linket mangler et token." }),
+    [token, state],
+  );
 
   useEffect(() => {
     if (!token) {
@@ -140,6 +120,17 @@ function PublicSharedCalendarPage() {
     };
   }, [token]);
 
+  const calendarModel = useMemo(
+    () =>
+      effectiveState.status === "ready"
+        ? toCalendarModel(effectiveState.data.events)
+        : { members: [], events: [] },
+    [effectiveState],
+  );
+
+  const navBounds = useMemo(() => toMonthNavBounds(new Date()), []);
+  const eventsForSelectedDate = getEventsForDate(calendarModel.events, selectedDate);
+
   return (
     <Box
       sx={{
@@ -148,7 +139,7 @@ function PublicSharedCalendarPage() {
         p: { xs: 2, sm: 4 },
       }}
     >
-      <Box sx={{ maxWidth: 640, mx: "auto" }}>
+      <Box sx={{ maxWidth: 720, mx: "auto" }}>
         <Typography variant="h5" sx={{ fontWeight: 700, mb: 0.5 }}>
           {effectiveState.status === "ready" ? effectiveState.data.familyName : "Familiens kalender"}
         </Typography>
@@ -167,53 +158,84 @@ function PublicSharedCalendarPage() {
           <Alert severity="error">{effectiveState.message}</Alert>
         )}
 
-        {effectiveState.status === "ready" && effectiveState.data.events.length === 0 && (
-          <Alert severity="info">Ingen kommende aftaler.</Alert>
-        )}
-
-        {effectiveState.status === "ready" &&
-          groupEventsByDay(effectiveState.data.events).map((group) => (
-            <Box key={group.key} sx={{ mb: 2.5 }}>
-              <Typography
-                variant="subtitle2"
-                sx={{ fontWeight: 700, textTransform: "capitalize", mb: 1 }}
+        {effectiveState.status === "ready" && (
+          <>
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 1,
+                mb: 1.5,
+              }}
+            >
+              <IconButton
+                aria-label="Forrige måned"
+                disabled={visibleMonth <= navBounds.min}
+                onClick={() => setVisibleMonth((current) => addMonths(current, -1))}
               >
-                {formatDayHeading(group.date)}
+                <ChevronLeftRounded />
+              </IconButton>
+
+              <Typography
+                variant="subtitle1"
+                sx={{ fontWeight: 700, textTransform: "capitalize", minWidth: 160, textAlign: "center" }}
+              >
+                {formatMonthLabel(visibleMonth)}
               </Typography>
 
-              <Box sx={{ display: "grid", gap: 1 }}>
-                {group.events.map((event, index) => (
-                  <Card
-                    key={`${group.key}-${index}`}
-                    sx={{ borderLeft: `4px solid ${event.memberColor}` }}
-                  >
-                    <CardContent sx={{ p: 1.75, "&:last-child": { pb: 1.75 } }}>
-                      <Typography variant="caption" sx={{ fontWeight: 700, color: event.memberColor }}>
-                        {formatTimeRange(event)} · {event.memberName}
-                      </Typography>
-
-                      <Typography variant="body1" sx={{ fontWeight: 600 }}>
-                        {event.title}
-                      </Typography>
-
-                      {event.location && (
-                        <Typography variant="body2" color="text.secondary">
-                          {event.location}
-                        </Typography>
-                      )}
-
-                      {event.description && (
-                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                          {event.description}
-                        </Typography>
-                      )}
-                    </CardContent>
-                  </Card>
-                ))}
-              </Box>
+              <IconButton
+                aria-label="Næste måned"
+                disabled={visibleMonth >= navBounds.max}
+                onClick={() => setVisibleMonth((current) => addMonths(current, 1))}
+              >
+                <ChevronRightRounded />
+              </IconButton>
             </Box>
-          ))}
+
+            <MonthCalendar
+              visibleMonth={visibleMonth}
+              selectedDate={selectedDate}
+              events={calendarModel.events}
+              members={calendarModel.members}
+              onSelectDate={setSelectedDate}
+              onSelectEvent={setDetailsEvent}
+            />
+
+            <EventList
+              selectedDate={selectedDate}
+              events={eventsForSelectedDate}
+              members={calendarModel.members}
+              onSelectEvent={setDetailsEvent}
+            />
+          </>
+        )}
       </Box>
+
+      <Dialog open={detailsEvent !== null} onClose={() => setDetailsEvent(null)} maxWidth="xs" fullWidth>
+        {detailsEvent && (
+          <>
+            <DialogTitle sx={{ fontWeight: 700 }}>{detailsEvent.title}</DialogTitle>
+            <DialogContent sx={{ pb: 3 }}>
+              <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>
+                {formatTimeRange(detailsEvent)}
+              </Typography>
+
+              {detailsEvent.location && (
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                  {detailsEvent.location}
+                </Typography>
+              )}
+
+              {detailsEvent.description && (
+                <Typography variant="body2" color="text.secondary">
+                  {detailsEvent.description}
+                </Typography>
+              )}
+            </DialogContent>
+          </>
+        )}
+      </Dialog>
     </Box>
   );
 }
