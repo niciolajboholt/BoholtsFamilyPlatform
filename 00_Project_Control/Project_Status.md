@@ -1,13 +1,13 @@
 # Project Status
 
-Senest opdateret: 2026-08-18
+Senest opdateret: 2026-08-19
 
 ## Aktuel fase
 
-Sprint 23-26 er gennemført og merget til `main`. Sprint 25 (kalender-sync +
-PWA-ikoner) og Sprint 26 (kalender-konflikter + delelink) mangler begge kun
-deres manuelle beta/produktions-test (kræver browser, ikke en
-AI-agent-opgave).
+Sprint 23-27 er gennemført og merget til `main`. Sprint 25 (kalender-sync),
+26's konfliktmarkering og 27 (tidsbaserede påmindelser) mangler hver deres
+manuelle beta/produktions-test (kræver browser/tid, ikke en
+AI-agent-opgave). Sprint 26's delelink er bekræftet virkende af Nicolaj.
 
 ## Gennemført
 
@@ -57,11 +57,17 @@ AI-agent-opgave).
   kalendervisninger, og en read-only delelink til udvalgte
   familiemedlemmers kalendere for udenforstående uden login — appens
   første og eneste uautentificerede API-rute, rate-limitet pr. token.
+  Delelinket viser en rigtig månedsvisning. Bekræftet virkende af Nicolaj
+  på produktion.
+- **Sprint 27**: tidsbaserede opgave-påmindelser — et sat tidspunkt sender
+  nu en push-notifikation, når tiden kommer. Ny Cron Trigger hvert 5.
+  minut, appens første server-side, tidszone-bevidste logik
+  (`Europe/Copenhagen`).
 
 ## Næste fase
 
-Sprint 25 og 26's manuelle beta/produktions-test udestår (Nicolaj, kræver
-browser). Ellers ingen aktiv sprint.
-Kandidater herefter: Sprint 27 (tidsbaserede påmindelser), 28
-(AI-ugeresumé) — se `10_Future_Roadmap.md`. Flere Google-konti pr. familie
-forbliver ikke planlagt (kræver egen ADR).
+Sprint 25, 26 og 27's manuelle beta/produktions-test udestår (Nicolaj).
+Migration 0011 skal desuden køres manuelt på beta/produktion. Ellers ingen
+aktiv sprint. Kandidat: Sprint 28 (AI-ugeresumé) — se
+`10_Future_Roadmap.md`. Flere Google-konti pr. familie forbliver ikke
+planlagt (kræver egen ADR).

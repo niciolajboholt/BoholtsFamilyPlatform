@@ -1,14 +1,16 @@
 # Projektstatus
 
-Senest opdateret: 2026-08-18
+Senest opdateret: 2026-08-19
 
 ## Aktuel fase
 
-Sprint 23-26 er gennemført og merget til `main`. Sprint 25 og 26's
-manuelle beta/produktions-test udestår begge (kræver browser, ikke en
+Sprint 23-27 er gennemført og merget til `main`. Sprint 25 (kalender-sync),
+26's konfliktmarkering og 27 (tidsbaserede påmindelser) mangler hver deres
+manuelle beta/produktions-test (kræver browser/tid, ikke en
 AI-agent-opgave) — se
 `01_Project_Documentation/AI_Knowledge_Base/10_Future_Roadmap.md` for
-Sprint 27-28.
+Sprint 28. Sprint 26's delelink er bekræftet virkende af Nicolaj, inkl. en
+opfølgende ændring til månedsvisning.
 
 ## Leveret
 
@@ -46,16 +48,22 @@ Sprint 27-28.
   (måned/uge/dag/side-by-side/dagsliste), og en read-only delelink til
   udvalgte familiemedlemmers kalendere for udenforstående (fx
   bedsteforældre) uden login — appens første og eneste uautentificerede
-  API-rute, rate-limitet pr. token.
-- Vitest-testpakke (296 tests) + GitHub Actions-CI.
+  API-rute, rate-limitet pr. token. Delelinket viser en rigtig
+  månedsvisning (samme komponenter som resten af appen). Bekræftet
+  virkende af Nicolaj på produktion.
+- **Sprint 27**: tidsbaserede opgave-påmindelser — et sat tidspunkt på en
+  opgave sender nu en push-notifikation, når tiden kommer (tidligere kun
+  brugt til sortering). Ny Cron Trigger hvert 5. minut, appens første
+  server-side, tidszone-bevidste logik (`Europe/Copenhagen`).
+- Vitest-testpakke (309 tests) + GitHub Actions-CI.
 
 ## Kvalitetsstatus
 
-`develop` og `main` er ens t.o.m. Sprint 26:
+`develop` og `main` er ens t.o.m. Sprint 27:
 
 - `npm run lint`
 - `npm run build`
-- `npm test` (296 tests)
+- `npm test` (309 tests)
 - Grøn GitHub Actions-CI og Cloudflare Workers Build (produktion + beta)
 
 Verificeret manuelt af Nicolaj og Christine på beta og produktion, inkl.
@@ -64,7 +72,9 @@ ende-til-ende, og opgave-/AI-modulet.
 
 ## Næste skridt
 
-Sprint 25 og 26's manuelle beta/produktions-test udestår (Nicolaj, kræver
-browser). Ellers ingen aktiv sprint. Kandidater: Sprint 27 (tidsbaserede
-påmindelser), 28 (AI-ugeresumé) — se `10_Future_Roadmap.md`. Flere
-Google-konti pr. familie forbliver ikke planlagt (kræver egen ADR).
+Sprint 25's kalender-synk, Sprint 26's konfliktmarkering og Sprint 27's
+påmindelser mangler hver deres manuelle beta/produktions-test (Nicolaj).
+Migration 0011 skal desuden køres manuelt på beta/produktion. Ellers ingen
+aktiv sprint. Kandidat: Sprint 28 (AI-ugeresumé) — se
+`10_Future_Roadmap.md`. Flere Google-konti pr. familie forbliver ikke
+planlagt (kræver egen ADR).
