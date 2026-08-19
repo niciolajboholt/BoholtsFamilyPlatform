@@ -69,7 +69,7 @@ export default {
       return;
     }
 
-    if (controller.cron === "0 17 * * 0") {
+    if (controller.cron === "0 17 * * SUN") {
       ctx.waitUntil(sendWeeklySummaries(env));
       return;
     }

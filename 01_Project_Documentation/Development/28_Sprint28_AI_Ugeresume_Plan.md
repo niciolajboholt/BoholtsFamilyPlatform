@@ -30,7 +30,7 @@ som en push-notifikation og synlig i appen, via Cloudflare Workers AI
 
 ## Beslutninger
 
-1. **Ugentlig Cron Trigger** — søndag kl. 18:00 dansk tid (`0 17 * * 0` UTC,
+1. **Ugentlig Cron Trigger** — søndag kl. 18:00 dansk tid (`0 17 * * SUN` UTC,
    samme pragmatiske forenkling som Sprint 24/27's faste UTC-cron'er: et
    fast klokkeslæt der forskyder sig en time omkring sommertidsskift,
    accepteret fremfor at genberegne cron-udtrykket to gange om året).
@@ -112,7 +112,14 @@ som en push-notifikation og synlig i appen, via Cloudflare Workers AI
    materialisering på tværs af alle 7 dage.
 4. ~~Cron Trigger tilføjet i `wrangler.jsonc` (prod + beta), koblet ind i
    `index.ts`s `scheduled()`.~~ ✅ **Gennemført**: tredje cron
-   (`0 17 * * 0`), skelnes fra de to øvrige via `controller.cron`.
+   (`0 17 * * SUN`), skelnes fra de to øvrige via `controller.cron`.
+   **Justeret under implementering**: oprindeligt skrevet som
+   `0 17 * * 0` (unix-konventionen, 0=søndag) — Cloudflares cron-dialekt
+   bruger i stedet `1-7` for ugedage (1=søndag), så det tal fejlede
+   deploybuildet til beta med "invalid cron string" (produktionsbuildet
+   nåede at deploye, INDEN beta-fejlen blev opdaget — se
+   "Kendte risici" nedenfor). Rettet til `SUN` (Cloudflares egen
+   anbefalede notation, undgår enhver tvetydighed).
 5. ~~`GET /:id/weekly-summary`-rute + klient-kort på `HomePage.tsx`.~~ ✅
    **Gennemført**: `WeeklySummaryCard` vises kun, når et resumé rent
    faktisk findes (ingen permanent tom-tilstand indtil første søndag).

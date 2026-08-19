@@ -68,9 +68,12 @@
   // server/lib/taskReminders.ts) — index.ts's scheduled()-handler skelner
   // cron'erne via controller.cron.
   // Sprint 28: AI-ugeresumé søndag kl. 17 UTC (~18-19 dansk tid, se
-  // server/lib/weeklySummary.ts).
+  // server/lib/weeklySummary.ts). Cloudflares cron-dialekt bruger 1-7 for
+  // ugedage (1=søndag), IKKE unix-standardens 0=søndag — "SUN" bruges i
+  // stedet for et tal for at undgå den forveksling (jf. Cloudflares egen
+  // anbefaling).
   "triggers": {
-    "crons": ["0 4 * * *", "*/5 * * * *", "0 17 * * 0"]
+    "crons": ["0 4 * * *", "*/5 * * * *", "0 17 * * SUN"]
   },
   // Samme mønster som secrets_store_secrets ovenfor: slået til i
   // dashboardet, men uden dette forsvinder det ved næste Git-udløste
@@ -150,7 +153,7 @@
         "binding": "AI"
       },
       "triggers": {
-        "crons": ["0 4 * * *", "*/5 * * * *", "0 17 * * 0"]
+        "crons": ["0 4 * * *", "*/5 * * * *", "0 17 * * SUN"]
       },
       "observability": {
         "enabled": false,
