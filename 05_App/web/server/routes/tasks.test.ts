@@ -225,6 +225,41 @@ describe("task routes", () => {
     expect(sendPushNotificationToFamilyMock).not.toHaveBeenCalled();
   });
 
+  it("notifies the creator when they assign a task to their own member", async () => {
+    const { cookieHeader, userId } = await seedLoggedInUser(env.DB as never, { id: "nicolaj" });
+    await seedFamily(env, "family-1", [userId]);
+    await seedFamilyMember(env, {
+      id: "member-nicolaj",
+      familyId: "family-1",
+      name: "Nicolaj",
+      linkedUserId: userId,
+    });
+
+    await tasks.request(
+      "/family-1/tasks",
+      {
+        method: "POST",
+        headers: { Cookie: cookieHeader, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: "Put Alfred",
+          icon: "fritid",
+          date: aThursday,
+          assignedMemberId: "member-nicolaj",
+        }),
+      },
+      env,
+      fakeExecutionCtx,
+    );
+    await lastWaitUntilTask;
+
+    expect(sendPushNotificationToUserMock).toHaveBeenCalledWith(
+      env,
+      userId,
+      expect.objectContaining({ body: expect.stringContaining("Put Alfred") }),
+    );
+    expect(sendPushNotificationToFamilyMock).not.toHaveBeenCalled();
+  });
+
   it("sends no notification when assigned to a member without a linked account", async () => {
     const { cookieHeader, userId } = await seedLoggedInUser(env.DB as never, { id: "nicolaj" });
     await seedFamily(env, "family-1", [userId]);
