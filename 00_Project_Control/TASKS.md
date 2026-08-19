@@ -98,9 +98,10 @@ Se `05_Sprint_History.md` for detaljer pr. sprint.
 [x] Migration 0010: family_share_links
 [x] Server: share-link CRUD + offentligt /api/public/family-calendar/:token
 [x] Klient: /share/:token-side + Delelink-sektion i Indstillinger
+[x] Migration 0010 kørt og verificeret på beta og produktion (2026-08-18)
 [ ] Manuel test på beta/produktion (kræver browser + rigtig
     Google-forbindelse, ikke en AI-agent-opgave)
-[ ] Merget til `main`
+[x] Merget til `main` (PR #51)
 
 ## Ikke planlagt endnu
 

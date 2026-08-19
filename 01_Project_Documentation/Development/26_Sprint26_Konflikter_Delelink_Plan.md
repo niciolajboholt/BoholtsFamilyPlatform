@@ -149,11 +149,15 @@ udenforstående (fx bedsteforældre) uden login.
    "Delelink"-sektionen i Indstillinger~~ ✅ **Gennemført**: se justeringen
    ovenfor (dedikeret agenda-visning i stedet for genbrug af
    måned-/ugekomponenterne).
-5. **Manuel test på beta/produktion — udestår**: kræver en rigtig browser
-   og en rigtig Google-forbindelse (ikke noget en AI-agent kan udføre
-   alene). Nicolaj bekræfter ved lejlighed at delelinket virker uden login
-   i et separat/inkognito-vindue, og at konfliktmarkeringen vises korrekt i
-   alle fem visninger.
+5. Migration 0010 kørt og verificeret af Nicolaj på både
+   `boholtsfamilyplatform` og `boholtsfamilyplatform-beta` (2026-08-18,
+   `SELECT name FROM sqlite_master WHERE type = 'table' AND name =
+   'family_share_links'` — samme resultat begge steder).
+   **Resterende, udestår**: den funktionelle manuelle test på
+   beta/produktion (bekræft delelinket virker uden login i et separat/
+   inkognito-vindue, og at konfliktmarkeringen vises korrekt i alle fem
+   visninger) — kræver en rigtig browser og Google-forbindelse, ikke noget
+   en AI-agent kan udføre alene.
 6. ~~Kvalitetskontrol → commit → push → merge~~ ✅ **Gennemført**: 296
    tests, lint/tsc/build grønne.
 

@@ -4,10 +4,10 @@ Senest opdateret: 2026-08-18
 
 ## Aktuel fase
 
-Sprint 23 og 24 er gennemført og merget til `main`. Sprint 25 (kalender-sync
-+ PWA-ikoner) og Sprint 26 (kalender-konflikter + delelink) er begge
-gennemført på `develop`; kun deres manuelle beta/produktions-test (kræver
-browser, ikke en AI-agent-opgave) udestår før merge til `main`.
+Sprint 23-26 er gennemført og merget til `main`. Sprint 25 (kalender-sync +
+PWA-ikoner) og Sprint 26 (kalender-konflikter + delelink) mangler begge kun
+deres manuelle beta/produktions-test (kræver browser, ikke en
+AI-agent-opgave).
 
 ## Gennemført
 
@@ -60,7 +60,8 @@ browser, ikke en AI-agent-opgave) udestår før merge til `main`.
 
 ## Næste fase
 
-Sprint 25 og 26 merges til `main`, når CI/Workers Builds er grønne.
+Sprint 25 og 26's manuelle beta/produktions-test udestår (Nicolaj, kræver
+browser). Ellers ingen aktiv sprint.
 Kandidater herefter: Sprint 27 (tidsbaserede påmindelser), 28
 (AI-ugeresumé) — se `10_Future_Roadmap.md`. Flere Google-konti pr. familie
 forbliver ikke planlagt (kræver egen ADR).
