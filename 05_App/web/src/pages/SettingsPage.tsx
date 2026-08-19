@@ -70,6 +70,18 @@ function SettingsPage() {
   const { currentMember, setCurrentMemberId } = useCurrentMember();
   const [isCurrentMemberPickerOpen, setIsCurrentMemberPickerOpen] =
     useState(false);
+  const [currentMemberLinkError, setCurrentMemberLinkError] = useState<
+    string | null
+  >(null);
+
+  function handleSelectCurrentMember(memberId: string): void {
+    setCurrentMemberLinkError(null);
+    setCurrentMemberId(memberId).then((error) => {
+      if (error) {
+        setCurrentMemberLinkError(error);
+      }
+    });
+  }
 
   const { user, logout } = useSession();
 
@@ -665,6 +677,12 @@ function SettingsPage() {
               </IconButton>
             </Box>
 
+            {currentMemberLinkError && (
+              <Alert severity="error" sx={{ mb: 1.5 }}>
+                {currentMemberLinkError}
+              </Alert>
+            )}
+
             {user && (
               <>
                 <Divider />
@@ -704,7 +722,7 @@ function SettingsPage() {
         open={isCurrentMemberPickerOpen}
         members={members}
         onClose={() => setIsCurrentMemberPickerOpen(false)}
-        onSelect={setCurrentMemberId}
+        onSelect={handleSelectCurrentMember}
       />
     </Box>
   );

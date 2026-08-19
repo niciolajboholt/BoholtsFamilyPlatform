@@ -81,7 +81,7 @@ export function addTask(
 export function updateTask(
   familyId: string,
   taskId: string,
-  patch: { isDone?: boolean; name?: string; icon?: string },
+  patch: { isDone?: boolean; name?: string; icon?: string; timeOfDay?: string | null },
 ) {
   return request<{ tasks?: TaskDto[]; error?: string }>(
     `/api/families/${familyId}/tasks/${taskId}`,

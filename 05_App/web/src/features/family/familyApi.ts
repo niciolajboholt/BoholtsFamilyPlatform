@@ -95,6 +95,13 @@ export function updateFamilyMember(
   );
 }
 
+export function linkFamilyMemberToMe(familyId: string, memberId: string) {
+  return request<{ members?: FamilyMemberDto[]; error?: string }>(
+    `/api/families/${familyId}/members/${memberId}/link-me`,
+    { method: "POST" },
+  );
+}
+
 export function deleteFamilyMember(familyId: string, memberId: string) {
   return request<{ members?: FamilyMemberDto[]; error?: string }>(
     `/api/families/${familyId}/members/${memberId}`,
