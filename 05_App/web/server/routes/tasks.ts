@@ -180,9 +180,13 @@ export async function materializeTasksForDate(
 }
 
 // Familie-rettede opgaver (assignedMemberId null) går til hele familien
-// undtagen den, der udløste hændelsen. Personligt tildelte opgaver går kun
-// til det medlems egen konto, hvis medlemmet har en (børn uden login har
-// linked_user_id NULL, og får derfor ingen notifikation).
+// undtagen den, der udløste hændelsen (samme "nogen andre gjorde noget"-
+// princip som indkøbsliste/kalender). Personligt tildelte opgaver går til
+// det medlems egen konto, hvis medlemmet har en (børn uden login har
+// linked_user_id NULL, og får derfor ingen notifikation) — også hvis
+// medlemmet selv er den, der oprettede opgaven: en opgave tildelt sig selv
+// er en personlig påmindelse, ikke en "familien skal vide dette"-hændelse,
+// så acting-user-undtagelsen gælder bevidst ikke her.
 export async function notifyForTask(
   env: Env,
   familyId: string,
@@ -201,7 +205,7 @@ export async function notifyForTask(
     .bind(assignedMemberId, familyId)
     .first<{ linkedUserId: string | null }>();
 
-  if (member?.linkedUserId && member.linkedUserId !== actingUserId) {
+  if (member?.linkedUserId) {
     await sendPushNotificationToUser(env, member.linkedUserId, payload);
   }
 }
