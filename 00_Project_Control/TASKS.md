@@ -123,7 +123,7 @@ Se `05_Sprint_History.md` for detaljer pr. sprint.
     oprettelse, ikke kun sættes ved oprettelsen (2026-08-19)
 [ ] Manuel funktionel test på beta/produktion (kræver at vente på et
     rigtigt cron-tick, ikke en AI-agent-opgave)
-[x] Merget til `main` (PR #55, #58, …)
+[x] Merget til `main` (PR #55, #58, #60, #61)
 
 ## Ikke planlagt endnu
 
