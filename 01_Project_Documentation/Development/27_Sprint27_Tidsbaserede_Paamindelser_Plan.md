@@ -1,8 +1,8 @@
 # 27_Sprint27_Tidsbaserede_Paamindelser_Plan
 
-> Status: Afventer godkendelse
+> Status: Godkendt, kode gennemført
 
-Version: 1.0
+Version: 1.1
 
 Project:
 Boholts Family Platform
@@ -90,10 +90,19 @@ push-notifikation, når tiden kommer.
      `materializeTasksForDate(db, familyId, today)` (genbruger
      `tasks.ts`s eksisterende funktion, eksporteret).
   3. `SELECT ... FROM tasks WHERE task_date = ? AND is_done = 0 AND
-     reminded_at IS NULL AND time_of_day >= ? AND time_of_day < ?`
-     (vinduematch, jf. beslutning 2).
+     reminded_at IS NULL AND time_of_day >= ? AND time_of_day <= ?`
+     (vinduematch, jf. beslutning 2). **Justeret under implementering**:
+     vinduet er `[floor, floor+4]` inklusivt (fx 14:00-14:04), ikke
+     `[floor, floor+5)` — undgår at skulle repræsentere "24:00" for dagens
+     sidste bucket (23:55-23:59).
   4. For hver forfalden opgave: send push (genbruger `notifyForTask()`,
-     eksporteret fra `tasks.ts`), sæt `reminded_at = nu`.
+     eksporteret fra `tasks.ts`), sæt `reminded_at = nu`. **Justeret under
+     implementering**: `notifyForTask()`s "acting user"-parameter (bruges
+     normalt til at undtage den, der selv udløste en handling) sættes til
+     en tom streng — en tidsbaseret påmindelse har ingen handlende bruger
+     at undtage, og den oprindelige plan ville fejlagtigt have udeladt
+     opgavens opretter/tildelte fra sin egen påmindelse, hvis de er samme
+     person.
 - Al databasetilgang sker i `scheduled()`s `ctx.waitUntil()`, som Sprint
   24's oprydning — Cloudflares egen timeout for scheduled-handlere er
   længere end for almindelige requests, men koden skal stadig ikke
@@ -103,14 +112,14 @@ push-notifikation, når tiden kommer.
 
 ## Rækkefølge
 
-1. Migration 0011 (`reminded_at`), eksportér `materializeTasksForDate()`
-   og `notifyForTask()` fra `tasks.ts`.
-2. `server/lib/taskReminders.ts`: `sendDueTaskReminders()` + automatiserede
-   tests (vindue-match, allerede-sendt springes over, udført opgave
-   springes over, materialisering sker for alle familier, korrekt
-   modtager pr. tildelingstype).
-3. Cron Trigger tilføjet i `wrangler.jsonc` (prod + beta), koblet ind i
-   `index.ts`s `scheduled()`.
+1. ~~Migration 0011 (`reminded_at`), eksportér `materializeTasksForDate()`
+   og `notifyForTask()` fra `tasks.ts`~~ ✅ **Gennemført (2026-08-19)**.
+2. ~~`server/lib/taskReminders.ts`: `sendDueTaskReminders()` + automatiserede
+   tests~~ ✅ **Gennemført**: 7 tests, inkl. eksplicit CEST- og
+   CET-tidszonetest (jf. risiko 1 nedenfor — testet, ikke kun antaget).
+3. ~~Cron Trigger tilføjet i `wrangler.jsonc` (prod + beta), koblet ind i
+   `index.ts`s `scheduled()`~~ ✅ **Gennemført**: `scheduled()` skelner de
+   to cron'er via `controller.cron`.
 4. Manuel test på beta/produktion — udestår i sagens natur til bagefter
    (kræver at vente på et rigtigt cron-tick og se en rigtig push
    ankomme), Nicolaj bekræfter ved lejlighed.

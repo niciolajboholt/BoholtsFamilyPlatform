@@ -126,7 +126,7 @@ async function listTasksForDate(
 // 23_Sprint23-planen). INSERT OR IGNORE + det partielle unik-indeks på
 // (routine_item_id, task_date) gør dette sikkert at kalde flere gange
 // samme dag, også hvis to familiemedlemmer rammer det samtidig.
-async function materializeTasksForDate(
+export async function materializeTasksForDate(
   db: D1Database,
   familyId: string,
   date: string,
@@ -183,7 +183,7 @@ async function materializeTasksForDate(
 // undtagen den, der udløste hændelsen. Personligt tildelte opgaver går kun
 // til det medlems egen konto, hvis medlemmet har en (børn uden login har
 // linked_user_id NULL, og får derfor ingen notifikation).
-async function notifyForTask(
+export async function notifyForTask(
   env: Env,
   familyId: string,
   actingUserId: string,
