@@ -1,8 +1,8 @@
 # 28_Sprint28_AI_Ugeresume_Plan
 
-> Status: Afventer godkendelse
+> Status: Godkendt, kode gennemført
 
-Version: 1.0
+Version: 1.1
 
 Project:
 Boholts Family Platform
@@ -102,14 +102,20 @@ som en push-notifikation og synlig i appen, via Cloudflare Workers AI
 
 ## Rækkefølge
 
-1. Migration 0012 (`family_weekly_summaries`).
-2. `generateWeeklySummary()` i `aiAssistant.ts` + tests.
-3. `server/lib/weeklySummary.ts`: `sendWeeklySummaries()` + automatiserede
+1. ~~Migration 0012 (`family_weekly_summaries`).~~ ✅ **Gennemført**.
+2. ~~`generateWeeklySummary()` i `aiAssistant.ts` + tests.~~ ✅
+   **Gennemført**: 5 tests.
+3. ~~`server/lib/weeklySummary.ts`: `sendWeeklySummaries()` + automatiserede
    tests (springer tomme familier over, gemmer korrekt, sender push kun
-   ved succes, materialiserer 7 dage frem).
-4. Cron Trigger tilføjet i `wrangler.jsonc` (prod + beta), koblet ind i
-   `index.ts`s `scheduled()`.
-5. `GET /:id/weekly-summary`-rute + klient-kort på `HomePage.tsx`.
+   ved succes, materialiserer 7 dage frem).~~ ✅ **Gennemført**: 6 tests,
+   inkl. eksplicit test af manglende Google-forbindelse (risiko 1) og af
+   materialisering på tværs af alle 7 dage.
+4. ~~Cron Trigger tilføjet i `wrangler.jsonc` (prod + beta), koblet ind i
+   `index.ts`s `scheduled()`.~~ ✅ **Gennemført**: tredje cron
+   (`0 17 * * 0`), skelnes fra de to øvrige via `controller.cron`.
+5. ~~`GET /:id/weekly-summary`-rute + klient-kort på `HomePage.tsx`.~~ ✅
+   **Gennemført**: `WeeklySummaryCard` vises kun, når et resumé rent
+   faktisk findes (ingen permanent tom-tilstand indtil første søndag).
 6. Manuel test på beta/produktion — udestår i sagens natur til bagefter
    (kræver at vente på et rigtigt ugentligt cron-tick), Nicolaj bekræfter
    ved lejlighed.

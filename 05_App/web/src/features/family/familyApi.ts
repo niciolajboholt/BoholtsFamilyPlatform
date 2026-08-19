@@ -170,6 +170,19 @@ export function clearAllCalendarMappings(familyId: string) {
   );
 }
 
+// Sprint 28: nyeste gemte AI-ugeresumé.
+export interface WeeklySummaryDto {
+  weekStart: string;
+  content: string;
+  createdAt: string;
+}
+
+export function getWeeklySummary(familyId: string) {
+  return request<{ summary: WeeklySummaryDto | null; error?: string }>(
+    `/api/families/${familyId}/weekly-summary`,
+  );
+}
+
 // Sprint 26: read-only delelink til familiens kalender.
 export interface ShareLinkDto {
   token: string;

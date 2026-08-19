@@ -355,6 +355,27 @@ families.delete("/:id/share-link", async (c) => {
   return c.json({ ok: true });
 });
 
+// Nyeste gemte AI-ugeresumé (Sprint 28) — genereret ugentligt af
+// server/lib/weeklySummary.ts's Cron Trigger, ikke on-demand her.
+families.get("/:id/weekly-summary", async (c) => {
+  const user = c.get("user");
+  const familyId = c.req.param("id");
+  const membership = await getMembershipForFamily(c.env.DB, familyId, user.id);
+
+  if (!membership) {
+    return c.json({ error: "Ikke medlem af denne familie." }, 403);
+  }
+
+  const summary = await c.env.DB.prepare(
+    `SELECT week_start AS weekStart, content, created_at AS createdAt
+     FROM family_weekly_summaries WHERE family_id = ? ORDER BY week_start DESC LIMIT 1`,
+  )
+    .bind(familyId)
+    .first<{ weekStart: string; content: string; createdAt: string }>();
+
+  return c.json({ summary: summary ?? null });
+});
+
 // Omdøb familien — ejer/admin.
 families.patch("/:id", async (c) => {
   const user = c.get("user");

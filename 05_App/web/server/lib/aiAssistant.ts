@@ -24,6 +24,12 @@ export interface IngredientDraftItem {
   name: string;
 }
 
+export interface WeeklySummaryInput {
+  events: { title: string; start: string }[];
+  openTasks: string[];
+  shoppingItems: string[];
+}
+
 async function runChatCompletion(
   env: Env,
   systemPrompt: string,
@@ -163,4 +169,55 @@ export async function generateIngredientsDraft(
   }
 
   return items.length > 0 ? items : null;
+}
+
+function formatWeeklySummaryPrompt(input: WeeklySummaryInput): string {
+  const lines: string[] = [];
+
+  lines.push("Kommende kalenderaftaler denne uge:");
+  if (input.events.length > 0) {
+    for (const event of input.events) {
+      lines.push(`- ${event.start}: ${event.title}`);
+    }
+  } else {
+    lines.push("(ingen)");
+  }
+
+  lines.push("", "Åbne opgaver denne uge:");
+  if (input.openTasks.length > 0) {
+    for (const task of input.openTasks) {
+      lines.push(`- ${task}`);
+    }
+  } else {
+    lines.push("(ingen)");
+  }
+
+  lines.push("", "Varer på indkøbslisten:");
+  if (input.shoppingItems.length > 0) {
+    for (const item of input.shoppingItems) {
+      lines.push(`- ${item}`);
+    }
+  } else {
+    lines.push("(ingen)");
+  }
+
+  return lines.join("\n");
+}
+
+// I modsætning til rutine-/ingrediensforslagene ovenfor beder denne funktion
+// bevidst IKKE om JSON — et ugeresumé er ren læsetekst til familien, ikke
+// data der skal parses ind i konkrete felter (Sprint 28, beslutning 3).
+export async function generateWeeklySummary(
+  env: Env,
+  input: WeeklySummaryInput,
+): Promise<string | null> {
+  const systemPrompt =
+    `Du skriver et kort, venligt ugeresumé på dansk til en familie, ud fra deres kommende ` +
+    `kalenderaftaler, åbne opgaver og indkøbsliste. Skriv 2-4 korte sætninger i en varm, ` +
+    `hverdagsagtig tone — ingen overskrifter, ingen punktopstilling, ingen indledende "Her er". ` +
+    `Nævn kun det, der reelt er givet, opfind intet.`;
+
+  const content = await runChatCompletion(env, systemPrompt, formatWeeklySummaryPrompt(input));
+
+  return content?.trim() || null;
 }

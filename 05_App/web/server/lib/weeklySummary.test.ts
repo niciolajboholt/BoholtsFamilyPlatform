@@ -1,0 +1,191 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+import { createFakeEnv } from "../testing/fakeEnv";
+import { seedUser } from "../testing/fakeD1";
+
+vi.mock("../lib/pushNotifications", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../lib/pushNotifications")>();
+  return { ...actual, sendPushNotificationToFamily: vi.fn().mockResolvedValue(undefined) };
+});
+
+vi.mock("./aiAssistant", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./aiAssistant")>();
+  return { ...actual, generateWeeklySummary: vi.fn() };
+});
+
+vi.mock("./googleCalendarAggregation", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./googleCalendarAggregation")>();
+  return { ...actual, fetchPublicFamilyCalendarEvents: vi.fn().mockResolvedValue([]) };
+});
+
+const { sendPushNotificationToFamily } = await import("../lib/pushNotifications");
+const { generateWeeklySummary } = await import("./aiAssistant");
+const { fetchPublicFamilyCalendarEvents } = await import("./googleCalendarAggregation");
+const { GoogleNotConnectedError } = await import("./googleConnection");
+const { sendWeeklySummaries } = await import("./weeklySummary");
+
+const sendPushNotificationToFamilyMock = vi.mocked(sendPushNotificationToFamily);
+const generateWeeklySummaryMock = vi.mocked(generateWeeklySummary);
+const fetchPublicFamilyCalendarEventsMock = vi.mocked(fetchPublicFamilyCalendarEvents);
+
+// 2026-08-16 er en søndag — matcher det ugentlige cron-tidspunkt
+// (beslutning 1), og den kommende uges mandag bliver dermed 2026-08-17.
+const aSunday = new Date("2026-08-16T17:00:00.000Z");
+const expectedWeekStart = "2026-08-17";
+
+async function seedFamily(env: ReturnType<typeof createFakeEnv>, familyId = "family-1"): Promise<void> {
+  await seedUser(env.DB as never, { id: "owner" });
+  await env.DB.prepare(
+    "INSERT INTO families (id, name, owner_user_id, created_at) VALUES (?, ?, ?, ?)",
+  )
+    .bind(familyId, "Boholt", "owner", new Date().toISOString())
+    .run();
+}
+
+describe("sendWeeklySummaries", () => {
+  beforeEach(() => {
+    sendPushNotificationToFamilyMock.mockReset().mockResolvedValue(undefined);
+    generateWeeklySummaryMock.mockReset().mockResolvedValue("Et roligt resumé af ugen.");
+    fetchPublicFamilyCalendarEventsMock.mockReset().mockResolvedValue([]);
+  });
+
+  it("skips a family with no tasks, shopping items, or events", async () => {
+    const env = createFakeEnv();
+    await seedFamily(env);
+
+    await sendWeeklySummaries(env, aSunday);
+
+    expect(generateWeeklySummaryMock).not.toHaveBeenCalled();
+    expect(sendPushNotificationToFamilyMock).not.toHaveBeenCalled();
+
+    const saved = await env.DB.prepare("SELECT * FROM family_weekly_summaries").all();
+    expect(saved.results).toHaveLength(0);
+  });
+
+  it("generates, saves, and sends a push when the family has open tasks", async () => {
+    const env = createFakeEnv();
+    await seedFamily(env);
+    await env.DB.prepare(
+      `INSERT INTO tasks (id, family_id, name, icon, is_done, task_date, created_by_user_id, created_at)
+       VALUES (?, ?, ?, 'fritid', 0, ?, 'owner', ?)`,
+    )
+      .bind("task-1", "family-1", "Køb gave", expectedWeekStart, new Date().toISOString())
+      .run();
+
+    await sendWeeklySummaries(env, aSunday);
+
+    expect(generateWeeklySummaryMock).toHaveBeenCalledWith(
+      env,
+      expect.objectContaining({ openTasks: ["Køb gave"] }),
+    );
+    expect(sendPushNotificationToFamilyMock).toHaveBeenCalledWith(
+      env,
+      "family-1",
+      "",
+      expect.objectContaining({ title: "Ugens resumé" }),
+    );
+
+    const saved = await env.DB.prepare("SELECT family_id AS familyId, week_start AS weekStart, content FROM family_weekly_summaries").all<{
+      familyId: string;
+      weekStart: string;
+      content: string;
+    }>();
+    expect(saved.results).toEqual([
+      { familyId: "family-1", weekStart: expectedWeekStart, content: "Et roligt resumé af ugen." },
+    ]);
+  });
+
+  it("does not save or push when the AI call fails", async () => {
+    const env = createFakeEnv();
+    await seedFamily(env);
+    await env.DB.prepare(
+      `INSERT INTO shopping_lists (id, family_id, name, created_at) VALUES (?, ?, ?, ?)`,
+    )
+      .bind("list-1", "family-1", "Dagligvarer", new Date().toISOString())
+      .run();
+    await env.DB.prepare(
+      `INSERT INTO shopping_list_items (id, list_id, name, category, is_checked, added_by_user_id, created_at)
+       VALUES (?, ?, ?, 'andet', 0, 'owner', ?)`,
+    )
+      .bind("item-1", "list-1", "Mælk", new Date().toISOString())
+      .run();
+    generateWeeklySummaryMock.mockResolvedValue(null);
+
+    await sendWeeklySummaries(env, aSunday);
+
+    expect(sendPushNotificationToFamilyMock).not.toHaveBeenCalled();
+    const saved = await env.DB.prepare("SELECT * FROM family_weekly_summaries").all();
+    expect(saved.results).toHaveLength(0);
+  });
+
+  it("skips a family that already has a summary for the upcoming week", async () => {
+    const env = createFakeEnv();
+    await seedFamily(env);
+    await env.DB.prepare(
+      `INSERT INTO tasks (id, family_id, name, icon, is_done, task_date, created_by_user_id, created_at)
+       VALUES (?, ?, ?, 'fritid', 0, ?, 'owner', ?)`,
+    )
+      .bind("task-1", "family-1", "Køb gave", expectedWeekStart, new Date().toISOString())
+      .run();
+    await env.DB.prepare(
+      "INSERT INTO family_weekly_summaries (id, family_id, week_start, content, created_at) VALUES (?, ?, ?, ?, ?)",
+    )
+      .bind("summary-existing", "family-1", expectedWeekStart, "Gammelt resumé.", new Date().toISOString())
+      .run();
+
+    await sendWeeklySummaries(env, aSunday);
+
+    expect(generateWeeklySummaryMock).not.toHaveBeenCalled();
+    expect(sendPushNotificationToFamilyMock).not.toHaveBeenCalled();
+  });
+
+  it("treats a missing Google connection as an empty calendar instead of failing", async () => {
+    const env = createFakeEnv();
+    await seedFamily(env);
+    await env.DB.prepare(
+      `INSERT INTO family_members (id, family_id, name, color, is_placeholder_name, created_at)
+       VALUES (?, ?, ?, ?, 0, ?)`,
+    )
+      .bind("member-1", "family-1", "Nicolaj", "#2E7D32", new Date().toISOString())
+      .run();
+    await env.DB.prepare(
+      "INSERT INTO calendar_member_mappings (family_id, google_calendar_id, family_member_id) VALUES (?, ?, ?)",
+    )
+      .bind("family-1", "primary", "member-1")
+      .run();
+    fetchPublicFamilyCalendarEventsMock.mockRejectedValue(new GoogleNotConnectedError());
+
+    await sendWeeklySummaries(env, aSunday);
+
+    // Ingen kalenderdata og ingen opgaver/varer -> familien springes over,
+    // uden at fejlen fra den manglende Google-forbindelse væltede jobbet.
+    expect(generateWeeklySummaryMock).not.toHaveBeenCalled();
+  });
+
+  it("materializes routine tasks across all 7 days of the upcoming week", async () => {
+    const env = createFakeEnv();
+    await seedFamily(env);
+    // expectedWeekStart (2026-08-17) er en mandag, +5 dage = lørdag
+    // (2026-08-22, ISO-ugedag 6) — langt fra i dag (søndag), så opgaven kun
+    // findes, hvis alle 7 dage rent faktisk blev materialiseret.
+    await env.DB.prepare(
+      `INSERT INTO task_routines (id, family_id, name, weekdays, created_by_user_id, created_at)
+       VALUES (?, ?, ?, ?, 'owner', ?)`,
+    )
+      .bind("routine-1", "family-1", "Weekend-rutine", "6", new Date().toISOString())
+      .run();
+    await env.DB.prepare(
+      `INSERT INTO task_routine_items (id, routine_id, name, icon, sort_order)
+       VALUES (?, ?, ?, 'fritid', 0)`,
+    )
+      .bind("item-1", "routine-1", "Storrengøring")
+      .run();
+
+    await sendWeeklySummaries(env, aSunday);
+
+    expect(generateWeeklySummaryMock).toHaveBeenCalledWith(
+      env,
+      expect.objectContaining({ openTasks: ["Storrengøring"] }),
+    );
+  });
+});

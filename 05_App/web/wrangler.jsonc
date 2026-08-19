@@ -66,9 +66,11 @@
   // selv blev brugt efter udløb, så tabellen voksede ubegrænset.
   // Sprint 27: sender tidsbaserede opgave-påmindelser hvert 5. minut (se
   // server/lib/taskReminders.ts) — index.ts's scheduled()-handler skelner
-  // de to cron'er via controller.cron.
+  // cron'erne via controller.cron.
+  // Sprint 28: AI-ugeresumé søndag kl. 17 UTC (~18-19 dansk tid, se
+  // server/lib/weeklySummary.ts).
   "triggers": {
-    "crons": ["0 4 * * *", "*/5 * * * *"]
+    "crons": ["0 4 * * *", "*/5 * * * *", "0 17 * * 0"]
   },
   // Samme mønster som secrets_store_secrets ovenfor: slået til i
   // dashboardet, men uden dette forsvinder det ved næste Git-udløste
@@ -148,7 +150,7 @@
         "binding": "AI"
       },
       "triggers": {
-        "crons": ["0 4 * * *", "*/5 * * * *"]
+        "crons": ["0 4 * * *", "*/5 * * * *", "0 17 * * 0"]
       },
       "observability": {
         "enabled": false,
