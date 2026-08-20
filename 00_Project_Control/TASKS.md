@@ -104,7 +104,8 @@ Se `05_Sprint_History.md` for detaljer pr. sprint.
 [x] Manuel test af konfliktmarkeringen afdækkede en reel fejl
     (2026-08-20): "Familien"-aftaler blev aldrig markeret i konflikt med
     et specifikt medlems overlappende aftale (hasSharedOwner krævede
-    eksakt id-match). Rettet (PR #71) — afventer Nicolajs genbekræftelse
+    eksakt id-match). Rettet (PR #71) og genbekræftet af Nicolaj samme
+    dag: "jeg ser i hvert fald at der kommer en markering nu"
 [x] Merget til `main` (PR #51, #52, #53, #71)
 
 ## Sprint 27 - Tidsbaserede opgave-påmindelser
