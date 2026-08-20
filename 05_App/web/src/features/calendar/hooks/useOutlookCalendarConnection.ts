@@ -45,7 +45,7 @@ export function useOutlookCalendarConnection(): UseOutlookCalendarConnectionResu
   }, []);
 
   const disconnect = useCallback((): void => {
-    outlookCalendarSession.disconnect();
+    void outlookCalendarSession.disconnect();
     setIsConnected(false);
     setWasEverConnected(false);
   }, []);

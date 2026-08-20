@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { createDataBackup, restoreDataBackup } from "./dataBackupStorage";
+import { clearAllFamilyStorage, createDataBackup, restoreDataBackup } from "./dataBackupStorage";
 
 describe("dataBackupStorage", () => {
   beforeEach(() => {
@@ -47,5 +47,25 @@ describe("dataBackupStorage", () => {
     expect(() => restoreDataBackup(null)).toThrow();
     expect(() => restoreDataBackup({})).toThrow();
     expect(() => restoreDataBackup({ version: 1, exportedAt: "x", data: { a: 1 } })).toThrow();
+  });
+
+  describe("clearAllFamilyStorage", () => {
+    it("removes every key with the app's prefix, leaving unrelated keys untouched", () => {
+      window.localStorage.setItem("boholts-family-members", '["a"]');
+      window.localStorage.setItem("boholts-family-google-sync-cache:cal-1", "{}");
+      window.localStorage.setItem("boholts-family-recurrence-exceptions", "[]");
+      window.localStorage.setItem("some-other-apps-key", "untouched");
+
+      clearAllFamilyStorage();
+
+      expect(window.localStorage.getItem("boholts-family-members")).toBeNull();
+      expect(window.localStorage.getItem("boholts-family-google-sync-cache:cal-1")).toBeNull();
+      expect(window.localStorage.getItem("boholts-family-recurrence-exceptions")).toBeNull();
+      expect(window.localStorage.getItem("some-other-apps-key")).toBe("untouched");
+    });
+
+    it("does not throw when localStorage has no matching keys", () => {
+      expect(() => clearAllFamilyStorage()).not.toThrow();
+    });
   });
 });

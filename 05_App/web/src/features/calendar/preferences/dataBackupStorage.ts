@@ -69,3 +69,26 @@ export function restoreDataBackup(backup: unknown): void {
     }
   }
 }
+
+/**
+ * Rydder alle localStorage-nøgler med appens præfiks — kaldt ved logout
+ * (Sprint 29), så en anden bruger, der logger ind på samme enhed bagefter,
+ * ikke arver den forrige brugers kalender-cache, kilde-synlighed,
+ * kalender-mappings eller gentagelsesundtagelser. Nøgler uden præfikset
+ * (fx "Min profil" og Outlook/MSAL's egen state) ryddes hver for sig af
+ * deres eget modul, som allerede kaldes separat fra logout.
+ */
+export function clearAllFamilyStorage(): void {
+  const keysToRemove: string[] = [];
+
+  for (let index = 0; index < window.localStorage.length; index += 1) {
+    const key = window.localStorage.key(index);
+    if (key && key.startsWith(backupKeyPrefix)) {
+      keysToRemove.push(key);
+    }
+  }
+
+  for (const key of keysToRemove) {
+    window.localStorage.removeItem(key);
+  }
+}

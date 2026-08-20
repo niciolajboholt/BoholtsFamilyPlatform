@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 
+import { clearAllFamilyStorage } from "../../calendar/preferences/dataBackupStorage";
 import { clearCurrentMemberId } from "../../calendar/preferences/currentMemberStorage";
-import { clearFamilyMembers } from "../../calendar/preferences/familyMembersStorage";
+import { disablePushNotifications } from "../../notifications/pushSubscription";
 
 export interface SessionUser {
   id: string;
@@ -55,17 +56,35 @@ export function useSession(): UseSessionResult {
     };
   }, []);
 
+  // Sprint 29: en ekstern gennemgang fandt, at logout hidtil kun ryddede
+  // familiemedlemmer/"Min profil" — Google-eventcache, kalender-mappings,
+  // synlighed, ekskluderinger, gentagelsesundtagelser, Outlook/MSAL-
+  // sessionen og enhedens push-abonnement overlevede alle et logout. En
+  // anden bruger, der logger ind på samme enhed bagefter, kunne dermed
+  // arve den forrige brugers data — og enheden kunne blive ved med at
+  // modtage push om den forrige families kalender/opgaver/indkøbsliste.
   async function logout(): Promise<void> {
     await fetch("/auth/logout", {
       method: "POST",
       credentials: "same-origin",
     });
 
-    // En anden bruger kan logge ind på samme enhed bagefter — uden dette
-    // ville de arve denne brugers familie fra den lokale cache, fordi
-    // hasCompletedFamilySetup() stadig ville være sand.
-    clearFamilyMembers();
+    clearAllFamilyStorage();
     clearCurrentMemberId();
+
+    await disablePushNotifications().catch((error: unknown) => {
+      console.error("Kunne ikke afmelde push-abonnementet ved logout:", error);
+    });
+
+    // Dynamisk import: calendarProviderFactory (Outlook/MSAL + Google) er
+    // sit eget lazy-loadede chunk (kun hentet fra Kalender-/Indstillinger-
+    // siderne) — et statisk import her ville trække det ind i appens
+    // hovedbundle for enhver bruger, blot fordi useSession bruges overalt.
+    const { outlookCalendarSession } = await import(
+      "../../calendar/providers/calendarProviderFactory"
+    );
+    await outlookCalendarSession.disconnect();
+
     setUser(null);
   }
 
