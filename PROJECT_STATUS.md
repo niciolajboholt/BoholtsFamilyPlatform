@@ -1,16 +1,15 @@
 # Projektstatus
 
-Senest opdateret: 2026-08-19
+Senest opdateret: 2026-08-20
 
 ## Aktuel fase
 
-Sprint 23-27 er gennemført og merget til `main`. Sprint 25 (kalender-sync),
-26's konfliktmarkering og 27 (tidsbaserede påmindelser) mangler hver deres
-manuelle beta/produktions-test (kræver browser/tid, ikke en
-AI-agent-opgave) — se
-`01_Project_Documentation/AI_Knowledge_Base/10_Future_Roadmap.md` for
-Sprint 28. Sprint 26's delelink er bekræftet virkende af Nicolaj, inkl. en
-opfølgende ændring til månedsvisning.
+Sprint 23-29 er gennemført og merget til `main`. Sprint 25 (kalender-sync)
+og 26 (konfliktmarkering + delelink) er begge bekræftet virkende af Nicolaj
+på beta/produktion. Sprint 27 (tidsbaserede påmindelser) og Sprint 28
+(AI-ugeresumé) mangler hver deres manuelle funktionelle test af et rigtigt
+cron-tick (kræver at vente på tiden, ikke en AI-agent-opgave) — selve koden
+er leveret, testet og merget. Ingen aktiv sprint lige nu.
 
 ## Leveret
 
@@ -54,16 +53,30 @@ opfølgende ændring til månedsvisning.
 - **Sprint 27**: tidsbaserede opgave-påmindelser — et sat tidspunkt på en
   opgave sender nu en push-notifikation, når tiden kommer (tidligere kun
   brugt til sortering). Ny Cron Trigger hvert 5. minut, appens første
-  server-side, tidszone-bevidste logik (`Europe/Copenhagen`).
-- Vitest-testpakke (309 tests) + GitHub Actions-CI.
+  server-side, tidszone-bevidste logik (`Europe/Copenhagen`). Rodårsag
+  fundet og rettet undervejs: `linked_user_id` blev aldrig sat noget sted i
+  koden, så personligt tildelte opgaver aldrig kunne sende en push —
+  "Min profil" i Indstillinger kobler nu kontoen til familiemedlemmet
+  server-side.
+- **Sprint 28**: AI-genereret ugeresumé (Cloudflare Workers AI, fri tekst),
+  sendt automatisk hver søndag kl. 17 via Cron Trigger, vist på forsiden når
+  et resumé findes.
+- **Sprint 29**: sikkerhed/privatliv/drift — delelinks viser som
+  udgangspunkt kun titel/tidspunkt (beskrivelse/lokation er nu bevidste
+  tilvalg), fuldstændig oprydning ved logout (localStorage, MSAL-cache,
+  server-side push-afmelding), `/api/health` viser migrations-status,
+  rate-limiting på AI-ruter/push-abonnement/delelinks, sikkerhedsheaders
+  (CSP m.fl.), JSON-404 for ukendte API-stier, og en global React Error
+  Boundary.
+- Vitest-testpakke (357 tests) + GitHub Actions-CI.
 
 ## Kvalitetsstatus
 
-`develop` og `main` er ens t.o.m. Sprint 27:
+`develop` og `main` er ens t.o.m. Sprint 29:
 
 - `npm run lint`
 - `npm run build`
-- `npm test` (309 tests)
+- `npm test` (357 tests)
 - Grøn GitHub Actions-CI og Cloudflare Workers Build (produktion + beta)
 
 Verificeret manuelt af Nicolaj og Christine på beta og produktion, inkl.
@@ -72,9 +85,14 @@ ende-til-ende, og opgave-/AI-modulet.
 
 ## Næste skridt
 
-Sprint 25's kalender-synk, Sprint 26's konfliktmarkering og Sprint 27's
-påmindelser mangler hver deres manuelle beta/produktions-test (Nicolaj).
-Migration 0011 skal desuden køres manuelt på beta/produktion. Ellers ingen
-aktiv sprint. Kandidat: Sprint 28 (AI-ugeresumé) — se
-`10_Future_Roadmap.md`. Flere Google-konti pr. familie forbliver ikke
-planlagt (kræver egen ADR).
+**Migration 0012 (family_weekly_summaries) og 0013
+(family_share_links-tilvalg) er endnu ikke bekræftet kørt på beta/
+produktion** — migrationer køres og verificeres altid manuelt af Nicolaj,
+aldrig automatisk (se `09_Lessons_Learned.md`). Indtil 0012 er kørt kan
+Sprint 28's ugentlige cron-job fejle på den manglende tabel; `/api/health`
+(Sprint 29) viser nu migrations-status direkte og kan bruges til at
+bekræfte det. Sprint 27's opgave-påmindelser og Sprint 28's ugeresumé
+mangler desuden hver deres manuelle funktionelle test af et rigtigt
+cron-tick (Nicolaj, tidsgated — ikke en AI-agent-opgave). Ellers ingen
+aktiv sprint. Flere Google-konti pr. familie og en fysisk VoiceOver-test
+forbliver ikke planlagt (se `10_Future_Roadmap.md`).
