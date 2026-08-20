@@ -2,6 +2,7 @@ import type {
   CalendarEvent,
   CalendarOwnerId,
 } from "../models/calendarEvent";
+import { familyPseudoMemberId } from "../models/calendarEvent";
 
 export interface EventConflictCandidate {
   start: string;
@@ -16,6 +17,17 @@ export function hasSharedOwner(
   firstOwnerIds: CalendarOwnerId[],
   secondOwnerIds: CalendarOwnerId[],
 ): boolean {
+  // "Familien"-pseudomedlemmet dækker alle familiemedlemmer — en
+  // familie-rettet aftale skal derfor konflikte med ethvert specifikt
+  // medlems overlappende aftale, selvom "family" aldrig bogstaveligt
+  // matcher fx "alfred" i et simpelt id-sammenligning.
+  if (
+    firstOwnerIds.includes(familyPseudoMemberId) ||
+    secondOwnerIds.includes(familyPseudoMemberId)
+  ) {
+    return true;
+  }
+
   return firstOwnerIds.some((ownerId) =>
     secondOwnerIds.includes(ownerId),
   );
