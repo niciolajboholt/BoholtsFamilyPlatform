@@ -17,6 +17,33 @@ import { sendWeeklySummaries } from "./lib/weeklySummary";
 
 const app = new Hono<{ Bindings: Env }>();
 
+// Sprint 29: ingen sikkerhedsheaders var sat overhovedet. Bevidst en
+// konservativ, samme-origin-only politik — appen har ingen tredjeparts-
+// scripts/stylesheets/fonts (se index.html), og Google/MSAL-login sker
+// via en fuld side-navigation (window.location), ikke fetch/iframe, så
+// CSP begrænser den slags overhovedet ikke.
+app.use("*", async (c, next) => {
+  await next();
+  c.header("X-Content-Type-Options", "nosniff");
+  c.header("Referrer-Policy", "strict-origin-when-cross-origin");
+  c.header(
+    "Content-Security-Policy",
+    [
+      "default-src 'self'",
+      "script-src 'self'",
+      // 'unsafe-inline' er nødvendigt for MUI/Emotion's runtime
+      // style-injektion — ikke en scriptrisiko, kun CSS.
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' data:",
+      "font-src 'self'",
+      "connect-src 'self'",
+      "frame-ancestors 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+    ].join("; "),
+  );
+});
+
 // /auth og /api svarer med engangs-/brugerspecifikt indhold (OAuth-state,
 // sessions) og må aldrig caches af Cloudflares edge — sket én gang allerede:
 // et tilfældigt cachet 200-svar for /auth/google/start blev serveret til
@@ -57,6 +84,12 @@ app.get("/api/health", async (c) => {
     return c.json({ status: "error", db: false }, 500);
   }
 });
+
+// Sprint 29: en ukendt /api/*-sti faldt hidtil igennem til SPA-fallbacket
+// nedenfor og fik appens index.html med 200, i stedet for en rigtig
+// 404 — placeret efter alle rigtige /api/*-ruter ovenfor, så kun reelt
+// uregistrerede stier rammer den.
+app.all("/api/*", (c) => c.json({ error: "Ikke fundet." }, 404));
 
 // Alt andet (SPA'en selv) falder igennem til de statiske filer, som
 // "assets"-bindingen i wrangler.jsonc leverer.
