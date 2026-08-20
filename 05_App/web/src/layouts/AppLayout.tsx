@@ -210,7 +210,11 @@ function AppLayout() {
     );
   }
 
-  const currentIndex = Math.max(routes.indexOf(location.pathname), 0);
+  // Sprint 29: routes dækker kun tre af de fem sider — Math.max(...,0)
+  // fik /tasks og /shopping-list til fejlagtigt at vise "Overblik" som
+  // valgt. -1 matcher ingen af BottomNavigationAction'ernes 0/1/2, så
+  // MUI viser korrekt ingen fane som valgt.
+  const currentIndex = routes.indexOf(location.pathname);
 
   return (
     <Box

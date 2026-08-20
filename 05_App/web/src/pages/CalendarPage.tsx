@@ -17,6 +17,8 @@ import {
   Typography,
 } from "@mui/material";
 
+import { useLocation, useNavigate } from "react-router-dom";
+
 import CalendarToolbar from "../features/calendar/components/CalendarToolbar";
 import { CalendarSourceFilter } from "../features/calendar/components/CalendarSourceFilter";
 import DayCalendar from "../features/calendar/components/DayCalendar";
@@ -202,10 +204,26 @@ function CalendarPage() {
   ] =
     useState<CalendarView>("month");
 
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // Sprint 29: HomePage's "Ny aftale"-genvej navigerer hertil med
+  // state.openNewEventDialog — læses direkte som initial-værdi (ikke
+  // via setState i en effekt) for at undgå en unødvendig ekstra render.
   const [
     isNewEventDialogOpen,
     setIsNewEventDialogOpen,
-  ] = useState(false);
+  ] = useState(
+    () => Boolean((location.state as { openNewEventDialog?: boolean } | null)?.openNewEventDialog),
+  );
+
+  // Ryddes med det samme via replace, så et browser-tilbage-klik ikke
+  // åbner dialogen igen.
+  useEffect(() => {
+    if (location.state) {
+      navigate(".", { replace: true, state: null });
+    }
+  }, [location.state, navigate]);
 
   const [
     selectedEvent,

@@ -81,10 +81,17 @@ self.addEventListener("notificationclick", (event) => {
   event.waitUntil(
     (async () => {
       const clientsList = await self.clients.matchAll({ type: "window" });
-      const existing = clientsList.find((client) => "focus" in client);
+      const existing = clientsList.find((client) => "focus" in client) as
+        | WindowClient
+        | undefined;
 
       if (existing) {
-        await (existing as WindowClient).focus();
+        // Sprint 29: focus() alene lod et allerede åbent vindue blive på
+        // hvilken side det nu tilfældigvis stod på, i stedet for at gå til
+        // notifikationens mål (fx /tasks) — navigate() var den manglende
+        // del.
+        await existing.navigate(targetUrl);
+        await existing.focus();
         return;
       }
 

@@ -363,7 +363,11 @@ function HomePage() {
                 disabled={action.isComingSoon}
                 onClick={() => {
                   if (action.title === "Ny aftale") {
-                    navigate("/calendar");
+                    // Sprint 29: navigerede hidtil kun til kalenderen uden
+                    // at åbne opret-dialogen — state-flagget læses af
+                    // CalendarPage og åbner den samme dialog, som
+                    // kalenderens egen "Ny aftale"-knap bruger.
+                    navigate("/calendar", { state: { openNewEventDialog: true } });
                   } else if (action.title === "Indkøbsliste") {
                     navigate("/shopping-list");
                   } else if (action.title === "Opgaver") {
