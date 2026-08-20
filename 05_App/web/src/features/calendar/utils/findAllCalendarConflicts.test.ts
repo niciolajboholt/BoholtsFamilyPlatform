@@ -53,6 +53,19 @@ describe("findAllCalendarConflicts", () => {
     expect(findAllCalendarConflicts(events)).toEqual(new Set(["a", "b"]));
   });
 
+  // Fejl fundet af Nicolaj (2026-08-20): en familie-rettet aftale ("family")
+  // og en aftale for et bestemt medlem ("alfred") blev aldrig markeret som
+  // konflikt, selvom de tidsmæssigt overlappede — "family" matchede aldrig
+  // bogstaveligt et specifikt medlems id.
+  it("flags overlapping events between 'family' and a specific member", () => {
+    const events = [
+      event({ id: "a", ownerIds: ["family"] }),
+      event({ id: "b", ownerIds: ["alfred"] }),
+    ];
+
+    expect(findAllCalendarConflicts(events)).toEqual(new Set(["a", "b"]));
+  });
+
   it("does not flag adjacent (touching, non-overlapping) events", () => {
     const events = [
       event({ id: "a", start: "2026-08-20T10:00:00.000Z", end: "2026-08-20T11:00:00.000Z" }),
