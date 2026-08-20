@@ -10,6 +10,7 @@ import pushRoutes from "./routes/push";
 import shoppingListsRoutes from "./routes/shoppingLists";
 import tasksRoutes from "./routes/tasks";
 import { cleanupOldRateLimitAttempts } from "./lib/rateLimit";
+import { checkSchema } from "./lib/schemaCheck";
 import { cleanupExpiredSessions } from "./lib/session";
 import { sendDueTaskReminders } from "./lib/taskReminders";
 import { sendWeeklySummaries } from "./lib/weeklySummary";
@@ -42,11 +43,16 @@ app.route("/api/public", publicCalendarRoutes);
 
 // Beviser at Worker + D1 hænger rigtigt sammen efter en deploy (Fase 0) —
 // resten af familie/kalender-ruterne kommer i senere faser.
+// Sprint 29: udvidet med et migrations-tjek (checkSchema()) — erstatter
+// den tidligere manuelle "SELECT name FROM sqlite_master"-verifikation
+// efter en migration med ét kald, der gør en mismatch synlig med det
+// samme.
 app.get("/api/health", async (c) => {
   try {
     const row = await c.env.DB.prepare("SELECT 1 AS ok").first<{ ok: number }>();
+    const migrations = await checkSchema(c.env.DB);
 
-    return c.json({ status: "ok", db: row?.ok === 1 });
+    return c.json({ status: "ok", db: row?.ok === 1, migrations });
   } catch {
     return c.json({ status: "error", db: false }, 500);
   }
