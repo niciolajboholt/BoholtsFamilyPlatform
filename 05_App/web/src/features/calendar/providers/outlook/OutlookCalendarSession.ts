@@ -264,14 +264,18 @@ export class OutlookCalendarSession {
     return raceWithTimeout(attempt, silentReconnectTimeoutMs, false);
   }
 
-  disconnect(): void {
+  // Sprint 29: kaldes fra logout — kun setActiveAccount(null) lod MSAL's
+  // egen sessionStorage-cache (adgangs-/id-tokens, konto-info) stå
+  // tilbage. clearCache() rydder den rent faktisk, uden at navigere væk
+  // fra appen (i modsætning til MSAL's logoutRedirect/logoutPopup).
+  async disconnect(): Promise<void> {
     this.accessToken = null;
     clearWasConnected();
 
     if (msalInstancePromise) {
-      void msalInstancePromise.then((instance) => {
-        instance.setActiveAccount(null);
-      });
+      const instance = await msalInstancePromise;
+      instance.setActiveAccount(null);
+      await instance.clearCache();
     }
   }
 }
