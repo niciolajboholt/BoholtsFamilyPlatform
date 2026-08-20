@@ -148,6 +148,30 @@ Se `05_Sprint_History.md` for detaljer pr. sprint.
     `triggers.crons`-liste i stedet for en betalt Cloudflare-opgradering
 [x] Merget til `main` (PR #63, #64)
 
+## Sprint 29 - Sikkerhed, privatliv, drift
+
+[x] Migration 0013: family_share_links.include_description/include_location
+    (default kun titel/tidspunkt) + server/klient-tilvalg i ShareLinkCard
+[x] Fuldstændig logout-oprydning: localStorage (clearAllFamilyStorage()),
+    MSAL-cache (clearCache()), server-side push-afmelding
+    (disablePushNotifications())
+[x] /api/health udvidet med checkSchema() — migrations-synlighed uden en
+    manuel "SELECT name FROM sqlite_master"-verifikation
+[x] Misbrugsbegrænsning: rate-limit på AI-rutine-/ingrediensforslag,
+    push-endpoint-validering (afviser localhost/private IP'er), to-lags
+    rate-limit på delelinks (pr. besøgende+IP og pr. token)
+[x] Seks mindre fejl: JSON-404 for ukendte /api/*-stier,
+    sikkerhedsheaders (CSP m.fl.), notification-klik navigerer nu et
+    allerede åbent vindue, bundnav viser intet valgt på Opgaver/
+    Indkøbsliste (i stedet for fejlagtigt "Overblik"), "Ny aftale" på
+    forsiden åbner nu opret-dialogen, global React Error Boundary
+[x] Dokumentationssynkronisering: PROJECT_STATUS.md, README.md, issues
+    #9/#20 gennemgået
+[ ] Migration 0012 (family_weekly_summaries, Sprint 28) og 0013 (denne
+    sprint) mangler at blive kørt og verificeret manuelt af Nicolaj på
+    beta/produktion — /api/health viser nu status direkte
+[x] Merget til `main` (PR #75-#79)
+
 ## Ikke planlagt endnu
 
 [ ] Flere Google-konti pr. familie (kræver egen ADR — se `10_Future_Roadmap.md`)

@@ -25,6 +25,18 @@ React/TypeScript/Vite-klient (ADR-017, Sprint 20). Leveret indtil videre:
   forlader ikke Cloudflares infrastruktur), der foreslår rutiner ud fra
   fritekst og indkøbsliste-ingredienser ud fra en ret. Forslag gemmes aldrig
   automatisk — altid en menneskelig godkendelse.
+- Inkrementel Google-kalendersynk (`nextSyncToken`, delta-flet med
+  fuld-synk-fallback) og et rigtigt PNG-ikonsæt til PWA'en (Sprint 25).
+- Vedvarende visuel konfliktmarkering i alle kalendervisninger, og en
+  read-only delelink til udvalgte familiemedlemmers kalendere for
+  udenforstående uden login (Sprint 26).
+- Tidsbaserede opgave-påmindelser — en push-notifikation når en opgaves
+  tidspunkt indtræffer (Sprint 27).
+- Et AI-genereret ugentligt familieresumé, sendt automatisk hver søndag
+  (Sprint 28).
+- Sikkerhedshærdning: CSP og andre sikkerhedsheaders, rate-limiting på
+  AI-ruter/push-abonnement/delelinks, migrations-synlighed i `/api/health`,
+  global Error Boundary (Sprint 29).
 
 Se [AI Knowledge Base](01_Project_Documentation/AI_Knowledge_Base/00_README.md)
 for projektets historik, arkitektur og beslutninger, og
