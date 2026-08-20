@@ -36,6 +36,8 @@ export function ShareLinkCard() {
   const [members, setMembers] = useState<FamilyMemberDto[]>([]);
   const [shareLink, setShareLink] = useState<ShareLinkDto | null>(null);
   const [selectedMemberIds, setSelectedMemberIds] = useState<Set<string>>(new Set());
+  const [includeDescription, setIncludeDescription] = useState(false);
+  const [includeLocation, setIncludeLocation] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -61,6 +63,8 @@ export function ShareLinkCard() {
       if (linkResult.ok && linkResult.data.shareLink) {
         setShareLink(linkResult.data.shareLink);
         setSelectedMemberIds(new Set(linkResult.data.shareLink.includedMemberIds));
+        setIncludeDescription(linkResult.data.shareLink.includeDescription);
+        setIncludeLocation(linkResult.data.shareLink.includeLocation);
       }
 
       setIsLoading(false);
@@ -89,7 +93,10 @@ export function ShareLinkCard() {
     }
 
     setIsSaving(true);
-    const result = await createShareLink(familyId, [...selectedMemberIds]);
+    const result = await createShareLink(familyId, [...selectedMemberIds], {
+      includeDescription,
+      includeLocation,
+    });
     setIsSaving(false);
 
     if (result.ok && result.data.shareLink) {
@@ -109,6 +116,8 @@ export function ShareLinkCard() {
     if (result.ok) {
       setShareLink(null);
       setSelectedMemberIds(new Set());
+      setIncludeDescription(false);
+      setIncludeLocation(false);
     }
   }
 
@@ -190,6 +199,31 @@ export function ShareLinkCard() {
                   label={member.name}
                 />
               ))}
+            </Box>
+
+            <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>
+              Hvad skal linket vise ud over titel og tidspunkt?
+            </Typography>
+
+            <Box sx={{ display: "flex", flexDirection: "column", mb: 2 }}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={includeDescription}
+                    onChange={(event) => setIncludeDescription(event.target.checked)}
+                  />
+                }
+                label="Beskrivelse"
+              />
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={includeLocation}
+                    onChange={(event) => setIncludeLocation(event.target.checked)}
+                  />
+                }
+                label="Lokation"
+              />
             </Box>
 
             <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap" }}>

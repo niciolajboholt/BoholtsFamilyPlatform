@@ -252,6 +252,8 @@ families.post("/:id/invites/regenerate", async (c) => {
 interface ShareLinkRow {
   token: string;
   includedMemberIds: string;
+  includeDescription: number;
+  includeLocation: number;
 }
 
 function parseIncludedMemberIds(csv: string): string[] {
@@ -270,7 +272,9 @@ families.get("/:id/share-link", async (c) => {
   }
 
   const row = await c.env.DB.prepare(
-    "SELECT token, included_member_ids AS includedMemberIds FROM family_share_links WHERE family_id = ? AND revoked_at IS NULL",
+    `SELECT token, included_member_ids AS includedMemberIds,
+            include_description AS includeDescription, include_location AS includeLocation
+     FROM family_share_links WHERE family_id = ? AND revoked_at IS NULL`,
   )
     .bind(familyId)
     .first<ShareLinkRow>();
@@ -280,7 +284,12 @@ families.get("/:id/share-link", async (c) => {
   }
 
   return c.json({
-    shareLink: { token: row.token, includedMemberIds: parseIncludedMemberIds(row.includedMemberIds) },
+    shareLink: {
+      token: row.token,
+      includedMemberIds: parseIncludedMemberIds(row.includedMemberIds),
+      includeDescription: Boolean(row.includeDescription),
+      includeLocation: Boolean(row.includeLocation),
+    },
   });
 });
 
@@ -296,10 +305,16 @@ families.post("/:id/share-link", async (c) => {
     return c.json({ error: "Kun ejer eller admin kan oprette en delelink." }, 403);
   }
 
-  const body = await parseJsonBody<{ memberIds: string[] }>(c);
+  const body = await parseJsonBody<{
+    memberIds: string[];
+    includeDescription?: boolean;
+    includeLocation?: boolean;
+  }>(c);
   const memberIds = Array.isArray(body.memberIds)
     ? [...new Set(body.memberIds.filter((id) => typeof id === "string" && id.length > 0))]
     : [];
+  const includeDescription = body.includeDescription === true;
+  const includeLocation = body.includeLocation === true;
 
   if (memberIds.length === 0) {
     return c.json({ error: "Vælg mindst ét familiemedlem." }, 400);
@@ -327,13 +342,25 @@ families.post("/:id/share-link", async (c) => {
   const token = generateShareToken();
 
   await c.env.DB.prepare(
-    `INSERT INTO family_share_links (id, family_id, token, created_by_user_id, included_member_ids, created_at)
-     VALUES (?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO family_share_links
+       (id, family_id, token, created_by_user_id, included_member_ids, include_description, include_location, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
   )
-    .bind(crypto.randomUUID(), familyId, token, user.id, memberIds.join(","), now)
+    .bind(
+      crypto.randomUUID(),
+      familyId,
+      token,
+      user.id,
+      memberIds.join(","),
+      includeDescription ? 1 : 0,
+      includeLocation ? 1 : 0,
+      now,
+    )
     .run();
 
-  return c.json({ shareLink: { token, includedMemberIds: memberIds } });
+  return c.json({
+    shareLink: { token, includedMemberIds: memberIds, includeDescription, includeLocation },
+  });
 });
 
 // Deaktivér delelinket — kun ejer/admin.

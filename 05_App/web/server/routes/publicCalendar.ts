@@ -38,6 +38,8 @@ interface ShareLinkRow {
   familyName: string;
   createdByUserId: string;
   includedMemberIds: string;
+  includeDescription: number;
+  includeLocation: number;
 }
 
 publicCalendar.get("/family-calendar/:token", async (c) => {
@@ -55,7 +57,8 @@ publicCalendar.get("/family-calendar/:token", async (c) => {
 
   const link = await c.env.DB.prepare(
     `SELECT fsl.family_id AS familyId, f.name AS familyName,
-            fsl.created_by_user_id AS createdByUserId, fsl.included_member_ids AS includedMemberIds
+            fsl.created_by_user_id AS createdByUserId, fsl.included_member_ids AS includedMemberIds,
+            fsl.include_description AS includeDescription, fsl.include_location AS includeLocation
      FROM family_share_links fsl
      JOIN families f ON f.id = fsl.family_id
      WHERE fsl.token = ? AND fsl.revoked_at IS NULL`,
@@ -78,7 +81,16 @@ publicCalendar.get("/family-calendar/:token", async (c) => {
       getPublicCalendarRange(),
     );
 
-    return c.json({ familyName: link.familyName, events });
+    // Beskrivelse/lokation er tilvalg, slået fra som standard (Sprint 29)
+    // — en aftales fritekstindhold kan indeholde langt mere følsomt end
+    // titel/tidspunkt, som er selve pointen med et delelink.
+    const filteredEvents = events.map((event) => ({
+      ...event,
+      description: link.includeDescription ? event.description : undefined,
+      location: link.includeLocation ? event.location : undefined,
+    }));
+
+    return c.json({ familyName: link.familyName, events: filteredEvents });
   } catch (error) {
     if (error instanceof GoogleNotConnectedError) {
       return c.json(
