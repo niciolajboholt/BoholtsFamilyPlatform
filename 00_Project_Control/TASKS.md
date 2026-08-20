@@ -88,8 +88,8 @@ Se `05_Sprint_History.md` for detaljer pr. sprint.
 
 [x] nextSyncToken-inkrementel Google-synk (klient-cache + delta-flet)
 [x] PNG-ikonsæt (192/512, maskable, apple-touch-icon)
-[ ] Manuel test på beta/produktion (kræver fysisk adgang/browser, ikke en
-    AI-agent-opgave)
+[x] Manuel test på beta godkendt af Nicolaj (2026-08-20: "Alt i sprint
+    25 er godkendt")
 [x] Merget til `main` (PR #50)
 
 ## Sprint 26 - Kalender-konflikter + delelink
@@ -101,8 +101,11 @@ Se `05_Sprint_History.md` for detaljer pr. sprint.
 [x] Migration 0010 kørt og verificeret på beta og produktion (2026-08-18)
 [x] Manuel test af delelinket bekræftet af Nicolaj (2026-08-19: "Dele
     linket virker") + opfølgende ændring til månedsvisning
-[ ] Manuel test af konfliktmarkeringen på beta/produktion udestår
-[x] Merget til `main` (PR #51, #52, #53)
+[x] Manuel test af konfliktmarkeringen afdækkede en reel fejl
+    (2026-08-20): "Familien"-aftaler blev aldrig markeret i konflikt med
+    et specifikt medlems overlappende aftale (hasSharedOwner krævede
+    eksakt id-match). Rettet (PR #71) — afventer Nicolajs genbekræftelse
+[x] Merget til `main` (PR #51, #52, #53, #71)
 
 ## Sprint 27 - Tidsbaserede opgave-påmindelser
 
