@@ -43,6 +43,33 @@ describe("push routes", () => {
     expect(response.status).toBe(400);
   });
 
+  it.each([
+    ["http://push.example.com/a", "non-https endpoint"],
+    ["https://localhost/a", "localhost"],
+    ["https://127.0.0.1/a", "IPv4 loopback"],
+    ["https://192.168.1.5/a", "private IPv4 range"],
+    ["https://10.0.0.5/a", "private IPv4 range"],
+    ["not-a-url", "not a URL at all"],
+  ])("rejects a subscribe request with %s (%s)", async (endpoint) => {
+    const env = createFakeEnv();
+    const { cookieHeader } = await seedLoggedInUser(env.DB as never, { id: "nicolaj" });
+
+    const response = await push.request(
+      "/subscribe",
+      {
+        method: "POST",
+        headers: { Cookie: cookieHeader, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          endpoint,
+          keys: { p256dh: "test-p256dh", auth: "test-auth" },
+        }),
+      },
+      env,
+    );
+
+    expect(response.status).toBe(400);
+  });
+
   it("stores a new subscription for the logged-in user", async () => {
     const env = createFakeEnv();
     const { cookieHeader, userId } = await seedLoggedInUser(env.DB as never, { id: "nicolaj" });

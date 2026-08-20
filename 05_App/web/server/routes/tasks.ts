@@ -12,12 +12,18 @@ import type { Env } from "../env";
 import { generateRoutineDraft } from "../lib/aiAssistant";
 import { getMembershipForFamily } from "../lib/familyMembership";
 import { sendPushNotificationToFamily, sendPushNotificationToUser } from "../lib/pushNotifications";
+import { checkRateLimit } from "../lib/rateLimit";
 import { isTaskIcon } from "../lib/taskIcons";
 import { getSessionUser, type SessionUser } from "../lib/session";
 
 type Variables = { user: SessionUser };
 
 const tasks = new Hono<{ Bindings: Env; Variables: Variables }>();
+
+// Sprint 29: AI-forslaget havde ingen begrænsning — enhver logget bruger
+// kunne kalde Workers AI-modellen ubegrænset mange gange (både et
+// misbrugs- og et budget-hensyn, jf. Sprint 23's 10.000 Neurons/dag).
+const aiDraftRateLimit = { maxAttempts: 20, windowMs: 10 * 60 * 1000 };
 
 async function parseJsonBody<T extends object>(c: Context): Promise<Partial<T>> {
   return c.req.json<Partial<T>>().catch(() => ({}) as Partial<T>);
@@ -543,10 +549,21 @@ tasks.post("/:id/task-routines", async (c) => {
 // automatisk (se 23_Sprint23-planen, beslutning 4).
 tasks.post("/:id/task-routines/generate-draft", async (c) => {
   const familyId = c.req.param("id");
-  const membership = await getMembershipForFamily(c.env.DB, familyId, c.get("user").id);
+  const userId = c.get("user").id;
+  const membership = await getMembershipForFamily(c.env.DB, familyId, userId);
 
   if (!membership) {
     return c.json({ error: "Ikke fundet." }, 404);
+  }
+
+  const { allowed } = await checkRateLimit(c.env.DB, {
+    scope: "ai-routine-draft",
+    key: userId,
+    ...aiDraftRateLimit,
+  });
+
+  if (!allowed) {
+    return c.json({ error: "For mange forsøg. Prøv igen om lidt." }, 429);
   }
 
   const body = await parseJsonBody<{ description: string }>(c);

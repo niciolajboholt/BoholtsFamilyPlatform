@@ -671,6 +671,38 @@ describe("shopping list routes", () => {
     expect(response.status).toBe(502);
   });
 
+  it("rate-limits repeated calls to the AI ingredients draft route", async () => {
+    const { cookieHeader, userId } = await seedLoggedInUser(env.DB as never, { id: "nicolaj" });
+    await seedFamily(env, "family-1", [userId]);
+    const { lists } = (await (
+      await shoppingLists.request(
+        "/family-1/shopping-lists",
+        { headers: { Cookie: cookieHeader } },
+        env,
+      )
+    ).json()) as { lists: ShoppingListDto[] };
+    const listId = lists[0]!.id;
+
+    env.AI.run = vi.fn().mockResolvedValue({
+      choices: [{ message: { content: JSON.stringify({ items: [{ name: "Løg" }] }) } }],
+    }) as never;
+
+    let lastResponse: Response | undefined;
+    for (let i = 0; i < 21; i++) {
+      lastResponse = await shoppingLists.request(
+        `/family-1/shopping-lists/${listId}/generate-ingredients-draft`,
+        {
+          method: "POST",
+          headers: { Cookie: cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({ dish: "løgsuppe" }),
+        },
+        env,
+      );
+    }
+
+    expect(lastResponse?.status).toBe(429);
+  });
+
   it("returns 404 when the list belongs to a different family (cross-family isolation)", async () => {
     const { cookieHeader: ownerCookie, userId: ownerId } = await seedLoggedInUser(
       env.DB as never,
