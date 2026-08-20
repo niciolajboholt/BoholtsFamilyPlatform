@@ -13,7 +13,13 @@ import { checkRateLimit } from "../lib/rateLimit";
 
 const publicCalendar = new Hono<{ Bindings: Env }>();
 
-const shareLinkRateLimit = { maxAttempts: 60, windowMs: 60 * 60 * 1000 };
+// Sprint 29: rate limit'et var hidtil nøglet kun på token — én besøgende
+// kunne opbruge hele linkets kvote for alle andre, der kigger på samme
+// delelink. Nøgles nu på token+IP (pr. besøgende) som primær grænse, med
+// en grovere per-token-grænse som sikkerhedsnet mod fx tusindvis af
+// forespørgsler fra mange forskellige IP'er mod samme link.
+const shareLinkPerVisitorRateLimit = { maxAttempts: 30, windowMs: 60 * 60 * 1000 };
+const shareLinkPerTokenRateLimit = { maxAttempts: 300, windowMs: 60 * 60 * 1000 };
 
 // Fast ±1 måned — en "hvad sker der lige nu"-visning for en udenforstående,
 // ikke appens normale ±1/2 års vindue.
@@ -44,14 +50,22 @@ interface ShareLinkRow {
 
 publicCalendar.get("/family-calendar/:token", async (c) => {
   const token = c.req.param("token");
+  const clientIp = c.req.header("cf-connecting-ip") ?? "unknown";
 
-  const { allowed } = await checkRateLimit(c.env.DB, {
-    scope: "public-family-calendar",
-    key: token,
-    ...shareLinkRateLimit,
-  });
+  const [{ allowed: allowedForToken }, { allowed: allowedForVisitor }] = await Promise.all([
+    checkRateLimit(c.env.DB, {
+      scope: "public-family-calendar",
+      key: token,
+      ...shareLinkPerTokenRateLimit,
+    }),
+    checkRateLimit(c.env.DB, {
+      scope: "public-family-calendar-visitor",
+      key: `${token}:${clientIp}`,
+      ...shareLinkPerVisitorRateLimit,
+    }),
+  ]);
 
-  if (!allowed) {
+  if (!allowedForToken || !allowedForVisitor) {
     return c.json({ error: "For mange forespørgsler. Prøv igen om lidt." }, 429);
   }
 

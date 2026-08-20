@@ -690,6 +690,32 @@ describe("task routes", () => {
     expect(response.status).toBe(502);
   });
 
+  it("rate-limits repeated calls to the AI routine draft route", async () => {
+    const { cookieHeader, userId } = await seedLoggedInUser(env.DB as never, { id: "nicolaj" });
+    await seedFamily(env, "family-1", [userId]);
+
+    env.AI.run = vi.fn().mockResolvedValue({
+      choices: [
+        { message: { content: JSON.stringify({ name: "Rutine", items: [{ name: "Tjek", icon: "fritid" }] }) } },
+      ],
+    }) as never;
+
+    let lastResponse: Response | undefined;
+    for (let i = 0; i < 21; i++) {
+      lastResponse = await tasks.request(
+        "/family-1/task-routines/generate-draft",
+        {
+          method: "POST",
+          headers: { Cookie: cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({ description: "morgenrutine" }),
+        },
+        env,
+      );
+    }
+
+    expect(lastResponse?.status).toBe(429);
+  });
+
   it("rejects an empty description for the routine draft", async () => {
     const { cookieHeader, userId } = await seedLoggedInUser(env.DB as never, { id: "nicolaj" });
     await seedFamily(env, "family-1", [userId]);

@@ -159,16 +159,69 @@ describe("GET /family-calendar/:token", () => {
     expect(response.status).toBe(503);
   });
 
-  it("rejects further requests after too many within the rate-limit window", async () => {
+  it("rejects further requests from the same visitor after too many within the window", async () => {
     const env = createFakeEnv();
     const token = await seedShareLink(env);
     fetchPublicFamilyCalendarEventsMock.mockResolvedValue([]);
 
     let lastResponse: Response | undefined;
-    for (let i = 0; i < 61; i++) {
-      lastResponse = await publicCalendarRoutes.request(`/family-calendar/${token}`, {}, env);
+    for (let i = 0; i < 31; i++) {
+      lastResponse = await publicCalendarRoutes.request(
+        `/family-calendar/${token}`,
+        { headers: { "cf-connecting-ip": "203.0.113.1" } },
+        env,
+      );
     }
 
     expect(lastResponse?.status).toBe(429);
+  });
+
+  it("does not let one visitor's usage exhaust the quota for a different visitor on the same link", async () => {
+    const env = createFakeEnv();
+    const token = await seedShareLink(env);
+    fetchPublicFamilyCalendarEventsMock.mockResolvedValue([]);
+
+    for (let i = 0; i < 25; i++) {
+      await publicCalendarRoutes.request(
+        `/family-calendar/${token}`,
+        { headers: { "cf-connecting-ip": "203.0.113.1" } },
+        env,
+      );
+    }
+
+    const otherVisitorResponse = await publicCalendarRoutes.request(
+      `/family-calendar/${token}`,
+      { headers: { "cf-connecting-ip": "203.0.113.2" } },
+      env,
+    );
+
+    expect(otherVisitorResponse.status).toBe(200);
+  });
+
+  it("still rejects once the coarser per-token ceiling is reached, even across many visitors", async () => {
+    const env = createFakeEnv();
+    const token = await seedShareLink(env);
+    fetchPublicFamilyCalendarEventsMock.mockResolvedValue([]);
+
+    // Simulerer at loftet på 300/time allerede er nået (i stedet for at
+    // rulle 300 rigtige requests igennem) — det er selve
+    // per-token-loftets adfærd, der testes her, ikke checkRateLimit()'s
+    // egen tælling (dækket af rateLimit.test.ts).
+    const now = new Date().toISOString();
+    for (let i = 0; i < 300; i++) {
+      await env.DB.prepare(
+        "INSERT INTO rate_limit_attempts (scope, key, created_at) VALUES (?, ?, ?)",
+      )
+        .bind("public-family-calendar", token, now)
+        .run();
+    }
+
+    const response = await publicCalendarRoutes.request(
+      `/family-calendar/${token}`,
+      { headers: { "cf-connecting-ip": "203.0.113.99" } },
+      env,
+    );
+
+    expect(response.status).toBe(429);
   });
 });

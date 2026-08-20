@@ -48,10 +48,61 @@ interface SubscribeBody {
   keys: { p256dh: string; auth: string };
 }
 
+// Sprint 29: uden dette accepterede /subscribe et vilkårligt endpoint —
+// pushNotifications.ts's sendPushNotification() fetcher det direkte, når
+// en push senere afsendes, så enhver logget bruger kunne reelt få
+// Workeren til selv at sende signerede, udgående POST-kald til en
+// hvilken som helst URL (en reel SSRF-vej). Bevidst en bred, men ikke
+// ligegyldig regel (kræv https, afvis lokale/private hosts) frem for en
+// snæver liste over kendte push-tjenester, som risikerer at afvise en
+// legitim browser/push-tjeneste, vi ikke kender til.
+function isPlausiblePushEndpoint(endpoint: string): boolean {
+  let url: URL;
+
+  try {
+    url = new URL(endpoint);
+  } catch {
+    return false;
+  }
+
+  if (url.protocol !== "https:") {
+    return false;
+  }
+
+  const hostname = url.hostname.toLowerCase();
+
+  if (hostname === "localhost" || hostname.endsWith(".localhost") || hostname === "::1") {
+    return false;
+  }
+
+  const ipv4Match = hostname.match(/^(\d{1,3})\.(\d{1,3})\.\d{1,3}\.\d{1,3}$/);
+
+  if (ipv4Match) {
+    const firstOctet = Number(ipv4Match[1]);
+    const secondOctet = Number(ipv4Match[2]);
+    const isPrivateOrLoopback =
+      firstOctet === 10 ||
+      firstOctet === 127 ||
+      (firstOctet === 172 && secondOctet >= 16 && secondOctet <= 31) ||
+      (firstOctet === 192 && secondOctet === 168) ||
+      (firstOctet === 169 && secondOctet === 254);
+
+    if (isPrivateOrLoopback) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 push.post("/subscribe", async (c) => {
   const body = await parseJsonBody<SubscribeBody>(c);
 
   if (!body.endpoint || !body.keys?.p256dh || !body.keys.auth) {
+    return c.json({ error: "Ugyldigt abonnement." }, 400);
+  }
+
+  if (!isPlausiblePushEndpoint(body.endpoint)) {
     return c.json({ error: "Ugyldigt abonnement." }, 400);
   }
 

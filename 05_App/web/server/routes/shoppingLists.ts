@@ -18,12 +18,16 @@ import {
   normalizeItemName,
   type ShoppingListType,
 } from "../lib/shoppingCategories";
+import { checkRateLimit } from "../lib/rateLimit";
 import { getSessionUser, type SessionUser } from "../lib/session";
 
 type Variables = { user: SessionUser };
 type AppContext = Context<{ Bindings: Env; Variables: Variables }>;
 
 const shoppingLists = new Hono<{ Bindings: Env; Variables: Variables }>();
+
+// Sprint 29: samme begrundelse som tasks.ts's aiDraftRateLimit.
+const aiDraftRateLimit = { maxAttempts: 20, windowMs: 10 * 60 * 1000 };
 
 async function parseJsonBody<T extends object>(c: Context): Promise<Partial<T>> {
   return c.req.json<Partial<T>>().catch(() => ({}) as Partial<T>);
@@ -267,6 +271,16 @@ shoppingLists.post("/:id/shopping-lists/:listId/generate-ingredients-draft", asy
 
   if (!list) {
     return c.json({ error: "Ikke fundet." }, 404);
+  }
+
+  const { allowed } = await checkRateLimit(c.env.DB, {
+    scope: "ai-ingredients-draft",
+    key: c.get("user").id,
+    ...aiDraftRateLimit,
+  });
+
+  if (!allowed) {
+    return c.json({ error: "For mange forsøg. Prøv igen om lidt." }, 429);
   }
 
   const body = await parseJsonBody<{ dish: string }>(c);
