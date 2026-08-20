@@ -187,6 +187,9 @@ export function getWeeklySummary(familyId: string) {
 export interface ShareLinkDto {
   token: string;
   includedMemberIds: string[];
+  // Sprint 29: tilvalg, slået fra som standard — se ShareLinkCard.
+  includeDescription: boolean;
+  includeLocation: boolean;
 }
 
 export function getShareLink(familyId: string) {
@@ -195,10 +198,14 @@ export function getShareLink(familyId: string) {
   );
 }
 
-export function createShareLink(familyId: string, memberIds: string[]) {
+export function createShareLink(
+  familyId: string,
+  memberIds: string[],
+  fieldOptions: { includeDescription: boolean; includeLocation: boolean },
+) {
   return request<{ shareLink?: ShareLinkDto; error?: string }>(
     `/api/families/${familyId}/share-link`,
-    { method: "POST", body: JSON.stringify({ memberIds }) },
+    { method: "POST", body: JSON.stringify({ memberIds, ...fieldOptions }) },
   );
 }
 

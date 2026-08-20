@@ -369,6 +369,61 @@ describe("families routes", () => {
       expect(regenerateBody.shareLink.token).not.toBe(createBody.shareLink.token);
     });
 
+    it("POST defaults includeDescription/includeLocation to false when omitted", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader);
+
+      const response = await families.request(
+        `/${created.family.id}/share-link`,
+        {
+          method: "POST",
+          headers: { Cookie: owner.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({ memberIds: [created.members[0].id] }),
+        },
+        env,
+      );
+      const body: { shareLink: { includeDescription: boolean; includeLocation: boolean } } =
+        await response.json();
+
+      expect(body.shareLink.includeDescription).toBe(false);
+      expect(body.shareLink.includeLocation).toBe(false);
+    });
+
+    it("POST stores includeDescription/includeLocation when explicitly requested", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader);
+
+      const response = await families.request(
+        `/${created.family.id}/share-link`,
+        {
+          method: "POST",
+          headers: { Cookie: owner.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            memberIds: [created.members[0].id],
+            includeDescription: true,
+            includeLocation: true,
+          }),
+        },
+        env,
+      );
+      const body: { shareLink: { includeDescription: boolean; includeLocation: boolean } } =
+        await response.json();
+
+      expect(body.shareLink.includeDescription).toBe(true);
+      expect(body.shareLink.includeLocation).toBe(true);
+
+      const getResponse = await families.request(
+        `/${created.family.id}/share-link`,
+        { headers: { Cookie: owner.cookieHeader } },
+        env,
+      );
+      const getBody: { shareLink: { includeDescription: boolean; includeLocation: boolean } } =
+        await getResponse.json();
+
+      expect(getBody.shareLink.includeDescription).toBe(true);
+      expect(getBody.shareLink.includeLocation).toBe(true);
+    });
+
     it("DELETE deactivates the link so GET no longer returns it", async () => {
       const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
       const created = await createFamily(env, owner.cookieHeader);
