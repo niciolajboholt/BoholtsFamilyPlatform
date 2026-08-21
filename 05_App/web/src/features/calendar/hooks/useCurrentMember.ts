@@ -49,6 +49,21 @@ export function useCurrentMember(): UseCurrentMemberResult {
         member.id === currentMemberId && member.id !== familyPseudoMemberId,
     ) ?? null;
 
+  // Sprint 29: linkFamilyMemberToMe() blev hidtil kun kaldt af
+  // setCurrentMemberId() nedenfor — dvs. kun ved et NYT valg. Enhver, der
+  // havde valgt "Min profil" FØR denne kobling blev indført (Sprint 27),
+  // fik derfor aldrig sat linked_user_id server-side og modtog stille og
+  // roligt ingen push for personligt tildelte opgaver. Genkobler derfor
+  // også ved almindelig indlæsning, når et medlem allerede er valgt —
+  // idempotent server-side (samme bruger/medlem er en no-op).
+  useEffect(() => {
+    if (!familyId || !currentMemberId || currentMemberId === familyPseudoMemberId) {
+      return;
+    }
+
+    void linkFamilyMemberToMe(familyId, currentMemberId);
+  }, [familyId, currentMemberId]);
+
   // Returnerer en fejlbesked, hvis server-koblingen fejlede (fx medlemmet
   // er allerede en andens "Min profil") — den lokale enhedsindstilling
   // sættes uanset, så UI'et ikke låses af en midlertidig serverfejl.
