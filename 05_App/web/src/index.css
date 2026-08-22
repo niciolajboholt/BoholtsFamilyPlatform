@@ -2,7 +2,10 @@
    sætter kun det, CssBaseline bevidst ikke rører ved. */
 
 :root {
-  color-scheme: light;
+  /* Statisk fallback for allerførste maling, før ThemeModeProvider når at
+     sætte den præcise værdi via JS (se colorScheme-effekten der) — lader
+     native kontroller (scrollbars mv.) følge systemet indtil da. */
+  color-scheme: light dark;
 }
 
 #root {

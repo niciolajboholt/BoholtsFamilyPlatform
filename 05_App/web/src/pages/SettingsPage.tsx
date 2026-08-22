@@ -9,11 +9,13 @@ import {
   CloudUploadRounded,
   DarkModeRounded,
   FamilyRestroomRounded,
+  LightModeRounded,
   LogoutRounded,
   NotificationsRounded,
   PersonRounded,
   RateReviewRounded,
   SaveRounded,
+  SettingsBrightnessRounded,
 } from "@mui/icons-material";
 
 import {
@@ -23,10 +25,11 @@ import {
   Button,
   Card,
   CardContent,
-  Chip,
   Divider,
   IconButton,
   Switch,
+  ToggleButton,
+  ToggleButtonGroup,
   Typography,
 } from "@mui/material";
 
@@ -36,6 +39,8 @@ import { FeedbackDialog } from "../features/feedback/FeedbackDialog";
 import { FeedbackInboxCard } from "../features/feedback/FeedbackInboxCard";
 import { InviteCodeCard } from "../features/family/InviteCodeCard";
 import { ShareLinkCard } from "../features/family/ShareLinkCard";
+import type { ThemeModePreference } from "../theme/ThemeModeContext";
+import { useThemeMode } from "../theme/ThemeModeContext";
 import { CurrentMemberPickerDialog } from "../features/calendar/components/CurrentMemberPickerDialog";
 import { ProviderConnectionRow } from "../features/calendar/components/ProviderConnectionRow";
 import type { CalendarOwner } from "../features/calendar/data/calendarOwners";
@@ -81,6 +86,12 @@ function SettingsSectionHeader({ children }: { children: string }) {
 }
 
 function SettingsPage() {
+  const {
+    preference: themePreference,
+    resolvedMode: resolvedThemeMode,
+    setPreference: setThemePreference,
+  } = useThemeMode();
+
   const {
     members,
     addMember,
@@ -586,41 +597,66 @@ function SettingsPage() {
 
             <Divider />
 
-            <Box sx={{ display: "flex", alignItems: "center", py: 1.5 }}>
+            <Box sx={{ py: 1.5 }}>
               <Box
                 sx={{
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
                   gap: 1.5,
-                  flexGrow: 1,
+                  mb: 1.5,
                 }}
               >
                 <DarkModeRounded color="action" />
 
                 <Box sx={{ textAlign: "center" }}>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: 1,
-                    }}
-                  >
-                    <Typography sx={{ fontWeight: 600 }}>
-                      Mørkt tema
-                    </Typography>
-
-                    <Chip label="Kommer senere" size="small" />
-                  </Box>
+                  <Typography sx={{ fontWeight: 600 }}>
+                    Udseende
+                  </Typography>
 
                   <Typography variant="body2" color="text.secondary">
-                    Forberedt til en senere sprint
+                    {themePreference === "system"
+                      ? `Følger telefonen (i øjeblikket ${
+                          resolvedThemeMode === "dark" ? "mørkt" : "lyst"
+                        })`
+                      : themePreference === "dark"
+                        ? "Mørkt tema"
+                        : "Lyst tema"}
                   </Typography>
                 </Box>
               </Box>
 
-              <Switch disabled />
+              <Box sx={{ display: "flex", justifyContent: "center" }}>
+                <ToggleButtonGroup
+                  value={themePreference}
+                  exclusive
+                  size="small"
+                  onChange={(_event, value: ThemeModePreference | null) => {
+                    if (value) {
+                      setThemePreference(value);
+                    }
+                  }}
+                  aria-label="Udseende"
+                >
+                  <ToggleButton value="light" aria-label="Lyst tema">
+                    <LightModeRounded fontSize="small" sx={{ mr: 0.75 }} />
+                    Lyst
+                  </ToggleButton>
+
+                  <ToggleButton value="dark" aria-label="Mørkt tema">
+                    <DarkModeRounded fontSize="small" sx={{ mr: 0.75 }} />
+                    Mørkt
+                  </ToggleButton>
+
+                  <ToggleButton value="system" aria-label="Følg telefonen">
+                    <SettingsBrightnessRounded
+                      fontSize="small"
+                      sx={{ mr: 0.75 }}
+                    />
+                    System
+                  </ToggleButton>
+                </ToggleButtonGroup>
+              </Box>
             </Box>
           </CardContent>
         </Card>

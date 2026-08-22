@@ -253,7 +253,7 @@ function AppLayout() {
         color="transparent"
         elevation={0}
         sx={{
-          bgcolor: "rgba(246, 245, 239, 0.92)",
+          bgcolor: (theme) => alpha(theme.palette.background.default, 0.92),
           backdropFilter: "blur(16px)",
           borderBottom: "1px solid",
           borderColor: "divider",
