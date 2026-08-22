@@ -22,6 +22,7 @@ const migrationFiles = [
   "0011_task_reminders.sql",
   "0012_weekly_summaries.sql",
   "0013_share_link_field_toggles.sql",
+  "0014_feedback.sql",
 ];
 
 function loadMigrations(db: DatabaseSync): void {

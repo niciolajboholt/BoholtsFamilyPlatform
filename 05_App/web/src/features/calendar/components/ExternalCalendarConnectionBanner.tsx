@@ -40,6 +40,15 @@ export function ExternalCalendarConnectionBanner({
   }
 
   const hasReadError = health?.status === "error";
+
+  // Den "glade" tilstand (forbundet, ingen fejl) fylder ikke længere en
+  // permanent bannerplads over kalenderen — den vises i stedet som et lille
+  // synkroniseringsikon ved kalenderoverskriften (se CalendarPage), med den
+  // fulde status stadig tilgængelig under Indstillinger.
+  if (isConnected && !hasReadError) {
+    return null;
+  }
+
   const message = hasReadError
     ? health.message ?? `${providerLabel} Kalender kunne ikke opdateres. Dine lokale kalendere vises stadig.`
     : isConnected

@@ -146,10 +146,10 @@ function DayCalendar({
                       p: 0.75,
                       borderRadius: 1,
                       borderLeft: `4px solid ${ownerColor}`,
-                      backgroundColor: `${ownerColor}14`,
+                      backgroundColor: `${ownerColor}30`,
 
                       "&:hover": {
-                        backgroundColor: `${ownerColor}24`,
+                        backgroundColor: `${ownerColor}45`,
                       },
 
                       "&:focus-visible": {
@@ -286,11 +286,11 @@ function DayCalendar({
                       overflow: "hidden",
                       borderRadius: 1,
                       borderLeft: `3px solid ${ownerColor}`,
-                      backgroundColor: `${ownerColor}1c`,
+                      backgroundColor: `${ownerColor}30`,
                       textAlign: "left",
 
                       "&:hover": {
-                        backgroundColor: `${ownerColor}30`,
+                        backgroundColor: `${ownerColor}45`,
                       },
 
                       "&:focus-visible": {
@@ -301,9 +301,9 @@ function DayCalendar({
                     }}
                   >
                     <Typography
-                      variant="caption"
+                      variant="body2"
                       noWrap
-                      sx={{ display: "block", fontWeight: 700 }}
+                      sx={{ display: "block", fontWeight: 700, fontSize: "0.875rem" }}
                     >
                       {formatEventTimeRange(entry.event)}
                     </Typography>
@@ -312,7 +312,7 @@ function DayCalendar({
                       <Typography
                         variant="body2"
                         noWrap
-                        sx={{ display: "block", fontWeight: 600, minWidth: 0 }}
+                        sx={{ display: "block", fontWeight: 600, minWidth: 0, fontSize: "0.875rem" }}
                       >
                         {entry.event.title}
                       </Typography>

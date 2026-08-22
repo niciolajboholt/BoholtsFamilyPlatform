@@ -9,10 +9,13 @@ import {
   CloudUploadRounded,
   DarkModeRounded,
   FamilyRestroomRounded,
+  LightModeRounded,
   LogoutRounded,
   NotificationsRounded,
   PersonRounded,
+  RateReviewRounded,
   SaveRounded,
+  SettingsBrightnessRounded,
 } from "@mui/icons-material";
 
 import {
@@ -25,13 +28,19 @@ import {
   Divider,
   IconButton,
   Switch,
+  ToggleButton,
+  ToggleButtonGroup,
   Typography,
 } from "@mui/material";
 
 import { FamilyMemberDialog } from "../features/calendar/components/FamilyMemberDialog";
 import { useSession } from "../features/auth/hooks/useSession";
+import { FeedbackDialog } from "../features/feedback/FeedbackDialog";
+import { FeedbackInboxCard } from "../features/feedback/FeedbackInboxCard";
 import { InviteCodeCard } from "../features/family/InviteCodeCard";
 import { ShareLinkCard } from "../features/family/ShareLinkCard";
+import type { ThemeModePreference } from "../theme/ThemeModeContext";
+import { useThemeMode } from "../theme/ThemeModeContext";
 import { CurrentMemberPickerDialog } from "../features/calendar/components/CurrentMemberPickerDialog";
 import { ProviderConnectionRow } from "../features/calendar/components/ProviderConnectionRow";
 import type { CalendarOwner } from "../features/calendar/data/calendarOwners";
@@ -54,7 +63,35 @@ import type { MappableCalendarOption } from "../features/calendar/providers/cale
 import { listAllMappableCalendars } from "../features/calendar/providers/calendarProviderFactory";
 import { getInitials } from "../features/calendar/utils/getInitials";
 
+// Sprint 30: siden var én lang liste af kort uden nogen tydelig opdeling —
+// disse fire overskrifter grupperer dem, så det er til at overskue hvor
+// hver indstilling hører hjemme (Familie / Kalenderforbindelser / App og
+// notifikationer / Konto og data), i stedet for at man skal scrolle hele
+// siden igennem for at finde den rigtige.
+function SettingsSectionHeader({ children }: { children: string }) {
+  return (
+    <Typography
+      variant="overline"
+      color="text.secondary"
+      sx={{
+        fontWeight: 700,
+        letterSpacing: "0.08em",
+        mt: 1,
+        ml: 0.5,
+      }}
+    >
+      {children}
+    </Typography>
+  );
+}
+
 function SettingsPage() {
+  const {
+    preference: themePreference,
+    resolvedMode: resolvedThemeMode,
+    setPreference: setThemePreference,
+  } = useThemeMode();
+
   const {
     members,
     addMember,
@@ -66,6 +103,7 @@ function SettingsPage() {
     null,
   );
   const [isMemberDialogOpen, setIsMemberDialogOpen] = useState(false);
+  const [isFeedbackDialogOpen, setIsFeedbackDialogOpen] = useState(false);
 
   const { currentMember, setCurrentMemberId } = useCurrentMember();
   const [isCurrentMemberPickerOpen, setIsCurrentMemberPickerOpen] =
@@ -294,6 +332,8 @@ function SettingsPage() {
       </Box>
 
       <Box sx={{ display: "grid", gap: 2.5 }}>
+        <SettingsSectionHeader>Familie</SettingsSectionHeader>
+
         <Card>
           <CardContent sx={{ p: 3 }}>
             <Box
@@ -358,17 +398,18 @@ function SettingsPage() {
                             width: 42,
                             height: 42,
                             fontWeight: 700,
+                            flexShrink: 0,
                           }}
                         >
                           {getInitials(member.name)}
                         </Avatar>
 
                         {/* Avataren er venstrejusteret (fast x-position for
-                            hele rækken), men selve teksten centreres i sin
-                            egen kolonne — de tre linjer (navn/relation/
-                            kalender) kan have forskellig bredde, og ser
-                            pænere ud centreret om hinanden end venstrestillet. */}
-                        <Box sx={{ textAlign: "center" }}>
+                            hele rækken) — kun tekst-kolonnen fylder den
+                            resterende plads (flexGrow) og centreres i den,
+                            så de tre linjer (navn/relation/kalender) står
+                            centreret om hinanden mellem avatar og chevron. */}
+                        <Box sx={{ textAlign: "center", flexGrow: 1 }}>
                           <Typography sx={{ fontWeight: 600 }}>
                             {member.name}
                           </Typography>
@@ -422,6 +463,8 @@ function SettingsPage() {
         <InviteCodeCard />
 
         <ShareLinkCard />
+
+        <SettingsSectionHeader>Kalenderforbindelser</SettingsSectionHeader>
 
         <Card>
           <CardContent sx={{ p: 3 }}>
@@ -492,74 +535,10 @@ function SettingsPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent sx={{ p: 3 }}>
-            <Box
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                gap: 1.5,
-                mb: 2.5,
-              }}
-            >
-              <Avatar sx={{ bgcolor: "background.default", color: "text.primary" }}>
-                <SaveRounded />
-              </Avatar>
-
-              <Box>
-                <Typography variant="h6">Data &amp; backup</Typography>
-
-                <Typography variant="body2" color="text.secondary">
-                  Dine data ligger kun i denne browser — tag en backup for at
-                  undgå at miste dem
-                </Typography>
-              </Box>
-            </Box>
-
-            {backupFeedback && (
-              <Alert
-                severity={backupFeedback.severity}
-                onClose={() => setBackupFeedback(null)}
-                sx={{ mb: 2 }}
-              >
-                {backupFeedback.message}
-              </Alert>
-            )}
-
-            <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap" }}>
-              <Button
-                variant="outlined"
-                startIcon={<CloudDownloadRounded />}
-                onClick={handleExportData}
-              >
-                Eksportér data
-              </Button>
-
-              <Button
-                variant="outlined"
-                startIcon={<CloudUploadRounded />}
-                onClick={() => importFileInputRef.current?.click()}
-              >
-                Importér data
-              </Button>
-
-              <input
-                ref={importFileInputRef}
-                type="file"
-                accept="application/json"
-                hidden
-                onChange={handleImportFileSelected}
-              />
-            </Box>
-          </CardContent>
-        </Card>
+        <SettingsSectionHeader>App og notifikationer</SettingsSectionHeader>
 
         <Card>
           <CardContent sx={{ p: 3 }}>
-            <Typography variant="h6" sx={{ mb: 1 }}>
-              Appindstillinger
-            </Typography>
-
             <Box sx={{ display: "flex", alignItems: "center", py: 1.5 }}>
               <Box
                 sx={{
@@ -618,34 +597,74 @@ function SettingsPage() {
 
             <Divider />
 
-            <Box sx={{ display: "flex", alignItems: "center", py: 1.5 }}>
+            <Box sx={{ py: 1.5 }}>
               <Box
                 sx={{
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
                   gap: 1.5,
-                  flexGrow: 1,
+                  mb: 1.5,
                 }}
               >
                 <DarkModeRounded color="action" />
 
                 <Box sx={{ textAlign: "center" }}>
                   <Typography sx={{ fontWeight: 600 }}>
-                    Mørkt tema
+                    Udseende
                   </Typography>
 
                   <Typography variant="body2" color="text.secondary">
-                    Forberedt til en senere sprint
+                    {themePreference === "system"
+                      ? `Følger telefonen (i øjeblikket ${
+                          resolvedThemeMode === "dark" ? "mørkt" : "lyst"
+                        })`
+                      : themePreference === "dark"
+                        ? "Mørkt tema"
+                        : "Lyst tema"}
                   </Typography>
                 </Box>
               </Box>
 
-              <Switch disabled />
+              <Box sx={{ display: "flex", justifyContent: "center" }}>
+                <ToggleButtonGroup
+                  value={themePreference}
+                  exclusive
+                  size="small"
+                  onChange={(_event, value: ThemeModePreference | null) => {
+                    if (value) {
+                      setThemePreference(value);
+                    }
+                  }}
+                  aria-label="Udseende"
+                >
+                  <ToggleButton value="light" aria-label="Lyst tema">
+                    <LightModeRounded fontSize="small" sx={{ mr: 0.75 }} />
+                    Lyst
+                  </ToggleButton>
+
+                  <ToggleButton value="dark" aria-label="Mørkt tema">
+                    <DarkModeRounded fontSize="small" sx={{ mr: 0.75 }} />
+                    Mørkt
+                  </ToggleButton>
+
+                  <ToggleButton value="system" aria-label="Følg telefonen">
+                    <SettingsBrightnessRounded
+                      fontSize="small"
+                      sx={{ mr: 0.75 }}
+                    />
+                    System
+                  </ToggleButton>
+                </ToggleButtonGroup>
+              </Box>
             </Box>
+          </CardContent>
+        </Card>
 
-            <Divider />
+        <SettingsSectionHeader>Konto og data</SettingsSectionHeader>
 
+        <Card>
+          <CardContent sx={{ p: 3 }}>
             <Box sx={{ display: "flex", alignItems: "center", py: 1.5 }}>
               <Box
                 sx={{
@@ -716,6 +735,99 @@ function SettingsPage() {
             )}
           </CardContent>
         </Card>
+
+        <Card>
+          <CardContent sx={{ p: 3 }}>
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                gap: 1.5,
+                mb: 2.5,
+              }}
+            >
+              <Avatar sx={{ bgcolor: "background.default", color: "text.primary" }}>
+                <SaveRounded />
+              </Avatar>
+
+              <Box>
+                <Typography variant="h6">Data &amp; backup</Typography>
+
+                <Typography variant="body2" color="text.secondary">
+                  Dine data ligger kun i denne browser — tag en backup for at
+                  undgå at miste dem
+                </Typography>
+              </Box>
+            </Box>
+
+            {backupFeedback && (
+              <Alert
+                severity={backupFeedback.severity}
+                onClose={() => setBackupFeedback(null)}
+                sx={{ mb: 2 }}
+              >
+                {backupFeedback.message}
+              </Alert>
+            )}
+
+            <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap" }}>
+              <Button
+                variant="outlined"
+                startIcon={<CloudDownloadRounded />}
+                onClick={handleExportData}
+              >
+                Eksportér data
+              </Button>
+
+              <Button
+                variant="outlined"
+                startIcon={<CloudUploadRounded />}
+                onClick={() => importFileInputRef.current?.click()}
+              >
+                Importér data
+              </Button>
+
+              <input
+                ref={importFileInputRef}
+                type="file"
+                accept="application/json"
+                hidden
+                onChange={handleImportFileSelected}
+              />
+            </Box>
+          </CardContent>
+        </Card>
+
+        <SettingsSectionHeader>Hjælp og feedback</SettingsSectionHeader>
+
+        <Card>
+          <CardContent sx={{ p: 3 }}>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+              <Avatar sx={{ bgcolor: "secondary.main" }}>
+                <RateReviewRounded />
+              </Avatar>
+
+              <Box sx={{ flexGrow: 1 }}>
+                <Typography sx={{ fontWeight: 600 }}>
+                  Send feedback
+                </Typography>
+
+                <Typography variant="body2" color="text.secondary">
+                  Idéer, fejl eller andet du vil dele
+                </Typography>
+              </Box>
+
+              <Button
+                variant="outlined"
+                onClick={() => setIsFeedbackDialogOpen(true)}
+              >
+                Send
+              </Button>
+            </Box>
+          </CardContent>
+        </Card>
+
+        <FeedbackInboxCard />
       </Box>
 
       <CurrentMemberPickerDialog
@@ -723,6 +835,11 @@ function SettingsPage() {
         members={members}
         onClose={() => setIsCurrentMemberPickerOpen(false)}
         onSelect={handleSelectCurrentMember}
+      />
+
+      <FeedbackDialog
+        open={isFeedbackDialogOpen}
+        onClose={() => setIsFeedbackDialogOpen(false)}
       />
     </Box>
   );

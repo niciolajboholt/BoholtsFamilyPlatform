@@ -6,6 +6,7 @@ import {
 } from "react";
 
 import AddIcon from "@mui/icons-material/Add";
+import { CloudDoneRounded } from "@mui/icons-material";
 import {
   Alert,
   Box,
@@ -14,6 +15,7 @@ import {
   CardContent,
   CircularProgress,
   Snackbar,
+  Tooltip,
   Typography,
 } from "@mui/material";
 
@@ -185,6 +187,17 @@ function getVisibleRange(
   };
 }
 
+// Månedsvisningen er svær at læse på en telefon (aftalekortene skal være
+// meget små for at være der) — mobil starter derfor i ugevisning, mens
+// større skærme fortsat starter i månedsvisning.
+function getDefaultCalendarView(): CalendarView {
+  if (typeof window === "undefined") {
+    return "month";
+  }
+
+  return window.innerWidth < 600 ? "week" : "month";
+}
+
 function CalendarPage() {
   const [
     selectedDate,
@@ -192,17 +205,19 @@ function CalendarPage() {
   ] = useState(getTodayCalendarDate);
 
   const [
-    visibleDate,
-    setVisibleDate,
-  ] = useState(() =>
-    startOfMonth(getTodayCalendarDate()),
-  );
-
-  const [
     calendarView,
     setCalendarView,
   ] =
-    useState<CalendarView>("month");
+    useState<CalendarView>(getDefaultCalendarView);
+
+  const [
+    visibleDate,
+    setVisibleDate,
+  ] = useState(() =>
+    calendarView === "month"
+      ? startOfMonth(getTodayCalendarDate())
+      : getTodayCalendarDate(),
+  );
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -318,6 +333,22 @@ function CalendarPage() {
       void refreshEvents();
     }
   }, [isOutlookCalendarConnected, refreshCalendarSources, refreshEvents]);
+
+  // Erstatter det tidligere permanente grønne "Google Kalender er
+  // forbundet"-banner over kalenderen — den gode tilstand fylder nu kun et
+  // lille synkroniseringsikon ved overskriften (se JSX nedenfor), mens
+  // ExternalCalendarConnectionBanner stadig viser fejl/afbrudt-tilstande.
+  const connectedProviderLabels = [
+    isGoogleCalendarConnected &&
+    providerHealth.find((health) => health.providerId === "google")?.status !== "error"
+      ? "Google"
+      : null,
+    isOutlookCalendarConfigured &&
+    isOutlookCalendarConnected &&
+    providerHealth.find((health) => health.providerId === "outlook")?.status !== "error"
+      ? "Outlook"
+      : null,
+  ].filter((label): label is string => Boolean(label));
 
   const isInitialLoading =
     isLoading && !hasLoadedEvents;
@@ -702,9 +733,30 @@ function CalendarPage() {
         }}
       >
         <Box>
-          <Typography variant="h4">
-            Kalender
-          </Typography>
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 1,
+            }}
+          >
+            <Typography variant="h4">
+              Kalender
+            </Typography>
+
+            {connectedProviderLabels.length > 0 && (
+              <Tooltip
+                title={`${connectedProviderLabels.join(" og ")} Kalender: Synkroniseret`}
+                enterTouchDelay={0}
+              >
+                <CloudDoneRounded
+                  color="success"
+                  fontSize="small"
+                  aria-label={`${connectedProviderLabels.join(" og ")} Kalender er synkroniseret`}
+                />
+              </Tooltip>
+            )}
+          </Box>
 
           <Typography
             color="text.secondary"

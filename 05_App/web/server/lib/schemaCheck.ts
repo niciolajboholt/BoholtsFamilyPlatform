@@ -28,6 +28,7 @@ const expectedTables = [
   "rate_limit_attempts",
   "family_share_links",
   "family_weekly_summaries",
+  "feedback",
 ] as const;
 
 // Kolonner tilføjet via ALTER TABLE på en allerede eksisterende tabel —

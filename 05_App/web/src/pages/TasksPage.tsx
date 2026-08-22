@@ -27,6 +27,7 @@ import {
   Typography,
 } from "@mui/material";
 
+import { DanishTimeField } from "../components/DanishDateTimeFields";
 import { useCurrentMember } from "../features/calendar/hooks/useCurrentMember";
 import { useTasks } from "../features/tasks/hooks/useTasks";
 import { taskIconComponents, taskIconLabels, taskIcons, type TaskIconKey } from "../features/tasks/taskIcons";
@@ -172,13 +173,11 @@ function TasksPage() {
               ))}
             </TextField>
 
-            <TextField
-              type="time"
+            <DanishTimeField
               size="small"
               label="Påmindelse"
-              slotProps={{ inputLabel: { shrink: true } }}
               value={newTaskTime}
-              onChange={(event) => setNewTaskTime(event.target.value)}
+              onChange={setNewTaskTime}
               sx={{ minWidth: 130 }}
             />
 
@@ -387,17 +386,16 @@ function TaskRow({
 
           <Box sx={{ display: "flex", gap: 0.75, alignItems: "center" }} onClick={(event) => event.stopPropagation()}>
             {isEditingTime ? (
-              <TextField
+              <DanishTimeField
                 autoFocus
-                type="time"
                 size="small"
                 variant="standard"
                 value={timeDraft}
-                onChange={(event) => setTimeDraft(event.target.value)}
+                onChange={setTimeDraft}
                 onBlur={commitTimeEdit}
                 onKeyDown={(event) => {
                   if (event.key === "Enter") {
-                    event.currentTarget.blur();
+                    commitTimeEdit();
                   } else if (event.key === "Escape") {
                     setIsEditingTime(false);
                   }
@@ -627,13 +625,11 @@ function RoutineCreateDialog({ open, onClose, members, onCreate, onSuggest }: Ro
                 sx={{ flexGrow: 1 }}
               />
 
-              <TextField
-                type="time"
+              <DanishTimeField
                 size="small"
                 label="Påmindelse"
-                slotProps={{ inputLabel: { shrink: true } }}
                 value={item.timeOfDay ?? ""}
-                onChange={(event) => updateItem(index, { timeOfDay: event.target.value || null })}
+                onChange={(value) => updateItem(index, { timeOfDay: value || null })}
                 sx={{ minWidth: 130 }}
               />
 

@@ -2,8 +2,10 @@ import { useEffect, useRef, useState } from "react";
 
 import {
   CalendarMonthRounded,
+  CheckCircleOutlineRounded,
   HomeRounded,
   SettingsRounded,
+  ShoppingCartOutlined,
 } from "@mui/icons-material";
 import {
   AppBar,
@@ -12,10 +14,16 @@ import {
   BottomNavigationAction,
   CircularProgress,
   Container,
+  List,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
   Paper,
   Toolbar,
   Typography,
 } from "@mui/material";
+import { alpha } from "@mui/material/styles";
+import type { ReactNode } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 
 import { FamilySetupOnboarding } from "../features/calendar/components/FamilySetupOnboarding";
@@ -30,7 +38,23 @@ import { getMyFamily } from "../features/family/familyApi";
 import { syncFamilyMembersFromServer } from "../features/family/familyMembersSync";
 import LoginPage from "../pages/LoginPage";
 
-const routes = ["/", "/calendar", "/settings"];
+interface NavItem {
+  path: string;
+  label: string;
+  icon: ReactNode;
+}
+
+const navItems: NavItem[] = [
+  { path: "/", label: "Overblik", icon: <HomeRounded /> },
+  { path: "/calendar", label: "Kalender", icon: <CalendarMonthRounded /> },
+  { path: "/shopping-list", label: "Indkøb", icon: <ShoppingCartOutlined /> },
+  { path: "/tasks", label: "Opgaver", icon: <CheckCircleOutlineRounded /> },
+  { path: "/settings", label: "Indstillinger", icon: <SettingsRounded /> },
+];
+
+const routes = navItems.map((item) => item.path);
+
+const sidebarWidth = 220;
 
 function readFamilyName(): string {
   return (
@@ -210,10 +234,10 @@ function AppLayout() {
     );
   }
 
-  // Sprint 29: routes dækker kun tre af de fem sider — Math.max(...,0)
-  // fik /tasks og /shopping-list til fejlagtigt at vise "Overblik" som
-  // valgt. -1 matcher ingen af BottomNavigationAction'ernes 0/1/2, så
-  // MUI viser korrekt ingen fane som valgt.
+  // Sprint 29: routes dækker fem sider — Math.max(...,0) fik /tasks og
+  // /shopping-list til fejlagtigt at vise "Overblik" som valgt. -1 matcher
+  // ingen af navigationens punkter, så MUI viser korrekt ingen fane som
+  // valgt.
   const currentIndex = routes.indexOf(location.pathname);
 
   return (
@@ -221,7 +245,6 @@ function AppLayout() {
       sx={{
         minHeight: "100vh",
         bgcolor: "background.default",
-        pb: 10,
       }}
     >
       <AppBar
@@ -230,19 +253,18 @@ function AppLayout() {
         color="transparent"
         elevation={0}
         sx={{
-          bgcolor: "rgba(247, 248, 250, 0.92)",
+          bgcolor: (theme) => alpha(theme.palette.background.default, 0.92),
           backdropFilter: "blur(16px)",
           borderBottom: "1px solid",
           borderColor: "divider",
         }}
       >
         <Toolbar>
-          <Container
-            maxWidth="md"
-            disableGutters
+          <Box
             sx={{
               display: "flex",
               alignItems: "center",
+              width: "100%",
             }}
           >
             <Box
@@ -270,32 +292,99 @@ function AppLayout() {
                 Familiens fælles overblik
               </Typography>
             </Box>
-          </Container>
+          </Box>
         </Toolbar>
       </AppBar>
 
-      <Container
-        component="main"
-        maxWidth="md"
-        sx={{
-          pt: { xs: 3, sm: 4 },
-          px: { xs: 2, sm: 3 },
-        }}
-      >
-        <Outlet />
-      </Container>
+      <Box sx={{ display: "flex" }}>
+        {/* Desktop/tablet: fast venstremenu i stedet for den flydende
+            bundmenu, som på større skærme både så malplaceret ud og kunne
+            dække indhold nederst på siden (fx kalender og indstillinger). */}
+        <Box
+          component="nav"
+          sx={{
+            display: { xs: "none", sm: "block" },
+            width: sidebarWidth,
+            flexShrink: 0,
+            position: "sticky",
+            top: "var(--app-bar-height, 64px)",
+            alignSelf: "flex-start",
+            height: "calc(100vh - var(--app-bar-height, 64px))",
+            borderRight: "1px solid",
+            borderColor: "divider",
+            py: 2,
+          }}
+        >
+          <List sx={{ px: 1.5 }}>
+            {navItems.map((item, index) => {
+              const isSelected = index === currentIndex;
+
+              return (
+                <ListItemButton
+                  key={item.path}
+                  selected={isSelected}
+                  onClick={() => navigate(item.path)}
+                  sx={{
+                    borderRadius: 2,
+                    mb: 0.5,
+                    "&.Mui-selected": {
+                      bgcolor: "primary.main",
+                      color: "primary.contrastText",
+                      "&:hover": { bgcolor: "primary.dark" },
+                      "& .MuiListItemIcon-root": {
+                        color: "primary.contrastText",
+                      },
+                    },
+                  }}
+                >
+                  <ListItemIcon
+                    sx={{
+                      minWidth: 40,
+                      color: isSelected ? "inherit" : "text.secondary",
+                    }}
+                  >
+                    {item.icon}
+                  </ListItemIcon>
+
+                  <ListItemText
+                    primary={item.label}
+                    slotProps={{
+                      primary: {
+                        sx: { fontWeight: isSelected ? 700 : 500 },
+                      },
+                    }}
+                  />
+                </ListItemButton>
+              );
+            })}
+          </List>
+        </Box>
+
+        <Container
+          component="main"
+          maxWidth="md"
+          sx={{
+            pt: { xs: 3, sm: 4 },
+            px: { xs: 2, sm: 3 },
+            // Rundhåndet plads under indholdet, så den flydende bundmenu på
+            // mobil aldrig dækker sidste kort/knap — desktop har ingen
+            // flydende menu og behøver derfor ikke dette.
+            pb: { xs: 12, sm: 4 },
+          }}
+        >
+          <Outlet />
+        </Container>
+      </Box>
 
       <Paper
         elevation={8}
         sx={{
+          display: { xs: "block", sm: "none" },
           position: "fixed",
           left: "50%",
-          bottom: { xs: 12, sm: 20 },
+          bottom: 12,
           transform: "translateX(-50%)",
-          width: {
-            xs: "calc(100% - 24px)",
-            sm: 480,
-          },
+          width: "calc(100% - 24px)",
           borderRadius: 4,
           overflow: "hidden",
           zIndex: 1200,
@@ -311,23 +400,24 @@ function AppLayout() {
             height: 68,
             "& .MuiBottomNavigationAction-root": {
               minWidth: 0,
+              borderRadius: 2,
+              mx: 0.5,
+              "&.Mui-selected": {
+                bgcolor: (theme) => alpha(theme.palette.primary.main, 0.12),
+              },
             },
             "& .Mui-selected": {
               color: "primary.main",
             },
           }}
         >
-          <BottomNavigationAction label="Overblik" icon={<HomeRounded />} />
-
-          <BottomNavigationAction
-            label="Kalender"
-            icon={<CalendarMonthRounded />}
-          />
-
-          <BottomNavigationAction
-            label="Indstillinger"
-            icon={<SettingsRounded />}
-          />
+          {navItems.map((item) => (
+            <BottomNavigationAction
+              key={item.path}
+              label={item.label}
+              icon={item.icon}
+            />
+          ))}
         </BottomNavigation>
       </Paper>
     </Box>

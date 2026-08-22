@@ -4,10 +4,12 @@ import {
 } from "react";
 
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlineOutlined";
+import { ExpandMoreRounded } from "@mui/icons-material";
 import {
   Alert,
   Box,
   Button,
+  Collapse,
   Dialog,
   DialogActions,
   DialogContent,
@@ -222,6 +224,17 @@ function EditEventDialog({
     setIsDiscardConfirmationVisible,
   ] = useState(false);
 
+  // Åbnes som udgangspunkt, hvis aftalen allerede har indhold i et af
+  // felterne herunder — ellers ville en redigering af sted/beskrivelse på
+  // en eksisterende aftale kræve et ekstra klik for overhovedet at se dem.
+  const [isMoreOptionsOpen, setIsMoreOptionsOpen] = useState(() =>
+    Boolean(
+      initialFormState.location ||
+        initialFormState.description ||
+        initialFormState.ownerIds.length > 0,
+    ),
+  );
+
   const eventSource = effectiveEvent
     ? calendarSources.find(
       (source) => source.id === effectiveEvent.sourceId,
@@ -280,6 +293,13 @@ function EditEventDialog({
     setIsDiscardConfirmationVisible(false);
     resetValidationFeedback();
     setRecurrence(recurrenceRuleToFormValue(effectiveEvent?.recurrence));
+    setIsMoreOptionsOpen(
+      Boolean(
+        initialFormState.location ||
+          initialFormState.description ||
+          initialFormState.ownerIds.length > 0,
+      ),
+    );
 
     if (justOpened) {
       setEditScope("occurrence");
@@ -627,31 +647,6 @@ function EditEventDialog({
             dateFieldsFullWidth={false}
           />
 
-          {!isExternalCalendarProviderType(eventSource?.providerType) && canEditRecurrenceRule && (
-            <EventRecurrenceSection
-              value={recurrence}
-              eventStartDate={formState.startDate}
-              disabled={!isInternalEvent || isSaving}
-              errorMessage={recurrenceError}
-              onChange={setRecurrence}
-            />
-          )}
-
-          {!isExternalCalendarProviderType(eventSource?.providerType) && (
-            <EventParticipantsSection
-              ownerIds={formState.ownerIds}
-              members={members}
-              disabled={!isInternalEvent || isSaving}
-              onToggleOwner={(ownerId) => {
-                toggleParticipant(ownerId);
-                markFieldTouched("ownerIds");
-              }}
-              title="Kalender"
-              variant="checkboxes"
-              errorText={getVisibleErrorMessage("ownerIds")}
-            />
-          )}
-
           {conflictingEvents.length >
             0 &&
             isInternalEvent && (
@@ -661,41 +656,86 @@ function EditEventDialog({
               />
             )}
 
-          <TextField
-            label="Sted"
-            value={
-              formState.location
+          <Button
+            size="small"
+            onClick={() => setIsMoreOptionsOpen((current) => !current)}
+            endIcon={
+              <ExpandMoreRounded
+                sx={{
+                  transition: "transform 150ms",
+                  transform: isMoreOptionsOpen ? "rotate(180deg)" : "none",
+                }}
+              />
             }
-            disabled={
-              !isInternalEvent ||
-              isSaving
-            }
-            onChange={(changeEvent) =>
-              setField(
-                "location",
-                changeEvent.target.value,
-              )
-            }
-          />
+            sx={{ justifySelf: "flex-start", px: 0 }}
+          >
+            Flere muligheder
+          </Button>
 
-          <TextField
-            label="Beskrivelse"
-            value={
-              formState.description
-            }
-            disabled={
-              !isInternalEvent ||
-              isSaving
-            }
-            multiline
-            minRows={3}
-            onChange={(changeEvent) =>
-              setField(
-                "description",
-                changeEvent.target.value,
-              )
-            }
-          />
+          <Collapse in={isMoreOptionsOpen} timeout="auto">
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              {!isExternalCalendarProviderType(eventSource?.providerType) && canEditRecurrenceRule && (
+                <EventRecurrenceSection
+                  value={recurrence}
+                  eventStartDate={formState.startDate}
+                  disabled={!isInternalEvent || isSaving}
+                  errorMessage={recurrenceError}
+                  onChange={setRecurrence}
+                />
+              )}
+
+              {!isExternalCalendarProviderType(eventSource?.providerType) && (
+                <EventParticipantsSection
+                  ownerIds={formState.ownerIds}
+                  members={members}
+                  disabled={!isInternalEvent || isSaving}
+                  onToggleOwner={(ownerId) => {
+                    toggleParticipant(ownerId);
+                    markFieldTouched("ownerIds");
+                  }}
+                  title="Hvem gælder aftalen for?"
+                  variant="checkboxes"
+                  errorText={getVisibleErrorMessage("ownerIds")}
+                />
+              )}
+
+              <TextField
+                label="Sted (valgfrit)"
+                value={
+                  formState.location
+                }
+                disabled={
+                  !isInternalEvent ||
+                  isSaving
+                }
+                onChange={(changeEvent) =>
+                  setField(
+                    "location",
+                    changeEvent.target.value,
+                  )
+                }
+              />
+
+              <TextField
+                label="Beskrivelse (valgfrit)"
+                value={
+                  formState.description
+                }
+                disabled={
+                  !isInternalEvent ||
+                  isSaving
+                }
+                multiline
+                minRows={3}
+                onChange={(changeEvent) =>
+                  setField(
+                    "description",
+                    changeEvent.target.value,
+                  )
+                }
+              />
+            </Box>
+          </Collapse>
 
           {isDeleteConfirmationVisible && (
             <Alert

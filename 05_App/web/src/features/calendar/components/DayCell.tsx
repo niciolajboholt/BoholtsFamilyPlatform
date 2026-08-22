@@ -4,6 +4,7 @@ import {
   Chip,
   Typography,
 } from "@mui/material";
+import { alpha } from "@mui/material/styles";
 
 import type { CalendarOwner } from "../data/calendarOwners";
 import { getEventOwnerColor } from "../utils/getEventOwnerColor";
@@ -149,6 +150,13 @@ function getMultiDayStatus(
   return null;
 }
 
+function formatEventTime(date: Date): string {
+  return new Intl.DateTimeFormat("da-DK", {
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
+
 function getMultiDayLabel(
   status: MultiDayStatus,
 ): string | null {
@@ -234,23 +242,32 @@ function DayCell({
             sm: 1,
           },
           border: "1px solid",
-          borderColor: isSelected
-            ? "primary.main"
-            : "divider",
+          borderColor: (theme) =>
+            isSelected
+              ? theme.palette.primary.main
+              : isToday
+                ? alpha(theme.palette.primary.main, 0.35)
+                : theme.palette.divider,
           borderRadius: 1.5,
-          backgroundColor: isSelected
-            ? "primary.50"
-            : isCurrentMonth
-              ? "background.paper"
-              : "action.hover",
+          // Dags dato får en tonet baggrund, så den er tydelig at få øje på
+          // uden at skulle finde den lille cirkel om taldatoen.
+          backgroundColor: (theme) =>
+            isSelected
+              ? alpha(theme.palette.primary.main, 0.14)
+              : isToday
+                ? alpha(theme.palette.primary.main, 0.06)
+                : isCurrentMonth
+                  ? theme.palette.background.paper
+                  : theme.palette.action.hover,
           opacity: isCurrentMonth ? 1 : 0.55,
           transition:
             "background-color 150ms, border-color 150ms",
 
           "&:hover": {
-            backgroundColor: isSelected
-              ? "primary.50"
-              : "action.hover",
+            backgroundColor: (theme) =>
+              isSelected
+                ? alpha(theme.palette.primary.main, 0.14)
+                : theme.palette.action.hover,
           },
         }}
       >
@@ -380,11 +397,15 @@ function DayCell({
                     onClick={() => onSelectEvent(event)}
                     sx={{
                       pointerEvents: "auto",
-                      px: 0.75,
-                      py: 0.4,
+                      justifyContent: "flex-start",
+                      px: 1,
+                      py: 0.5,
                       borderRadius: 0.75,
+                      // Aftalens farve som en tydelig, lys baggrund — ikke
+                      // kun en tynd venstrekant — så aftalen er nem at
+                      // skelne uden at skulle læse teksten først.
                       backgroundColor:
-                        `${ownerColor}18`,
+                        `${ownerColor}30`,
                       borderLeft:
                         `3px solid ${ownerColor}`,
                       overflow: "hidden",
@@ -392,7 +413,7 @@ function DayCell({
 
                       "&:hover": {
                         backgroundColor:
-                          `${ownerColor}28`,
+                          `${ownerColor}45`,
                       },
 
                       "&:focus-visible": {
@@ -411,18 +432,28 @@ function DayCell({
                           "center",
                         gap: 0.5,
                         minWidth: 0,
+                        width: "100%",
                       }}
                     >
                       <Typography
-                        variant="caption"
+                        variant="body2"
                         noWrap
                         sx={{
                           display: "block",
                           minWidth: 0,
                           flex: 1,
-                          fontWeight: 600,
+                          fontSize: "0.875rem",
+                          lineHeight: 1.3,
                         }}
                       >
+                        {!event.allDay && (
+                          <Box
+                            component="span"
+                            sx={{ fontWeight: 700 }}
+                          >
+                            {formatEventTime(new Date(event.start))}{" "}
+                          </Box>
+                        )}
                         {event.title}
                       </Typography>
 
