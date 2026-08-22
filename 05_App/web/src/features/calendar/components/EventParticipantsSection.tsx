@@ -1,3 +1,4 @@
+import { CheckRounded } from "@mui/icons-material";
 import {
   Box,
   Checkbox,
@@ -60,6 +61,11 @@ export function EventParticipantsSection({
                   onClick={() => onToggleOwner(owner.id)}
                   variant={
                     isSelected ? "filled" : "outlined"
+                  }
+                  icon={
+                    isSelected ? (
+                      <CheckRounded sx={{ color: "#ffffff !important" }} />
+                    ) : undefined
                   }
                   sx={{
                     borderColor: owner.color,

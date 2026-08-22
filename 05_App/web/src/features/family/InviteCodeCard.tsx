@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import ContentCopyIcon from "@mui/icons-material/ContentCopyRounded";
 import RefreshIcon from "@mui/icons-material/RefreshRounded";
+import VisibilityRounded from "@mui/icons-material/VisibilityRounded";
 import {
   Avatar,
   Box,
@@ -25,6 +26,9 @@ export function InviteCodeCard() {
   const [inviteCode, setInviteCode] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRegenerating, setIsRegenerating] = useState(false);
+  // Koden giver adgang til familien — skjult som udgangspunkt, så den ikke
+  // ligger fremme for enhver, der lige kigger forbi indstillingerne.
+  const [isCodeVisible, setIsCodeVisible] = useState(false);
 
   useEffect(() => {
     let isCancelled = false;
@@ -92,40 +96,53 @@ export function InviteCodeCard() {
           </Box>
         </Box>
 
-        <Box
-          sx={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 1,
-            p: 2,
-            borderRadius: 2,
-            bgcolor: "action.hover",
-          }}
-        >
-          <Typography variant="h5" sx={{ fontWeight: 700, letterSpacing: 2 }}>
-            {inviteCode ?? "—"}
-          </Typography>
+        {isCodeVisible ? (
+          <>
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 1,
+                p: 2,
+                borderRadius: 2,
+                bgcolor: "action.hover",
+              }}
+            >
+              <Typography variant="h5" sx={{ fontWeight: 700, letterSpacing: 2 }}>
+                {inviteCode ?? "—"}
+              </Typography>
 
-          <IconButton aria-label="Kopiér invitationskode" onClick={handleCopy}>
-            <ContentCopyIcon />
-          </IconButton>
-        </Box>
+              <IconButton aria-label="Kopiér invitationskode" onClick={handleCopy}>
+                <ContentCopyIcon />
+              </IconButton>
+            </Box>
 
-        {canRegenerate && (
+            {canRegenerate && (
+              <Button
+                sx={{ mt: 1.5 }}
+                startIcon={
+                  isRegenerating ? (
+                    <CircularProgress size={16} />
+                  ) : (
+                    <RefreshIcon />
+                  )
+                }
+                onClick={handleRegenerate}
+                disabled={isRegenerating}
+              >
+                Lav en ny kode
+              </Button>
+            )}
+          </>
+        ) : (
           <Button
-            sx={{ mt: 1.5 }}
-            startIcon={
-              isRegenerating ? (
-                <CircularProgress size={16} />
-              ) : (
-                <RefreshIcon />
-              )
-            }
-            onClick={handleRegenerate}
-            disabled={isRegenerating}
+            variant="outlined"
+            fullWidth
+            startIcon={<VisibilityRounded />}
+            onClick={() => setIsCodeVisible(true)}
           >
-            Lav en ny kode
+            Vis invitationskode
           </Button>
         )}
       </CardContent>

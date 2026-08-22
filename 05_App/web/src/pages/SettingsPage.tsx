@@ -22,6 +22,7 @@ import {
   Button,
   Card,
   CardContent,
+  Chip,
   Divider,
   IconButton,
   Switch,
@@ -53,6 +54,28 @@ import { usePushNotifications } from "../features/notifications/hooks/usePushNot
 import type { MappableCalendarOption } from "../features/calendar/providers/calendarProviderFactory";
 import { listAllMappableCalendars } from "../features/calendar/providers/calendarProviderFactory";
 import { getInitials } from "../features/calendar/utils/getInitials";
+
+// Sprint 30: siden var én lang liste af kort uden nogen tydelig opdeling —
+// disse fire overskrifter grupperer dem, så det er til at overskue hvor
+// hver indstilling hører hjemme (Familie / Kalenderforbindelser / App og
+// notifikationer / Konto og data), i stedet for at man skal scrolle hele
+// siden igennem for at finde den rigtige.
+function SettingsSectionHeader({ children }: { children: string }) {
+  return (
+    <Typography
+      variant="overline"
+      color="text.secondary"
+      sx={{
+        fontWeight: 700,
+        letterSpacing: "0.08em",
+        mt: 1,
+        ml: 0.5,
+      }}
+    >
+      {children}
+    </Typography>
+  );
+}
 
 function SettingsPage() {
   const {
@@ -294,6 +317,8 @@ function SettingsPage() {
       </Box>
 
       <Box sx={{ display: "grid", gap: 2.5 }}>
+        <SettingsSectionHeader>Familie</SettingsSectionHeader>
+
         <Card>
           <CardContent sx={{ p: 3 }}>
             <Box
@@ -423,6 +448,8 @@ function SettingsPage() {
 
         <ShareLinkCard />
 
+        <SettingsSectionHeader>Kalenderforbindelser</SettingsSectionHeader>
+
         <Card>
           <CardContent sx={{ p: 3 }}>
             <Box
@@ -492,74 +519,10 @@ function SettingsPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent sx={{ p: 3 }}>
-            <Box
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                gap: 1.5,
-                mb: 2.5,
-              }}
-            >
-              <Avatar sx={{ bgcolor: "background.default", color: "text.primary" }}>
-                <SaveRounded />
-              </Avatar>
-
-              <Box>
-                <Typography variant="h6">Data &amp; backup</Typography>
-
-                <Typography variant="body2" color="text.secondary">
-                  Dine data ligger kun i denne browser — tag en backup for at
-                  undgå at miste dem
-                </Typography>
-              </Box>
-            </Box>
-
-            {backupFeedback && (
-              <Alert
-                severity={backupFeedback.severity}
-                onClose={() => setBackupFeedback(null)}
-                sx={{ mb: 2 }}
-              >
-                {backupFeedback.message}
-              </Alert>
-            )}
-
-            <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap" }}>
-              <Button
-                variant="outlined"
-                startIcon={<CloudDownloadRounded />}
-                onClick={handleExportData}
-              >
-                Eksportér data
-              </Button>
-
-              <Button
-                variant="outlined"
-                startIcon={<CloudUploadRounded />}
-                onClick={() => importFileInputRef.current?.click()}
-              >
-                Importér data
-              </Button>
-
-              <input
-                ref={importFileInputRef}
-                type="file"
-                accept="application/json"
-                hidden
-                onChange={handleImportFileSelected}
-              />
-            </Box>
-          </CardContent>
-        </Card>
+        <SettingsSectionHeader>App og notifikationer</SettingsSectionHeader>
 
         <Card>
           <CardContent sx={{ p: 3 }}>
-            <Typography variant="h6" sx={{ mb: 1 }}>
-              Appindstillinger
-            </Typography>
-
             <Box sx={{ display: "flex", alignItems: "center", py: 1.5 }}>
               <Box
                 sx={{
@@ -631,9 +594,20 @@ function SettingsPage() {
                 <DarkModeRounded color="action" />
 
                 <Box sx={{ textAlign: "center" }}>
-                  <Typography sx={{ fontWeight: 600 }}>
-                    Mørkt tema
-                  </Typography>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 1,
+                    }}
+                  >
+                    <Typography sx={{ fontWeight: 600 }}>
+                      Mørkt tema
+                    </Typography>
+
+                    <Chip label="Kommer senere" size="small" />
+                  </Box>
 
                   <Typography variant="body2" color="text.secondary">
                     Forberedt til en senere sprint
@@ -643,9 +617,13 @@ function SettingsPage() {
 
               <Switch disabled />
             </Box>
+          </CardContent>
+        </Card>
 
-            <Divider />
+        <SettingsSectionHeader>Konto og data</SettingsSectionHeader>
 
+        <Card>
+          <CardContent sx={{ p: 3 }}>
             <Box sx={{ display: "flex", alignItems: "center", py: 1.5 }}>
               <Box
                 sx={{
@@ -714,6 +692,68 @@ function SettingsPage() {
                 </Box>
               </>
             )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent sx={{ p: 3 }}>
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                gap: 1.5,
+                mb: 2.5,
+              }}
+            >
+              <Avatar sx={{ bgcolor: "background.default", color: "text.primary" }}>
+                <SaveRounded />
+              </Avatar>
+
+              <Box>
+                <Typography variant="h6">Data &amp; backup</Typography>
+
+                <Typography variant="body2" color="text.secondary">
+                  Dine data ligger kun i denne browser — tag en backup for at
+                  undgå at miste dem
+                </Typography>
+              </Box>
+            </Box>
+
+            {backupFeedback && (
+              <Alert
+                severity={backupFeedback.severity}
+                onClose={() => setBackupFeedback(null)}
+                sx={{ mb: 2 }}
+              >
+                {backupFeedback.message}
+              </Alert>
+            )}
+
+            <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap" }}>
+              <Button
+                variant="outlined"
+                startIcon={<CloudDownloadRounded />}
+                onClick={handleExportData}
+              >
+                Eksportér data
+              </Button>
+
+              <Button
+                variant="outlined"
+                startIcon={<CloudUploadRounded />}
+                onClick={() => importFileInputRef.current?.click()}
+              >
+                Importér data
+              </Button>
+
+              <input
+                ref={importFileInputRef}
+                type="file"
+                accept="application/json"
+                hidden
+                onChange={handleImportFileSelected}
+              />
+            </Box>
           </CardContent>
         </Card>
       </Box>

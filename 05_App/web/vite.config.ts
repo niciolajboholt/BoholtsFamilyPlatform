@@ -31,8 +31,8 @@ export default defineConfig({
         lang: 'da',
         start_url: '/',
         display: 'standalone',
-        theme_color: '#2E7D32',
-        background_color: '#F7F8FA',
+        theme_color: '#2F6B4F',
+        background_color: '#F6F5EF',
         // Sprint 25: rigtige PNG'er i flere størrelser i stedet for kun
         // favicon.svg overalt — iOS-installation og Androids maskable-
         // beskæring forventer begge konkrete raster-størrelser, ikke en

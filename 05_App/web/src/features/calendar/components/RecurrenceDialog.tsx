@@ -17,6 +17,7 @@ import {
   Typography,
 } from "@mui/material";
 
+import { DanishDateField } from "../../../components/DanishDateTimeFields";
 import {
   describeRecurrenceFormValue,
   weekdayDisplayOrder,
@@ -286,13 +287,11 @@ export function RecurrenceDialog({
 
           {draft.endType === "until" && (
             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-              <TextField
+              <DanishDateField
                 label="Indtil"
-                type="date"
                 value={draft.until}
                 fullWidth
-                slotProps={{ inputLabel: { shrink: true } }}
-                onChange={(event) => updateDraft({ until: event.target.value })}
+                onChange={(value) => updateDraft({ until: value })}
               />
 
               <IconButton

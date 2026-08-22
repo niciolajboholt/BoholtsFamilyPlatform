@@ -4,9 +4,9 @@ import {
   Box,
   Checkbox,
   FormControlLabel,
-  TextField,
 } from "@mui/material";
 
+import { DanishDateField, DanishTimeField } from "../../../components/DanishDateTimeFields";
 import type { EventFormState } from "../form/eventFormTypes";
 
 interface EventDateTimeSectionProps {
@@ -77,9 +77,8 @@ export function EventDateTimeSection({
           gap: 2,
         }}
       >
-        <TextField
+        <DanishDateField
           label="Startdato"
-          type="date"
           value={form.startDate}
           required
           error={Boolean(startDateError)}
@@ -87,21 +86,13 @@ export function EventDateTimeSection({
           fullWidth={dateFieldsFullWidth}
           disabled={disabled}
           inputRef={inputRefs.startDate}
-          slotProps={{
-            inputLabel: {
-              shrink: true,
-            },
-          }}
-          onChange={(event) =>
-            onStartDateChange(event.target.value)
-          }
+          onChange={onStartDateChange}
           onBlur={onStartDateBlur}
           onFocus={onStartDateFocus}
         />
 
-        <TextField
+        <DanishDateField
           label="Slutdato"
-          type="date"
           value={form.endDate}
           required
           error={Boolean(endDateError)}
@@ -109,18 +100,8 @@ export function EventDateTimeSection({
           fullWidth={dateFieldsFullWidth}
           disabled={disabled}
           inputRef={inputRefs.endDate}
-          slotProps={{
-            inputLabel: {
-              shrink: true,
-            },
-
-            htmlInput: {
-              min: form.startDate || undefined,
-            },
-          }}
-          onChange={(event) =>
-            onEndDateChange(event.target.value)
-          }
+          minDate={form.startDate}
+          onChange={onEndDateChange}
           onBlur={onEndDateBlur}
           onFocus={onEndDateFocus}
         />
@@ -152,44 +133,28 @@ export function EventDateTimeSection({
             gap: 2,
           }}
         >
-          <TextField
+          <DanishTimeField
             label="Starttid"
-            type="time"
             value={form.startTime}
             required
             error={Boolean(startTimeError)}
             helperText={startTimeError}
             disabled={disabled}
             inputRef={inputRefs.startTime}
-            slotProps={{
-              inputLabel: {
-                shrink: true,
-              },
-            }}
-            onChange={(event) =>
-              onStartTimeChange(event.target.value)
-            }
+            onChange={onStartTimeChange}
             onBlur={onStartTimeBlur}
             onFocus={onStartTimeFocus}
           />
 
-          <TextField
+          <DanishTimeField
             label="Sluttid"
-            type="time"
             value={form.endTime}
             required
             error={Boolean(endTimeError)}
             helperText={endTimeError}
             disabled={disabled}
             inputRef={inputRefs.endTime}
-            slotProps={{
-              inputLabel: {
-                shrink: true,
-              },
-            }}
-            onChange={(event) =>
-              onEndTimeChange(event.target.value)
-            }
+            onChange={onEndTimeChange}
             onBlur={onEndTimeBlur}
             onFocus={onEndTimeFocus}
           />

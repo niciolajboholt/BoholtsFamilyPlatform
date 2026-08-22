@@ -36,7 +36,7 @@ function CalendarViewToggle({
       </ToggleButton>
 
       <ToggleButton value="planner">
-        Side by side
+        Familie
       </ToggleButton>
     </ToggleButtonGroup>
   );

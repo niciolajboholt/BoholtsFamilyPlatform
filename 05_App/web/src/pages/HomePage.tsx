@@ -66,6 +66,12 @@ function formatEventTimeRange(event: CalendarEvent): string {
   return `${formatEventTime(event.start, false)}–${formatEventTime(event.end, false)}`;
 }
 
+function formatGreeting(hour: number): string {
+  if (hour < 10) return "Godmorgen";
+  if (hour < 18) return "God eftermiddag";
+  return "God aften";
+}
+
 function formatRelativeDayLabel(date: Date): string {
   const today = new Date();
   const startOfToday = new Date(
@@ -105,58 +111,79 @@ function HomePage() {
     month: "long",
   }).format(new Date());
 
-  const { nextEvent, todaysEvents } = useMemo(() => {
-    const now = new Date();
-    const rangeEnd = new Date(now);
-    rangeEnd.setDate(rangeEnd.getDate() + dashboardLookaheadDays);
+  const { nextEvent, todaysEvents, remainingTodaysEvents, familyWideTodaysEvents } =
+    useMemo(() => {
+      const now = new Date();
+      const rangeEnd = new Date(now);
+      rangeEnd.setDate(rangeEnd.getDate() + dashboardLookaheadDays);
 
-    const expandedEvents = expandRecurringEvents(
-      events,
-      { start: now.toISOString(), end: rangeEnd.toISOString() },
-      recurrenceExceptions.exceptions,
-    );
-
-    const upcomingEvents = expandedEvents
-      .filter((event) => new Date(event.end).getTime() > now.getTime())
-      .sort(
-        (first, second) =>
-          new Date(first.start).getTime() - new Date(second.start).getTime(),
+      const expandedEvents = expandRecurringEvents(
+        events,
+        { start: now.toISOString(), end: rangeEnd.toISOString() },
+        recurrenceExceptions.exceptions,
       );
 
-    return {
-      nextEvent: upcomingEvents[0] ?? null,
-      todaysEvents: getEventsForDate(expandedEvents, now),
-    };
-  }, [events, recurrenceExceptions.exceptions]);
+      const upcomingEvents = expandedEvents
+        .filter((event) => new Date(event.end).getTime() > now.getTime())
+        .sort(
+          (first, second) =>
+            new Date(first.start).getTime() - new Date(second.start).getTime(),
+        );
+
+      const todaysExpandedEvents = getEventsForDate(expandedEvents, now);
+
+      return {
+        nextEvent: upcomingEvents[0] ?? null,
+        todaysEvents: todaysExpandedEvents,
+        // Kun aftaler, der ikke allerede er overstået — "Resten af dagen"
+        // skal ikke vise ting, der er sket tidligere i dag.
+        remainingTodaysEvents: todaysExpandedEvents.filter(
+          (event) => new Date(event.end).getTime() > now.getTime(),
+        ),
+        // Vises ét sted (ikke gentaget under hvert familiemedlem) — se
+        // getMemberStatus, som bevidst udelader disse.
+        familyWideTodaysEvents: todaysExpandedEvents.filter((event) =>
+          event.ownerIds.includes(familyPseudoMemberId),
+        ),
+      };
+    }, [events, recurrenceExceptions.exceptions]);
 
   const individualMembers = members.filter(
     (member) => member.id !== familyPseudoMemberId,
   );
 
+  // Kun medlemmets EGNE aftaler — fælles familieaftaler vises allerede samlet
+  // i "Familien i dag"-blokken ovenfor og skal ikke gentages her for hvert
+  // medlem (det gjorde forsiden urolig at overskue).
   function getMemberStatus(memberId: string): string {
     const memberEvent = todaysEvents.find(
       (event) =>
-        event.ownerIds.includes(memberId) ||
-        event.ownerIds.includes(familyPseudoMemberId),
+        event.ownerIds.includes(memberId) &&
+        !event.ownerIds.includes(familyPseudoMemberId),
     );
 
     return memberEvent
       ? `${formatEventTime(memberEvent.start, memberEvent.allDay)} ${memberEvent.title}`
-      : "Ingen aftaler i dag";
+      : "Ingen personlige aftaler i dag";
   }
+
+  const greeting = formatGreeting(new Date().getHours());
 
   return (
     <Box sx={{ maxWidth: 900, mx: "auto", pb: 4 }}>
-      <Box sx={{ mb: 3 }}>
+      <Box sx={{ mb: 2.5 }}>
         <Typography variant="h4">
-          {currentMember ? `Hej ${currentMember.name} 👋` : "Hej! 👋"}
+          {currentMember ? `${greeting}, ${currentMember.name} 👋` : `${greeting} 👋`}
         </Typography>
 
-        <Typography
-          color="text.secondary"
-          sx={{ mt: 0.5, textTransform: "capitalize" }}
-        >
-          {currentDate}
+        <Typography color="text.secondary" sx={{ mt: 0.5 }}>
+          {todaysEvents.length > 0
+            ? `Familien har ${todaysEvents.length} ${todaysEvents.length === 1 ? "aftale" : "aftaler"} i dag`
+            : "Ingen aftaler i dag"}
+          {" · "}
+          <Box component="span" sx={{ textTransform: "capitalize" }}>
+            {currentDate}
+          </Box>
         </Typography>
       </Box>
 
@@ -234,18 +261,20 @@ function HomePage() {
         <Card>
           <CardContent sx={{ p: 3 }}>
             <Typography variant="h6" sx={{ mb: 2 }}>
-              I dag
+              Resten af dagen
             </Typography>
 
-            {todaysEvents.length === 0 ? (
+            {remainingTodaysEvents.length === 0 ? (
               <Typography color="text.secondary">
-                Ingen aftaler i dag.
+                {todaysEvents.length === 0
+                  ? "Ingen aftaler i dag."
+                  : "Ikke flere aftaler i dag."}
               </Typography>
             ) : (
-              todaysEvents.map((event, index) => (
+              remainingTodaysEvents.map((event, index) => (
                 <Box
                   key={event.id}
-                  sx={{ mb: index < todaysEvents.length - 1 ? 2 : 0 }}
+                  sx={{ mb: index < remainingTodaysEvents.length - 1 ? 2 : 0 }}
                 >
                   <Typography sx={{ fontWeight: 600 }}>
                     {formatEventTime(event.start, event.allDay)}
@@ -271,10 +300,10 @@ function HomePage() {
               }}
             >
               <Box>
-                <Typography variant="h6">Familien</Typography>
+                <Typography variant="h6">Familien i dag</Typography>
 
                 <Typography variant="body2" color="text.secondary">
-                  Dagens planer samlet ét sted
+                  Fælles og personlige aftaler samlet ét sted
                 </Typography>
               </Box>
 
@@ -285,6 +314,44 @@ function HomePage() {
                 <ChevronRightRounded />
               </IconButton>
             </Box>
+
+            {familyWideTodaysEvents.length > 0 && (
+              <Box
+                sx={{
+                  display: "grid",
+                  gap: 1,
+                  mb: 2.5,
+                }}
+              >
+                {familyWideTodaysEvents.map((event) => (
+                  <Box
+                    key={event.id}
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 1.5,
+                      p: 1.5,
+                      borderRadius: 2,
+                      bgcolor: (theme) =>
+                        `${theme.palette.primary.main}14`,
+                    }}
+                  >
+                    <FamilyRestroomRounded color="primary" />
+
+                    <Box sx={{ minWidth: 0 }}>
+                      <Typography sx={{ fontWeight: 600 }} noWrap>
+                        {formatEventTime(event.start, event.allDay)} ·{" "}
+                        {event.title}
+                      </Typography>
+
+                      <Typography variant="caption" color="text.secondary">
+                        Hele familien
+                      </Typography>
+                    </Box>
+                  </Box>
+                ))}
+              </Box>
+            )}
 
             <Box
               sx={{

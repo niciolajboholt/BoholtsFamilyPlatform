@@ -1,8 +1,13 @@
 import {
+  ChevronLeftRounded,
+  ChevronRightRounded,
+} from "@mui/icons-material";
+import {
   Box,
   Button,
   Card,
   CardContent,
+  IconButton,
   Typography,
 } from "@mui/material";
 
@@ -94,69 +99,70 @@ function CalendarToolbar({
 
   return (
     <Card sx={{ mb: 2.5 }}>
-      <CardContent sx={{ p: 2.5 }}>
+      <CardContent sx={{ p: 2 }}>
         <Box
           sx={{
-            display: "grid",
-            gridTemplateColumns: {
-              xs: "1fr",
-              md: "auto 1fr auto",
-            },
+            display: "flex",
             alignItems: "center",
-            gap: 2,
+            justifyContent: "space-between",
+            gap: 1,
           }}
         >
-          <Button
-            variant="outlined"
+          <IconButton
             onClick={onPrevious}
             aria-label={previousLabelByView[calendarView]}
           >
-            ← Forrige
-          </Button>
+            <ChevronLeftRounded />
+          </IconButton>
 
-          <Box sx={{ textAlign: "center" }}>
-            <Typography
-              variant="h5"
-              sx={{
-                textTransform: "capitalize",
-                fontWeight: 700,
-              }}
-            >
-              {title}
-            </Typography>
-
-            <Box
-              sx={{
-                mt: 1,
-                display: "flex",
-                justifyContent: "center",
-                alignItems: "center",
-                flexWrap: "wrap",
-                gap: 1,
-              }}
-            >
-              <Button
-                size="small"
-                onClick={onToday}
-                aria-label="Gå til i dag"
-              >
-                I dag
-              </Button>
-
-              <CalendarViewToggle
-                value={calendarView}
-                onChange={onChangeView}
-              />
-            </Box>
-          </Box>
-
-          <Button
-            variant="outlined"
-            onClick={onNext}
-            aria-label={nextLabelByView[calendarView]}
+          <Typography
+            variant="h6"
+            sx={{
+              textTransform: "capitalize",
+              fontWeight: 700,
+              textAlign: "center",
+              flexGrow: 1,
+              minWidth: 0,
+              // Ugevisningens interval ("17. aug. – 23. aug. 2026") er for
+              // langt til med sikkerhed at være på én linje ved siden af
+              // pileknapperne på en telefon — ombrydning er en langt bedre
+              // løsning end at afkorte datoen med "…".
+              fontSize: { xs: "1rem", sm: "1.25rem" },
+            }}
           >
-            Næste →
-          </Button>
+            {title}
+          </Typography>
+
+          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+            <IconButton
+              onClick={onNext}
+              aria-label={nextLabelByView[calendarView]}
+            >
+              <ChevronRightRounded />
+            </IconButton>
+
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={onToday}
+              aria-label="Gå til i dag"
+            >
+              I dag
+            </Button>
+          </Box>
+        </Box>
+
+        <Box
+          sx={{
+            mt: 1.5,
+            display: "flex",
+            justifyContent: "center",
+          }}
+        >
+          <CalendarViewToggle
+            value={calendarView}
+            onChange={onChangeView}
+          />
         </Box>
       </CardContent>
     </Card>

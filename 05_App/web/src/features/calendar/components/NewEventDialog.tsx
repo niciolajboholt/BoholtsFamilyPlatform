@@ -3,11 +3,13 @@ import {
   useState,
 } from "react";
 
+import { ExpandMoreRounded } from "@mui/icons-material";
 import {
   Alert,
   Box,
   Button,
   CircularProgress,
+  Collapse,
   Dialog,
   DialogActions,
   DialogContent,
@@ -143,6 +145,11 @@ function NewEventDialog({
     isDiscardConfirmationVisible,
     setIsDiscardConfirmationVisible,
   ] = useState(false);
+
+  // Gentagelse, sted og beskrivelse er sjældnere udfyldt end titel/tidspunkt
+  // — samlet under "Flere muligheder" (lukket som udgangspunkt), så
+  // formularen ikke virker længere end den behøver ved en hurtig aftale.
+  const [isMoreOptionsOpen, setIsMoreOptionsOpen] = useState(false);
 
   const {
     validationErrorCode,
@@ -366,7 +373,7 @@ function NewEventDialog({
         >
           <TextField
             select
-            label="Kalender"
+            label="Hvem gælder aftalen for?"
             value={sourceId}
             onChange={(event) => setRequestedSourceId(event.target.value)}
             disabled={isSaving}
@@ -374,6 +381,18 @@ function NewEventDialog({
           >
             {calendarSources.map((source) => (
               <MenuItem key={source.id} value={source.id} disabled={source.isReadOnly}>
+                <Box
+                  component="span"
+                  sx={{
+                    display: "inline-block",
+                    width: 10,
+                    height: 10,
+                    borderRadius: "50%",
+                    bgcolor: source.color,
+                    mr: 1.25,
+                    flexShrink: 0,
+                  }}
+                />
                 {source.name}{source.isReadOnly ? " (skrivebeskyttet)" : ""}
               </MenuItem>
             ))}
@@ -455,31 +474,6 @@ function NewEventDialog({
             dateFieldsFullWidth
           />
 
-          {!isExternalCalendarProviderType(selectedSource?.providerType) && (
-            <EventRecurrenceSection
-              value={recurrence}
-              eventStartDate={form.startDate}
-              disabled={isSaving}
-              errorMessage={recurrenceError}
-              onChange={setRecurrence}
-            />
-          )}
-
-          {!isExternalCalendarProviderType(selectedSource?.providerType) && (
-            <EventParticipantsSection
-              ownerIds={form.ownerIds}
-              members={members}
-              disabled={isSaving}
-              onToggleOwner={(ownerId) => {
-                toggleParticipant(ownerId);
-                markFieldTouched("ownerIds");
-              }}
-              title="Kalender og deltagere"
-              variant="chips"
-              errorText={getVisibleErrorMessage("ownerIds")}
-            />
-          )}
-
           {conflictingEvents.length >
             0 && (
               <EventConflictAlert
@@ -488,38 +482,82 @@ function NewEventDialog({
               />
           )}
 
-          <TextField
-            label="Sted"
-            value={
-              form.location
+          <Button
+            size="small"
+            onClick={() => setIsMoreOptionsOpen((current) => !current)}
+            endIcon={
+              <ExpandMoreRounded
+                sx={{
+                  transition: "transform 150ms",
+                  transform: isMoreOptionsOpen ? "rotate(180deg)" : "none",
+                }}
+              />
             }
-            fullWidth
-            disabled={isSaving}
-            onChange={(event) =>
-              setField(
-                "location",
-                event.target.value,
-              )
-            }
-          />
+            sx={{ justifySelf: "flex-start", px: 0 }}
+          >
+            Flere muligheder
+          </Button>
 
-          <TextField
-            label="Beskrivelse"
-            value={
-              form.description
-            }
-            fullWidth
-            multiline
-            minRows={3}
-            disabled={isSaving}
-            onChange={(event) =>
-              setField(
-                "description",
-                event.target.value,
-              )
-            }
-          />
+          <Collapse in={isMoreOptionsOpen} timeout="auto">
+            <Box sx={{ display: "grid", gap: 2 }}>
+              {!isExternalCalendarProviderType(selectedSource?.providerType) && (
+                <EventRecurrenceSection
+                  value={recurrence}
+                  eventStartDate={form.startDate}
+                  disabled={isSaving}
+                  errorMessage={recurrenceError}
+                  onChange={setRecurrence}
+                />
+              )}
 
+              {!isExternalCalendarProviderType(selectedSource?.providerType) && (
+                <EventParticipantsSection
+                  ownerIds={form.ownerIds}
+                  members={members}
+                  disabled={isSaving}
+                  onToggleOwner={(ownerId) => {
+                    toggleParticipant(ownerId);
+                    markFieldTouched("ownerIds");
+                  }}
+                  title="Hvem gælder aftalen for?"
+                  variant="chips"
+                  errorText={getVisibleErrorMessage("ownerIds")}
+                />
+              )}
+
+              <TextField
+                label="Sted (valgfrit)"
+                value={
+                  form.location
+                }
+                fullWidth
+                disabled={isSaving}
+                onChange={(event) =>
+                  setField(
+                    "location",
+                    event.target.value,
+                  )
+                }
+              />
+
+              <TextField
+                label="Beskrivelse (valgfrit)"
+                value={
+                  form.description
+                }
+                fullWidth
+                multiline
+                minRows={3}
+                disabled={isSaving}
+                onChange={(event) =>
+                  setField(
+                    "description",
+                    event.target.value,
+                  )
+                }
+              />
+            </Box>
+          </Collapse>
         </Box>
       </DialogContent>
 

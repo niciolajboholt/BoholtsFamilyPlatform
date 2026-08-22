@@ -4,16 +4,20 @@ const theme = createTheme({
   palette: {
     mode: "light",
 
+    // Varm mørkegrøn — appens egen identitet i stedet for standard
+    // Material-blå. Matcher theme-color i index.html/manifestet.
     primary: {
-      main: "#2E7D32",
+      main: "#2F6B4F",
     },
 
+    // Varm rav/terracotta som eneste accentfarve — bevidst IKKE blå, så
+    // blå ikke optræder som en anden "systemfarve" ved siden af det grønne.
     secondary: {
-      main: "#1565C0",
+      main: "#B5722E",
     },
 
     background: {
-      default: "#F7F8FA",
+      default: "#F6F5EF",
       paper: "#FFFFFF",
     },
 

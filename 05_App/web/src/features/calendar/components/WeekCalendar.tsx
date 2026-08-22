@@ -108,11 +108,11 @@ function EventCard({
         p: 0.75,
         borderRadius: 1,
         borderLeft: `4px solid ${ownerColor}`,
-        backgroundColor: `${ownerColor}14`,
+        backgroundColor: `${ownerColor}30`,
         cursor: "pointer",
 
         "&:hover": {
-          backgroundColor: `${ownerColor}24`,
+          backgroundColor: `${ownerColor}45`,
         },
 
         "&:focus-visible": {
@@ -124,10 +124,11 @@ function EventCard({
     >
       {showTime && (
         <Typography
-          variant="caption"
+          variant="body2"
           sx={{
             display: "block",
             fontWeight: 700,
+            fontSize: "0.875rem",
           }}
         >
           {formatTime(event)}
@@ -138,7 +139,7 @@ function EventCard({
         <Typography
           variant="body2"
           noWrap
-          sx={{ fontWeight: 600, minWidth: 0 }}
+          sx={{ fontWeight: 600, minWidth: 0, fontSize: "0.875rem" }}
         >
           {event.title}
         </Typography>
