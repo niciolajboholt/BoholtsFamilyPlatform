@@ -4,6 +4,7 @@ import type { Env } from "./env";
 import authRoutes from "./routes/auth";
 import apiRoutes from "./routes/api";
 import calendarRoutes from "./routes/calendar";
+import feedbackRoutes from "./routes/feedback";
 import familiesRoutes from "./routes/families";
 import publicCalendarRoutes from "./routes/publicCalendar";
 import pushRoutes from "./routes/push";
@@ -64,6 +65,7 @@ app.route("/api/families", shoppingListsRoutes);
 app.route("/api/families", tasksRoutes);
 app.route("/api/calendar", calendarRoutes);
 app.route("/api/push", pushRoutes);
+app.route("/api/feedback", feedbackRoutes);
 // Sprint 26: bevidst UDEN FOR /api/families's session-krav — se
 // publicCalendar.ts's egen kommentar. Eneste uautentificerede API-rute.
 app.route("/api/public", publicCalendarRoutes);

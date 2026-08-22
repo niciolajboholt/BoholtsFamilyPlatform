@@ -12,6 +12,7 @@ import {
   LogoutRounded,
   NotificationsRounded,
   PersonRounded,
+  RateReviewRounded,
   SaveRounded,
 } from "@mui/icons-material";
 
@@ -31,6 +32,8 @@ import {
 
 import { FamilyMemberDialog } from "../features/calendar/components/FamilyMemberDialog";
 import { useSession } from "../features/auth/hooks/useSession";
+import { FeedbackDialog } from "../features/feedback/FeedbackDialog";
+import { FeedbackInboxCard } from "../features/feedback/FeedbackInboxCard";
 import { InviteCodeCard } from "../features/family/InviteCodeCard";
 import { ShareLinkCard } from "../features/family/ShareLinkCard";
 import { CurrentMemberPickerDialog } from "../features/calendar/components/CurrentMemberPickerDialog";
@@ -89,6 +92,7 @@ function SettingsPage() {
     null,
   );
   const [isMemberDialogOpen, setIsMemberDialogOpen] = useState(false);
+  const [isFeedbackDialogOpen, setIsFeedbackDialogOpen] = useState(false);
 
   const { currentMember, setCurrentMemberId } = useCurrentMember();
   const [isCurrentMemberPickerOpen, setIsCurrentMemberPickerOpen] =
@@ -757,6 +761,37 @@ function SettingsPage() {
             </Box>
           </CardContent>
         </Card>
+
+        <SettingsSectionHeader>Hjælp og feedback</SettingsSectionHeader>
+
+        <Card>
+          <CardContent sx={{ p: 3 }}>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+              <Avatar sx={{ bgcolor: "secondary.main" }}>
+                <RateReviewRounded />
+              </Avatar>
+
+              <Box sx={{ flexGrow: 1 }}>
+                <Typography sx={{ fontWeight: 600 }}>
+                  Send feedback
+                </Typography>
+
+                <Typography variant="body2" color="text.secondary">
+                  Idéer, fejl eller andet du vil dele
+                </Typography>
+              </Box>
+
+              <Button
+                variant="outlined"
+                onClick={() => setIsFeedbackDialogOpen(true)}
+              >
+                Send
+              </Button>
+            </Box>
+          </CardContent>
+        </Card>
+
+        <FeedbackInboxCard />
       </Box>
 
       <CurrentMemberPickerDialog
@@ -764,6 +799,11 @@ function SettingsPage() {
         members={members}
         onClose={() => setIsCurrentMemberPickerOpen(false)}
         onSelect={handleSelectCurrentMember}
+      />
+
+      <FeedbackDialog
+        open={isFeedbackDialogOpen}
+        onClose={() => setIsFeedbackDialogOpen(false)}
       />
     </Box>
   );

@@ -29,4 +29,8 @@ export interface Env {
   // infrastruktur, og der er ingen API-nøgle at opsætte (se
   // 23_Sprint23_Opgaver_Plan.md).
   AI: Ai;
+  // Sprint 30: hvem der må se den indsendte feedback (routes/feedback.ts) —
+  // sammenlignes mod den loggede brugers e-mail. Ikke-hemmelig, samme
+  // mønster som GOOGLE_CLIENT_ID/VAPID_SUBJECT ovenfor.
+  ADMIN_EMAIL: string;
 }
