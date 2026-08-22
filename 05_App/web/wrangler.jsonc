@@ -37,6 +37,11 @@
       "binding": "VAPID_PRIVATE_KEY",
       "store_id": "2bc6325a385d4ca3bc555d66f5453a21",
       "secret_name": "vapid-private-key"
+    },
+    {
+      "binding": "RESEND_API_KEY",
+      "store_id": "2bc6325a385d4ca3bc555d66f5453a21",
+      "secret_name": "resend-api-key"
     }
   ],
   "assets": {
@@ -132,6 +137,11 @@
           "binding": "VAPID_PRIVATE_KEY",
           "store_id": "2bc6325a385d4ca3bc555d66f5453a21",
           "secret_name": "vapid-private-key"
+        },
+        {
+          "binding": "RESEND_API_KEY",
+          "store_id": "2bc6325a385d4ca3bc555d66f5453a21",
+          "secret_name": "resend-api-key"
         }
       ],
       "assets": {

@@ -1,8 +1,19 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createFakeEnv } from "../testing/fakeEnv";
 import { seedLoggedInUser } from "../testing/fakeD1";
 import feedback from "./feedback";
+
+// Se calendar.test.ts's tilsvarende kommentar: c.executionCtx.waitUntil()
+// kaster uden en (rigtig eller fake) ExecutionContext, og POST /-routen
+// bruger den nu til at sende feedback-mailen uden at blokere svaret.
+let lastWaitUntilTask: Promise<unknown> | undefined;
+const fakeExecutionCtx = {
+  waitUntil: (promise: Promise<unknown>) => {
+    lastWaitUntilTask = promise;
+  },
+  passThroughOnException: () => undefined,
+} as unknown as ExecutionContext;
 
 async function postFeedback(
   env: ReturnType<typeof createFakeEnv>,
@@ -17,10 +28,23 @@ async function postFeedback(
       body: JSON.stringify(body),
     },
     env,
+    fakeExecutionCtx,
   );
 }
 
 describe("feedback routes", () => {
+  const fetchMock = vi.fn();
+
+  beforeEach(() => {
+    fetchMock.mockReset().mockResolvedValue(new Response(null, { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    lastWaitUntilTask = undefined;
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it("rejects any request without a session cookie", async () => {
     const env = createFakeEnv();
     const response = await feedback.request("/", {}, env);
@@ -60,6 +84,69 @@ describe("feedback routes", () => {
       message: "Kalenderen viser forkert tid.",
       page: "/calendar",
     });
+
+    expect(response.status).toBe(200);
+  });
+
+  it("does not call Resend when RESEND_API_KEY is unset", async () => {
+    const env = createFakeEnv();
+    const { cookieHeader } = await seedLoggedInUser(env.DB as never, { id: "nicolaj" });
+
+    await postFeedback(env, cookieHeader, {
+      category: "idea",
+      message: "Uden mail-nøgle sat.",
+    });
+    await lastWaitUntilTask;
+
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("emails the admin via Resend when a submission comes in", async () => {
+    const env = createFakeEnv({
+      RESEND_API_KEY: { get: async () => "test-resend-key" } as never,
+    });
+    const { cookieHeader } = await seedLoggedInUser(env.DB as never, {
+      id: "line",
+      email: "line@example.com",
+      name: "Line",
+    });
+
+    await postFeedback(env, cookieHeader, {
+      category: "bug",
+      message: "Kalenderen viser forkert tid.",
+      page: "/calendar",
+    });
+    await lastWaitUntilTask;
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.resend.com/emails",
+      expect.objectContaining({
+        method: "POST",
+        headers: expect.objectContaining({
+          Authorization: "Bearer test-resend-key",
+        }),
+      }),
+    );
+
+    const requestBody: { to: string; reply_to: string; subject: string } =
+      JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(requestBody.to).toBe(env.ADMIN_EMAIL);
+    expect(requestBody.reply_to).toBe("line@example.com");
+    expect(requestBody.subject).toContain("Line");
+  });
+
+  it("does not fail the submission when Resend errors", async () => {
+    const env = createFakeEnv({
+      RESEND_API_KEY: { get: async () => "test-resend-key" } as never,
+    });
+    fetchMock.mockResolvedValue(new Response("bad request", { status: 400 }));
+    const { cookieHeader } = await seedLoggedInUser(env.DB as never, { id: "nicolaj" });
+
+    const response = await postFeedback(env, cookieHeader, {
+      category: "other",
+      message: "Skal stadig gemmes, selvom mailen fejler.",
+    });
+    await lastWaitUntilTask;
 
     expect(response.status).toBe(200);
   });

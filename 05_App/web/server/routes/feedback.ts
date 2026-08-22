@@ -7,6 +7,7 @@ import type { Context } from "hono";
 import { Hono } from "hono";
 
 import type { Env } from "../env";
+import { sendFeedbackNotificationEmail } from "../lib/email";
 import { checkRateLimit } from "../lib/rateLimit";
 import { getSessionUser, type SessionUser } from "../lib/session";
 
@@ -107,6 +108,21 @@ feedback.post("/", async (c) => {
       new Date().toISOString(),
     )
     .run();
+
+  // Kører via waitUntil() — svaret sendes til klienten med det samme, uden
+  // at vente på mail-leveringen, og en fejlet/langsom mail må aldrig få
+  // selve indsendelsen (allerede gemt i D1 ovenfor) til at fejle.
+  c.executionCtx.waitUntil(
+    sendFeedbackNotificationEmail(c.env, {
+      category,
+      message,
+      page,
+      senderName: user.name,
+      senderEmail: user.email,
+    }).catch((error: unknown) => {
+      console.error("Kunne ikke sende feedback-mail:", error);
+    }),
+  );
 
   return c.json({ ok: true });
 });
