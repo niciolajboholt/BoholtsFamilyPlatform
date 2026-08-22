@@ -1,4 +1,4 @@
-import type { ChangeEvent } from "react";
+import type { ChangeEvent, ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 
 import AddIcon from "@mui/icons-material/Add";
@@ -9,7 +9,9 @@ import {
   CloudUploadRounded,
   DarkModeRounded,
   FamilyRestroomRounded,
+  GroupAddRounded,
   LightModeRounded,
+  LinkRounded,
   LogoutRounded,
   NotificationsRounded,
   PersonRounded,
@@ -23,8 +25,13 @@ import {
   Avatar,
   Box,
   Button,
+  ButtonBase,
   Card,
   CardContent,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Divider,
   IconButton,
   Switch,
@@ -37,8 +44,8 @@ import { FamilyMemberDialog } from "../features/calendar/components/FamilyMember
 import { useSession } from "../features/auth/hooks/useSession";
 import { FeedbackDialog } from "../features/feedback/FeedbackDialog";
 import { FeedbackInboxCard } from "../features/feedback/FeedbackInboxCard";
-import { InviteCodeCard } from "../features/family/InviteCodeCard";
-import { ShareLinkCard } from "../features/family/ShareLinkCard";
+import { InviteCodeDialog } from "../features/family/InviteCodeDialog";
+import { ShareLinkDialog } from "../features/family/ShareLinkDialog";
 import type { ThemeModePreference } from "../theme/ThemeModeContext";
 import { useThemeMode } from "../theme/ThemeModeContext";
 import { CurrentMemberPickerDialog } from "../features/calendar/components/CurrentMemberPickerDialog";
@@ -85,6 +92,59 @@ function SettingsSectionHeader({ children }: { children: string }) {
   );
 }
 
+// Sprint 30 (omlægning): sjældent brugte handlinger (invitér, del kalender,
+// kalenderforbindelser, backup) fyldte hver sit eget kort med gentaget
+// ikon+overskrift-mønster, selvom sektionsoverskriften lige ovenfor allerede
+// sagde det samme — denne række-variant samler dem som én linje, der åbner
+// en dialogboks ved behov, i stedet for at optage plads permanent.
+function SettingsLinkRow({
+  icon,
+  title,
+  subtitle,
+  onClick,
+}: {
+  icon: ReactNode;
+  title: string;
+  subtitle: string;
+  onClick: () => void;
+}) {
+  return (
+    <ButtonBase
+      onClick={onClick}
+      sx={{
+        display: "flex",
+        alignItems: "center",
+        width: "100%",
+        py: 1.5,
+        px: 0.5,
+        borderRadius: 2,
+      }}
+    >
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 1.5,
+          flexGrow: 1,
+        }}
+      >
+        {icon}
+
+        <Box sx={{ textAlign: "center" }}>
+          <Typography sx={{ fontWeight: 600 }}>{title}</Typography>
+
+          <Typography variant="body2" color="text.secondary">
+            {subtitle}
+          </Typography>
+        </Box>
+      </Box>
+
+      <ChevronRightRounded color="action" />
+    </ButtonBase>
+  );
+}
+
 function SettingsPage() {
   const {
     preference: themePreference,
@@ -104,6 +164,10 @@ function SettingsPage() {
   );
   const [isMemberDialogOpen, setIsMemberDialogOpen] = useState(false);
   const [isFeedbackDialogOpen, setIsFeedbackDialogOpen] = useState(false);
+  const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
+  const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
+  const [isCalendarDialogOpen, setIsCalendarDialogOpen] = useState(false);
+  const [isBackupDialogOpen, setIsBackupDialogOpen] = useState(false);
 
   const { currentMember, setCurrentMemberId } = useCurrentMember();
   const [isCurrentMemberPickerOpen, setIsCurrentMemberPickerOpen] =
@@ -321,6 +385,10 @@ function SettingsPage() {
     outlookConfigurationError,
   );
 
+  const calendarConnectionsSummary = `Google ${
+    isGoogleCalendarConnected ? "forbundet" : "afbrudt"
+  } · Outlook ${isOutlookCalendarConnected ? "forbundet" : "fra"}`;
+
   return (
     <Box sx={{ maxWidth: 900, mx: "auto", pb: 4 }}>
       <Box sx={{ mb: 3 }}>
@@ -449,6 +517,24 @@ function SettingsPage() {
                 );
               })}
             </Box>
+
+            <Divider sx={{ my: 1 }} />
+
+            <SettingsLinkRow
+              icon={<GroupAddRounded color="action" />}
+              title="Inviter familiemedlem"
+              subtitle="Del en invitationskode"
+              onClick={() => setIsInviteDialogOpen(true)}
+            />
+
+            <Divider />
+
+            <SettingsLinkRow
+              icon={<LinkRounded color="action" />}
+              title="Del kalender"
+              subtitle="Offentligt link til udenforstående"
+              onClick={() => setIsShareDialogOpen(true)}
+            />
           </CardContent>
         </Card>
 
@@ -460,34 +546,41 @@ function SettingsPage() {
           onDelete={deleteMember}
         />
 
-        <InviteCodeCard />
+        <InviteCodeDialog
+          open={isInviteDialogOpen}
+          onClose={() => setIsInviteDialogOpen(false)}
+        />
 
-        <ShareLinkCard />
+        <ShareLinkDialog
+          open={isShareDialogOpen}
+          onClose={() => setIsShareDialogOpen(false)}
+        />
 
         <SettingsSectionHeader>Kalenderforbindelser</SettingsSectionHeader>
 
         <Card>
           <CardContent sx={{ p: 3 }}>
-            <Box
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                gap: 1.5,
-                mb: 2.5,
-              }}
-            >
-              <Avatar sx={{ bgcolor: "secondary.main" }}>
-                <CalendarMonthRounded />
-              </Avatar>
+            <SettingsLinkRow
+              icon={<CalendarMonthRounded color="action" />}
+              title="Kalenderforbindelser"
+              subtitle={calendarConnectionsSummary}
+              onClick={() => setIsCalendarDialogOpen(true)}
+            />
+          </CardContent>
+        </Card>
 
-              <Box>
-                <Typography variant="h6">Kalenderforbindelser</Typography>
+        <Dialog
+          open={isCalendarDialogOpen}
+          onClose={() => setIsCalendarDialogOpen(false)}
+          fullWidth
+          maxWidth="xs"
+        >
+          <DialogTitle>Kalenderforbindelser</DialogTitle>
 
-                <Typography variant="body2" color="text.secondary">
-                  Saml familiens eksterne kalendere
-                </Typography>
-              </Box>
-            </Box>
+          <DialogContent>
+            <Typography color="text.secondary" sx={{ mb: 2 }}>
+              Saml familiens eksterne kalendere.
+            </Typography>
 
             <ProviderConnectionRow
               label="Google Calendar"
@@ -513,7 +606,7 @@ function SettingsPage() {
               </Alert>
             )}
 
-            <Divider />
+            <Divider sx={{ my: 1.5 }} />
 
             <ProviderConnectionRow
               label="Outlook Calendar"
@@ -532,8 +625,12 @@ function SettingsPage() {
                 {outlookRedirectDiagnostic}
               </Alert>
             )}
-          </CardContent>
-        </Card>
+          </DialogContent>
+
+          <DialogActions sx={{ px: 3, pb: 2.5 }}>
+            <Button onClick={() => setIsCalendarDialogOpen(false)}>Luk</Button>
+          </DialogActions>
+        </Dialog>
 
         <SettingsSectionHeader>App og notifikationer</SettingsSectionHeader>
 
@@ -733,32 +830,31 @@ function SettingsPage() {
                 </Box>
               </>
             )}
+
+            <Divider />
+
+            <SettingsLinkRow
+              icon={<SaveRounded color="action" />}
+              title="Data & backup"
+              subtitle="Eksportér eller importér"
+              onClick={() => setIsBackupDialogOpen(true)}
+            />
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent sx={{ p: 3 }}>
-            <Box
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                gap: 1.5,
-                mb: 2.5,
-              }}
-            >
-              <Avatar sx={{ bgcolor: "background.default", color: "text.primary" }}>
-                <SaveRounded />
-              </Avatar>
+        <Dialog
+          open={isBackupDialogOpen}
+          onClose={() => setIsBackupDialogOpen(false)}
+          fullWidth
+          maxWidth="xs"
+        >
+          <DialogTitle>Data &amp; backup</DialogTitle>
 
-              <Box>
-                <Typography variant="h6">Data &amp; backup</Typography>
-
-                <Typography variant="body2" color="text.secondary">
-                  Dine data ligger kun i denne browser — tag en backup for at
-                  undgå at miste dem
-                </Typography>
-              </Box>
-            </Box>
+          <DialogContent>
+            <Typography color="text.secondary" sx={{ mb: 2 }}>
+              Dine data ligger kun i denne browser — tag en backup for at
+              undgå at miste dem.
+            </Typography>
 
             {backupFeedback && (
               <Alert
@@ -795,8 +891,12 @@ function SettingsPage() {
                 onChange={handleImportFileSelected}
               />
             </Box>
-          </CardContent>
-        </Card>
+          </DialogContent>
+
+          <DialogActions sx={{ px: 3, pb: 2.5 }}>
+            <Button onClick={() => setIsBackupDialogOpen(false)}>Luk</Button>
+          </DialogActions>
+        </Dialog>
 
         <SettingsSectionHeader>Hjælp og feedback</SettingsSectionHeader>
 
