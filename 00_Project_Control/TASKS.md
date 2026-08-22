@@ -125,9 +125,13 @@ Se `05_Sprint_History.md` for detaljer pr. sprint.
     `POST /:id/members/:memberId/link-me`) (2026-08-19)
 [x] Opgavens tidspunkt kan nu redigeres direkte på opgavelinjen efter
     oprettelse, ikke kun sættes ved oprettelsen (2026-08-19)
-[ ] Manuel funktionel test på beta/produktion (kræver at vente på et
-    rigtigt cron-tick, ikke en AI-agent-opgave)
-[x] Merget til `main` (PR #55, #58, #60, #61)
+[x] Manuel funktionel test på beta bekræftet af Nicolaj (2026-08-20:
+    "Push virker nu") — afdækkede endnu et lag af rodårsagen:
+    `linkFamilyMemberToMe()` blev kun kaldt ved et *nyt* valg af "Min
+    profil", så alle der havde valgt den før koblingen blev indført
+    (Sprint 27) forblev ukoblet. `useCurrentMember` genkobler nu også
+    ved almindelig app-indlæsning (PR #81)
+[x] Merget til `main` (PR #55, #58, #60, #61, #81)
 
 ## Sprint 28 - AI-ugeresumé
 
