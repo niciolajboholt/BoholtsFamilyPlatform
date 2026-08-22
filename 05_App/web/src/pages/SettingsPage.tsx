@@ -373,6 +373,7 @@ function SettingsPage() {
                         sx={{
                           display: "flex",
                           alignItems: "center",
+                          justifyContent: "center",
                           gap: 1.5,
                           flexGrow: 1,
                         }}
@@ -388,11 +389,12 @@ function SettingsPage() {
                           {getInitials(member.name)}
                         </Avatar>
 
-                        {/* Avataren er venstrejusteret (fast x-position for
-                            hele rækken), men selve teksten centreres i sin
-                            egen kolonne — de tre linjer (navn/relation/
-                            kalender) kan have forskellig bredde, og ser
-                            pænere ud centreret om hinanden end venstrestillet. */}
+                        {/* Avatar + tekst centreres som samlet blok i hele
+                            rækken (mellem venstre kant og chevronen), og
+                            teksten centreres desuden i sin egen kolonne — de
+                            tre linjer (navn/relation/kalender) kan have
+                            forskellig bredde, og ser pænere ud centreret om
+                            hinanden end venstrestillet. */}
                         <Box sx={{ textAlign: "center" }}>
                           <Typography sx={{ fontWeight: 600 }}>
                             {member.name}
