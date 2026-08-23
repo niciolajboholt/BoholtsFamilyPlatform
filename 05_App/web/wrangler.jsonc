@@ -1,5 +1,11 @@
 {
-  "name": "boholtsfamilyplatform",
+  // Omdøbt fra "boholtsfamilyplatform" til en kortere, pænere
+  // workers.dev-adresse (https://familieapp.<konto-subdomæne>.workers.dev).
+  // Cloudflare opretter en NY Worker under dette navn ved næste deploy —
+  // den gamle "boholtsfamilyplatform" bliver ikke automatisk slettet eller
+  // omdirigeret, den fortsætter blot med at køre parallelt, indtil den
+  // ryddes op manuelt, når alle er skiftet til den nye adresse.
+  "name": "familieapp",
   "compatibility_date": "2026-07-30",
   // Fra Sprint 20: appen har fået en rigtig backend (Hono) ved siden af de
   // statiske filer — "main" kører Worker-koden, som selv server'er de
