@@ -6,17 +6,21 @@ import {
   clearCheckedShoppingListItems,
   createShoppingList,
   deleteShoppingListItem,
+  deleteShoppingListTemplate,
   generateIngredientsDraft,
   getShoppingListItems,
+  getShoppingListTemplates,
   getShoppingLists,
   renameShoppingList,
   renameShoppingListItem,
+  saveShoppingListAsTemplate,
   setShoppingListItemCategory,
   setShoppingListItemChecked,
   type IngredientDraftItem,
   type ShoppingCategory,
   type ShoppingListDto,
   type ShoppingListItemDto,
+  type ShoppingListTemplateDto,
   type ShoppingListType,
 } from "../shoppingListApi";
 
@@ -37,6 +41,10 @@ interface UseShoppingListResult {
   clearChecked: () => void;
   suggestIngredients: (dish: string) => Promise<IngredientDraftItem[]>;
   addSuggestedItems: (itemNames: string[]) => Promise<void>;
+  templates: ShoppingListTemplateDto[];
+  saveAsTemplate: (name: string) => Promise<void>;
+  applyTemplate: (templateId: string) => Promise<void>;
+  deleteTemplate: (templateId: string) => Promise<void>;
 }
 
 /**
@@ -51,6 +59,7 @@ export function useShoppingList(): UseShoppingListResult {
   const [lists, setLists] = useState<ShoppingListDto[]>([]);
   const [selectedListId, setSelectedListId] = useState<string | null>(null);
   const [items, setItems] = useState<ShoppingListItemDto[]>([]);
+  const [templates, setTemplates] = useState<ShoppingListTemplateDto[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -116,6 +125,31 @@ export function useShoppingList(): UseShoppingListResult {
       }
 
       setIsLoading(false);
+    });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [familyId, selectedListId]);
+
+  // Skabeloner er scopet til den valgte listes type (server-side) — hentes
+  // derfor på samme betingelse og ved samme skift som varerne ovenfor, men i
+  // sin egen effekt, da de to ikke afhænger af hinandens svar.
+  useEffect(() => {
+    if (!familyId || !selectedListId) {
+      return;
+    }
+
+    let isCancelled = false;
+
+    getShoppingListTemplates(familyId, selectedListId).then((templatesResult) => {
+      if (isCancelled) {
+        return;
+      }
+
+      if (templatesResult.ok) {
+        setTemplates(templatesResult.data.templates ?? []);
+      }
     });
 
     return () => {
@@ -306,6 +340,62 @@ export function useShoppingList(): UseShoppingListResult {
     [familyId, selectedListId],
   );
 
+  // Gemmer den nuværende listes varenavne som en ny, genanvendelig skabelon
+  // — serveren snapshotter selv de faktiske varer, kaldet sender kun navnet.
+  const saveAsTemplate = useCallback(
+    async (name: string): Promise<void> => {
+      const trimmed = name.trim();
+      if (!trimmed || !familyId || !selectedListId) {
+        return;
+      }
+
+      setError(null);
+
+      const result = await saveShoppingListAsTemplate(familyId, selectedListId, trimmed);
+
+      if (result.ok && result.data.templates) {
+        setTemplates(result.data.templates);
+      } else {
+        setError(result.data.error ?? "Skabelonen kunne ikke gemmes.");
+      }
+    },
+    [familyId, selectedListId],
+  );
+
+  // Genbruger addSuggestedItems' samme sekventielle tilføjelses-mønster
+  // (afventet, ikke parallelt) — samme begrundelse: undgår at flere
+  // samtidige svar kapløber om at være det sidste, der sætter tilstanden.
+  const applyTemplate = useCallback(
+    async (templateId: string): Promise<void> => {
+      const template = templates.find((candidate) => candidate.id === templateId);
+      if (!template) {
+        return;
+      }
+
+      await addSuggestedItems(template.itemNames);
+    },
+    [templates, addSuggestedItems],
+  );
+
+  const deleteTemplate = useCallback(
+    async (templateId: string): Promise<void> => {
+      if (!familyId || !selectedListId) {
+        return;
+      }
+
+      setError(null);
+
+      const result = await deleteShoppingListTemplate(familyId, selectedListId, templateId);
+
+      if (result.ok && result.data.templates) {
+        setTemplates(result.data.templates);
+      } else {
+        setError(result.data.error ?? "Skabelonen kunne ikke slettes.");
+      }
+    },
+    [familyId, selectedListId],
+  );
+
   return {
     isLoading,
     error,
@@ -323,5 +413,9 @@ export function useShoppingList(): UseShoppingListResult {
     clearChecked,
     suggestIngredients,
     addSuggestedItems,
+    templates,
+    saveAsTemplate,
+    applyTemplate,
+    deleteTemplate,
   };
 }

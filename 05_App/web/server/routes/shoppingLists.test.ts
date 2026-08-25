@@ -40,6 +40,14 @@ interface ShoppingListItemDto {
   checkedAt: string | null;
 }
 
+interface ShoppingListTemplateDto {
+  id: string;
+  listType: string;
+  name: string;
+  createdAt: string;
+  itemNames: string[];
+}
+
 async function seedFamily(
   env: ReturnType<typeof createFakeEnv>,
   familyId: string,
@@ -733,5 +741,192 @@ describe("shopping list routes", () => {
     );
 
     expect(response.status).toBe(404);
+  });
+
+  it("saves the current list's items as a template and lists it back", async () => {
+    const { cookieHeader, userId } = await seedLoggedInUser(env.DB as never, { id: "nicolaj" });
+    await seedFamily(env, "family-1", [userId]);
+    const { lists } = (await (
+      await shoppingLists.request(
+        "/family-1/shopping-lists",
+        { headers: { Cookie: cookieHeader } },
+        env,
+      )
+    ).json()) as { lists: ShoppingListDto[] };
+    const listId = lists[0]!.id;
+
+    for (const name of ["Mælk", "Æg"]) {
+      await shoppingLists.request(
+        `/family-1/shopping-lists/${listId}/items`,
+        {
+          method: "POST",
+          headers: { Cookie: cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({ name }),
+        },
+        env,
+        fakeExecutionCtx,
+      );
+      await lastWaitUntilTask;
+    }
+
+    const saveResponse = await shoppingLists.request(
+      `/family-1/shopping-lists/${listId}/templates`,
+      {
+        method: "POST",
+        headers: { Cookie: cookieHeader, "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "Ugens faste" }),
+      },
+      env,
+    );
+    const saveBody: { templates: ShoppingListTemplateDto[] } = await saveResponse.json();
+
+    expect(saveResponse.status).toBe(200);
+    expect(saveBody.templates).toHaveLength(1);
+    expect(saveBody.templates[0]?.name).toBe("Ugens faste");
+    expect(saveBody.templates[0]?.itemNames.sort()).toEqual(["Mælk", "Æg"].sort());
+
+    const listResponse = await shoppingLists.request(
+      `/family-1/shopping-lists/${listId}/templates`,
+      { headers: { Cookie: cookieHeader } },
+      env,
+    );
+    const listBody: { templates: ShoppingListTemplateDto[] } = await listResponse.json();
+
+    expect(listBody.templates).toHaveLength(1);
+  });
+
+  it("rejects saving a template from an empty list", async () => {
+    const { cookieHeader, userId } = await seedLoggedInUser(env.DB as never, { id: "nicolaj" });
+    await seedFamily(env, "family-1", [userId]);
+    const { lists } = (await (
+      await shoppingLists.request(
+        "/family-1/shopping-lists",
+        { headers: { Cookie: cookieHeader } },
+        env,
+      )
+    ).json()) as { lists: ShoppingListDto[] };
+    const listId = lists[0]!.id;
+
+    const response = await shoppingLists.request(
+      `/family-1/shopping-lists/${listId}/templates`,
+      {
+        method: "POST",
+        headers: { Cookie: cookieHeader, "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "Tom skabelon" }),
+      },
+      env,
+    );
+
+    expect(response.status).toBe(400);
+  });
+
+  it("deletes a template", async () => {
+    const { cookieHeader, userId } = await seedLoggedInUser(env.DB as never, { id: "nicolaj" });
+    await seedFamily(env, "family-1", [userId]);
+    const { lists } = (await (
+      await shoppingLists.request(
+        "/family-1/shopping-lists",
+        { headers: { Cookie: cookieHeader } },
+        env,
+      )
+    ).json()) as { lists: ShoppingListDto[] };
+    const listId = lists[0]!.id;
+
+    await shoppingLists.request(
+      `/family-1/shopping-lists/${listId}/items`,
+      {
+        method: "POST",
+        headers: { Cookie: cookieHeader, "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "Mælk" }),
+      },
+      env,
+      fakeExecutionCtx,
+    );
+    await lastWaitUntilTask;
+
+    const saveResponse = await shoppingLists.request(
+      `/family-1/shopping-lists/${listId}/templates`,
+      {
+        method: "POST",
+        headers: { Cookie: cookieHeader, "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "Ugens faste" }),
+      },
+      env,
+    );
+    const { templates } = (await saveResponse.json()) as { templates: ShoppingListTemplateDto[] };
+    const templateId = templates[0]!.id;
+
+    const deleteResponse = await shoppingLists.request(
+      `/family-1/shopping-lists/${listId}/templates/${templateId}`,
+      { method: "DELETE", headers: { Cookie: cookieHeader } },
+      env,
+    );
+    const deleteBody: { templates: ShoppingListTemplateDto[] } = await deleteResponse.json();
+
+    expect(deleteResponse.status).toBe(200);
+    expect(deleteBody.templates).toHaveLength(0);
+  });
+
+  it("does not let a template from one family be deleted via another family's request", async () => {
+    const { cookieHeader: ownerCookie, userId: ownerId } = await seedLoggedInUser(
+      env.DB as never,
+      { id: "owner" },
+    );
+    const { cookieHeader: outsiderCookie, userId: outsiderId } = await seedLoggedInUser(
+      env.DB as never,
+      { id: "outsider" },
+    );
+    await seedFamily(env, "family-1", [ownerId]);
+    await seedFamily(env, "family-2", [outsiderId]);
+
+    const { lists: ownerLists } = (await (
+      await shoppingLists.request(
+        "/family-1/shopping-lists",
+        { headers: { Cookie: ownerCookie } },
+        env,
+      )
+    ).json()) as { lists: ShoppingListDto[] };
+    const ownerListId = ownerLists[0]!.id;
+
+    await shoppingLists.request(
+      `/family-1/shopping-lists/${ownerListId}/items`,
+      {
+        method: "POST",
+        headers: { Cookie: ownerCookie, "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "Mælk" }),
+      },
+      env,
+      fakeExecutionCtx,
+    );
+    await lastWaitUntilTask;
+
+    const saveResponse = await shoppingLists.request(
+      `/family-1/shopping-lists/${ownerListId}/templates`,
+      {
+        method: "POST",
+        headers: { Cookie: ownerCookie, "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "Ugens faste" }),
+      },
+      env,
+    );
+    const { templates } = (await saveResponse.json()) as { templates: ShoppingListTemplateDto[] };
+    const templateId = templates[0]!.id;
+
+    const { lists: outsiderLists } = (await (
+      await shoppingLists.request(
+        "/family-2/shopping-lists",
+        { headers: { Cookie: outsiderCookie } },
+        env,
+      )
+    ).json()) as { lists: ShoppingListDto[] };
+    const outsiderListId = outsiderLists[0]!.id;
+
+    const deleteResponse = await shoppingLists.request(
+      `/family-2/shopping-lists/${outsiderListId}/templates/${templateId}`,
+      { method: "DELETE", headers: { Cookie: outsiderCookie } },
+      env,
+    );
+
+    expect(deleteResponse.status).toBe(404);
   });
 });

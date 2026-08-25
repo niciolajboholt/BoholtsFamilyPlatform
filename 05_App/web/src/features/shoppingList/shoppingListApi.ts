@@ -171,3 +171,31 @@ export function clearCheckedShoppingListItems(familyId: string, listId: string) 
     { method: "POST" },
   );
 }
+
+export interface ShoppingListTemplateDto {
+  id: string;
+  listType: ShoppingListType;
+  name: string;
+  createdAt: string;
+  itemNames: string[];
+}
+
+export function getShoppingListTemplates(familyId: string, listId: string) {
+  return request<{ templates?: ShoppingListTemplateDto[]; error?: string }>(
+    `/api/families/${familyId}/shopping-lists/${listId}/templates`,
+  );
+}
+
+export function saveShoppingListAsTemplate(familyId: string, listId: string, name: string) {
+  return request<{ templates?: ShoppingListTemplateDto[]; error?: string }>(
+    `/api/families/${familyId}/shopping-lists/${listId}/templates`,
+    { method: "POST", body: JSON.stringify({ name }) },
+  );
+}
+
+export function deleteShoppingListTemplate(familyId: string, listId: string, templateId: string) {
+  return request<{ templates?: ShoppingListTemplateDto[]; error?: string }>(
+    `/api/families/${familyId}/shopping-lists/${listId}/templates/${templateId}`,
+    { method: "DELETE" },
+  );
+}
