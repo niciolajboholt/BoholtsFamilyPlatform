@@ -646,10 +646,12 @@ function CalendarPage() {
         "success",
         "Aftalen blev opdateret.",
       );
-    } catch {
+    } catch (caughtError: unknown) {
       showSnackbar(
         "error",
-        "Aftalen kunne ikke opdateres.",
+        caughtError instanceof Error && caughtError.message
+          ? caughtError.message
+          : "Aftalen kunne ikke opdateres.",
       );
     }
   }
@@ -986,7 +988,19 @@ function CalendarPage() {
             </Alert>
           ) : null}
 
-      <Box {...(calendarView === "planner" ? {} : swipeNavigation)}>
+      <Box
+        {...(calendarView === "planner" ? {} : swipeNavigation)}
+        sx={
+          calendarView === "planner"
+            ? undefined
+            // Frigør vandrette strøg til vores egen pointer-håndtering i
+            // stedet for at lade browseren først forsøge at fortolke dem som
+            // sin egen pan/scroll-gestus (hvilket ellers kunne kræve et
+            // urealistisk langt strøg, før det overhovedet blev registreret)
+            // — lodret scroll (fx dagvisningens tidslinje) er upåvirket.
+            : { touchAction: "pan-y" }
+        }
+      >
       {calendarView === "month" ? (
         <MonthCalendar
           visibleMonth={visibleDate}
