@@ -4,6 +4,8 @@ import type { FormEvent, SyntheticEvent } from "react";
 import {
   AddRounded,
   AutoAwesomeOutlined,
+  BookmarkAddOutlined,
+  BookmarksOutlined,
   DeleteOutlineRounded,
   EditRounded,
   IosShareRounded,
@@ -43,6 +45,7 @@ import {
   shoppingListTypes,
   type IngredientDraftItem,
   type ShoppingListItemDto,
+  type ShoppingListTemplateDto,
   type ShoppingListType,
 } from "../features/shoppingList/shoppingListApi";
 
@@ -101,6 +104,10 @@ function ShoppingListPage() {
     clearChecked,
     suggestIngredients,
     addSuggestedItems,
+    templates,
+    saveAsTemplate,
+    applyTemplate,
+    deleteTemplate,
   } = useShoppingList();
   const [newItemName, setNewItemName] = useState("");
   const [shareError, setShareError] = useState<string | null>(null);
@@ -110,6 +117,7 @@ function ShoppingListPage() {
   const [isEditingListName, setIsEditingListName] = useState(false);
   const [listNameDraft, setListNameDraft] = useState("");
   const [isSuggestDialogOpen, setIsSuggestDialogOpen] = useState(false);
+  const [isTemplatesDialogOpen, setIsTemplatesDialogOpen] = useState(false);
 
   const selectedList = lists.find((list) => list.id === selectedListId);
   const isFlatList = selectedList?.type === "andet";
@@ -270,6 +278,13 @@ function ShoppingListPage() {
             )}
 
             <IconButton
+              aria-label="Skabeloner"
+              onClick={() => setIsTemplatesDialogOpen(true)}
+            >
+              <BookmarksOutlined />
+            </IconButton>
+
+            <IconButton
               aria-label="Del liste som tekst"
               onClick={handleShare}
               disabled={items.length === 0}
@@ -411,7 +426,169 @@ function ShoppingListPage() {
         onSuggest={suggestIngredients}
         onAddSelected={addSuggestedItems}
       />
+
+      <TemplatesDialog
+        open={isTemplatesDialogOpen}
+        onClose={() => setIsTemplatesDialogOpen(false)}
+        templates={templates}
+        hasItems={items.length > 0}
+        onSave={saveAsTemplate}
+        onApply={applyTemplate}
+        onDelete={deleteTemplate}
+      />
     </Box>
+  );
+}
+
+interface TemplatesDialogProps {
+  open: boolean;
+  onClose: () => void;
+  templates: ShoppingListTemplateDto[];
+  hasItems: boolean;
+  onSave: (name: string) => Promise<void>;
+  onApply: (templateId: string) => Promise<void>;
+  onDelete: (templateId: string) => Promise<void>;
+}
+
+// Mønster efter SuggestIngredientsDialog ovenfor — samme slags
+// "vælg/handling"-dialog, blot med skabelonens FASTE varenavne i stedet for
+// AI-genererede forslag, og uden en afkrydsningsbar udvælgelse (en skabelon
+// tilføjes altid i sin helhed; man kan altid slette enkeltvarer bagefter).
+function TemplatesDialog({
+  open,
+  onClose,
+  templates,
+  hasItems,
+  onSave,
+  onApply,
+  onDelete,
+}: TemplatesDialogProps) {
+  const [isSaveFormOpen, setIsSaveFormOpen] = useState(false);
+  const [newTemplateName, setNewTemplateName] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+  const [applyingTemplateId, setApplyingTemplateId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  function handleClose(): void {
+    setIsSaveFormOpen(false);
+    setNewTemplateName("");
+    setError(null);
+    onClose();
+  }
+
+  function handleSave(): void {
+    if (!newTemplateName.trim()) {
+      return;
+    }
+
+    setIsSaving(true);
+    setError(null);
+
+    onSave(newTemplateName)
+      .then(() => {
+        setIsSaveFormOpen(false);
+        setNewTemplateName("");
+      })
+      .catch(() => setError("Skabelonen kunne ikke gemmes."))
+      .finally(() => setIsSaving(false));
+  }
+
+  function handleApply(templateId: string): void {
+    setApplyingTemplateId(templateId);
+    setError(null);
+
+    onApply(templateId)
+      .catch(() => setError("Varerne kunne ikke tilføjes."))
+      .finally(() => setApplyingTemplateId(null));
+  }
+
+  return (
+    <Dialog open={open} onClose={handleClose} fullWidth maxWidth="xs">
+      <DialogTitle>Skabeloner</DialogTitle>
+
+      <DialogContent sx={{ display: "grid", gap: 2 }}>
+        {error && <Alert severity="error">{error}</Alert>}
+
+        {templates.length === 0 ? (
+          <Typography color="text.secondary">
+            Ingen skabeloner endnu — gem den nuværende liste som en, hvis du ofte handler de samme
+            varer.
+          </Typography>
+        ) : (
+          <Box>
+            {templates.map((template) => (
+              <Box
+                key={template.id}
+                sx={{ display: "flex", alignItems: "center", gap: 0.5, py: 0.5 }}
+              >
+                <Box sx={{ flexGrow: 1 }}>
+                  <Typography>{template.name}</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {template.itemNames.length} {template.itemNames.length === 1 ? "vare" : "varer"}
+                  </Typography>
+                </Box>
+
+                <Button
+                  size="small"
+                  onClick={() => handleApply(template.id)}
+                  disabled={applyingTemplateId === template.id}
+                >
+                  Tilføj
+                </Button>
+
+                <IconButton
+                  aria-label={`Slet skabelonen ${template.name}`}
+                  size="small"
+                  onClick={() => void onDelete(template.id)}
+                >
+                  <DeleteOutlineRounded fontSize="small" />
+                </IconButton>
+              </Box>
+            ))}
+          </Box>
+        )}
+
+        <Divider />
+
+        {isSaveFormOpen ? (
+          <Box sx={{ display: "flex", gap: 1 }}>
+            <TextField
+              autoFocus
+              fullWidth
+              size="small"
+              placeholder="Navn på skabelon"
+              value={newTemplateName}
+              onChange={(event) => setNewTemplateName(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  handleSave();
+                }
+              }}
+            />
+            <Button
+              variant="outlined"
+              onClick={handleSave}
+              disabled={!newTemplateName.trim() || isSaving}
+            >
+              Gem
+            </Button>
+          </Box>
+        ) : (
+          <Button
+            startIcon={<BookmarkAddOutlined />}
+            onClick={() => setIsSaveFormOpen(true)}
+            disabled={!hasItems}
+            sx={{ justifySelf: "flex-start" }}
+          >
+            Gem nuværende liste som skabelon
+          </Button>
+        )}
+      </DialogContent>
+
+      <DialogActions>
+        <Button onClick={handleClose}>Luk</Button>
+      </DialogActions>
+    </Dialog>
   );
 }
 

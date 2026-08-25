@@ -69,6 +69,14 @@ interface ShoppingListItemRow {
   checkedAt: string | null;
 }
 
+interface ShoppingListTemplateRow {
+  id: string;
+  familyId: string;
+  listType: ShoppingListType;
+  name: string;
+  createdAt: string;
+}
+
 // Bekræfter både at brugeren er medlem af familien i URL'en, OG at den
 // angivne liste rent faktisk tilhører netop den familie — uden det sidste
 // tjek kunne en bruger i praksis tilgå en anden families liste ved blot at
@@ -435,6 +443,155 @@ shoppingLists.delete("/:id/shopping-lists/:listId/items/:itemId", async (c) => {
   const items = await listItemsForList(c.env.DB, list.id);
 
   return c.json({ items });
+});
+
+async function listTemplatesForFamily(
+  db: D1Database,
+  familyId: string,
+  listType: ShoppingListType,
+): Promise<{ template: ShoppingListTemplateRow; itemNames: string[] }[]> {
+  const { results: templates } = await db
+    .prepare(
+      `SELECT id, family_id AS familyId, list_type AS listType, name, created_at AS createdAt
+       FROM shopping_list_templates
+       WHERE family_id = ? AND list_type = ?
+       ORDER BY created_at ASC`,
+    )
+    .bind(familyId, listType)
+    .all<ShoppingListTemplateRow>();
+
+  return Promise.all(
+    templates.map(async (template) => {
+      const { results: items } = await db
+        .prepare("SELECT name FROM shopping_list_template_items WHERE template_id = ? ORDER BY name ASC")
+        .bind(template.id)
+        .all<{ name: string }>();
+
+      return { template, itemNames: items.map((item) => item.name) };
+    }),
+  );
+}
+
+// Genbrugelige skabeloner (Sprint 31) — et navngivet snapshot af varenavne
+// (ingen kategori gemt, se migrationsfilens kommentar), scopet til listens
+// egen type, ligesom kategori-overrides.
+shoppingLists.get("/:id/shopping-lists/:listId/templates", async (c) => {
+  const familyId = c.req.param("id");
+  const list = await requireListInFamily(c, familyId, c.req.param("listId"));
+
+  if (!list) {
+    return c.json({ error: "Ikke fundet." }, 404);
+  }
+
+  const templates = await listTemplatesForFamily(c.env.DB, familyId, list.type);
+
+  return c.json({
+    templates: templates.map(({ template, itemNames }) => ({
+      id: template.id,
+      listType: template.listType,
+      name: template.name,
+      createdAt: template.createdAt,
+      itemNames,
+    })),
+  });
+});
+
+// Gemmer den VALGTE listes nuværende varenavne (afkrydsede såvel som ej) som
+// en ny skabelon — ingen separat "byg en skabelon"-formular nødvendig, man
+// bygger den blot som en almindelig liste først og gemmer den bagefter.
+shoppingLists.post("/:id/shopping-lists/:listId/templates", async (c) => {
+  const familyId = c.req.param("id");
+  const list = await requireListInFamily(c, familyId, c.req.param("listId"));
+
+  if (!list) {
+    return c.json({ error: "Ikke fundet." }, 404);
+  }
+
+  const body = await parseJsonBody<{ name: string }>(c);
+  const name = body.name?.trim();
+
+  if (!name) {
+    return c.json({ error: "Skabelonen skal have et navn." }, 400);
+  }
+
+  const items = await listItemsForList(c.env.DB, list.id);
+
+  if (items.length === 0) {
+    return c.json({ error: "Listen er tom — tilføj varer, før du gemmer den som skabelon." }, 400);
+  }
+
+  const templateId = crypto.randomUUID();
+  const now = new Date().toISOString();
+
+  await c.env.DB.prepare(
+    "INSERT INTO shopping_list_templates (id, family_id, list_type, name, created_at) VALUES (?, ?, ?, ?, ?)",
+  )
+    .bind(templateId, familyId, list.type, name, now)
+    .run();
+
+  // Ét varenavn kan optræde flere gange på selve listen (fx tilføjet to
+  // gange ved en fejl) — DISTINCT undgår at skabelonen arver dubletter.
+  const uniqueNames = [...new Set(items.map((item) => item.name))];
+
+  await c.env.DB.batch(
+    uniqueNames.map((itemName) =>
+      c.env.DB.prepare(
+        "INSERT INTO shopping_list_template_items (id, template_id, name) VALUES (?, ?, ?)",
+      ).bind(crypto.randomUUID(), templateId, itemName),
+    ),
+  );
+
+  const templates = await listTemplatesForFamily(c.env.DB, familyId, list.type);
+
+  return c.json({
+    templates: templates.map(({ template, itemNames }) => ({
+      id: template.id,
+      listType: template.listType,
+      name: template.name,
+      createdAt: template.createdAt,
+      itemNames,
+    })),
+  });
+});
+
+shoppingLists.delete("/:id/shopping-lists/:listId/templates/:templateId", async (c) => {
+  const familyId = c.req.param("id");
+  const list = await requireListInFamily(c, familyId, c.req.param("listId"));
+
+  if (!list) {
+    return c.json({ error: "Ikke fundet." }, 404);
+  }
+
+  const templateId = c.req.param("templateId");
+
+  // Samme familie-scopede eksistens-tjek som requireListInFamily bruger for
+  // lister — undgår at et gættet templateId fra en anden familie kan slettes.
+  const template = await c.env.DB.prepare(
+    "SELECT id FROM shopping_list_templates WHERE id = ? AND family_id = ?",
+  )
+    .bind(templateId, familyId)
+    .first<{ id: string }>();
+
+  if (!template) {
+    return c.json({ error: "Ikke fundet." }, 404);
+  }
+
+  await c.env.DB.prepare("DELETE FROM shopping_list_template_items WHERE template_id = ?")
+    .bind(templateId)
+    .run();
+  await c.env.DB.prepare("DELETE FROM shopping_list_templates WHERE id = ?").bind(templateId).run();
+
+  const templates = await listTemplatesForFamily(c.env.DB, familyId, list.type);
+
+  return c.json({
+    templates: templates.map(({ template: remainingTemplate, itemNames }) => ({
+      id: remainingTemplate.id,
+      listType: remainingTemplate.listType,
+      name: remainingTemplate.name,
+      createdAt: remainingTemplate.createdAt,
+      itemNames,
+    })),
+  });
 });
 
 // Fjerner alle afkrydsede varer på én gang ("Ryd afkrydsede").

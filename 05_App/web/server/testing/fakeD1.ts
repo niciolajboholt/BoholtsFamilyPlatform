@@ -23,6 +23,7 @@ const migrationFiles = [
   "0012_weekly_summaries.sql",
   "0013_share_link_field_toggles.sql",
   "0014_feedback.sql",
+  "0015_shopping_list_templates.sql",
 ];
 
 function loadMigrations(db: DatabaseSync): void {

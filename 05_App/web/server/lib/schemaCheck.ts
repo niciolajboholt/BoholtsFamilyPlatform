@@ -22,6 +22,8 @@ const expectedTables = [
   "shopping_lists",
   "shopping_list_items",
   "shopping_item_category_overrides",
+  "shopping_list_templates",
+  "shopping_list_template_items",
   "task_routines",
   "task_routine_items",
   "tasks",
