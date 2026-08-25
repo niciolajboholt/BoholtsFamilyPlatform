@@ -33,7 +33,9 @@ import NewEventDialog from "../features/calendar/components/NewEventDialog";
 import WeekCalendar from "../features/calendar/components/WeekCalendar";
 import { useCalendarEvents } from "../features/calendar/hooks/useCalendarEvents";
 import { useCalendarSources } from "../features/calendar/hooks/useCalendarSources";
+import { useFamilyId } from "../features/calendar/hooks/useFamilyId";
 import { useFamilyMembers } from "../features/calendar/hooks/useFamilyMembers";
+import { setEventReminder } from "../features/calendar/eventReminders/eventReminderApi";
 import { useGoogleCalendarConnection } from "../features/calendar/hooks/useGoogleCalendarConnection";
 import { useOutlookCalendarConnection } from "../features/calendar/hooks/useOutlookCalendarConnection";
 import { useRecurrenceExceptions } from "../features/calendar/hooks/useRecurrenceExceptions";
@@ -308,6 +310,10 @@ function CalendarPage() {
 
   const { members } = useFamilyMembers();
 
+  // Kun brugt til aftale-påmindelser (Sprint 31) — resten af kalenderen
+  // scopes sig selv via sessionen alene, se useFamilyId's egen kommentar.
+  const familyId = useFamilyId();
+
   const recurrenceExceptions = useRecurrenceExceptions();
 
   const {
@@ -556,10 +562,19 @@ function CalendarPage() {
 
   async function handleCreateEvent(
     input: CreateCalendarEventInput,
+    reminderOffsetMinutes: number | null,
   ) {
     try {
       const createdEvent =
         await createEvent(input);
+
+      if (reminderOffsetMinutes !== null && familyId) {
+        // Et nyoprettet event har intet id at knytte en påmindelse til, før
+        // createEvent selv er lykkedes (se NewEventDialog) — en fejlet
+        // påmindelse her må ikke vælte selve aftale-oprettelsen, som
+        // allerede er gennemført.
+        setEventReminder(familyId, createdEvent.id, reminderOffsetMinutes).catch(() => undefined);
+      }
 
       const createdDate =
         new Date(

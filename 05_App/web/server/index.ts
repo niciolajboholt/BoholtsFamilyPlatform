@@ -4,12 +4,14 @@ import type { Env } from "./env";
 import authRoutes from "./routes/auth";
 import apiRoutes from "./routes/api";
 import calendarRoutes from "./routes/calendar";
+import eventRemindersRoutes from "./routes/eventReminders";
 import feedbackRoutes from "./routes/feedback";
 import familiesRoutes from "./routes/families";
 import publicCalendarRoutes from "./routes/publicCalendar";
 import pushRoutes from "./routes/push";
 import shoppingListsRoutes from "./routes/shoppingLists";
 import tasksRoutes from "./routes/tasks";
+import { sendDueEventReminders } from "./lib/eventReminders";
 import { cleanupOldRateLimitAttempts } from "./lib/rateLimit";
 import { checkSchema } from "./lib/schemaCheck";
 import { cleanupExpiredSessions } from "./lib/session";
@@ -63,6 +65,7 @@ app.route("/api", apiRoutes);
 app.route("/api/families", familiesRoutes);
 app.route("/api/families", shoppingListsRoutes);
 app.route("/api/families", tasksRoutes);
+app.route("/api/families", eventRemindersRoutes);
 app.route("/api/calendar", calendarRoutes);
 app.route("/api/push", pushRoutes);
 app.route("/api/feedback", feedbackRoutes);
@@ -101,12 +104,18 @@ export default {
   fetch: app.fetch,
   // Tre Cron Triggers (se wrangler.jsonc's "triggers"), adskilt på
   // controller.cron: den daglige (Sprint 24) rydder udløbne sessioner og
-  // gamle rate-limit-forsøg op; hvert 5. minut (Sprint 27) sender
-  // tidsbaserede opgave-påmindelser; ugentligt søndag (Sprint 28) sender
-  // et AI-genereret ugeresumé.
+  // gamle rate-limit-forsøg op; hvert 5. minut (Sprint 27, udvidet Sprint 31)
+  // sender tidsbaserede opgave- OG aftale-påmindelser; ugentligt søndag
+  // (Sprint 28) sender et AI-genereret ugeresumé.
+  //
+  // Aftale-påmindelser er bevidst lagt på det EKSISTERENDE 5-minutters-tick
+  // frem for en ny cron-trigger — kontoen har et loft på 5 cron-triggers i
+  // alt på tværs af alle Workers/miljøer (se wrangler.jsonc's kommentar),
+  // som allerede er i brug.
   async scheduled(controller, env, ctx) {
     if (controller.cron === "*/5 * * * *") {
       ctx.waitUntil(sendDueTaskReminders(env));
+      ctx.waitUntil(sendDueEventReminders(env));
       return;
     }
 

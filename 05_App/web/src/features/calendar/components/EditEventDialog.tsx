@@ -55,6 +55,8 @@ import type { CalendarSource } from "../models/calendarProvider";
 import { isExternalCalendarProviderType } from "../models/calendarProvider";
 import type { RecurrenceExceptionOverride } from "../preferences/recurrenceExceptionsStorage";
 import type { CalendarOwner } from "../data/calendarOwners";
+import { eventReminderOffsetOptions } from "../eventReminders/eventReminderApi";
+import { useEventReminder } from "../eventReminders/useEventReminder";
 
 type EditScope = "occurrence" | "series";
 
@@ -257,6 +259,16 @@ function EditEventDialog({
     recurrenceRuleToFormValue(effectiveEvent?.recurrence),
   );
   const recurrenceError = getRecurrenceFormValidationError(recurrence);
+
+  // Kun Google-aftaler understøtter en påmindelse i dag (se
+  // server/routes/eventReminders.ts — event-id'et skal kunne afkodes til en
+  // Google-kalender/-aftale). Uafhængig af skrivbarhed, i modsætning til
+  // canChangeCalendar ovenfor — man må gerne påmindes om en aftale på en
+  // skrivebeskyttet, abonneret kalender, blot ikke redigere selve aftalen.
+  const canSetReminder = effectiveEvent?.source === "google";
+  const { offsetMinutes: reminderOffsetMinutes, setReminder } = useEventReminder(
+    canSetReminder ? effectiveEvent.id : null,
+  );
 
   const {
     validationErrorCode,
@@ -786,6 +798,30 @@ function EditEventDialog({
                   variant="checkboxes"
                   errorText={getVisibleErrorMessage("ownerIds")}
                 />
+              )}
+
+              {canSetReminder && (
+                <TextField
+                  select
+                  label="Påmindelse"
+                  value={reminderOffsetMinutes ?? ""}
+                  disabled={isSaving}
+                  fullWidth
+                  onChange={(changeEvent) =>
+                    setReminder(
+                      changeEvent.target.value === ""
+                        ? null
+                        : Number(changeEvent.target.value),
+                    )
+                  }
+                >
+                  <MenuItem value="">Ingen</MenuItem>
+                  {eventReminderOffsetOptions.map((option) => (
+                    <MenuItem key={option.minutes} value={option.minutes}>
+                      {option.label}
+                    </MenuItem>
+                  ))}
+                </TextField>
               )}
 
               <TextField
