@@ -242,6 +242,17 @@ function EditEventDialog({
     : undefined;
   const isInternalEvent = eventSource?.isReadOnly === false;
 
+  // Kun Google-aftaler kan skifte kalender i dag (se
+  // GoogleCalendarProvider.updateEvent — Googles "move"-handling har ingen
+  // parallel i den lokale/Outlook-kode endnu). Initialiseres til aftalens
+  // NUVÆRENDE kalender, nulstilles sammen med resten af formularen i
+  // reset-blokken nedenfor.
+  const canChangeCalendar =
+    effectiveEvent?.source === "google" && isInternalEvent;
+  const [requestedSourceId, setRequestedSourceId] = useState(
+    () => effectiveEvent?.sourceId ?? "",
+  );
+
   const [recurrence, setRecurrence] = useState<RecurrenceFormValue>(() =>
     recurrenceRuleToFormValue(effectiveEvent?.recurrence),
   );
@@ -292,6 +303,7 @@ function EditEventDialog({
     setIsDeleteConfirmationVisible(false);
     setIsDiscardConfirmationVisible(false);
     resetValidationFeedback();
+    setRequestedSourceId(effectiveEvent?.sourceId ?? "");
     setRecurrence(recurrenceRuleToFormValue(effectiveEvent?.recurrence));
     setIsMoreOptionsOpen(
       Boolean(
@@ -476,6 +488,9 @@ function EditEventDialog({
         const updatedEvent: CalendarEvent = {
           ...effectiveEvent,
           ...editedFields,
+          sourceId: canChangeCalendar
+            ? requestedSourceId
+            : effectiveEvent.sourceId,
           recurrence: canEditRecurrenceRule
             ? recurrenceFormValueToRule(recurrence, start)
             : effectiveEvent.recurrence,
@@ -577,6 +592,44 @@ function EditEventDialog({
             >
               <MenuItem value="occurrence">Kun denne forekomst</MenuItem>
               <MenuItem value="series">Hele rækken</MenuItem>
+            </TextField>
+          )}
+
+          {canChangeCalendar && (
+            <TextField
+              select
+              label="Hvem gælder aftalen for?"
+              value={requestedSourceId}
+              disabled={isSaving}
+              fullWidth
+              onChange={(changeEvent) =>
+                setRequestedSourceId(changeEvent.target.value)
+              }
+            >
+              {calendarSources
+                .filter((source) => source.providerType === "google")
+                .map((source) => (
+                  <MenuItem
+                    key={source.id}
+                    value={source.id}
+                    disabled={source.isReadOnly}
+                  >
+                    <Box
+                      component="span"
+                      sx={{
+                        display: "inline-block",
+                        width: 10,
+                        height: 10,
+                        borderRadius: "50%",
+                        bgcolor: source.color,
+                        mr: 1.25,
+                        flexShrink: 0,
+                      }}
+                    />
+                    {source.name}
+                    {source.isReadOnly ? " (skrivebeskyttet)" : ""}
+                  </MenuItem>
+                ))}
             </TextField>
           )}
 
