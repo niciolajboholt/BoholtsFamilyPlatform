@@ -183,12 +183,17 @@ export function clearCheckedShoppingListItems(familyId: string, listId: string) 
   );
 }
 
+export interface ShoppingListTemplateItemDto {
+  id: string;
+  name: string;
+}
+
 export interface ShoppingListTemplateDto {
   id: string;
   listType: ShoppingListType;
   name: string;
   createdAt: string;
-  itemNames: string[];
+  items: ShoppingListTemplateItemDto[];
 }
 
 export function getShoppingListTemplates(familyId: string, listId: string) {
@@ -207,6 +212,42 @@ export function saveShoppingListAsTemplate(familyId: string, listId: string, nam
 export function deleteShoppingListTemplate(familyId: string, listId: string, templateId: string) {
   return request<{ templates?: ShoppingListTemplateDto[]; error?: string }>(
     `/api/families/${familyId}/shopping-lists/${listId}/templates/${templateId}`,
+    { method: "DELETE" },
+  );
+}
+
+export function renameShoppingListTemplate(
+  familyId: string,
+  listId: string,
+  templateId: string,
+  name: string,
+) {
+  return request<{ templates?: ShoppingListTemplateDto[]; error?: string }>(
+    `/api/families/${familyId}/shopping-lists/${listId}/templates/${templateId}`,
+    { method: "PATCH", body: JSON.stringify({ name }) },
+  );
+}
+
+export function addShoppingListTemplateItem(
+  familyId: string,
+  listId: string,
+  templateId: string,
+  name: string,
+) {
+  return request<{ templates?: ShoppingListTemplateDto[]; error?: string }>(
+    `/api/families/${familyId}/shopping-lists/${listId}/templates/${templateId}/items`,
+    { method: "POST", body: JSON.stringify({ name }) },
+  );
+}
+
+export function deleteShoppingListTemplateItem(
+  familyId: string,
+  listId: string,
+  templateId: string,
+  itemId: string,
+) {
+  return request<{ templates?: ShoppingListTemplateDto[]; error?: string }>(
+    `/api/families/${familyId}/shopping-lists/${listId}/templates/${templateId}/items/${itemId}`,
     { method: "DELETE" },
   );
 }

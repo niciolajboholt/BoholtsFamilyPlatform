@@ -45,7 +45,7 @@ interface ShoppingListTemplateDto {
   listType: string;
   name: string;
   createdAt: string;
-  itemNames: string[];
+  items: { id: string; name: string }[];
 }
 
 async function seedFamily(
@@ -950,7 +950,9 @@ describe("shopping list routes", () => {
     expect(saveResponse.status).toBe(200);
     expect(saveBody.templates).toHaveLength(1);
     expect(saveBody.templates[0]?.name).toBe("Ugens faste");
-    expect(saveBody.templates[0]?.itemNames.sort()).toEqual(["Mælk", "Æg"].sort());
+    expect(saveBody.templates[0]?.items.map((item) => item.name).sort()).toEqual(
+      ["Mælk", "Æg"].sort(),
+    );
 
     const listResponse = await shoppingLists.request(
       `/family-1/shopping-lists/${listId}/templates`,
@@ -1032,6 +1034,121 @@ describe("shopping list routes", () => {
 
     expect(deleteResponse.status).toBe(200);
     expect(deleteBody.templates).toHaveLength(0);
+  });
+
+  it("renames a template", async () => {
+    const { cookieHeader, userId } = await seedLoggedInUser(env.DB as never, { id: "nicolaj" });
+    await seedFamily(env, "family-1", [userId]);
+    const { lists } = (await (
+      await shoppingLists.request(
+        "/family-1/shopping-lists",
+        { headers: { Cookie: cookieHeader } },
+        env,
+      )
+    ).json()) as { lists: ShoppingListDto[] };
+    const listId = lists[0]!.id;
+
+    await shoppingLists.request(
+      `/family-1/shopping-lists/${listId}/items`,
+      {
+        method: "POST",
+        headers: { Cookie: cookieHeader, "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "Mælk" }),
+      },
+      env,
+      fakeExecutionCtx,
+    );
+    await lastWaitUntilTask;
+
+    const saveResponse = await shoppingLists.request(
+      `/family-1/shopping-lists/${listId}/templates`,
+      {
+        method: "POST",
+        headers: { Cookie: cookieHeader, "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "Ugens faste" }),
+      },
+      env,
+    );
+    const { templates } = (await saveResponse.json()) as { templates: ShoppingListTemplateDto[] };
+    const templateId = templates[0]!.id;
+
+    const renameResponse = await shoppingLists.request(
+      `/family-1/shopping-lists/${listId}/templates/${templateId}`,
+      {
+        method: "PATCH",
+        headers: { Cookie: cookieHeader, "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "Standardvarer" }),
+      },
+      env,
+    );
+    const renameBody: { templates: ShoppingListTemplateDto[] } = await renameResponse.json();
+
+    expect(renameResponse.status).toBe(200);
+    expect(renameBody.templates[0]?.name).toBe("Standardvarer");
+  });
+
+  it("adds and removes items on an existing template", async () => {
+    const { cookieHeader, userId } = await seedLoggedInUser(env.DB as never, { id: "nicolaj" });
+    await seedFamily(env, "family-1", [userId]);
+    const { lists } = (await (
+      await shoppingLists.request(
+        "/family-1/shopping-lists",
+        { headers: { Cookie: cookieHeader } },
+        env,
+      )
+    ).json()) as { lists: ShoppingListDto[] };
+    const listId = lists[0]!.id;
+
+    await shoppingLists.request(
+      `/family-1/shopping-lists/${listId}/items`,
+      {
+        method: "POST",
+        headers: { Cookie: cookieHeader, "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "Mælk" }),
+      },
+      env,
+      fakeExecutionCtx,
+    );
+    await lastWaitUntilTask;
+
+    const saveResponse = await shoppingLists.request(
+      `/family-1/shopping-lists/${listId}/templates`,
+      {
+        method: "POST",
+        headers: { Cookie: cookieHeader, "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "Ugens faste" }),
+      },
+      env,
+    );
+    const { templates } = (await saveResponse.json()) as { templates: ShoppingListTemplateDto[] };
+    const templateId = templates[0]!.id;
+
+    const addItemResponse = await shoppingLists.request(
+      `/family-1/shopping-lists/${listId}/templates/${templateId}/items`,
+      {
+        method: "POST",
+        headers: { Cookie: cookieHeader, "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "Æg" }),
+      },
+      env,
+    );
+    const addItemBody: { templates: ShoppingListTemplateDto[] } = await addItemResponse.json();
+
+    expect(addItemResponse.status).toBe(200);
+    const itemNamesAfterAdd = addItemBody.templates[0]!.items.map((item) => item.name).sort();
+    expect(itemNamesAfterAdd).toEqual(["Mælk", "Æg"].sort());
+
+    const itemToRemove = addItemBody.templates[0]!.items.find((item) => item.name === "Mælk")!;
+
+    const deleteItemResponse = await shoppingLists.request(
+      `/family-1/shopping-lists/${listId}/templates/${templateId}/items/${itemToRemove.id}`,
+      { method: "DELETE", headers: { Cookie: cookieHeader } },
+      env,
+    );
+    const deleteItemBody: { templates: ShoppingListTemplateDto[] } = await deleteItemResponse.json();
+
+    expect(deleteItemResponse.status).toBe(200);
+    expect(deleteItemBody.templates[0]!.items.map((item) => item.name)).toEqual(["Æg"]);
   });
 
   it("does not let a template from one family be deleted via another family's request", async () => {
