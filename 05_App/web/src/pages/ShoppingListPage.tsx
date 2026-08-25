@@ -95,7 +95,8 @@ function ShoppingListPage() {
     selectedListId,
     selectList,
     createList,
-    renameList,
+    updateList,
+    deleteList,
     items,
     addItem,
     toggleChecked,
@@ -115,8 +116,10 @@ function ShoppingListPage() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [newListName, setNewListName] = useState("");
   const [newListType, setNewListType] = useState<ShoppingListType>("dagligvarer");
-  const [isEditingListName, setIsEditingListName] = useState(false);
-  const [listNameDraft, setListNameDraft] = useState("");
+  const [isEditListDialogOpen, setIsEditListDialogOpen] = useState(false);
+  const [editListName, setEditListName] = useState("");
+  const [editListType, setEditListType] = useState<ShoppingListType>("dagligvarer");
+  const [isDeleteListConfirmVisible, setIsDeleteListConfirmVisible] = useState(false);
   const [isSuggestDialogOpen, setIsSuggestDialogOpen] = useState(false);
   const [isTemplatesDialogOpen, setIsTemplatesDialogOpen] = useState(false);
   const [moreActionsAnchor, setMoreActionsAnchor] = useState<HTMLElement | null>(null);
@@ -171,23 +174,45 @@ function ShoppingListPage() {
     setIsCreateDialogOpen(false);
   }
 
-  function startEditingListName(): void {
+  function openEditListDialog(): void {
     if (!selectedList) {
       return;
     }
 
-    setListNameDraft(selectedList.name);
-    setIsEditingListName(true);
+    setEditListName(selectedList.name);
+    setEditListType(selectedList.type);
+    setIsDeleteListConfirmVisible(false);
+    setIsEditListDialogOpen(true);
   }
 
-  function commitListNameEdit(): void {
-    setIsEditingListName(false);
+  function closeEditListDialog(): void {
+    setIsEditListDialogOpen(false);
+    setIsDeleteListConfirmVisible(false);
+  }
 
-    if (!selectedList || !listNameDraft.trim() || listNameDraft.trim() === selectedList.name) {
+  function handleSaveListEdit(): void {
+    if (!selectedList || !editListName.trim()) {
       return;
     }
 
-    renameList(listNameDraft);
+    const updates: { name?: string; type?: ShoppingListType } = {};
+    if (editListName.trim() !== selectedList.name) {
+      updates.name = editListName;
+    }
+    if (editListType !== selectedList.type) {
+      updates.type = editListType;
+    }
+
+    if (Object.keys(updates).length > 0) {
+      void updateList(updates);
+    }
+
+    closeEditListDialog();
+  }
+
+  function handleDeleteList(): void {
+    closeEditListDialog();
+    void deleteList();
   }
 
   return (
@@ -230,38 +255,9 @@ function ShoppingListPage() {
             </Avatar>
 
             <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-              {isEditingListName ? (
-                <TextField
-                  autoFocus
-                  size="small"
-                  value={listNameDraft}
-                  onChange={(event) => setListNameDraft(event.target.value)}
-                  onBlur={commitListNameEdit}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      event.currentTarget.blur();
-                    } else if (event.key === "Escape") {
-                      setIsEditingListName(false);
-                    }
-                  }}
-                />
-              ) : (
-                <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-                  <Typography variant="h6">
-                    {selectedList ? selectedList.name : "Varer"}
-                  </Typography>
-
-                  {selectedList && (
-                    <IconButton
-                      aria-label="Omdøb liste"
-                      size="small"
-                      onClick={startEditingListName}
-                    >
-                      <EditRounded fontSize="small" />
-                    </IconButton>
-                  )}
-                </Box>
-              )}
+              <Typography variant="h6" noWrap>
+                {selectedList ? selectedList.name : "Varer"}
+              </Typography>
 
               {selectedList && (
                 <Typography variant="caption" color="text.secondary">
@@ -282,6 +278,17 @@ function ShoppingListPage() {
               open={Boolean(moreActionsAnchor)}
               onClose={() => setMoreActionsAnchor(null)}
             >
+              <MenuItem
+                disabled={!selectedList}
+                onClick={() => {
+                  setMoreActionsAnchor(null);
+                  openEditListDialog();
+                }}
+              >
+                <EditRounded fontSize="small" sx={{ mr: 1.5 }} />
+                Rediger liste
+              </MenuItem>
+
               {selectedList?.type !== "andet" && (
                 <MenuItem
                   onClick={() => {
@@ -440,6 +447,67 @@ function ShoppingListPage() {
           <Button onClick={() => setIsCreateDialogOpen(false)}>Annuller</Button>
           <Button variant="contained" onClick={handleCreateList} disabled={!newListName.trim()}>
             Opret
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={isEditListDialogOpen} onClose={closeEditListDialog} fullWidth maxWidth="xs">
+        <DialogTitle>Rediger liste</DialogTitle>
+
+        <DialogContent>
+          <TextField
+            autoFocus
+            fullWidth
+            margin="dense"
+            label="Navn"
+            value={editListName}
+            onChange={(event) => setEditListName(event.target.value)}
+          />
+
+          <RadioGroup
+            value={editListType}
+            onChange={(event) => setEditListType(event.target.value as ShoppingListType)}
+            sx={{ mt: 1 }}
+          >
+            {shoppingListTypes.map((type) => (
+              <FormControlLabel
+                key={type}
+                value={type}
+                control={<Radio />}
+                label={shoppingListTypeLabels[type]}
+              />
+            ))}
+          </RadioGroup>
+
+          <Divider sx={{ my: 2 }} />
+
+          {isDeleteListConfirmVisible ? (
+            <Alert
+              severity="warning"
+              action={
+                <Button color="error" size="small" onClick={handleDeleteList}>
+                  Bekræft sletning
+                </Button>
+              }
+            >
+              Listen og alle dens varer slettes. Kan ikke fortrydes.
+            </Alert>
+          ) : (
+            <Button
+              color="error"
+              size="small"
+              startIcon={<DeleteOutlineRounded />}
+              onClick={() => setIsDeleteListConfirmVisible(true)}
+            >
+              Slet liste
+            </Button>
+          )}
+        </DialogContent>
+
+        <DialogActions>
+          <Button onClick={closeEditListDialog}>Annuller</Button>
+          <Button variant="contained" onClick={handleSaveListEdit} disabled={!editListName.trim()}>
+            Gem
           </Button>
         </DialogActions>
       </Dialog>

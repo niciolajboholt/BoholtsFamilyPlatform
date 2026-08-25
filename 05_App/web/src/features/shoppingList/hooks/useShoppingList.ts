@@ -5,17 +5,18 @@ import {
   addShoppingListItem,
   clearCheckedShoppingListItems,
   createShoppingList,
+  deleteShoppingList,
   deleteShoppingListItem,
   deleteShoppingListTemplate,
   generateIngredientsDraft,
   getShoppingListItems,
   getShoppingListTemplates,
   getShoppingLists,
-  renameShoppingList,
   renameShoppingListItem,
   saveShoppingListAsTemplate,
   setShoppingListItemCategory,
   setShoppingListItemChecked,
+  updateShoppingList,
   type IngredientDraftItem,
   type ShoppingCategory,
   type ShoppingListDto,
@@ -31,7 +32,8 @@ interface UseShoppingListResult {
   selectedListId: string | null;
   selectList: (listId: string) => void;
   createList: (name: string, type: ShoppingListType) => void;
-  renameList: (name: string) => void;
+  updateList: (updates: { name?: string; type?: ShoppingListType }) => Promise<void>;
+  deleteList: () => Promise<void>;
   items: ShoppingListItemDto[];
   addItem: (name: string) => void;
   toggleChecked: (itemId: string, isChecked: boolean) => void;
@@ -187,30 +189,68 @@ export function useShoppingList(): UseShoppingListResult {
     [familyId],
   );
 
-  const renameList = useCallback(
-    (name: string): void => {
-      const trimmed = name.trim();
-      if (!trimmed || !familyId || !selectedListId) {
+  const updateList = useCallback(
+    async (updates: { name?: string; type?: ShoppingListType }): Promise<void> => {
+      if (!familyId || !selectedListId) {
+        return;
+      }
+
+      const trimmedUpdates = updates.name !== undefined ? { ...updates, name: updates.name.trim() } : updates;
+      if (trimmedUpdates.name !== undefined && !trimmedUpdates.name) {
         return;
       }
 
       setError(null);
 
-      renameShoppingList(familyId, selectedListId, trimmed)
-        .then((result) => {
-          if (result.ok && result.data.list) {
-            const updatedList = result.data.list;
-            setLists((previousLists) =>
-              previousLists.map((list) => (list.id === updatedList.id ? updatedList : list)),
-            );
-          } else {
-            setError("Listen kunne ikke omdøbes.");
-          }
-        })
-        .catch(() => setError("Listen kunne ikke omdøbes."));
+      const result = await updateShoppingList(familyId, selectedListId, trimmedUpdates);
+
+      if (result.ok && result.data.list) {
+        const updatedList = result.data.list;
+        setLists((previousLists) =>
+          previousLists.map((list) => (list.id === updatedList.id ? updatedList : list)),
+        );
+      } else {
+        setError("Listen kunne ikke opdateres.");
+      }
     },
     [familyId, selectedListId],
   );
+
+  // Efter sletning af den valgte liste vælges den første resterende — er
+  // familien nu helt uden lister, hentes de igen, hvilket automatisk
+  // opretter en ny, tom standardliste (samme logik som ved allerførste
+  // besøg, se getShoppingLists' server-side "auto-creates a default list").
+  const deleteList = useCallback(async (): Promise<void> => {
+    if (!familyId || !selectedListId) {
+      return;
+    }
+
+    setError(null);
+
+    const result = await deleteShoppingList(familyId, selectedListId);
+
+    if (!result.ok || !result.data.lists) {
+      setError("Listen kunne ikke slettes.");
+      return;
+    }
+
+    if (result.data.lists.length > 0) {
+      setLists(result.data.lists);
+      setIsLoading(true);
+      setSelectedListId(result.data.lists[0]!.id);
+      return;
+    }
+
+    const refetched = await getShoppingLists(familyId);
+    if (refetched.ok && refetched.data.lists && refetched.data.lists.length > 0) {
+      setLists(refetched.data.lists);
+      setIsLoading(true);
+      setSelectedListId(refetched.data.lists[0]!.id);
+    } else {
+      setLists([]);
+      setSelectedListId(null);
+    }
+  }, [familyId, selectedListId]);
 
   const withMutation = useCallback(
     (action: () => Promise<{ ok: boolean; data: { items?: ShoppingListItemDto[] } }>) => {
@@ -403,7 +443,8 @@ export function useShoppingList(): UseShoppingListResult {
     selectedListId,
     selectList,
     createList,
-    renameList,
+    updateList,
+    deleteList,
     items,
     addItem,
     toggleChecked,

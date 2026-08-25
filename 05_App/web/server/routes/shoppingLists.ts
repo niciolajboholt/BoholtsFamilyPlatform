@@ -243,18 +243,48 @@ shoppingLists.patch("/:id/shopping-lists/:listId", async (c) => {
     return c.json({ error: "Ikke fundet." }, 404);
   }
 
-  const body = await parseJsonBody<{ name: string }>(c);
-  const name = body.name?.trim();
+  const body = await parseJsonBody<{ name: string; type: string }>(c);
 
+  const name = body.name !== undefined ? body.name.trim() : list.name;
   if (!name) {
     return c.json({ error: "Listen skal have et navn." }, 400);
   }
 
-  await c.env.DB.prepare("UPDATE shopping_lists SET name = ? WHERE id = ?")
-    .bind(name, list.id)
+  const type = body.type !== undefined ? body.type : list.type;
+  if (body.type !== undefined && !isShoppingListType(body.type)) {
+    return c.json({ error: "Ukendt listetype." }, 400);
+  }
+
+  await c.env.DB.prepare("UPDATE shopping_lists SET name = ?, type = ? WHERE id = ?")
+    .bind(name, type, list.id)
     .run();
 
-  return c.json({ list: { ...list, name } });
+  return c.json({ list: { ...list, name, type } });
+});
+
+// Sletter listen og alle dens varer. Familiens sidste liste kan godt
+// slettes — GET /:id/shopping-lists opretter automatisk en ny, tom
+// standardliste, næste gang familien henter sine lister (samme logik som
+// første gang nogen overhovedet åbner indkøbslisten), så der er intet
+// særtilfælde at holde styr på her.
+shoppingLists.delete("/:id/shopping-lists/:listId", async (c) => {
+  const familyId = c.req.param("id");
+  const list = await requireListInFamily(c, familyId, c.req.param("listId"));
+
+  if (!list) {
+    return c.json({ error: "Ikke fundet." }, 404);
+  }
+
+  await c.env.DB.prepare("DELETE FROM shopping_list_items WHERE list_id = ?").bind(list.id).run();
+  await c.env.DB.prepare("DELETE FROM shopping_lists WHERE id = ?").bind(list.id).run();
+
+  const { results } = await c.env.DB.prepare(
+    "SELECT id, family_id AS familyId, name, type, created_at AS createdAt FROM shopping_lists WHERE family_id = ? ORDER BY created_at ASC",
+  )
+    .bind(familyId)
+    .all<ShoppingListRow>();
+
+  return c.json({ lists: results });
 });
 
 shoppingLists.get("/:id/shopping-lists/:listId/items", async (c) => {

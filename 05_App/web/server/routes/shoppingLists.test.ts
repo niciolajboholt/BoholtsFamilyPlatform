@@ -527,6 +527,173 @@ describe("shopping list routes", () => {
     expect(response.status).toBe(400);
   });
 
+  it("updates a list's type", async () => {
+    const { cookieHeader, userId } = await seedLoggedInUser(env.DB as never, { id: "nicolaj" });
+    await seedFamily(env, "family-1", [userId]);
+    const { lists } = (await (
+      await shoppingLists.request(
+        "/family-1/shopping-lists",
+        { headers: { Cookie: cookieHeader } },
+        env,
+      )
+    ).json()) as { lists: ShoppingListDto[] };
+    const listId = lists[0]!.id;
+
+    const response = await shoppingLists.request(
+      `/family-1/shopping-lists/${listId}`,
+      {
+        method: "PATCH",
+        headers: { Cookie: cookieHeader, "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "byggemarked" }),
+      },
+      env,
+    );
+    const body: { list: ShoppingListDto } = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.list.type).toBe("byggemarked");
+    // Navnet skal forblive uændret, når kun typen sendes med.
+    expect(body.list.name).toBe(lists[0]!.name);
+  });
+
+  it("rejects updating a list to an invalid type", async () => {
+    const { cookieHeader, userId } = await seedLoggedInUser(env.DB as never, { id: "nicolaj" });
+    await seedFamily(env, "family-1", [userId]);
+    const { lists } = (await (
+      await shoppingLists.request(
+        "/family-1/shopping-lists",
+        { headers: { Cookie: cookieHeader } },
+        env,
+      )
+    ).json()) as { lists: ShoppingListDto[] };
+    const listId = lists[0]!.id;
+
+    const response = await shoppingLists.request(
+      `/family-1/shopping-lists/${listId}`,
+      {
+        method: "PATCH",
+        headers: { Cookie: cookieHeader, "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "ukendt-type" }),
+      },
+      env,
+    );
+
+    expect(response.status).toBe(400);
+  });
+
+  it("deletes a list and its items, returning the remaining lists", async () => {
+    const { cookieHeader, userId } = await seedLoggedInUser(env.DB as never, { id: "nicolaj" });
+    await seedFamily(env, "family-1", [userId]);
+    const { lists } = (await (
+      await shoppingLists.request(
+        "/family-1/shopping-lists",
+        { headers: { Cookie: cookieHeader } },
+        env,
+      )
+    ).json()) as { lists: ShoppingListDto[] };
+    const firstListId = lists[0]!.id;
+
+    await shoppingLists.request(
+      `/family-1/shopping-lists/${firstListId}/items`,
+      {
+        method: "POST",
+        headers: { Cookie: cookieHeader, "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "Mælk" }),
+      },
+      env,
+      fakeExecutionCtx,
+    );
+    await lastWaitUntilTask;
+
+    const secondListResponse = await shoppingLists.request(
+      "/family-1/shopping-lists",
+      {
+        method: "POST",
+        headers: { Cookie: cookieHeader, "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "Byggemarked", type: "byggemarked" }),
+      },
+      env,
+    );
+    const { list: secondList } = (await secondListResponse.json()) as { list: ShoppingListDto };
+
+    const deleteResponse = await shoppingLists.request(
+      `/family-1/shopping-lists/${firstListId}`,
+      { method: "DELETE", headers: { Cookie: cookieHeader } },
+      env,
+    );
+    const deleteBody: { lists: ShoppingListDto[] } = await deleteResponse.json();
+
+    expect(deleteResponse.status).toBe(200);
+    expect(deleteBody.lists).toEqual([expect.objectContaining({ id: secondList.id })]);
+
+    const remainingItems = await env.DB.prepare("SELECT * FROM shopping_list_items WHERE list_id = ?")
+      .bind(firstListId)
+      .all();
+    expect(remainingItems.results).toHaveLength(0);
+  });
+
+  it("deleting a family's last list leaves them with none, ready to auto-recreate on next fetch", async () => {
+    const { cookieHeader, userId } = await seedLoggedInUser(env.DB as never, { id: "nicolaj" });
+    await seedFamily(env, "family-1", [userId]);
+    const { lists } = (await (
+      await shoppingLists.request(
+        "/family-1/shopping-lists",
+        { headers: { Cookie: cookieHeader } },
+        env,
+      )
+    ).json()) as { lists: ShoppingListDto[] };
+    const listId = lists[0]!.id;
+
+    const deleteResponse = await shoppingLists.request(
+      `/family-1/shopping-lists/${listId}`,
+      { method: "DELETE", headers: { Cookie: cookieHeader } },
+      env,
+    );
+    const deleteBody: { lists: ShoppingListDto[] } = await deleteResponse.json();
+    expect(deleteBody.lists).toEqual([]);
+
+    // Næste hentning af familiens lister opretter automatisk en ny standardliste.
+    const { lists: listsAfter } = (await (
+      await shoppingLists.request(
+        "/family-1/shopping-lists",
+        { headers: { Cookie: cookieHeader } },
+        env,
+      )
+    ).json()) as { lists: ShoppingListDto[] };
+    expect(listsAfter).toHaveLength(1);
+    expect(listsAfter[0]?.id).not.toBe(listId);
+  });
+
+  it("does not let a list from one family be deleted via another family's request", async () => {
+    const { cookieHeader: ownerCookie, userId: ownerId } = await seedLoggedInUser(
+      env.DB as never,
+      { id: "owner" },
+    );
+    const { cookieHeader: outsiderCookie, userId: outsiderId } = await seedLoggedInUser(
+      env.DB as never,
+      { id: "outsider" },
+    );
+    await seedFamily(env, "family-1", [ownerId]);
+    await seedFamily(env, "family-2", [outsiderId]);
+
+    const { lists } = (await (
+      await shoppingLists.request(
+        "/family-1/shopping-lists",
+        { headers: { Cookie: ownerCookie } },
+        env,
+      )
+    ).json()) as { lists: ShoppingListDto[] };
+    const listId = lists[0]!.id;
+
+    const response = await shoppingLists.request(
+      `/family-2/shopping-lists/${listId}`,
+      { method: "DELETE", headers: { Cookie: outsiderCookie } },
+      env,
+    );
+
+    expect(response.status).toBe(404);
+  });
+
   it("renames an item without changing its category", async () => {
     const { cookieHeader, userId } = await seedLoggedInUser(env.DB as never, { id: "nicolaj" });
     await seedFamily(env, "family-1", [userId]);

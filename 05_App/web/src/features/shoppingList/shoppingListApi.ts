@@ -85,10 +85,21 @@ export function createShoppingList(familyId: string, name: string, type: Shoppin
   );
 }
 
-export function renameShoppingList(familyId: string, listId: string, name: string) {
+export function updateShoppingList(
+  familyId: string,
+  listId: string,
+  updates: { name?: string; type?: ShoppingListType },
+) {
   return request<{ list?: ShoppingListDto; error?: string }>(
     `/api/families/${familyId}/shopping-lists/${listId}`,
-    { method: "PATCH", body: JSON.stringify({ name }) },
+    { method: "PATCH", body: JSON.stringify(updates) },
+  );
+}
+
+export function deleteShoppingList(familyId: string, listId: string) {
+  return request<{ lists?: ShoppingListDto[]; error?: string }>(
+    `/api/families/${familyId}/shopping-lists/${listId}`,
+    { method: "DELETE" },
   );
 }
 
