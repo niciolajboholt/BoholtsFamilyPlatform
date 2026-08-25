@@ -33,12 +33,22 @@ export interface GoogleCalendarEvent {
   recurringEventId?: string;
 }
 
+// Kun til skrivning (create/update) — "date"/"dateTime"/"timeZone" skal
+// kunne sættes eksplicit til null for at rydde det MODSATTE felt ved skift
+// mellem heldags og tidsbestemt (se googleCalendarWriteMapper.ts). Googles
+// svar (GoogleEventDateTime ovenfor) bruger derimod aldrig null.
+export interface GoogleEventDateTimeWrite {
+  date?: string | null;
+  dateTime?: string | null;
+  timeZone?: string | null;
+}
+
 export interface GoogleCalendarEventRequest {
   summary: string;
   description?: string;
   location?: string;
-  start: GoogleEventDateTime;
-  end: GoogleEventDateTime;
+  start: GoogleEventDateTimeWrite;
+  end: GoogleEventDateTimeWrite;
 }
 
 export interface GoogleCalendarEventsResponse {
