@@ -24,7 +24,7 @@ interface SwipeNavigationHandlers {
 export function useSwipeNavigation({
   onSwipeLeft,
   onSwipeRight,
-  minDistancePx = 60,
+  minDistancePx = 40,
 }: UseSwipeNavigationOptions): SwipeNavigationHandlers {
   const startRef = useRef<{ x: number; y: number } | null>(null);
 
@@ -47,7 +47,10 @@ export function useSwipeNavigation({
     const deltaX = event.clientX - start.x;
     const deltaY = event.clientY - start.y;
 
-    if (Math.abs(deltaX) < minDistancePx || Math.abs(deltaX) < Math.abs(deltaY)) {
+    // Et rigtigt fingerswipe er sjældent lodret-vandret 1:1 — kræver kun at
+    // den vandrette bevægelse er den klart dominerende (mindst dobbelt så
+    // stor som den lodrette), ikke strengt større end den.
+    if (Math.abs(deltaX) < minDistancePx || Math.abs(deltaX) < Math.abs(deltaY) * 2) {
       return;
     }
 
