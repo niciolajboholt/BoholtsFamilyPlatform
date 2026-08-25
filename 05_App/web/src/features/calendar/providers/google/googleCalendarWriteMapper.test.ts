@@ -25,14 +25,16 @@ describe("mapGoogleEventWriteRequest", () => {
     sourceId: "google:nicolaj@example.com",
   };
 
-  it("maps a timed event using ISO dateTime as-is", () => {
+  it("maps a timed event using ISO dateTime as-is, with an explicit timeZone", () => {
     const request = mapGoogleEventWriteRequest(baseInput);
 
     expect(request.start).toEqual({
       dateTime: new Date(baseInput.start).toISOString(),
+      timeZone: "Europe/Copenhagen",
     });
     expect(request.end).toEqual({
       dateTime: new Date(baseInput.end).toISOString(),
+      timeZone: "Europe/Copenhagen",
     });
   });
 

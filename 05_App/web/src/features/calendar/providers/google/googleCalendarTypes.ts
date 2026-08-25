@@ -19,6 +19,7 @@ export interface GoogleCalendarListResponse {
 export interface GoogleEventDateTime {
   date?: string;
   dateTime?: string;
+  timeZone?: string;
 }
 
 export interface GoogleCalendarEvent {
