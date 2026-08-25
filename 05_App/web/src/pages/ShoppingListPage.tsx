@@ -10,6 +10,7 @@ import {
   EditRounded,
   IosShareRounded,
   LabelOutlined,
+  MoreVertRounded,
   ShoppingCartOutlined,
 } from "@mui/icons-material";
 import {
@@ -118,6 +119,7 @@ function ShoppingListPage() {
   const [listNameDraft, setListNameDraft] = useState("");
   const [isSuggestDialogOpen, setIsSuggestDialogOpen] = useState(false);
   const [isTemplatesDialogOpen, setIsTemplatesDialogOpen] = useState(false);
+  const [moreActionsAnchor, setMoreActionsAnchor] = useState<HTMLElement | null>(null);
 
   const selectedList = lists.find((list) => list.id === selectedListId);
   const isFlatList = selectedList?.type === "andet";
@@ -227,7 +229,7 @@ function ShoppingListPage() {
               <ShoppingCartOutlined />
             </Avatar>
 
-            <Box sx={{ flexGrow: 1 }}>
+            <Box sx={{ flexGrow: 1, minWidth: 0 }}>
               {isEditingListName ? (
                 <TextField
                   autoFocus
@@ -268,29 +270,51 @@ function ShoppingListPage() {
               )}
             </Box>
 
-            {selectedList?.type !== "andet" && (
-              <IconButton
-                aria-label="Foreslå varer ud fra en ret"
-                onClick={() => setIsSuggestDialogOpen(true)}
+            <IconButton
+              aria-label="Flere handlinger"
+              onClick={(event) => setMoreActionsAnchor(event.currentTarget)}
+            >
+              <MoreVertRounded />
+            </IconButton>
+
+            <Menu
+              anchorEl={moreActionsAnchor}
+              open={Boolean(moreActionsAnchor)}
+              onClose={() => setMoreActionsAnchor(null)}
+            >
+              {selectedList?.type !== "andet" && (
+                <MenuItem
+                  onClick={() => {
+                    setMoreActionsAnchor(null);
+                    setIsSuggestDialogOpen(true);
+                  }}
+                >
+                  <AutoAwesomeOutlined fontSize="small" sx={{ mr: 1.5 }} />
+                  Foreslå varer ud fra en ret
+                </MenuItem>
+              )}
+
+              <MenuItem
+                onClick={() => {
+                  setMoreActionsAnchor(null);
+                  setIsTemplatesDialogOpen(true);
+                }}
               >
-                <AutoAwesomeOutlined />
-              </IconButton>
-            )}
+                <BookmarksOutlined fontSize="small" sx={{ mr: 1.5 }} />
+                Skabeloner
+              </MenuItem>
 
-            <IconButton
-              aria-label="Skabeloner"
-              onClick={() => setIsTemplatesDialogOpen(true)}
-            >
-              <BookmarksOutlined />
-            </IconButton>
-
-            <IconButton
-              aria-label="Del liste som tekst"
-              onClick={handleShare}
-              disabled={items.length === 0}
-            >
-              <IosShareRounded />
-            </IconButton>
+              <MenuItem
+                disabled={items.length === 0}
+                onClick={() => {
+                  setMoreActionsAnchor(null);
+                  handleShare();
+                }}
+              >
+                <IosShareRounded fontSize="small" sx={{ mr: 1.5 }} />
+                Del liste som tekst
+              </MenuItem>
+            </Menu>
           </Box>
 
           <Box component="form" onSubmit={handleAddItem} sx={{ display: "flex", gap: 1, mb: 2.5 }}>
