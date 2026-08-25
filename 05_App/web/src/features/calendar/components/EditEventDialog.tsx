@@ -359,6 +359,20 @@ function EditEventDialog({
     );
   }
 
+  function handleAllDayChange(value: boolean) {
+    setField("allDay", value);
+
+    // En heldags-aftales start/slut er begge afledt af midnat samme dag
+    // (se createInitialFormState) — starttid og sluttid ville derfor blive
+    // ens med det samme, hvis "Heldagsaftale" slås fra uden dette, hvilket
+    // udløser "Sluttidspunktet skal ligge efter starttidspunktet", uanset
+    // hvad brugeren efterfølgende gør, før de selv har rettet begge felter.
+    if (!value && formState.startTime === formState.endTime) {
+      setField("startTime", "09:00");
+      setField("endTime", "10:00");
+    }
+  }
+
   function handleCloseRequest() {
     if (isSaving) {
       return;
@@ -605,9 +619,7 @@ function EditEventDialog({
             onEndDateChange={(value) =>
               setField("endDate", value)
             }
-            onAllDayChange={(value) =>
-              setField("allDay", value)
-            }
+            onAllDayChange={handleAllDayChange}
             onStartTimeChange={(value) =>
               setField("startTime", value)
             }

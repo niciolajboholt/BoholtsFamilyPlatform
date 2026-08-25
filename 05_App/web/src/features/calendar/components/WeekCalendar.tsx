@@ -10,6 +10,7 @@ import {
 
 import type { CalendarOwner } from "../data/calendarOwners";
 import { getEventOwnerColor } from "../utils/getEventOwnerColor";
+import { useLongPress } from "../hooks/useLongPress";
 import type {
   CalendarEvent,
   CalendarOwnerId,
@@ -30,6 +31,7 @@ interface WeekCalendarProps {
   conflictEventIds?: ReadonlySet<string>;
   onSelectDate: (date: Date) => void;
   onSelectEvent: (event: CalendarEvent) => void;
+  onLongPressCreate: (date: Date) => void;
 }
 
 function isSameDate(
@@ -187,6 +189,196 @@ function EventCard({
   );
 }
 
+interface WeekDayCardProps {
+  date: Date;
+  allDayEvents: CalendarEvent[];
+  timedEvents: CalendarEvent[];
+  members: readonly CalendarOwner[];
+  isSelected: boolean;
+  isToday: boolean;
+  conflictEventIds?: ReadonlySet<string>;
+  onSelectDate: (date: Date) => void;
+  onSelectEvent: (event: CalendarEvent) => void;
+  onLongPressCreate: (date: Date) => void;
+}
+
+// Udtrukket fra WeekCalendar's .map, fordi langt-tryk-understøttelsen
+// (useLongPress) er et hook — det må ikke kaldes inde i en løkke, kun i en
+// selvstændig komponent kaldt én gang pr. dag.
+function WeekDayCard({
+  date,
+  allDayEvents,
+  timedEvents,
+  members,
+  isSelected,
+  isToday,
+  conflictEventIds,
+  onSelectDate,
+  onSelectEvent,
+  onLongPressCreate,
+}: WeekDayCardProps) {
+  const longPress = useLongPress({
+    onLongPress: () => onLongPressCreate(date),
+    onClick: () => onSelectDate(date),
+  });
+
+  return (
+    <Box
+      sx={{
+        position: "relative",
+        pointerEvents: "none",
+        width: "100%",
+        minWidth: 0,
+        minHeight: {
+          xs: 140,
+          md: 260,
+        },
+        p: 1.25,
+        border: "1px solid",
+        borderColor: isSelected ? "primary.main" : "divider",
+        borderRadius: 2,
+        backgroundColor: isSelected ? "action.selected" : "background.paper",
+        textAlign: "left",
+      }}
+    >
+      <ButtonBase
+        aria-label={getDayActionLabel(date)}
+        {...longPress}
+        sx={{
+          position: "absolute",
+          inset: 0,
+          zIndex: 0,
+          width: "100%",
+          height: "100%",
+          pointerEvents: "auto",
+          borderRadius: 2,
+          "&:hover": {
+            backgroundColor: "action.hover",
+          },
+          "&:focus-visible": {
+            outline: "3px solid",
+            outlineColor: "primary.main",
+            outlineOffset: 2,
+          },
+        }}
+      />
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 1,
+          mb: 1,
+        }}
+      >
+        <Typography
+          variant="body2"
+          sx={{
+            textTransform: "capitalize",
+            fontWeight: 700,
+          }}
+        >
+          {formatWeekday(date)}
+        </Typography>
+
+        <Box
+          sx={{
+            width: 30,
+            height: 30,
+            borderRadius: "50%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: isToday ? "primary.main" : "transparent",
+            color: isToday ? "primary.contrastText" : "text.primary",
+            fontWeight: 700,
+          }}
+        >
+          {date.getDate()}
+        </Box>
+      </Box>
+
+      {allDayEvents.length > 0 && (
+        <Box sx={{ mb: 1 }}>
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{
+              display: "block",
+              mb: 0.5,
+              fontWeight: 700,
+              textTransform: "uppercase",
+              letterSpacing: "0.04em",
+            }}
+          >
+            Hele dagen
+          </Typography>
+
+          <Box sx={{ display: "grid", gap: 0.75 }}>
+            {allDayEvents.map((event) => (
+              <EventCard
+                key={event.id}
+                event={event}
+                showTime={false}
+                members={members}
+                isConflict={conflictEventIds?.has(event.id) ?? false}
+                onSelectEvent={onSelectEvent}
+              />
+            ))}
+          </Box>
+        </Box>
+      )}
+
+      {allDayEvents.length > 0 && timedEvents.length > 0 && (
+        <Divider sx={{ mb: 1 }} />
+      )}
+
+      {timedEvents.length === 0 && allDayEvents.length === 0 && (
+        <Typography variant="caption" color="text.secondary">
+          Ingen aftaler
+        </Typography>
+      )}
+
+      {timedEvents.length > 0 && (
+        <Box>
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{
+              display: "block",
+              mb: 0.5,
+              fontWeight: 700,
+              textTransform: "uppercase",
+              letterSpacing: "0.04em",
+            }}
+          >
+            Tidspunkter
+          </Typography>
+
+          <Box sx={{ display: "grid", gap: 0.75 }}>
+            {timedEvents.slice(0, 3).map((event) => (
+              <EventCard
+                key={event.id}
+                event={event}
+                showTime
+                members={members}
+                isConflict={conflictEventIds?.has(event.id) ?? false}
+                onSelectEvent={onSelectEvent}
+              />
+            ))}
+
+            {timedEvents.length > 3 && (
+              <Typography variant="caption" color="text.secondary">
+                +{timedEvents.length - 3} flere
+              </Typography>
+            )}
+          </Box>
+        </Box>
+      )}
+    </Box>
+  );
+}
+
 function WeekCalendar({
   selectedDate,
   events,
@@ -195,6 +387,7 @@ function WeekCalendar({
   conflictEventIds,
   onSelectDate,
   onSelectEvent,
+  onLongPressCreate,
 }: WeekCalendarProps) {
   const weekDays = getWeekDays(selectedDate);
   const today = new Date();
@@ -220,245 +413,30 @@ function WeekCalendar({
           }}
         >
           {weekDays.map((date) => {
-            const dayEvents =
-              filterEventsByOwner(
-                getEventsForDate(events, date),
-                selectedOwnerId,
-              );
+            const dayEvents = filterEventsByOwner(
+              getEventsForDate(events, date),
+              selectedOwnerId,
+            );
 
-            const allDayEvents =
-              dayEvents.filter(
-                (event) => event.allDay,
-              );
-
-            const timedEvents =
-              sortTimedEvents(
-                dayEvents.filter(
-                  (event) => !event.allDay,
-                ),
-              );
-
-            const isSelected =
-              isSameDate(
-                date,
-                selectedDate,
-              );
-
-            const isToday =
-              isSameDate(date, today);
+            const allDayEvents = dayEvents.filter((event) => event.allDay);
+            const timedEvents = sortTimedEvents(
+              dayEvents.filter((event) => !event.allDay),
+            );
 
             return (
-              <Box
+              <WeekDayCard
                 key={date.toISOString()}
-                sx={{
-                  position: "relative",
-                  pointerEvents: "none",
-                  width: "100%",
-                  minWidth: 0,
-                  minHeight: {
-                    xs: 140,
-                    md: 260,
-                  },
-                  p: 1.25,
-                  border: "1px solid",
-                  borderColor: isSelected
-                    ? "primary.main"
-                    : "divider",
-                  borderRadius: 2,
-                  backgroundColor: isSelected
-                    ? "action.selected"
-                    : "background.paper",
-                  textAlign: "left",
-                }}
-              >
-                <ButtonBase
-                  aria-label={getDayActionLabel(date)}
-                  onClick={() => onSelectDate(date)}
-                  sx={{
-                    position: "absolute",
-                    inset: 0,
-                    zIndex: 0,
-                    width: "100%",
-                    height: "100%",
-                    pointerEvents: "auto",
-                    borderRadius: 2,
-                    "&:hover": {
-                      backgroundColor: "action.hover",
-                    },
-                    "&:focus-visible": {
-                      outline: "3px solid",
-                      outlineColor: "primary.main",
-                      outlineOffset: 2,
-                    },
-                  }}
-                />
-                <Box
-                  sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent:
-                      "space-between",
-                    gap: 1,
-                    mb: 1,
-                  }}
-                >
-                  <Typography
-                    variant="body2"
-                    sx={{
-                      textTransform:
-                        "capitalize",
-                      fontWeight: 700,
-                    }}
-                  >
-                    {formatWeekday(date)}
-                  </Typography>
-
-                  <Box
-                    sx={{
-                      width: 30,
-                      height: 30,
-                      borderRadius: "50%",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent:
-                        "center",
-                      backgroundColor:
-                        isToday
-                          ? "primary.main"
-                          : "transparent",
-                      color: isToday
-                        ? "primary.contrastText"
-                        : "text.primary",
-                      fontWeight: 700,
-                    }}
-                  >
-                    {date.getDate()}
-                  </Box>
-                </Box>
-
-                {allDayEvents.length >
-                  0 && (
-                  <Box sx={{ mb: 1 }}>
-                    <Typography
-                      variant="caption"
-                      color="text.secondary"
-                      sx={{
-                        display: "block",
-                        mb: 0.5,
-                        fontWeight: 700,
-                        textTransform:
-                          "uppercase",
-                        letterSpacing:
-                          "0.04em",
-                      }}
-                    >
-                      Hele dagen
-                    </Typography>
-
-                    <Box
-                      sx={{
-                        display: "grid",
-                        gap: 0.75,
-                      }}
-                    >
-                      {allDayEvents.map(
-                        (event) => (
-                          <EventCard
-                            key={event.id}
-                            event={event}
-                            showTime={false}
-                            members={members}
-                            isConflict={
-                              conflictEventIds?.has(event.id) ?? false
-                            }
-                            onSelectEvent={
-                              onSelectEvent
-                            }
-                          />
-                        ),
-                      )}
-                    </Box>
-                  </Box>
-                )}
-
-                {allDayEvents.length >
-                  0 &&
-                  timedEvents.length >
-                    0 && (
-                    <Divider
-                      sx={{ mb: 1 }}
-                    />
-                  )}
-
-                {timedEvents.length === 0 &&
-                  allDayEvents.length ===
-                    0 && (
-                    <Typography
-                      variant="caption"
-                      color="text.secondary"
-                    >
-                      Ingen aftaler
-                    </Typography>
-                  )}
-
-                {timedEvents.length >
-                  0 && (
-                  <Box>
-                    <Typography
-                      variant="caption"
-                      color="text.secondary"
-                      sx={{
-                        display: "block",
-                        mb: 0.5,
-                        fontWeight: 700,
-                        textTransform:
-                          "uppercase",
-                        letterSpacing:
-                          "0.04em",
-                      }}
-                    >
-                      Tidspunkter
-                    </Typography>
-
-                    <Box
-                      sx={{
-                        display: "grid",
-                        gap: 0.75,
-                      }}
-                    >
-                      {timedEvents
-                        .slice(0, 3)
-                        .map((event) => (
-                          <EventCard
-                            key={event.id}
-                            event={event}
-                            showTime
-                            members={members}
-                            isConflict={
-                              conflictEventIds?.has(event.id) ?? false
-                            }
-                            onSelectEvent={
-                              onSelectEvent
-                            }
-                          />
-                        ))}
-
-                      {timedEvents.length >
-                        3 && (
-                        <Typography
-                          variant="caption"
-                          color="text.secondary"
-                        >
-                          +
-                          {timedEvents.length -
-                            3}{" "}
-                          flere
-                        </Typography>
-                      )}
-                    </Box>
-                  </Box>
-                )}
-              </Box>
+                date={date}
+                allDayEvents={allDayEvents}
+                timedEvents={timedEvents}
+                members={members}
+                isSelected={isSameDate(date, selectedDate)}
+                isToday={isSameDate(date, today)}
+                conflictEventIds={conflictEventIds}
+                onSelectDate={onSelectDate}
+                onSelectEvent={onSelectEvent}
+                onLongPressCreate={onLongPressCreate}
+              />
             );
           })}
         </Box>

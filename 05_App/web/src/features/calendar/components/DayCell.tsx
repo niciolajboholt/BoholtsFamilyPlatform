@@ -8,6 +8,7 @@ import { alpha } from "@mui/material/styles";
 
 import type { CalendarOwner } from "../data/calendarOwners";
 import { getEventOwnerColor } from "../utils/getEventOwnerColor";
+import { useLongPress } from "../hooks/useLongPress";
 import type {
   CalendarEvent,
   CalendarOwnerId,
@@ -28,6 +29,7 @@ interface DayCellProps {
   conflictEventIds?: ReadonlySet<string>;
   onSelect: (date: Date) => void;
   onSelectEvent: (event: CalendarEvent) => void;
+  onLongPressCreate?: (date: Date) => void;
 }
 
 type MultiDayStatus =
@@ -185,7 +187,13 @@ function DayCell({
   conflictEventIds,
   onSelect,
   onSelectEvent,
+  onLongPressCreate,
 }: DayCellProps) {
+  const longPress = useLongPress({
+    onLongPress: () => onLongPressCreate?.(date),
+    onClick: () => onSelect(date),
+  });
+
   const ownerIds = Array.from(
     new Set(
       events.flatMap(
@@ -204,7 +212,7 @@ function DayCell({
     >
       <ButtonBase
         aria-label={getDayActionLabel(date)}
-        onClick={() => onSelect(date)}
+        {...longPress}
         sx={{
           position: "absolute",
           inset: 0,

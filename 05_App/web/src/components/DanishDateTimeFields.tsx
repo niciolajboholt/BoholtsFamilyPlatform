@@ -1,7 +1,7 @@
 import type { KeyboardEventHandler, RefObject } from "react";
 import { useState } from "react";
 
-import { DateField } from "@mui/x-date-pickers/DateField";
+import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { TimeField } from "@mui/x-date-pickers/TimeField";
 
 // Native <input type="date">/<input type="time"> formaterer sig efter
@@ -109,7 +109,7 @@ export function DanishDateField({
   }
 
   return (
-    <DateField
+    <DatePicker
       label={label}
       format={danishDateFormat}
       value={draft}
@@ -118,7 +118,9 @@ export function DanishDateField({
         // er udfyldt — kladden (og dermed feltets `value`-prop) røres
         // bevidst IKKE ved et sådant mellemliggende null, ellers ville
         // feltet nulstille de sektioner, brugeren allerede har skrevet i
-        // (se kommentaren ved `draft` ovenfor).
+        // (se kommentaren ved `draft` ovenfor). En valgt dato fra
+        // kalender-popup'en rapporteres altid som en færdig dato med det
+        // samme, så den ramme gælder også her.
         if (date) {
           setDraft(date);
 
@@ -128,15 +130,19 @@ export function DanishDateField({
           }
         }
       }}
-      required={required}
       disabled={disabled}
-      error={error}
-      helperText={helperText}
-      fullWidth={fullWidth}
-      inputRef={inputRef}
-      onBlur={onBlur}
-      onFocus={onFocus}
       minDate={parseDateValue(minDate ?? "") ?? undefined}
+      slotProps={{
+        textField: {
+          required,
+          error,
+          helperText,
+          fullWidth,
+          inputRef,
+          onBlur,
+          onFocus,
+        },
+      }}
     />
   );
 }
