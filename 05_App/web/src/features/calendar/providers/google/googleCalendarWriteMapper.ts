@@ -24,21 +24,22 @@ export function mapGoogleEventWriteRequest(
     throw new CalendarProviderError("validation", "Sluttidspunktet skal ligge efter starttidspunktet.");
   }
 
-  // Google kræver ikke formelt "timeZone" ved siden af "dateTime" (selve
-  // tidsstemplet har jo allerede et UTC-offset via toISOString()), men
-  // afviser i praksis nogle skriv-forespørgsler uden det — bl.a. set ved
-  // skift fra heldags til tidsbestemt på et familiemedlems egen kalender
-  // ("Invalid start time."). Googles egne eksempler i deres dokumentation
-  // sætter altid feltet, og Outlook-mapperen (outlookCalendarWriteMapper.ts)
-  // gjorde det allerede — kun Google-mapperen manglede det.
+  // PATCH's "patch semantics" betyder her, at et felt vi UDELADER (fx "date"
+  // ved skift til tidsbestemt) IKKE bliver ryddet på Googles side — den
+  // gamle værdi bliver siddende ved siden af den nye "dateTime", så aftalen
+  // ender med BÅDE date og dateTime sat, hvilket er ugyldigt og afvises
+  // (set som "Invalid start time." ved ethvert skift mellem heldags og
+  // tidsbestemt, uanset kalender). Løsningen er at sætte det andet felt
+  // eksplicit til null, som Google Kalender-API'et bruger til at rydde et
+  // felt via PATCH.
   const request: GoogleCalendarEventRequest = {
     summary: event.title.trim(),
     start: event.allDay
-      ? { date: toCalendarDate(start) }
-      : { dateTime: start.toISOString(), timeZone: "Europe/Copenhagen" },
+      ? { date: toCalendarDate(start), dateTime: null, timeZone: null }
+      : { dateTime: start.toISOString(), timeZone: "Europe/Copenhagen", date: null },
     end: event.allDay
-      ? { date: toCalendarDate(end) }
-      : { dateTime: end.toISOString(), timeZone: "Europe/Copenhagen" },
+      ? { date: toCalendarDate(end), dateTime: null, timeZone: null }
+      : { dateTime: end.toISOString(), timeZone: "Europe/Copenhagen", date: null },
   };
 
   if (event.description) request.description = event.description;

@@ -25,20 +25,22 @@ describe("mapGoogleEventWriteRequest", () => {
     sourceId: "google:nicolaj@example.com",
   };
 
-  it("maps a timed event using ISO dateTime as-is, with an explicit timeZone", () => {
+  it("maps a timed event using ISO dateTime as-is, with an explicit timeZone and a cleared date", () => {
     const request = mapGoogleEventWriteRequest(baseInput);
 
     expect(request.start).toEqual({
       dateTime: new Date(baseInput.start).toISOString(),
       timeZone: "Europe/Copenhagen",
+      date: null,
     });
     expect(request.end).toEqual({
       dateTime: new Date(baseInput.end).toISOString(),
       timeZone: "Europe/Copenhagen",
+      date: null,
     });
   });
 
-  it("sends the exact locally-selected date for a single-day all-day event (regression test)", () => {
+  it("sends the exact locally-selected date for a single-day all-day event, with a cleared dateTime (regression test)", () => {
     // Mirrors what NewEventDialog builds for a single-day all-day event:
     // start = local midnight of the selected day, end = local midnight of
     // the next day (exclusive), via the same createAllDayDate helper.
@@ -51,8 +53,16 @@ describe("mapGoogleEventWriteRequest", () => {
 
     const request = mapGoogleEventWriteRequest(input);
 
-    expect(request.start).toEqual({ date: "2026-07-31" });
-    expect(request.end).toEqual({ date: "2026-08-01" });
+    expect(request.start).toEqual({
+      date: "2026-07-31",
+      dateTime: null,
+      timeZone: null,
+    });
+    expect(request.end).toEqual({
+      date: "2026-08-01",
+      dateTime: null,
+      timeZone: null,
+    });
   });
 
   it("throws on an empty title", () => {
