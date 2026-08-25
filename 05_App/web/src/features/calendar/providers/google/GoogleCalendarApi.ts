@@ -35,7 +35,10 @@ async function extractGoogleErrorReason(
   }
 }
 
-async function toProviderError(response: Response): Promise<CalendarProviderError> {
+async function toProviderError(
+  response: Response,
+  requestBody?: GoogleCalendarEventRequest,
+): Promise<CalendarProviderError> {
   if (response.status === 401) {
     return new CalendarProviderError(
       "authentication",
@@ -52,11 +55,18 @@ async function toProviderError(response: Response): Promise<CalendarProviderErro
 
   if (response.status === 400) {
     const reason = await extractGoogleErrorReason(response);
+    // Midlertidigt: viser den faktiske sendte start/slut i selve fejlbeskeden
+    // (ikke kun Googles svar) — en gentagen "Invalid start time."-afvisning
+    // på tværs af flere ukorrelerede aftaler kunne ikke findes ved kodelæsning
+    // alene, og appen har ingen adgang til Cloudflares serverlogs herfra.
+    const debugSuffix = requestBody
+      ? ` [sendt: ${JSON.stringify({ start: requestBody.start, end: requestBody.end })}]`
+      : "";
     return new CalendarProviderError(
       "validation",
-      reason
+      (reason
         ? `Google Kalender afviste aftalens data: ${reason}`
-        : "Google Kalender afviste aftalens data.",
+        : "Google Kalender afviste aftalens data.") + debugSuffix,
     );
   }
 
@@ -160,7 +170,7 @@ export class GoogleCalendarApi {
       headers: body ? { "Content-Type": "application/json" } : {},
       body: body ? JSON.stringify(body) : undefined,
     }).catch((error: unknown) => { throw new CalendarProviderError("network", "Google Kalender kunne ikke kontaktes. Dine lokale aftaler er ikke påvirket.", { cause: error }); });
-    if (!response.ok) throw await toProviderError(response);
+    if (!response.ok) throw await toProviderError(response, body);
     return response;
   }
 
