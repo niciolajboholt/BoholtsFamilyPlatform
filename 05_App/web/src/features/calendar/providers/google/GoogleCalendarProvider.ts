@@ -12,6 +12,7 @@ import {
 import {
   decodeGoogleEventId,
   decodeGoogleCalendarSourceId,
+  encodeGoogleCalendarSourceId,
   encodeGoogleEventId,
 } from "./googleCalendarIds";
 import { mapGoogleEventWriteRequest } from "./googleCalendarWriteMapper";
@@ -141,10 +142,25 @@ export class GoogleCalendarProvider implements CalendarProvider {
   async updateEvent(event: CalendarEvent): Promise<CalendarEvent> {
     if (event.source !== "google") throw new CalendarProviderError("validation", "Aftalen er ikke en Google-aftale.");
     await this.assertWritableSource(event.sourceId);
-    const { calendarId, eventId } = decodeGoogleEventId(event.id);
-    if (calendarId !== decodeGoogleCalendarSourceId(event.sourceId)) throw new CalendarProviderError("validation", "Google-aftalen tilhører en anden kalender.");
-    const updated = await this.api.updateEvent(calendarId, eventId, mapGoogleEventWriteRequest(event));
-    return await this.mapWrittenEvent(calendarId, updated);
+
+    const { calendarId: originCalendarId, eventId } = decodeGoogleEventId(event.id);
+    const targetCalendarId = decodeGoogleCalendarSourceId(event.sourceId);
+
+    if (originCalendarId === targetCalendarId) {
+      const updated = await this.api.updateEvent(originCalendarId, eventId, mapGoogleEventWriteRequest(event));
+      return await this.mapWrittenEvent(originCalendarId, updated);
+    }
+
+    // event.sourceId peger på en anden kalender end den, aftalen faktisk
+    // ligger i lige nu — brugeren har skiftet kalender i redigér-dialogen.
+    // Google kræver en dedikeret "move" for selve kalenderskiftet (skriveadgang
+    // til BÅDE afsender- og modtager-kalenderen), og tillader ikke andre
+    // feltændringer i samme kald — øvrige ændringer (titel, tid, osv.)
+    // patches derfor separat, mod den flyttede aftale.
+    await this.assertWritableSource(encodeGoogleCalendarSourceId(originCalendarId));
+    const moved = await this.api.moveEvent(originCalendarId, eventId, targetCalendarId);
+    const updated = await this.api.updateEvent(targetCalendarId, moved.id ?? eventId, mapGoogleEventWriteRequest(event));
+    return await this.mapWrittenEvent(targetCalendarId, updated);
   }
 
   async deleteEvent(eventId: string, sourceId?: string): Promise<void> {

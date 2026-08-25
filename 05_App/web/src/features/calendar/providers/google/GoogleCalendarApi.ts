@@ -91,6 +91,28 @@ export class GoogleCalendarApi {
     );
   }
 
+  // Flytter aftalen til en anden kalender — Googles "move"-handling accepterer
+  // kun destinationen, ingen andre feltændringer i samme kald (se
+  // GoogleCalendarProvider.updateEvent, som patcher øvrige felter bagefter).
+  async moveEvent(
+    calendarId: string,
+    eventId: string,
+    destinationCalendarId: string,
+  ): Promise<GoogleCalendarEvent> {
+    const response = await this.request(
+      "POST",
+      `/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}/move`,
+      undefined,
+      { destination: destinationCalendarId, sendUpdates: "none" },
+    );
+
+    try {
+      return await response.json() as GoogleCalendarEvent;
+    } catch (error: unknown) {
+      throw new CalendarProviderError("unknown", "Google Kalender sendte et ugyldigt svar.", { cause: error });
+    }
+  }
+
   private async writeEvent(method: "POST" | "PATCH", calendarId: string, eventId: string | undefined, request: GoogleCalendarEventRequest): Promise<GoogleCalendarEvent> {
     const path = eventId
       ? `/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}`

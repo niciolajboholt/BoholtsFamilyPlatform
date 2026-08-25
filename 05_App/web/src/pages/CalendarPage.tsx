@@ -37,6 +37,7 @@ import { useFamilyMembers } from "../features/calendar/hooks/useFamilyMembers";
 import { useGoogleCalendarConnection } from "../features/calendar/hooks/useGoogleCalendarConnection";
 import { useOutlookCalendarConnection } from "../features/calendar/hooks/useOutlookCalendarConnection";
 import { useRecurrenceExceptions } from "../features/calendar/hooks/useRecurrenceExceptions";
+import { useSwipeNavigation } from "../features/calendar/hooks/useSwipeNavigation";
 import type {
   CalendarEvent,
 } from "../features/calendar/models/calendarEvent";
@@ -519,6 +520,14 @@ function CalendarPage() {
     }
   }
 
+  // Swipe venstre/højre over selve kalendervisningen genbruger nøjagtig de
+  // samme handlere som </>-knapperne i CalendarToolbar — samme betydning
+  // (venstre = frem, højre = tilbage), bare som gestus i stedet for tryk.
+  const swipeNavigation = useSwipeNavigation({
+    onSwipeLeft: handleNext,
+    onSwipeRight: handlePrevious,
+  });
+
   function handleToday() {
     const today = getTodayCalendarDate();
 
@@ -977,6 +986,7 @@ function CalendarPage() {
             </Alert>
           ) : null}
 
+      <Box {...(calendarView === "planner" ? {} : swipeNavigation)}>
       {calendarView === "month" ? (
         <MonthCalendar
           visibleMonth={visibleDate}
@@ -1016,6 +1026,7 @@ function CalendarPage() {
           onSelectEvent={handleSelectEvent}
         />
       )}
+      </Box>
 
       {calendarView === "month" && (
         <EventList

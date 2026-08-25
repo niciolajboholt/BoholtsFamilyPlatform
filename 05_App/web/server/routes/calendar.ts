@@ -190,6 +190,30 @@ calendar.patch("/calendars/:calendarId/events/:eventId", async (c) => {
   return response;
 });
 
+// Flytter aftalen til en anden af familiens kalendere — Googles egen
+// "move"-handling, adskilt fra den almindelige PATCH ovenfor, fordi Google
+// ikke tillader at kombinere en kalender-flytning med andre feltændringer i
+// samme kald (kun destinationen). Klienten (GoogleCalendarProvider.updateEvent)
+// kalder derfor denne FØRST, og patcher øvrige felter bagefter.
+calendar.post("/calendars/:calendarId/events/:eventId/move", async (c) => {
+  const response = await proxyToGoogle(
+    c,
+    "POST",
+    `${calendarPath(c)}/events/${encodeURIComponent(c.req.param("eventId")!)}/move`,
+  );
+
+  if (response.ok) {
+    const summary = await readEventSummary(response);
+    notifyFamilyOfCalendarChange(
+      c,
+      "Aftale flyttet",
+      summary ? `"${summary}" er flyttet til en anden kalender.` : "En aftale er flyttet til en anden kalender.",
+    );
+  }
+
+  return response;
+});
+
 calendar.delete("/calendars/:calendarId/events/:eventId", async (c) => {
   const response = await proxyToGoogle(
     c,
