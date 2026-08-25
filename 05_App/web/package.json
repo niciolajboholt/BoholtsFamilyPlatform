@@ -43,6 +43,6 @@
     "vitest": "^4.1.10",
     "workbox-precaching": "^7.4.1",
     "workbox-routing": "^7.4.1",
-    "wrangler": "^4.118.0"
+    "wrangler": "^4.125.0"
   }
 }
