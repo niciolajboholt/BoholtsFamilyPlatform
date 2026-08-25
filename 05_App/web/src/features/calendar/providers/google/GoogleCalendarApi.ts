@@ -16,7 +16,26 @@ import type { GoogleCalendarEventRequest } from "./googleCalendarTypes";
 // sessionscookien følger med, ligesom resten af appens /api-kald.
 const calendarApiBaseUrl = "/api/calendar";
 
-function toProviderError(response: Response): CalendarProviderError {
+// Læser Googles egen fejlbesked ud af svarkroppen (fx "{"error":{"message":
+// "..."}}") — bruges kun til 400-svar, så brugeren (og os, ved fejlrapporter)
+// kan se den faktiske afvisningsårsag i stedet for en generisk tekst.
+// response.clone() er nødvendigt, fordi kroppen ellers kun kan læses én gang,
+// og kalderen kan have brug for den uændrede response bagefter.
+async function extractGoogleErrorReason(
+  response: Response,
+): Promise<string | undefined> {
+  try {
+    const body = (await response
+      .clone()
+      .json()) as { error?: { message?: string } };
+
+    return body.error?.message;
+  } catch {
+    return undefined;
+  }
+}
+
+async function toProviderError(response: Response): Promise<CalendarProviderError> {
   if (response.status === 401) {
     return new CalendarProviderError(
       "authentication",
@@ -31,7 +50,16 @@ function toProviderError(response: Response): CalendarProviderError {
     );
   }
 
-  if (response.status === 400) return new CalendarProviderError("validation", "Google Kalender afviste aftalens data.");
+  if (response.status === 400) {
+    const reason = await extractGoogleErrorReason(response);
+    return new CalendarProviderError(
+      "validation",
+      reason
+        ? `Google Kalender afviste aftalens data: ${reason}`
+        : "Google Kalender afviste aftalens data.",
+    );
+  }
+
   if (response.status === 404 || response.status === 410) return new CalendarProviderError("not-found", "Aftalen findes ikke længere i Google Kalender. Opdatér kalenderen og prøv igen.");
   if (response.status === 409 || response.status === 412) return new CalendarProviderError("conflict", "Aftalen blev ændret et andet sted. Opdatér kalenderen, før du gemmer igen.");
   if (response.status === 429) return new CalendarProviderError("unavailable", "Google Kalender modtager for mange forespørgsler. Prøv igen om lidt.");
@@ -132,7 +160,7 @@ export class GoogleCalendarApi {
       headers: body ? { "Content-Type": "application/json" } : {},
       body: body ? JSON.stringify(body) : undefined,
     }).catch((error: unknown) => { throw new CalendarProviderError("network", "Google Kalender kunne ikke kontaktes. Dine lokale aftaler er ikke påvirket.", { cause: error }); });
-    if (!response.ok) throw toProviderError(response);
+    if (!response.ok) throw await toProviderError(response);
     return response;
   }
 
@@ -168,7 +196,7 @@ export class GoogleCalendarApi {
       }
 
       if (!response.ok) {
-        throw toProviderError(response);
+        throw await toProviderError(response);
       }
 
       const payload = await response.json() as GoogleCalendarEventsResponse;
@@ -214,7 +242,7 @@ export class GoogleCalendarApi {
       }
 
       if (!response.ok) {
-        throw toProviderError(response);
+        throw await toProviderError(response);
       }
 
       const payload = await response.json() as TResponse;

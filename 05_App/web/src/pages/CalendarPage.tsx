@@ -646,10 +646,12 @@ function CalendarPage() {
         "success",
         "Aftalen blev opdateret.",
       );
-    } catch {
+    } catch (caughtError: unknown) {
       showSnackbar(
         "error",
-        "Aftalen kunne ikke opdateres.",
+        caughtError instanceof Error && caughtError.message
+          ? caughtError.message
+          : "Aftalen kunne ikke opdateres.",
       );
     }
   }

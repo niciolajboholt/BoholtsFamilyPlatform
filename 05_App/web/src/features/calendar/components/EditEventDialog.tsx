@@ -374,14 +374,38 @@ function EditEventDialog({
   function handleAllDayChange(value: boolean) {
     setField("allDay", value);
 
-    // En heldags-aftales start/slut er begge afledt af midnat samme dag
-    // (se createInitialFormState) — starttid og sluttid ville derfor blive
-    // ens med det samme, hvis "Heldagsaftale" slås fra uden dette, hvilket
-    // udløser "Sluttidspunktet skal ligge efter starttidspunktet", uanset
-    // hvad brugeren efterfølgende gør, før de selv har rettet begge felter.
-    if (!value && formState.startTime === formState.endTime) {
-      setField("startTime", "09:00");
-      setField("endTime", "10:00");
+    if (!value) {
+      // En heldags-aftales start/slut er begge afledt af midnat samme dag
+      // (se createInitialFormState) — starttid og sluttid ville derfor blive
+      // ens med det samme, hvis "Heldagsaftale" slås fra uden dette, hvilket
+      // udløser "Sluttidspunktet skal ligge efter starttidspunktet", uanset
+      // hvad brugeren efterfølgende gør, før de selv har rettet begge felter.
+      if (formState.startTime === formState.endTime) {
+        setField("startTime", "09:00");
+        setField("endTime", "10:00");
+      }
+
+      return;
+    }
+
+    // En tidsbestemt aftale, der slutter PRÆCIS ved midnat (fx en aftale
+    // der varer et helt døgn eller flere), har allerede sin slutdato sat
+    // til dagen EFTER sidste hele dag — samme konvention som en heldags-
+    // aftales egen (eksklusive) slutdato bruger. Uden dette lægger
+    // createAllDayDate (se handleSubmit) endnu en dag oveni, så aftalen
+    // bliver én dag for lang, når "Heldagsaftale" slås til.
+    if (
+      formState.endTime === "00:00" &&
+      formState.endDate > formState.startDate
+    ) {
+      setField(
+        "endDate",
+        toDateInputValue(
+          subtractOneCalendarDay(
+            new Date(`${formState.endDate}T00:00:00`),
+          ),
+        ),
+      );
     }
   }
 
