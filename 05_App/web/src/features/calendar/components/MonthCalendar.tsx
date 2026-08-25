@@ -26,6 +26,9 @@ interface MonthCalendarProps {
   conflictEventIds?: ReadonlySet<string>;
   onSelectDate: (date: Date) => void;
   onSelectEvent: (event: CalendarEvent) => void;
+  // Udeladt på den offentlige delelink-side (PublicSharedCalendarPage) —
+  // den er read-only og har ingen opret-dialog at åbne.
+  onLongPressCreate?: (date: Date) => void;
 }
 
 const weekdays = [
@@ -71,6 +74,7 @@ function MonthCalendar({
   conflictEventIds,
   onSelectDate,
   onSelectEvent,
+  onLongPressCreate,
 }: MonthCalendarProps) {
   const calendarDays =
     getCalendarMonth(visibleMonth);
@@ -165,6 +169,7 @@ function MonthCalendar({
                   onSelectEvent={
                     onSelectEvent
                   }
+                  onLongPressCreate={onLongPressCreate}
                 />
               );
             },

@@ -240,6 +240,20 @@ function CalendarPage() {
     }
   }, [location.state, navigate]);
 
+  // Langt tryk på et tomt sted i kalenderen (alle tre visninger) åbner
+  // opret-dialogen forudfyldt med det tryk-ramte tidspunkt, i stedet for
+  // altid "selectedDate" kl. 09:00 — nulstilles ved dialogens luk, så den
+  // almindelige "Ny aftale"-knap fortsat bruger selectedDate som før.
+  const [
+    longPressCreateDate,
+    setLongPressCreateDate,
+  ] = useState<Date | null>(null);
+
+  function handleLongPressCreate(date: Date) {
+    setLongPressCreateDate(date);
+    setIsNewEventDialogOpen(true);
+  }
+
   const [
     selectedEvent,
     setSelectedEvent,
@@ -460,6 +474,19 @@ function CalendarPage() {
     } else {
       setVisibleDate(date);
     }
+  }
+
+  // Ugevisningens dagkort er en agenda-oversigt, for lille til selv at vise
+  // aftalernes fulde detaljer — et tryk på en dag giver derfor mere mening
+  // som "gå til den dags fulde dagvisning" end blot at markere dagen uden at
+  // skifte visning (det sidste er stadig det rigtige for månedsvisningen,
+  // hvor EventList nedenunder allerede viser den valgte dags aftaler).
+  function handleOpenDayFromWeek(
+    date: Date,
+  ) {
+    setSelectedDate(date);
+    setVisibleDate(date);
+    setCalendarView("day");
   }
 
   function handlePrevious() {
@@ -959,6 +986,7 @@ function CalendarPage() {
           conflictEventIds={conflictEventIds}
           onSelectDate={handleSelectDate}
           onSelectEvent={handleSelectEvent}
+          onLongPressCreate={handleLongPressCreate}
         />
       ) : calendarView === "week" ? (
         <WeekCalendar
@@ -966,8 +994,9 @@ function CalendarPage() {
           events={visibleEvents}
           members={members}
           conflictEventIds={conflictEventIds}
-          onSelectDate={handleSelectDate}
+          onSelectDate={handleOpenDayFromWeek}
           onSelectEvent={handleSelectEvent}
+          onLongPressCreate={handleLongPressCreate}
         />
       ) : calendarView === "day" ? (
         <DayCalendar
@@ -976,6 +1005,7 @@ function CalendarPage() {
           members={members}
           conflictEventIds={conflictEventIds}
           onSelectEvent={handleSelectEvent}
+          onLongPressCreate={handleLongPressCreate}
         />
       ) : (
         <FamilyPlannerCalendar
@@ -1001,14 +1031,15 @@ function CalendarPage() {
 
       <NewEventDialog
         open={isNewEventDialogOpen}
-        initialDate={selectedDate}
+        initialDate={longPressCreateDate ?? selectedDate}
         events={events}
         calendarSources={calendarSources}
         members={members}
         isSaving={isSaving}
-        onClose={() =>
-          setIsNewEventDialogOpen(false)
-        }
+        onClose={() => {
+          setIsNewEventDialogOpen(false);
+          setLongPressCreateDate(null);
+        }}
         onCreate={handleCreateEvent}
       />
 

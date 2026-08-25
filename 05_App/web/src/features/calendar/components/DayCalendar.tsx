@@ -11,6 +11,7 @@ import {
 
 import type { CalendarOwner } from "../data/calendarOwners";
 import { getEventOwnerColor } from "../utils/getEventOwnerColor";
+import { useLongPress } from "../hooks/useLongPress";
 import type { CalendarEvent } from "../models/calendarEvent";
 import { getEventsForDate } from "../utils/getEventsForDate";
 import { layoutDayTimelineEvents } from "../utils/layoutDayTimelineEvents";
@@ -23,6 +24,7 @@ interface DayCalendarProps {
   members: readonly CalendarOwner[];
   conflictEventIds?: ReadonlySet<string>;
   onSelectEvent: (event: CalendarEvent) => void;
+  onLongPressCreate: (date: Date) => void;
 }
 
 const HOUR_HEIGHT_PX = 64;
@@ -67,6 +69,7 @@ function DayCalendar({
   members,
   conflictEventIds,
   onSelectEvent,
+  onLongPressCreate,
 }: DayCalendarProps) {
   const isToday = isSameDate(selectedDate, new Date());
 
@@ -111,6 +114,38 @@ function DayCalendar({
   const allDayEvents = dayEvents.filter((event) => event.allDay);
   const timedEvents = dayEvents.filter((event) => !event.allDay);
   const layoutEntries = layoutDayTimelineEvents(timedEvents, selectedDate);
+
+  const timelineRef = useRef<HTMLDivElement>(null);
+
+  // Udregner det trykkede klokkeslæt ud fra Y-positionen i tidslinjen —
+  // rundet til nærmeste kvarter, så det matcher hvad man rammer med
+  // fingeren, ikke minuttet præcist. Klemt til [00:00, 23:45], så et tryk
+  // helt i bunden aldrig ryger over i den følgende dag.
+  function computeDateFromClientY(clientY: number): Date {
+    const result = new Date(selectedDate);
+    result.setHours(0, 0, 0, 0);
+
+    const container = timelineRef.current;
+    if (!container) {
+      return result;
+    }
+
+    const offsetY = clientY - container.getBoundingClientRect().top;
+    const rawMinutes = (offsetY / TIMELINE_HEIGHT_PX) * MINUTES_PER_DAY;
+    const snappedMinutes = Math.round(rawMinutes / 15) * 15;
+    const clampedMinutes = Math.min(
+      Math.max(snappedMinutes, 0),
+      MINUTES_PER_DAY - 15,
+    );
+
+    result.setMinutes(clampedMinutes);
+    return result;
+  }
+
+  const longPress = useLongPress({
+    onLongPress: (position) =>
+      onLongPressCreate(computeDateFromClientY(position.clientY)),
+  });
 
   return (
     <Card sx={{ mb: 2.5 }}>
@@ -189,7 +224,15 @@ function DayCalendar({
             overflowY: "auto",
           }}
         >
-          <Box sx={{ position: "relative", height: TIMELINE_HEIGHT_PX }}>
+          <Box
+            ref={timelineRef}
+            {...longPress}
+            sx={{
+              position: "relative",
+              height: TIMELINE_HEIGHT_PX,
+              touchAction: "pan-y",
+            }}
+          >
             {Array.from({ length: HOURS_PER_DAY }, (_, hour) => (
               <Box
                 key={hour}

@@ -29,6 +29,7 @@ import {
   createDateTime,
   ensureEndDateOnOrAfterStartDate,
   toDateInputValue,
+  toTimeInputValue,
 } from "../form/eventFormDateUtils";
 import type { EventFormState } from "../form/eventFormTypes";
 import { useEventConflicts } from "../form/useEventConflicts";
@@ -79,18 +80,44 @@ const validationMessages: EventFormValidationMessages = {
     "Sluttidspunktet skal ligge efter starttidspunktet.",
 };
 
+// Kalendervisningerne sætter kl. 12 som et bevidst "kun dato, intet bestemt
+// tidspunkt"-signal (se CalendarPage's getTodayCalendarDate m.fl.) —
+// dagvisningens langt-tryk er den ene undtagelse, der sender et rigtigt,
+// udregnet klokkeslæt (se DayCalendar's computeDateFromClientY). Kun i det
+// tilfælde overtager det trykkede tidspunkt standardværdien 09:00–10:00.
 function createInitialState(
   initialDate: Date,
 ): EventFormState {
   const date =
     toDateInputValue(initialDate);
 
+  const hasExplicitTime = !(
+    initialDate.getHours() === 12 &&
+    initialDate.getMinutes() === 0
+  );
+
+  if (!hasExplicitTime) {
+    return {
+      title: "",
+      startDate: date,
+      endDate: date,
+      startTime: "09:00",
+      endTime: "10:00",
+      allDay: false,
+      ownerIds: ["family"],
+      description: "",
+      location: "",
+    };
+  }
+
+  const endDate = new Date(initialDate.getTime() + 60 * 60 * 1000);
+
   return {
     title: "",
     startDate: date,
-    endDate: date,
-    startTime: "09:00",
-    endTime: "10:00",
+    endDate: toDateInputValue(endDate),
+    startTime: toTimeInputValue(initialDate),
+    endTime: toTimeInputValue(endDate),
     allDay: false,
     ownerIds: ["family"],
     description: "",
