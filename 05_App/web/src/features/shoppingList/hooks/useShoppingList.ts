@@ -3,16 +3,19 @@ import { useCallback, useEffect, useState } from "react";
 import { getMyFamily } from "../../family/familyApi";
 import {
   addShoppingListItem,
+  addShoppingListTemplateItem,
   clearCheckedShoppingListItems,
   createShoppingList,
   deleteShoppingList,
   deleteShoppingListItem,
   deleteShoppingListTemplate,
+  deleteShoppingListTemplateItem,
   generateIngredientsDraft,
   getShoppingListItems,
   getShoppingListTemplates,
   getShoppingLists,
   renameShoppingListItem,
+  renameShoppingListTemplate,
   saveShoppingListAsTemplate,
   setShoppingListItemCategory,
   setShoppingListItemChecked,
@@ -47,6 +50,9 @@ interface UseShoppingListResult {
   saveAsTemplate: (name: string) => Promise<void>;
   applyTemplate: (templateId: string) => Promise<void>;
   deleteTemplate: (templateId: string) => Promise<void>;
+  renameTemplate: (templateId: string, name: string) => Promise<void>;
+  addTemplateItem: (templateId: string, name: string) => Promise<void>;
+  deleteTemplateItem: (templateId: string, itemId: string) => Promise<void>;
 }
 
 /**
@@ -412,7 +418,7 @@ export function useShoppingList(): UseShoppingListResult {
         return;
       }
 
-      await addSuggestedItems(template.itemNames);
+      await addSuggestedItems(template.items.map((item) => item.name));
     },
     [templates, addSuggestedItems],
   );
@@ -431,6 +437,65 @@ export function useShoppingList(): UseShoppingListResult {
         setTemplates(result.data.templates);
       } else {
         setError(result.data.error ?? "Skabelonen kunne ikke slettes.");
+      }
+    },
+    [familyId, selectedListId],
+  );
+
+  const renameTemplate = useCallback(
+    async (templateId: string, name: string): Promise<void> => {
+      const trimmed = name.trim();
+      if (!trimmed || !familyId || !selectedListId) {
+        return;
+      }
+
+      setError(null);
+
+      const result = await renameShoppingListTemplate(familyId, selectedListId, templateId, trimmed);
+
+      if (result.ok && result.data.templates) {
+        setTemplates(result.data.templates);
+      } else {
+        setError(result.data.error ?? "Skabelonen kunne ikke omdøbes.");
+      }
+    },
+    [familyId, selectedListId],
+  );
+
+  const addTemplateItem = useCallback(
+    async (templateId: string, name: string): Promise<void> => {
+      const trimmed = name.trim();
+      if (!trimmed || !familyId || !selectedListId) {
+        return;
+      }
+
+      setError(null);
+
+      const result = await addShoppingListTemplateItem(familyId, selectedListId, templateId, trimmed);
+
+      if (result.ok && result.data.templates) {
+        setTemplates(result.data.templates);
+      } else {
+        setError(result.data.error ?? "Varen kunne ikke tilføjes til skabelonen.");
+      }
+    },
+    [familyId, selectedListId],
+  );
+
+  const deleteTemplateItem = useCallback(
+    async (templateId: string, itemId: string): Promise<void> => {
+      if (!familyId || !selectedListId) {
+        return;
+      }
+
+      setError(null);
+
+      const result = await deleteShoppingListTemplateItem(familyId, selectedListId, templateId, itemId);
+
+      if (result.ok && result.data.templates) {
+        setTemplates(result.data.templates);
+      } else {
+        setError(result.data.error ?? "Varen kunne ikke fjernes fra skabelonen.");
       }
     },
     [familyId, selectedListId],
@@ -458,5 +523,8 @@ export function useShoppingList(): UseShoppingListResult {
     saveAsTemplate,
     applyTemplate,
     deleteTemplate,
+    renameTemplate,
+    addTemplateItem,
+    deleteTemplateItem,
   };
 }
