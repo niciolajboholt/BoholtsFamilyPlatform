@@ -53,6 +53,7 @@ import type { CalendarSource } from "../models/calendarProvider";
 import { isExternalCalendarProviderType } from "../models/calendarProvider";
 import type { CreateCalendarEventInput } from "../models/calendarEventInput";
 import type { CalendarOwner } from "../data/calendarOwners";
+import { eventReminderOffsetOptions } from "../eventReminders/eventReminderApi";
 
 interface NewEventDialogProps {
   open: boolean;
@@ -64,6 +65,7 @@ interface NewEventDialogProps {
   onClose: () => void;
   onCreate: (
     input: CreateCalendarEventInput,
+    reminderOffsetMinutes: number | null,
   ) => Promise<void>;
 }
 
@@ -168,6 +170,13 @@ function NewEventDialog({
   );
   const recurrenceError = getRecurrenceFormValidationError(recurrence);
 
+  // Kun Google-kalendere understøtter en påmindelse i dag (se
+  // EditEventDialog's samme betingelse) — aftalen findes jo endnu ikke, så
+  // dette er blot et lokalt valg indtil onCreate lykkes, hvorefter
+  // CalendarPage sætter selve påmindelsen mod det nyoprettede event-id.
+  const canSetReminder = selectedSource?.providerType === "google";
+  const [reminderOffsetMinutes, setReminderOffsetMinutes] = useState<number | null>(null);
+
   const [
     isDiscardConfirmationVisible,
     setIsDiscardConfirmationVisible,
@@ -216,6 +225,7 @@ function NewEventDialog({
     setIsDiscardConfirmationVisible(false);
     resetValidationFeedback();
     setRecurrence(defaultRecurrenceFormValue);
+    setReminderOffsetMinutes(null);
   }
 
   if (
@@ -360,7 +370,7 @@ function NewEventDialog({
     try {
       setSubmitError(null);
 
-      await onCreate(input);
+      await onCreate(input, canSetReminder ? reminderOffsetMinutes : null);
 
       onClose();
     } catch (
@@ -550,6 +560,30 @@ function NewEventDialog({
                   variant="chips"
                   errorText={getVisibleErrorMessage("ownerIds")}
                 />
+              )}
+
+              {canSetReminder && (
+                <TextField
+                  select
+                  label="Påmindelse"
+                  value={reminderOffsetMinutes ?? ""}
+                  disabled={isSaving}
+                  fullWidth
+                  onChange={(changeEvent) =>
+                    setReminderOffsetMinutes(
+                      changeEvent.target.value === ""
+                        ? null
+                        : Number(changeEvent.target.value),
+                    )
+                  }
+                >
+                  <MenuItem value="">Ingen</MenuItem>
+                  {eventReminderOffsetOptions.map((option) => (
+                    <MenuItem key={option.minutes} value={option.minutes}>
+                      {option.label}
+                    </MenuItem>
+                  ))}
+                </TextField>
               )}
 
               <TextField

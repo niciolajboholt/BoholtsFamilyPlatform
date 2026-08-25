@@ -31,6 +31,7 @@ const expectedTables = [
   "family_share_links",
   "family_weekly_summaries",
   "feedback",
+  "event_reminders",
 ] as const;
 
 // Kolonner tilføjet via ALTER TABLE på en allerede eksisterende tabel —
