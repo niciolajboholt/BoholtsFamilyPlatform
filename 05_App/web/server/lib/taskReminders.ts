@@ -9,6 +9,7 @@
 // UTC (som Workers ellers kører i).
 
 import type { Env } from "../env";
+import { logError } from "./structuredLog";
 import { materializeTasksForDate, notifyForTask } from "../routes/tasks";
 
 interface CopenhagenTime {
@@ -108,7 +109,7 @@ export async function sendDueTaskReminders(env: Env, now: Date = new Date()): Pr
       body: `"${task.name}" er nu.`,
       url: "/tasks",
     }).catch((error: unknown) => {
-      console.error("Kunne ikke sende opgave-påmindelse:", error);
+      logError("Kunne ikke sende opgave-påmindelse", error, { taskId: task.id });
     });
 
     await env.DB.prepare("UPDATE tasks SET reminded_at = ? WHERE id = ?")

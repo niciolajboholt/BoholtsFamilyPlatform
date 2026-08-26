@@ -10,6 +10,7 @@
 // flyttet siden).
 
 import type { Env } from "../env";
+import { logError } from "./structuredLog";
 import { GoogleNotConnectedError, getGoogleAccessToken } from "./googleConnection";
 import { decodeGoogleEventId } from "./googleEventIds";
 import { sendPushNotificationToFamily } from "./pushNotifications";
@@ -229,7 +230,7 @@ export async function sendDueEventReminders(env: Env, now: Date = new Date()): P
         continue;
       }
 
-      console.error(`Aftale-påmindelser fejlede for familie ${familyId}:`, error);
+      logError("Aftale-påmindelser fejlede", error, { familyId });
     }
   }
 }

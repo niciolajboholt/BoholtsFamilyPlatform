@@ -62,6 +62,24 @@ describe("sendWeeklySummaries", () => {
     expect(saved.results).toHaveLength(0);
   });
 
+  it("does not collect or process data when the family disabled AI summaries", async () => {
+    const env = createFakeEnv();
+    await seedFamily(env);
+    await env.DB.prepare(
+      "UPDATE families SET ai_weekly_summary_enabled = 0 WHERE id = ?",
+    ).bind("family-1").run();
+    await env.DB.prepare(
+      `INSERT INTO tasks (id, family_id, name, icon, is_done, task_date, created_by_user_id, created_at)
+       VALUES (?, ?, ?, 'fritid', 0, ?, 'owner', ?)`,
+    ).bind("private-task", "family-1", "Privat opgave", expectedWeekStart, new Date().toISOString()).run();
+
+    await sendWeeklySummaries(env, aSunday);
+
+    expect(generateWeeklySummaryMock).not.toHaveBeenCalled();
+    expect(fetchPublicFamilyCalendarEventsMock).not.toHaveBeenCalled();
+    expect(sendPushNotificationToFamilyMock).not.toHaveBeenCalled();
+  });
+
   it("generates, saves, and sends a push when the family has open tasks", async () => {
     const env = createFakeEnv();
     await seedFamily(env);

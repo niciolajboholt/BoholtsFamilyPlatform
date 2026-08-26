@@ -26,6 +26,7 @@ import { expandRecurringEvents } from "../utils/expandRecurringEvents";
 import { findAllCalendarConflicts } from "../utils/findAllCalendarConflicts";
 import { getDayKey, groupEventsByDay } from "../utils/groupEventsByDay";
 import { getIsoWeekNumber } from "../utils/getIsoWeekNumber";
+import { getPlannerEventsForColumn } from "../utils/getPlannerEventsForColumn";
 import {
   buildInitialWindow,
   windowReducer,
@@ -45,7 +46,6 @@ interface FamilyPlannerCalendarProps {
 // Denne visning ruller sammen med hele siden (ikke i en indre boks) for at
 // navne-headeren reelt kan fastfryses mod skærmen, når man ruller.
 const HEADER_ROW_HEIGHT_PX = 44;
-const WEEK_BAND_HEIGHT_PX = 32;
 const DATE_COLUMN_WIDTH_PX = 64;
 const MEMBER_COLUMN_MIN_WIDTH_PX = 128;
 
@@ -117,21 +117,6 @@ interface PlannerColumn {
   label: string;
 }
 
-function getEventsForColumn(
-  dayEvents: CalendarEvent[],
-  columnId: string,
-): CalendarEvent[] {
-  if (columnId === familyPseudoMemberId) {
-    return dayEvents.filter(
-      (event) =>
-        event.ownerIds.includes(familyPseudoMemberId) ||
-        event.ownerIds.length > 1,
-    );
-  }
-
-  return dayEvents.filter((event) => event.ownerIds.includes(columnId));
-}
-
 function FamilyPlannerCalendar({
   visibleDate,
   events,
@@ -142,9 +127,12 @@ function FamilyPlannerCalendar({
   const individualMembers = members.filter(
     (member) => member.id !== familyPseudoMemberId,
   );
+  const familyMember = members.find(
+    (member) => member.id === familyPseudoMemberId,
+  );
 
   const columns: PlannerColumn[] = [
-    { id: familyPseudoMemberId, label: "Alle" },
+    { id: familyPseudoMemberId, label: familyMember?.name ?? "Fælles" },
     ...individualMembers.map((member) => ({
       id: member.id,
       label: member.name,
@@ -225,8 +213,7 @@ function FamilyPlannerCalendar({
     const row = dayRowRefs.current.get(getDayKey(pendingDate));
 
     if (row) {
-      const stickyOffset =
-        getMeasuredAppBarHeight() + HEADER_ROW_HEIGHT_PX + WEEK_BAND_HEIGHT_PX;
+      const stickyOffset = getMeasuredAppBarHeight() + HEADER_ROW_HEIGHT_PX;
 
       const rowTop = row.getBoundingClientRect().top + window.scrollY;
       window.scrollTo({ top: rowTop - stickyOffset, behavior: "auto" });
@@ -386,11 +373,8 @@ function FamilyPlannerCalendar({
               <Box
                 sx={{
                   gridColumn: "1 / -1",
-                  position: "sticky",
-                  top: `calc(${APP_BAR_HEIGHT_VAR} + ${HEADER_ROW_HEIGHT_PX}px)`,
-                  zIndex: 2,
                   backgroundColor: "action.hover",
-                  minHeight: WEEK_BAND_HEIGHT_PX,
+                  minHeight: 32,
                   px: 1,
                   py: 0.5,
                 }}
@@ -450,7 +434,7 @@ function FamilyPlannerCalendar({
                     </Box>
 
                     {columns.map((column) => {
-                      const columnEvents = getEventsForColumn(
+                      const columnEvents = getPlannerEventsForColumn(
                         dayEvents,
                         column.id,
                       );
@@ -477,6 +461,7 @@ function FamilyPlannerCalendar({
                               <ButtonBase
                                 key={`${column.id}::${event.id}`}
                                 aria-label={getEventActionLabel(event)}
+                                title={`${formatEventTime(event)} · ${event.title}`}
                                 onClick={() => onSelectEvent(event)}
                                 sx={{
                                   display: "flex",

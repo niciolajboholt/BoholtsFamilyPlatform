@@ -45,5 +45,14 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Check Cloudflare binding types
+        run: npm run worker:types:check
+
       - name: Test
         run: npm test
+
+      - name: Install browser for end-to-end tests
+        run: npx playwright install --with-deps chromium
+
+      - name: End-to-end smoke tests
+        run: npm run test:e2e

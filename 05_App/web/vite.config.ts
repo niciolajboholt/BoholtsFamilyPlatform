@@ -76,5 +76,6 @@ export default defineConfig({
   test: {
     environment: 'node',
     setupFiles: ['./src/test/setupTimezone.ts'],
+    include: ['src/**/*.test.{ts,tsx}', 'server/**/*.test.ts'],
   },
 })

@@ -51,6 +51,7 @@ for den planlagte udviklingsretning.
 - Vite
 - Material UI
 - Vitest
+- Playwright (desktop- og mobil-smoke-tests)
 - PWA: manifest og service worker (`vite-plugin-pwa`)
 
 **Server:**
@@ -82,6 +83,7 @@ Kvalitetskontrol:
 npm run lint
 npm run build   # tsc -b && vite build
 npm test        # Vitest
+npm run test:e2e # Playwright; installér Chromium én gang med npx playwright install chromium
 ```
 
 GitHub Actions kører de samme kontroller ved pull requests og pushes til
@@ -113,7 +115,8 @@ GitHub-repo via Cloudflare Workers Builds (git-integration):
   familiedata.
 
 Se `05_App/web/wrangler.jsonc` for den fulde konfiguration (D1-binding,
-Secrets Store-bindinger, Workers AI-binding, assets). D1-migrationer
+Secrets Store-bindinger, Workers AI-binding, versionsmetadata, assets og
+observability). D1-migrationer
 anvendes **ikke** automatisk af Cloudflare Workers Builds — de skal køres
 manuelt via D1-konsollens SQL-editor på både beta og produktion, og
 resultatet skal verificeres direkte (`SELECT ... FROM sqlite_master`), ikke

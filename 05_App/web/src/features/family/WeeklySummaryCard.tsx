@@ -24,7 +24,12 @@ export function WeeklySummaryCard() {
     let isCancelled = false;
 
     getMyFamily().then(async (familyResult) => {
-      if (isCancelled || !familyResult.ok || !familyResult.data.family) {
+      if (
+        isCancelled ||
+        !familyResult.ok ||
+        !familyResult.data.family ||
+        familyResult.data.family.aiWeeklySummaryEnabled === 0
+      ) {
         setIsLoading(false);
         return;
       }

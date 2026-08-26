@@ -1,8 +1,9 @@
-import type { ChangeEvent, ReactNode } from "react";
+import type { ChangeEvent } from "react";
 import { useEffect, useRef, useState } from "react";
 
 import AddIcon from "@mui/icons-material/Add";
 import {
+  AutoAwesomeRounded,
   CalendarMonthRounded,
   ChevronRightRounded,
   CloudDownloadRounded,
@@ -25,7 +26,6 @@ import {
   Avatar,
   Box,
   Button,
-  ButtonBase,
   Card,
   CardContent,
   Dialog,
@@ -69,83 +69,18 @@ import { usePushNotifications } from "../features/notifications/hooks/usePushNot
 import type { MappableCalendarOption } from "../features/calendar/providers/calendarProviderFactory";
 import { listAllMappableCalendars } from "../features/calendar/providers/calendarProviderFactory";
 import { getInitials } from "../features/calendar/utils/getInitials";
-
-// Sprint 30: siden var én lang liste af kort uden nogen tydelig opdeling —
-// disse fire overskrifter grupperer dem, så det er til at overskue hvor
-// hver indstilling hører hjemme (Familie / Kalenderforbindelser / App og
-// notifikationer / Konto og data), i stedet for at man skal scrolle hele
-// siden igennem for at finde den rigtige.
-function SettingsSectionHeader({ children }: { children: string }) {
-  return (
-    <Typography
-      variant="overline"
-      color="text.secondary"
-      sx={{
-        fontWeight: 700,
-        letterSpacing: "0.08em",
-        mt: 1,
-        ml: 0.5,
-      }}
-    >
-      {children}
-    </Typography>
-  );
-}
-
-// Sprint 30 (omlægning): sjældent brugte handlinger (invitér, del kalender,
-// kalenderforbindelser, backup) fyldte hver sit eget kort med gentaget
-// ikon+overskrift-mønster, selvom sektionsoverskriften lige ovenfor allerede
-// sagde det samme — denne række-variant samler dem som én linje, der åbner
-// en dialogboks ved behov, i stedet for at optage plads permanent.
-function SettingsLinkRow({
-  icon,
-  title,
-  subtitle,
-  onClick,
-}: {
-  icon: ReactNode;
-  title: string;
-  subtitle: string;
-  onClick: () => void;
-}) {
-  return (
-    <ButtonBase
-      onClick={onClick}
-      sx={{
-        display: "flex",
-        alignItems: "center",
-        width: "100%",
-        py: 1.5,
-        px: 0.5,
-        borderRadius: 2,
-      }}
-    >
-      <Box
-        sx={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 1.5,
-          flexGrow: 1,
-        }}
-      >
-        {icon}
-
-        <Box sx={{ textAlign: "center" }}>
-          <Typography sx={{ fontWeight: 600 }}>{title}</Typography>
-
-          <Typography variant="body2" color="text.secondary">
-            {subtitle}
-          </Typography>
-        </Box>
-      </Box>
-
-      <ChevronRightRounded color="action" />
-    </ButtonBase>
-  );
-}
+import {
+  getMyFamily,
+  updateFamilyPrivacySettings,
+} from "../features/family/familyApi";
+import { useDeploymentVersion } from "../features/system/useDeploymentVersion";
+import {
+  SettingsLinkRow,
+  SettingsSectionHeader,
+} from "../features/settings/components/SettingsPrimitives";
 
 function SettingsPage() {
+  const deploymentVersion = useDeploymentVersion();
   const {
     preference: themePreference,
     resolvedMode: resolvedThemeMode,
@@ -186,6 +121,54 @@ function SettingsPage() {
   }
 
   const { user, logout } = useSession();
+  const [familyId, setFamilyId] = useState<string | null>(null);
+  const [canManageAiPreference, setCanManageAiPreference] = useState(false);
+  const [aiWeeklySummaryEnabled, setAiWeeklySummaryEnabled] = useState(false);
+  const [isAiPreferenceLoading, setIsAiPreferenceLoading] = useState(true);
+  const [aiPreferenceError, setAiPreferenceError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    void getMyFamily().then((result) => {
+      if (!isCancelled && result.ok && result.data.family) {
+        setFamilyId(result.data.family.id);
+        setCanManageAiPreference(
+          result.data.role === "owner" || result.data.role === "admin",
+        );
+        setAiWeeklySummaryEnabled(
+          result.data.family.aiWeeklySummaryEnabled !== 0,
+        );
+      }
+
+      if (!isCancelled) {
+        setIsAiPreferenceLoading(false);
+      }
+    });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
+
+  async function handleAiPreferenceChange(enabled: boolean): Promise<void> {
+    if (!familyId) return;
+
+    const previous = aiWeeklySummaryEnabled;
+    setAiWeeklySummaryEnabled(enabled);
+    setIsAiPreferenceLoading(true);
+    setAiPreferenceError(null);
+
+    const result = await updateFamilyPrivacySettings(familyId, enabled);
+    if (!result.ok) {
+      setAiWeeklySummaryEnabled(previous);
+      setAiPreferenceError(
+        result.data.error ?? "AI-indstillingen kunne ikke gemmes.",
+      );
+    }
+
+    setIsAiPreferenceLoading(false);
+  }
 
   function handleOpenAddMember() {
     setEditingMember(null);
@@ -409,6 +392,7 @@ function SettingsPage() {
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
+                flexDirection: { xs: "column", sm: "row" },
                 gap: 1.5,
                 mb: 2.5,
               }}
@@ -431,6 +415,7 @@ function SettingsPage() {
                 variant="contained"
                 startIcon={<AddIcon />}
                 onClick={handleOpenAddMember}
+                sx={{ width: { xs: "100%", sm: "auto" } }}
               >
                 Tilføj familiemedlem
               </Button>
@@ -472,12 +457,7 @@ function SettingsPage() {
                           {getInitials(member.name)}
                         </Avatar>
 
-                        {/* Avataren er venstrejusteret (fast x-position for
-                            hele rækken) — kun tekst-kolonnen fylder den
-                            resterende plads (flexGrow) og centreres i den,
-                            så de tre linjer (navn/relation/kalender) står
-                            centreret om hinanden mellem avatar og chevron. */}
-                        <Box sx={{ textAlign: "center", flexGrow: 1 }}>
+                        <Box sx={{ textAlign: "left", flexGrow: 1, minWidth: 0 }}>
                           <Typography sx={{ fontWeight: 600 }}>
                             {member.name}
                           </Typography>
@@ -493,7 +473,6 @@ function SettingsPage() {
                               sx={{
                                 display: "flex",
                                 alignItems: "center",
-                                justifyContent: "center",
                                 gap: 0.5,
                               }}
                             >
@@ -641,14 +620,13 @@ function SettingsPage() {
                 sx={{
                   display: "flex",
                   alignItems: "center",
-                  justifyContent: "center",
                   gap: 1.5,
                   flexGrow: 1,
                 }}
               >
                 <NotificationsRounded color="action" />
 
-                <Box sx={{ textAlign: "center" }}>
+                <Box sx={{ textAlign: "left", flexGrow: 1, minWidth: 0 }}>
                   <Typography sx={{ fontWeight: 600 }}>
                     Notifikationer
                   </Typography>
@@ -681,6 +659,13 @@ function SettingsPage() {
               </Alert>
             )}
 
+            {pushNotificationStatus === "denied" && (
+              <Alert severity="info" sx={{ mb: 1.5 }}>
+                Tillad notifikationer i browserens webstedsindstillinger, og
+                genindlæs derefter appen.
+              </Alert>
+            )}
+
             {pushNotificationStatus === "subscribed" && (
               <Button
                 size="small"
@@ -694,19 +679,61 @@ function SettingsPage() {
 
             <Divider />
 
+            <Box sx={{ display: "flex", alignItems: "center", py: 1.5 }}>
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 1.5,
+                  flexGrow: 1,
+                }}
+              >
+                <AutoAwesomeRounded color="action" />
+
+                <Box sx={{ textAlign: "left", flexGrow: 1, minWidth: 0 }}>
+                  <Typography sx={{ fontWeight: 600 }}>AI-ugeresumé</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {canManageAiPreference
+                      ? "Bruger aftaletitler, åbne opgaver og indkøbsvarer til et ugentligt resumé"
+                      : "Kun familiens ejer eller admin kan ændre dette valg"}
+                  </Typography>
+                </Box>
+              </Box>
+
+              <Switch
+                checked={aiWeeklySummaryEnabled}
+                disabled={
+                  isAiPreferenceLoading || !familyId || !canManageAiPreference
+                }
+                slotProps={{
+                  input: { "aria-label": "Tillad automatisk AI-ugeresumé" },
+                }}
+                onChange={(event) =>
+                  void handleAiPreferenceChange(event.target.checked)
+                }
+              />
+            </Box>
+
+            {aiPreferenceError && (
+              <Alert severity="error" sx={{ mb: 1.5 }}>
+                {aiPreferenceError}
+              </Alert>
+            )}
+
+            <Divider />
+
             <Box sx={{ py: 1.5 }}>
               <Box
                 sx={{
                   display: "flex",
                   alignItems: "center",
-                  justifyContent: "center",
                   gap: 1.5,
                   mb: 1.5,
                 }}
               >
                 <DarkModeRounded color="action" />
 
-                <Box sx={{ textAlign: "center" }}>
+                <Box sx={{ textAlign: "left", flexGrow: 1, minWidth: 0 }}>
                   <Typography sx={{ fontWeight: 600 }}>
                     Udseende
                   </Typography>
@@ -767,14 +794,13 @@ function SettingsPage() {
                 sx={{
                   display: "flex",
                   alignItems: "center",
-                  justifyContent: "center",
                   gap: 1.5,
                   flexGrow: 1,
                 }}
               >
                 <PersonRounded color="action" />
 
-                <Box sx={{ textAlign: "center" }}>
+                <Box sx={{ textAlign: "left", flexGrow: 1, minWidth: 0 }}>
                   <Typography sx={{ fontWeight: 600 }}>
                     Min profil
                   </Typography>
@@ -808,14 +834,13 @@ function SettingsPage() {
                     sx={{
                       display: "flex",
                       alignItems: "center",
-                      justifyContent: "center",
                       gap: 1.5,
                       flexGrow: 1,
                     }}
                   >
                     <LogoutRounded color="action" />
 
-                    <Box sx={{ textAlign: "center" }}>
+                    <Box sx={{ textAlign: "left", flexGrow: 1, minWidth: 0 }}>
                       <Typography sx={{ fontWeight: 600 }}>Log ud</Typography>
 
                       <Typography variant="body2" color="text.secondary">
@@ -852,8 +877,9 @@ function SettingsPage() {
 
           <DialogContent>
             <Typography color="text.secondary" sx={{ mb: 2 }}>
-              Dine data ligger kun i denne browser — tag en backup for at
-              undgå at miste dem.
+              Backupfilen indeholder lokale indstillinger og kalenderdata,
+              som ligger på denne enhed. Familie, opgaver og indkøbslister
+              gemmes sikkert i appens database.
             </Typography>
 
             {backupFeedback && (
@@ -928,6 +954,16 @@ function SettingsPage() {
         </Card>
 
         <FeedbackInboxCard />
+
+        {deploymentVersion && (
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ textAlign: "center", py: 1 }}
+          >
+            Version {deploymentVersion}
+          </Typography>
+        )}
       </Box>
 
       <CurrentMemberPickerDialog

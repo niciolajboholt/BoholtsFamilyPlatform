@@ -402,6 +402,7 @@ function DayCell({
                   <ButtonBase
                     key={event.id}
                     aria-label={getEventActionLabel(event)}
+                    title={`${event.allDay ? "Hele dagen" : formatEventTime(new Date(event.start))} · ${event.title}`}
                     onClick={() => onSelectEvent(event)}
                     sx={{
                       pointerEvents: "auto",

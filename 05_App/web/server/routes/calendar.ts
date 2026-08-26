@@ -11,6 +11,7 @@ import type { Context } from "hono";
 import { Hono } from "hono";
 
 import type { Env } from "../env";
+import { logError } from "../lib/structuredLog";
 import { GoogleNotConnectedError, getGoogleAccessToken } from "../lib/googleConnection";
 import { sendPushNotificationToFamily } from "../lib/pushNotifications";
 import { getSessionUser, type SessionUser } from "../lib/session";
@@ -24,7 +25,7 @@ const googleCalendarApiBaseUrl = "https://www.googleapis.com/calendar/v3";
 
 calendar.onError((error, c) => {
   const message = error instanceof Error ? error.message : String(error);
-  console.error("Kalender-API fejlede:", message);
+  logError("Kalender-API fejlede", message, { path: c.req.path });
   return c.json({ error: "Der skete en serverfejl. Prøv igen." }, 500);
 });
 
@@ -135,7 +136,7 @@ function notifyFamilyOfCalendarChange(
       });
     })
     .catch((error: unknown) => {
-      console.error("Kunne ikke sende kalender-push-notifikation:", error);
+      logError("Kunne ikke sende kalender-push-notifikation", error);
     });
 
   c.executionCtx.waitUntil(task);

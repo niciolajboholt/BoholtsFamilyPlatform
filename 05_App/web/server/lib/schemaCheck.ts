@@ -42,6 +42,7 @@ const expectedColumns = [
   { table: "tasks", column: "reminded_at" },
   { table: "family_share_links", column: "include_description" },
   { table: "family_share_links", column: "include_location" },
+  { table: "families", column: "ai_weekly_summary_enabled" },
 ] as const;
 
 export interface SchemaCheckResult {

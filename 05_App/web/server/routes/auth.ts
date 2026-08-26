@@ -12,6 +12,7 @@ import {
 } from "../lib/googleOAuth";
 import { createSession, destroySession } from "../lib/session";
 import { encryptRefreshToken } from "../lib/tokenEncryption";
+import { logError } from "../lib/structuredLog";
 
 const auth = new Hono<{ Bindings: Env }>();
 
@@ -140,7 +141,7 @@ auth.get("/google/callback", async (c) => {
     return c.redirect("/");
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    console.error("Google OAuth callback fejlede:", message);
+    logError("Google OAuth callback fejlede", message);
     return c.text("Login fejlede. Prøv igen.", 500);
   }
 });

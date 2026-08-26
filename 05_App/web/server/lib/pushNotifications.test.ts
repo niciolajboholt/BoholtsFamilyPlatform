@@ -103,7 +103,7 @@ describe("pushNotifications", () => {
     expect(remaining?.count).toBe(0);
   });
 
-  it("logs the response status and body when the push service rejects the request with a non-404/410 error", async () => {
+  it("logs structured status metadata without the raw response body when push is rejected", async () => {
     await seedUser(env.DB as never, { id: "nicolaj" });
     await seedSubscription(env.DB as never, "nicolaj", "https://push.example.com/rejected");
     fetchMock.mockResolvedValue(new Response("ugyldig VAPID-signatur", { status: 401 }));
@@ -111,8 +111,13 @@ describe("pushNotifications", () => {
 
     await sendPushNotificationToUser(env, "nicolaj", { title: "x", body: "y" });
 
-    expect(consoleErrorSpy).toHaveBeenCalledWith(
-      expect.stringContaining("401"),
+    const logged = JSON.parse(String(consoleErrorSpy.mock.calls[0][0]));
+    expect(logged).toEqual({
+      message: "Push-notifikation afvist af push-tjenesten",
+      status: 401,
+      subscriptionId: "sub-https://push.example.com/rejected",
+    });
+    expect(String(consoleErrorSpy.mock.calls[0][0])).not.toContain(
       "ugyldig VAPID-signatur",
     );
 

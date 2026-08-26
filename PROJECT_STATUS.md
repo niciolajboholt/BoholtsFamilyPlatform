@@ -1,10 +1,13 @@
 # Projektstatus
 
-Senest opdateret: 2026-08-20
+Senest opdateret: 2026-08-26
 
 ## Aktuel fase
 
-Sprint 23-29 er gennemført og merget til `main`. Sprint 25 (kalender-sync),
+Sprint 23-29 er gennemført og merget til `main`. En samlet stabiliseringsrunde
+er implementeret på featurebranchen med kalender-UX, tilgængelighed,
+AI-fravalg, juridiske sider, versionssporbarhed, offline-status og Playwright-
+smoke-tests. Sprint 25 (kalender-sync),
 26 (konfliktmarkering + delelink) og 27 (tidsbaserede påmindelser) er alle
 bekræftet virkende af Nicolaj på beta. Sprint 27's bekræftelse afdækkede
 endnu et lag af den samme rodårsag som tidligere: "Min profil"-koblingen
@@ -71,15 +74,16 @@ ugentligt cron-tick. Ingen aktiv sprint lige nu.
   rate-limiting på AI-ruter/push-abonnement/delelinks, sikkerhedsheaders
   (CSP m.fl.), JSON-404 for ukendte API-stier, og en global React Error
   Boundary.
-- Vitest-testpakke (357 tests) + GitHub Actions-CI.
+- Vitest-testpakke (397 tests) + Playwright-smoke-tests + GitHub Actions-CI.
 
 ## Kvalitetsstatus
 
-`develop` og `main` er ens t.o.m. Sprint 29:
+Seneste validerede featurebranch bygger oven på `develop`:
 
 - `npm run lint`
 - `npm run build`
-- `npm test` (357 tests)
+- `npm test` (397 tests)
+- `npm run test:e2e` (desktop + mobil Chromium)
 - Grøn GitHub Actions-CI og Cloudflare Workers Build (produktion + beta)
 
 Verificeret manuelt af Nicolaj og Christine på beta og produktion, inkl.
@@ -89,7 +93,8 @@ ende-til-ende, og opgave-/AI-modulet.
 ## Næste skridt
 
 Migration 0012 og 0013 er kørt og verificeret på beta (2026-08-20, direkte
-i D1-konsollen). Sprint 28's ugeresumé mangler sin manuelle funktionelle
+i D1-konsollen). Migration 0017 (AI-privatlivsvalg) skal køres på beta før
+featurebranchen deployes og derefter på produktion før release. Sprint 28's ugeresumé mangler sin manuelle funktionelle
 test af et rigtigt ugentligt cron-tick (Nicolaj, tidsgated — næste søndag).
 Ellers ingen aktiv sprint. Flere Google-konti pr. familie og en fysisk
 VoiceOver-test forbliver ikke planlagt (se `10_Future_Roadmap.md`).

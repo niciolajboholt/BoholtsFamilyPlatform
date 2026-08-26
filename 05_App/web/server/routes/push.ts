@@ -8,6 +8,7 @@ import type { Context } from "hono";
 import { Hono } from "hono";
 
 import type { Env } from "../env";
+import { logError } from "../lib/structuredLog";
 import { sendPushNotificationToUser } from "../lib/pushNotifications";
 import { getSessionUser, type SessionUser } from "../lib/session";
 
@@ -22,7 +23,7 @@ async function parseJsonBody<T extends object>(
 
 push.onError((error, c) => {
   const message = error instanceof Error ? error.message : String(error);
-  console.error("Push-API fejlede:", message);
+  logError("Push-API fejlede", message, { path: c.req.path });
   return c.json({ error: "Der skete en serverfejl. Prøv igen." }, 500);
 });
 

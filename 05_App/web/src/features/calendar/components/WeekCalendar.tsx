@@ -101,6 +101,7 @@ function EventCard({
   return (
     <ButtonBase
       aria-label={getEventActionLabel(event)}
+      title={`${showTime ? `${formatTime(event)} · ` : ""}${event.title}`}
       onClick={() => onSelectEvent(event)}
       sx={{
         position: "relative",

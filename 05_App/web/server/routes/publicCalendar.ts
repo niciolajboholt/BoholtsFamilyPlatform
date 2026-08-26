@@ -7,6 +7,7 @@
 import { Hono } from "hono";
 
 import type { Env } from "../env";
+import { logError } from "../lib/structuredLog";
 import { GoogleNotConnectedError } from "../lib/googleConnection";
 import { fetchPublicFamilyCalendarEvents } from "../lib/googleCalendarAggregation";
 import { checkRateLimit } from "../lib/rateLimit";
@@ -35,7 +36,7 @@ function getPublicCalendarRange(): { start: string; end: string } {
 
 publicCalendar.onError((error, c) => {
   const message = error instanceof Error ? error.message : String(error);
-  console.error("Offentlig kalendervisning fejlede:", message);
+  logError("Offentlig kalendervisning fejlede", message, { path: c.req.path });
   return c.json({ error: "Der skete en serverfejl. Prøv igen." }, 500);
 });
 

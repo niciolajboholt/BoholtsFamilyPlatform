@@ -25,6 +25,7 @@ const migrationFiles = [
   "0014_feedback.sql",
   "0015_shopping_list_templates.sql",
   "0016_event_reminders.sql",
+  "0017_family_ai_preferences.sql",
 ];
 
 function loadMigrations(db: DatabaseSync): void {

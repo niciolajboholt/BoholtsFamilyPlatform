@@ -16,6 +16,7 @@ export interface FamilyDto {
   name: string;
   ownerUserId: string;
   createdAt: string;
+  aiWeeklySummaryEnabled: number;
 }
 
 export type FamilyRole = "owner" | "admin" | "member";
@@ -180,6 +181,19 @@ export interface WeeklySummaryDto {
 export function getWeeklySummary(familyId: string) {
   return request<{ summary: WeeklySummaryDto | null; error?: string }>(
     `/api/families/${familyId}/weekly-summary`,
+  );
+}
+
+export function updateFamilyPrivacySettings(
+  familyId: string,
+  aiWeeklySummaryEnabled: boolean,
+) {
+  return request<{ aiWeeklySummaryEnabled?: boolean; error?: string }>(
+    `/api/families/${familyId}/privacy-settings`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ aiWeeklySummaryEnabled }),
+    },
   );
 }
 
