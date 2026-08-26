@@ -61,7 +61,12 @@ public class FileDiscoveryServiceTests
     {
         using var mappe = new TempTestFolder();
         mappe.OpretFil("synlig.txt");
-        mappe.OpretFil(".skjult.txt");
+
+        // Skjult status afgøres forskelligt på tværs af platforme: Windows bruger en rigtig NTFS-attribut,
+        // mens Unix's .NET-implementering afgør det ud fra et ledende punktum i filnavnet. Begge dele sættes,
+        // så testen er korrekt uanset hvilken platform den køres på.
+        var skjultSti = mappe.OpretFil(".skjult.txt");
+        File.SetAttributes(skjultSti, File.GetAttributes(skjultSti) | FileAttributes.Hidden);
 
         var udenSkjulte = await _service.FindFilerAsync(new FileDiscoveryOptions { MappeSti = mappe.Sti, MedtagSkjulteFiler = false });
         var medSkjulte = await _service.FindFilerAsync(new FileDiscoveryOptions { MappeSti = mappe.Sti, MedtagSkjulteFiler = true });
