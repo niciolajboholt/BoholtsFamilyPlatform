@@ -9,10 +9,17 @@ import { Hono } from "hono";
 
 import type { Env } from "../env";
 import { sendPushNotificationToUser } from "../lib/pushNotifications";
+import { checkRateLimit } from "../lib/rateLimit";
 import { getSessionUser, type SessionUser } from "../lib/session";
 
 type Variables = { user: SessionUser };
 const push = new Hono<{ Bindings: Env; Variables: Variables }>();
+
+// Sprint 31: samme begrundelse som families.ts's inviteAcceptRateLimit —
+// abonnering er en logget-ind-only skriverute, men uden en grænse kunne en
+// enkelt konto stadig indsætte/opdatere et ubegrænset antal
+// push_subscriptions-rækker.
+const subscribeRateLimit = { maxAttempts: 20, windowMs: 10 * 60 * 1000 };
 
 async function parseJsonBody<T extends object>(
   c: Context,
@@ -96,6 +103,16 @@ function isPlausiblePushEndpoint(endpoint: string): boolean {
 }
 
 push.post("/subscribe", async (c) => {
+  const { allowed } = await checkRateLimit(c.env.DB, {
+    scope: "push-subscribe",
+    key: c.get("user").id,
+    ...subscribeRateLimit,
+  });
+
+  if (!allowed) {
+    return c.json({ error: "For mange forsøg. Prøv igen om lidt." }, 429);
+  }
+
   const body = await parseJsonBody<SubscribeBody>(c);
 
   if (!body.endpoint || !body.keys?.p256dh || !body.keys.auth) {

@@ -1,6 +1,9 @@
 // Tynd klient for /api/families-ruterne (Fase 2). Svarene mappes til
 // CalendarOwner[]-formen i bridgeMembersToCalendarOwners, ikke her — denne
-// fil kender kun til serverens rå JSON-form.
+// fil kender kun til serverens rå JSON-form. Bruger den delte
+// request()-wrapper fra src/lib/apiClient.ts.
+
+import { request } from "../../lib/apiClient";
 
 export interface FamilyMemberDto {
   id: string;
@@ -25,21 +28,6 @@ export interface FamilyResponse {
   role?: FamilyRole;
   members?: FamilyMemberDto[];
   inviteCode?: string | null;
-}
-
-async function request<T>(
-  path: string,
-  init?: RequestInit,
-): Promise<{ ok: boolean; status: number; data: T }> {
-  const response = await fetch(path, {
-    credentials: "same-origin",
-    headers: { "Content-Type": "application/json" },
-    ...init,
-  });
-
-  const data = (await response.json().catch(() => ({}))) as T;
-
-  return { ok: response.ok, status: response.status, data };
 }
 
 export function getMyFamily() {

@@ -1,5 +1,8 @@
 // Tynd klient for /api/feedback-ruterne (Sprint 30). Samme mønster som
-// familyApi.ts: denne fil kender kun til serverens rå JSON-form.
+// familyApi.ts: denne fil kender kun til serverens rå JSON-form. Bruger den
+// delte request()-wrapper fra src/lib/apiClient.ts.
+
+import { request } from "../../lib/apiClient";
 
 export type FeedbackCategory = "idea" | "bug" | "other";
 
@@ -12,21 +15,6 @@ export interface FeedbackEntryDto {
   isRead: number;
   senderName: string;
   senderEmail: string;
-}
-
-async function request<T>(
-  path: string,
-  init?: RequestInit,
-): Promise<{ ok: boolean; status: number; data: T }> {
-  const response = await fetch(path, {
-    credentials: "same-origin",
-    headers: { "Content-Type": "application/json" },
-    ...init,
-  });
-
-  const data = (await response.json().catch(() => ({}))) as T;
-
-  return { ok: response.ok, status: response.status, data };
 }
 
 export function submitFeedback(input: {

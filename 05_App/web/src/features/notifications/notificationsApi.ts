@@ -1,39 +1,32 @@
-// Tynd klient for /api/push-ruterne (Sprint 21, Del A). Samme mønster som
-// familyApi.ts's request()-wrapper.
+// Tynd klient for /api/push-ruterne (Sprint 21, Del A). Bruger den delte
+// request()-wrapper fra src/lib/apiClient.ts — men denne fils ruter ligger
+// alle under /api/push, så den delte funktion kaldes med stien
+// præfikset her (den delte wrapper selv kender ikke til noget basispræfiks).
+
+import { request } from "../../lib/apiClient";
 
 interface SubscriptionKeys {
   p256dh: string;
   auth: string;
 }
 
-async function request<T>(
-  path: string,
-  init?: RequestInit,
-): Promise<{ ok: boolean; status: number; data: T }> {
-  const response = await fetch(`/api/push${path}`, {
-    credentials: "same-origin",
-    headers: { "Content-Type": "application/json" },
-    ...init,
-  });
-
-  const data = (await response.json().catch(() => ({}))) as T;
-
-  return { ok: response.ok, status: response.status, data };
+function pushRequest<T>(path: string, init?: RequestInit) {
+  return request<T>(`/api/push${path}`, init);
 }
 
 export function getVapidPublicKey() {
-  return request<{ publicKey: string }>("/public-key");
+  return pushRequest<{ publicKey: string }>("/public-key");
 }
 
 export function subscribeToPush(endpoint: string, keys: SubscriptionKeys) {
-  return request<{ ok?: boolean; error?: string }>("/subscribe", {
+  return pushRequest<{ ok?: boolean; error?: string }>("/subscribe", {
     method: "POST",
     body: JSON.stringify({ endpoint, keys }),
   });
 }
 
 export function unsubscribeFromPush(endpoint: string) {
-  return request<{ ok?: boolean; error?: string }>("/subscribe", {
+  return pushRequest<{ ok?: boolean; error?: string }>("/subscribe", {
     method: "DELETE",
     body: JSON.stringify({ endpoint }),
   });
@@ -43,5 +36,5 @@ export function unsubscribeFromPush(endpoint: string) {
 // levering) — sender kun til afsenderens egne devices. Midlertidig UI-knap,
 // fjernes igen når kalender/indkøbsliste er koblet til rigtige hændelser.
 export function sendTestPushNotification() {
-  return request<{ ok?: boolean; error?: string }>("/test", { method: "POST" });
+  return pushRequest<{ ok?: boolean; error?: string }>("/test", { method: "POST" });
 }

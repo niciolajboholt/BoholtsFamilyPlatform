@@ -368,8 +368,13 @@ function AppLayout() {
             px: { xs: 2, sm: 3 },
             // Rundhåndet plads under indholdet, så den flydende bundmenu på
             // mobil aldrig dækker sidste kort/knap — desktop har ingen
-            // flydende menu og behøver derfor ikke dette.
-            pb: { xs: 12, sm: 4 },
+            // flydende menu og behøver derfor ikke dette. Øget fra 12 til 18
+            // (statusrapport, 2026-08-26): menuens eget fodaftryk er kun
+            // ca. 80px (68px høj + 12px bundafstand), men 96px reserveret
+            // plads var i praksis ikke nok på sider med meget indhold
+            // (Overblik, Kalender-måned) — 18 giver en betydeligt større
+            // sikkerhedsmargin.
+            pb: { xs: 18, sm: 4 },
           }}
         >
           <Outlet />

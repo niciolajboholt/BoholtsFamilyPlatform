@@ -126,6 +126,29 @@ describe("push routes", () => {
     expect(rows.results[0]?.p256dhKey).toBe("second-key");
   });
 
+  it("rate-limits repeated calls to the subscribe route", async () => {
+    const env = createFakeEnv();
+    const { cookieHeader } = await seedLoggedInUser(env.DB as never, { id: "nicolaj" });
+
+    let lastResponse: Response | undefined;
+    for (let i = 0; i < 21; i += 1) {
+      lastResponse = await push.request(
+        "/subscribe",
+        {
+          method: "POST",
+          headers: { Cookie: cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            endpoint: `https://push.example.com/${i}`,
+            keys: { p256dh: "test-p256dh", auth: "test-auth" },
+          }),
+        },
+        env,
+      );
+    }
+
+    expect(lastResponse?.status).toBe(429);
+  });
+
   it("removes a subscription on unsubscribe, scoped to the requesting user", async () => {
     const env = createFakeEnv();
     const { cookieHeader } = await seedLoggedInUser(env.DB as never, { id: "nicolaj" });

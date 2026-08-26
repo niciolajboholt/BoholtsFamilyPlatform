@@ -1,9 +1,11 @@
 // Tynd klient for /api/families/:id/event-reminders/:eventId-ruterne
-// (Sprint 31). Samme mønster som shoppingListApi.ts's request()-wrapper.
+// (Sprint 31). Bruger den delte request()-wrapper fra src/lib/apiClient.ts.
 // eventId er allerede kodet af provider-laget (fx googleCalendarIds.ts) —
 // sendes uændret som stien, IKKE encodeURIComponent'et igen (id'et er
 // allerede sikkert som ét stisegment, en ekstra kodning ville dobbelt-kode
 // de indlejrede kalender-/event-id-dele).
+
+import { request } from "../../../lib/apiClient";
 
 export const eventReminderOffsetOptions = [
   { minutes: 10, label: "10 minutter før" },
@@ -15,21 +17,6 @@ export const eventReminderOffsetOptions = [
 
 export interface EventReminderDto {
   offsetMinutes: number;
-}
-
-async function request<T>(
-  path: string,
-  init?: RequestInit,
-): Promise<{ ok: boolean; status: number; data: T }> {
-  const response = await fetch(path, {
-    credentials: "same-origin",
-    headers: { "Content-Type": "application/json" },
-    ...init,
-  });
-
-  const data = (await response.json().catch(() => ({}))) as T;
-
-  return { ok: response.ok, status: response.status, data };
 }
 
 export function getEventReminder(familyId: string, eventId: string) {

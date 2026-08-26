@@ -1,5 +1,7 @@
 // Tynd klient for /api/families/:id/tasks og /task-routines-ruterne
-// (Sprint 23). Samme mønster som shoppingListApi.ts's request()-wrapper.
+// (Sprint 23). Bruger den delte request()-wrapper fra src/lib/apiClient.ts.
+
+import { request } from "../../lib/apiClient";
 
 export interface TaskDto {
   id: string;
@@ -41,20 +43,6 @@ export interface NewRoutineItemInput {
   timeOfDay?: string | null;
 }
 
-async function request<T>(
-  path: string,
-  init?: RequestInit,
-): Promise<{ ok: boolean; status: number; data: T }> {
-  const response = await fetch(path, {
-    credentials: "same-origin",
-    headers: { "Content-Type": "application/json" },
-    ...init,
-  });
-
-  const data = (await response.json().catch(() => ({}))) as T;
-
-  return { ok: response.ok, status: response.status, data };
-}
 
 export function getTasks(familyId: string, date: string) {
   return request<{ tasks?: TaskDto[]; error?: string }>(

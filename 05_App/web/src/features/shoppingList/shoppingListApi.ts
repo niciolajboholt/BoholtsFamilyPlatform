@@ -1,5 +1,7 @@
 // Tynd klient for /api/families/:id/shopping-lists-ruterne (Sprint 21, Del
-// B). Samme mønster som familyApi.ts's request()-wrapper.
+// B). Bruger den delte request()-wrapper fra src/lib/apiClient.ts.
+
+import { request } from "../../lib/apiClient";
 
 // Kategorier valideres server-side pr. listetype (se
 // server/lib/shoppingCategories.ts) — klienten har derfor ikke ét fast,
@@ -55,21 +57,6 @@ export interface ShoppingListItemDto {
   addedByUserId: string;
   createdAt: string;
   checkedAt: string | null;
-}
-
-async function request<T>(
-  path: string,
-  init?: RequestInit,
-): Promise<{ ok: boolean; status: number; data: T }> {
-  const response = await fetch(path, {
-    credentials: "same-origin",
-    headers: { "Content-Type": "application/json" },
-    ...init,
-  });
-
-  const data = (await response.json().catch(() => ({}))) as T;
-
-  return { ok: response.ok, status: response.status, data };
 }
 
 export function getShoppingLists(familyId: string) {
