@@ -62,14 +62,15 @@
     // samme, så /auth/*-ruterne aldrig blev nået.
     "run_worker_first": ["/auth/*", "/api/*"]
   },
-  "d1_databases": [
-    {
-      "binding": "DB",
-      "database_name": "boholtsfamilyplatform",
-      "database_id": "9de10d3f-3178-4b63-838f-0d7377b0df1b",
-      "migrations_dir": "./server/migrations"
-    }
-  ],
+  // Sprint 31-opfølgning (2026-08-27): produktions-D1-databasen
+  // ("boholtsfamilyplatform", 9de10d3f-...) er slettet — dette navnløse
+  // miljø var reelt ubrugt (ingen cron-triggers, ingen installeret app
+  // peger herhen), og indeholdt kun forældet data fra dengang det var det
+  // aktive miljø. "beta" er det eneste rigtige miljø fremover (se
+  // 09_Lessons_Learned.md). Ingen DB-binding her længere med vilje — enhver
+  // rute der rammer c.env.DB på dette miljø fejler nu tydeligt, i stedet
+  // for stille at kunne skrive til en database, ingen ser.
+  //
   // Sprint 23: AI-modul (rutine-/ingrediens-forslag). Cloudflare Workers AI
   // kører i egen infrastruktur — ingen API-nøgle, intet data forlader
   // Cloudflare. 10.000 Neurons/dag er gratis; se 23_Sprint23-planen.
