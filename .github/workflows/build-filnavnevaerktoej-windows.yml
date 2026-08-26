@@ -2,6 +2,12 @@ name: Byg Filnavneværktøj (Windows)
 
 on:
   workflow_dispatch: {}
+  push:
+    branches:
+      - "claude/filnavneværktøj-windows-q36i9o"
+    paths:
+      - "Filnavnevaerktoej/**"
+      - ".github/workflows/build-filnavnevaerktoej-windows.yml"
 
 jobs:
   build:
