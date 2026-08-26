@@ -1,0 +1,66 @@
+name: Byg Filnavneværktøj (Windows)
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: Filnavnevaerktoej
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Gendan NuGet-pakker
+        run: dotnet restore Filnavnevaerktoej.sln
+
+      - name: Byg solution (Release)
+        run: dotnet build Filnavnevaerktoej.sln -c Release --no-restore
+
+      - name: Kør unit tests
+        run: dotnet test tests/Filnavnevaerktoej.Tests/Filnavnevaerktoej.Tests.csproj -c Release --no-build
+
+      - name: Publicér single-file EXE (win-x64)
+        run: dotnet publish src/Filnavnevaerktoej.App/Filnavnevaerktoej.App.csproj -p:PublishProfile=win-x64-singlefile
+
+      - name: Publicér mappebaseret build (win-x64)
+        run: dotnet publish src/Filnavnevaerktoej.App/Filnavnevaerktoej.App.csproj -p:PublishProfile=win-x64-folder
+
+      - name: Pak portabel ZIP
+        shell: pwsh
+        run: Compress-Archive -Path artifacts/publish/win-x64/folder/* -DestinationPath artifacts/publish/win-x64/Filnavnevaerktoej-Portable-win-x64.zip
+
+      - name: Installer Inno Setup
+        shell: pwsh
+        continue-on-error: true
+        run: choco install innosetup -y --no-progress
+
+      - name: Byg installationsprogram
+        shell: pwsh
+        continue-on-error: true
+        run: iscc installer\Filnavnevaerktoej.iss
+
+      - name: Upload - Single-file EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: Filnavnevaerktoej-exe-win-x64
+          path: Filnavnevaerktoej/artifacts/publish/win-x64/singlefile/Filnavnevaerktoej.exe
+
+      - name: Upload - Portabel ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: Filnavnevaerktoej-portable-win-x64
+          path: Filnavnevaerktoej/artifacts/publish/win-x64/Filnavnevaerktoej-Portable-win-x64.zip
+
+      - name: Upload - Installationsprogram
+        uses: actions/upload-artifact@v4
+        continue-on-error: true
+        with:
+          name: Filnavnevaerktoej-installer
+          path: Filnavnevaerktoej/artifacts/installer/*.exe
+          if-no-files-found: ignore
