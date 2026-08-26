@@ -62,7 +62,7 @@
     // samme, så /auth/*-ruterne aldrig blev nået.
     "run_worker_first": ["/auth/*", "/api/*"]
   },
-  // Sprint 31-opfølgning (2026-08-27): produktions-D1-databasen
+  // Sprint 31-opfølgning (2026-08-26): produktions-D1-databasen
   // ("boholtsfamilyplatform", 9de10d3f-...) er slettet — dette navnløse
   // miljø var reelt ubrugt (ingen cron-triggers, ingen installeret app
   // peger herhen), og indeholdt kun forældet data fra dengang det var det
@@ -163,6 +163,13 @@
         // index.html med det samme, så /auth/*-ruterne aldrig blev nået.
         "run_worker_first": ["/auth/*", "/api/*"]
       },
+      // 2026-08-26: login begyndte at fejle med "Cannot read properties of
+      // undefined (reading 'prepare')" (c.env.DB var undefined i den
+      // allerede kørende Worker), lige efter produktions-D1-databasen
+      // (som delte bindingsnavnet "DB") blev slettet — se
+      // 09_Lessons_Learned.md. Denne blok var og er uændret; denne
+      // kommentar findes udelukkende for at tvinge en frisk, Git-udløst
+      // redeploy af beta til at genetablere bindingen.
       "d1_databases": [
         {
           "binding": "DB",

@@ -8,7 +8,7 @@ Project:
 Boholts Family Platform
 
 Last Updated:
-2026-08-27 (Sprint 31-opfølgning)
+2026-08-26 (Sprint 31-opfølgning)
 
 Owner:
 Nicolaj Bach Boholt
@@ -149,7 +149,7 @@ Sprint 22 afslørede, at produktions-databasen manglede *hele* familie-datamodel
 
 De tre forrige erfaringer ovenfor (manuelle migrationer, "kørt" som påstand frem for verifikation, produktion der i praksis lå ude af sync) var alle symptomer på samme rodårsag: appen kørte to fuldt separate miljøer — et navnløst "produktion" og "beta" — hvor kun beta reelt blev brugt (Nicolaj og Christines installerede PWA peger derhen, og kun beta havde de tre cron-triggers). Produktion levede videre som et helt tomt, glemt duplikat af hele infrastrukturen: egen Worker, egen D1-database, egne migrationer der skulle huskes anvendt to gange i stedet for én.
 
-Ved en gennemgang (27. august, Sprint 31-opfølgning) viste produktions-databasen sig dog ikke at være tom — den indeholdt 1 bruger, 1 familie, 3 opgaver, 1 indkøbsliste, 26 sessioner og 1 Google-forbindelse: rester fra dengang produktion oprindeligt *var* det aktive miljø, før brugsmønsteret skiftede til beta. Nicolaj bekræftede det var hans egen, forældede data — ingen andre kendte til eller brugte den kontoen.
+Ved en gennemgang (26. august, Sprint 31-opfølgning) viste produktions-databasen sig dog ikke at være tom — den indeholdt 1 bruger, 1 familie, 3 opgaver, 1 indkøbsliste, 26 sessioner og 1 Google-forbindelse: rester fra dengang produktion oprindeligt *var* det aktive miljø, før brugsmønsteret skiftede til beta. Nicolaj bekræftede det var hans egen, forældede data — ingen andre kendte til eller brugte den kontoen.
 
 - **Beslutning**: produktions-D1-databasen (`9de10d3f-3178-4b63-838f-0d7377b0df1b`) er slettet permanent. `wrangler.jsonc`'s navnløse miljø har ikke længere en D1-binding og kan derfor ikke skrive rigtig data, selv hvis det ved et uheld bliver deployet til igen. Selve Worker-ressourcen (`boholtsfamilyplatform`) er *ikke* slettet — Cloudflares MCP-værktøjer i denne session havde ingen "slet Worker"-handling, kun "slet D1-database". Den skal fjernes manuelt i Cloudflare-dashboardet, hvis den skal væk helt.
 - **Bevidst ikke gjort**: et rigtigt navneskifte (fx at gøre "beta" til det formelle produktionsnavn) — `wrangler.jsonc`'s egen kommentar dokumenterer, at det blev forsøgt og rullet tilbage (2026-08-23), fordi Cloudflares Git-integration er bundet til den eksisterende Worker-ressource, ikke til navnefeltet. Et rigtigt skifte kræver en helt ny Worker med egen URL — hvilket ville ødelægge den allerede installerede PWA på familiens hjemmeskærm. "Beta" forbliver derfor det tekniske navn for det virkelige, eneste miljø fremover.
