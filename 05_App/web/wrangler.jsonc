@@ -169,7 +169,8 @@
         {
           "binding": "DB",
           "database_name": "boholtsfamilyplatform-beta",
-          "database_id": "cd369f99-abc2-44e0-9647-300ee6d85a13"
+          "database_id": "cd369f99-abc2-44e0-9647-300ee6d85a13",
+          "migrations_dir": "./server/migrations"
         }
       ],
       "ai": {
