@@ -155,6 +155,10 @@ Ved en gennemgang (27. august, Sprint 31-opfølgning) viste produktions-database
 - **Bevidst ikke gjort**: et rigtigt navneskifte (fx at gøre "beta" til det formelle produktionsnavn) — `wrangler.jsonc`'s egen kommentar dokumenterer, at det blev forsøgt og rullet tilbage (2026-08-23), fordi Cloudflares Git-integration er bundet til den eksisterende Worker-ressource, ikke til navnefeltet. Et rigtigt skifte kræver en helt ny Worker med egen URL — hvilket ville ødelægge den allerede installerede PWA på familiens hjemmeskærm. "Beta" forbliver derfor det tekniske navn for det virkelige, eneste miljø fremover.
 - **Fremtidig regel**: hold ikke et duplikeret miljø i live "i tilfælde af" — hvis kun ét miljø reelt bruges, skal det andet enten aktivt holdes i sync (dyrt, glemmes i praksis, se lektionerne ovenfor) eller lukkes ned helt. Et halvvejs-eksisterende miljø er værre end intet ekstra miljø: det ser ud som en sikkerhedskopi, men er det ikke, og det akkumulerer stille sin egen, uafhængige data, som ingen husker at tjekke.
 
+**Opfølgning, samme dag**: kort efter sletningen af produktions-D1-databasen begyndte login på beta at fejle med `Cannot read properties of undefined (reading 'prepare')` — `c.env.DB` var pludselig `undefined` i den allerede kørende beta-Worker, selvom `wrangler.jsonc`'s `env.beta`-sektion var fuldstændig urørt, og selvom beta-databasen (`cd369f99-...`) stadig svarede fint på direkte forespørgsler. Begge miljøer brugte samme bindingsnavn ("DB") under forskellige database-id'er — arbejdshypotesen er, at sletningen af den ene D1-database forstyrrede en allerede-kørende Workers live binding til den ANDEN, stadig gyldige database, og at kun en frisk deploy genetablerer den.
+
+- **Fremtidig regel**: at slette en Cloudflare-ressource (D1, KV, osv.) er aldrig risikofrit for de andre ressourcer på kontoen, bare fordi de har forskellige id'er — særligt ikke, hvis de deler samme bindingsnavn på tværs af Workers. Efter enhver sletning: bekræft aktivt, at ALLE andre miljøer, der er i brug, stadig virker (fx et rigtigt login-forsøg), i stedet for at antage at kun den slettede ressource er påvirket.
+
 ---
 
 ## Dokumentets rolle
