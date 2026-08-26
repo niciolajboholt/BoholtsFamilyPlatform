@@ -1,0 +1,44 @@
+<UserControl x:Class="Filnavnevaerktoej.App.Views.ResultView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" Text="Resultat" Style="{StaticResource OverskriftStil}" />
+        <TextBlock Grid.Row="1" Text="{Binding StatusOverskrift}" Style="{StaticResource UnderoverskriftStil}" />
+
+        <Border Grid.Row="2" Style="{StaticResource GruppeKortStil}">
+            <WrapPanel>
+                <TextBlock Text="{Binding AntalOmdoebt, StringFormat='Omdøbt: {0}'}" Foreground="{StaticResource SuccesGroenBrush}" FontWeight="SemiBold" Margin="0,0,20,0" />
+                <TextBlock Text="{Binding AntalUaendret, StringFormat='Sprunget over: {0}'}" Foreground="{StaticResource UaendretGraaBrush}" Margin="0,0,20,0" />
+                <TextBlock Text="{Binding AntalFejl, StringFormat='Fejl: {0}'}" Foreground="{StaticResource FejlRoedBrush}" FontWeight="SemiBold" />
+            </WrapPanel>
+        </Border>
+
+        <TextBlock Grid.Row="3" Text="Fejl under omdøbningen" Style="{StaticResource SektionsOverskriftStil}" />
+
+        <DataGrid Grid.Row="4" ItemsSource="{Binding Fejl}">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Oprindeligt filnavn" Binding="{Binding OprindeligtFilnavn}" Width="1.6*" />
+                <DataGridTextColumn Header="Forsøgt nyt filnavn" Binding="{Binding NytFilnavn}" Width="1.6*" />
+                <DataGridTextColumn Header="Fejlbesked" Binding="{Binding Fejlbesked}" Width="2.4*" />
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,14,0,0">
+            <Button Content="_Åbn mappe" Command="{Binding AabenMappeCommand}" Style="{StaticResource SekundaerKnapStil}" Margin="0,0,8,0" />
+            <Button Content="_Gem rapport" Command="{Binding GemRapportCommand}" Style="{StaticResource SekundaerKnapStil}" Margin="0,0,8,0" />
+            <Button Content="_Fortryd seneste omdøbning" Command="{Binding FortrydCommand}" Style="{StaticResource SekundaerKnapStil}" Margin="0,0,8,0" />
+            <Button Content="_Start forfra" Command="{Binding StartForfraCommand}" Style="{StaticResource SekundaerKnapStil}" Margin="0,0,8,0" />
+            <Button Content="_Luk" Command="{Binding LukCommand}" Style="{StaticResource PrimaerKnapStil}" />
+        </StackPanel>
+    </Grid>
+</UserControl>

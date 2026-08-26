@@ -1,0 +1,32 @@
+<Window x:Class="Filnavnevaerktoej.App.Views.FejlDialogWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Filnavneværktøj - uventet fejl" Height="440" Width="620"
+        WindowStartupLocation="CenterScreen">
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" Text="Der opstod en uventet fejl" Style="{StaticResource OverskriftStil}" Foreground="{StaticResource FejlRoedBrush}" />
+        <TextBlock Grid.Row="1" TextWrapping="Wrap"
+                    Text="Filnavneværktøj stødte på en uventet fejl og kunne ikke fortsætte den igangværende handling. Ingen filer er blevet overskrevet eller mistet. Du kan trygt lukke denne dialog og prøve igen." />
+
+        <TextBlock Grid.Row="2" Margin="0,14,0,4" FontWeight="SemiBold" Text="Tekniske detaljer" />
+
+        <TextBox Grid.Row="3" x:Name="DetaljerTekstboks" IsReadOnly="True" TextWrapping="Wrap"
+                 VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" FontFamily="Consolas" />
+
+        <TextBlock Grid.Row="4" x:Name="LogStiTekst" Margin="0,10,0,0" TextWrapping="Wrap" />
+
+        <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,14,0,0">
+            <Button Content="_Kopiér tekniske detaljer" Click="OnKopierClick" Style="{StaticResource SekundaerKnapStil}" Margin="0,0,8,0" />
+            <Button Content="_Luk" Click="OnLukClick" Style="{StaticResource PrimaerKnapStil}" />
+        </StackPanel>
+    </Grid>
+</Window>

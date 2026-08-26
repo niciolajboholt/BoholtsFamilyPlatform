@@ -1,0 +1,66 @@
+<UserControl x:Class="Filnavnevaerktoej.App.Views.ConfirmationView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:conv="clr-namespace:Filnavnevaerktoej.App.Converters">
+
+    <UserControl.Resources>
+        <conv:StatusTilBaggrundConverter x:Key="StatusTilBaggrundConverter" />
+        <conv:StatusTilTekstConverter x:Key="StatusTilTekstConverter" />
+        <conv:BoolTilSynlighedConverter x:Key="BoolTilSynlighedConverter" />
+        <conv:InverterBoolConverter x:Key="InverterBoolConverter" />
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" Text="Kontrollér ændringer" Style="{StaticResource OverskriftStil}" />
+        <TextBlock Grid.Row="1" Text="Kontrollér listen nedenfor, før filerne omdøbes." Style="{StaticResource UnderoverskriftStil}" />
+
+        <DataGrid Grid.Row="2" ItemsSource="{Binding Raekker}">
+            <DataGrid.RowStyle>
+                <Style TargetType="DataGridRow">
+                    <Setter Property="Background" Value="{Binding Status, Converter={StaticResource StatusTilBaggrundConverter}}" />
+                </Style>
+            </DataGrid.RowStyle>
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Nr." Binding="{Binding Nr}" Width="0.4*" />
+                <DataGridTextColumn Header="Gammelt filnavn" Binding="{Binding GammeltFilnavn}" Width="2*" />
+                <DataGridTextColumn Header="Nyt filnavn" Binding="{Binding NytFilnavn}" Width="2*" />
+                <DataGridTextColumn Header="Mappe" Binding="{Binding Mappe}" Width="2.4*" />
+                <DataGridTextColumn Header="Status" Binding="{Binding Status, Converter={StaticResource StatusTilTekstConverter}}" Width="0.8*" />
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <TextBlock Grid.Row="3" Margin="0,10,0,0" FontWeight="SemiBold"
+                   Text="{Binding AntalDerOmdoebes, StringFormat='{}{0} filer bliver omdøbt'}" />
+
+        <StackPanel Grid.Row="4" Margin="0,10,0,0" Visibility="{Binding UdfoererNu, Converter={StaticResource BoolTilSynlighedConverter}}">
+            <ProgressBar Height="10" Minimum="0" Maximum="100" Value="{Binding FremdriftProcent, Mode=OneWay}" />
+            <TextBlock Text="{Binding FremdriftBesked}" Margin="0,4,0,0" Foreground="#5B5B5B" />
+        </StackPanel>
+
+        <Grid Grid.Row="5" Margin="0,14,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <CheckBox Grid.Column="0" Content="_Jeg har kontrolleret ændringerne" IsChecked="{Binding HarKontrolleret}"
+                      IsEnabled="{Binding UdfoererNu, Converter={StaticResource InverterBoolConverter}}" VerticalAlignment="Center" />
+
+            <StackPanel Grid.Column="2" Orientation="Horizontal">
+                <Button Content="_Tilbage" Command="{Binding TilbageCommand}" Style="{StaticResource SekundaerKnapStil}" Margin="0,0,8,0" />
+                <Button Content="_Annuller" Command="{Binding AnnullerCommand}" Style="{StaticResource SekundaerKnapStil}" Margin="0,0,8,0" />
+                <Button Content="_Omdøb filer" Command="{Binding OmdoebCommand}" Style="{StaticResource PrimaerKnapStil}" IsDefault="True" />
+            </StackPanel>
+        </Grid>
+    </Grid>
+</UserControl>

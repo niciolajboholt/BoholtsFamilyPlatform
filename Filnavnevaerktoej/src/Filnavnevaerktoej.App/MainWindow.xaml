@@ -1,0 +1,93 @@
+<Window x:Class="Filnavnevaerktoej.App.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:Filnavnevaerktoej.App.ViewModels"
+        xmlns:views="clr-namespace:Filnavnevaerktoej.App.Views"
+        xmlns:conv="clr-namespace:Filnavnevaerktoej.App.Converters"
+        Title="Filnavneværktøj"
+        Height="820" Width="1280" MinHeight="620" MinWidth="980"
+        WindowStartupLocation="CenterScreen"
+        Icon="Resources/app.ico"
+        Closing="OnClosing">
+
+    <Window.Resources>
+        <conv:BoolTilSynlighedConverter x:Key="BoolTilSynlighedConverter" />
+        <conv:TrinAktivTilFarveConverter x:Key="TrinAktivTilFarveConverter" />
+        <conv:TrinAktivTilVaegtConverter x:Key="TrinAktivTilVaegtConverter" />
+
+        <DataTemplate DataType="{x:Type vm:SelectFolderViewModel}">
+            <views:SelectFolderView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:ConfigureRulesViewModel}">
+            <views:ConfigureRulesView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:ConfirmationViewModel}">
+            <views:ConfirmationView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:ResultViewModel}">
+            <views:ResultView />
+        </DataTemplate>
+    </Window.Resources>
+
+    <Window.InputBindings>
+        <KeyBinding Key="Escape" Command="{Binding AnnullerCommand}" />
+    </Window.InputBindings>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Topbjælke -->
+        <Border Grid.Row="0" Background="#0063B1" Padding="20,12">
+            <DockPanel>
+                <TextBlock Text="Filnavneværktøj" Foreground="White" FontSize="17" FontWeight="SemiBold"
+                           VerticalAlignment="Center" DockPanel.Dock="Left" />
+                <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" HorizontalAlignment="Right">
+                    <Button Content="_Historik..." Click="OnAabenHistorikClick" Style="{StaticResource SekundaerKnapStil}" Margin="0,0,8,0" />
+                    <Button Content="_Om..." Click="OnAabenOmClick" Style="{StaticResource SekundaerKnapStil}" />
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <!-- Trinindikator -->
+        <Border Grid.Row="1" Background="White" Padding="20,14" BorderBrush="#E5E5E5" BorderThickness="0,0,0,1">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                <TextBlock Text="1. Vælg filer"
+                           Foreground="{Binding CurrentStep, Converter={StaticResource TrinAktivTilFarveConverter}, ConverterParameter=VaelgFiler}"
+                           FontWeight="{Binding CurrentStep, Converter={StaticResource TrinAktivTilVaegtConverter}, ConverterParameter=VaelgFiler}" />
+                <TextBlock Text="—" Foreground="#C0C0C0" Margin="14,0" />
+                <TextBlock Text="2. Tilpas filnavne"
+                           Foreground="{Binding CurrentStep, Converter={StaticResource TrinAktivTilFarveConverter}, ConverterParameter=KonfigurerRegler}"
+                           FontWeight="{Binding CurrentStep, Converter={StaticResource TrinAktivTilVaegtConverter}, ConverterParameter=KonfigurerRegler}" />
+                <TextBlock Text="—" Foreground="#C0C0C0" Margin="14,0" />
+                <TextBlock Text="3. Kontrollér og omdøb"
+                           Foreground="{Binding CurrentStep, Converter={StaticResource TrinAktivTilFarveConverter}, ConverterParameter=Bekraeftelse}"
+                           FontWeight="{Binding CurrentStep, Converter={StaticResource TrinAktivTilVaegtConverter}, ConverterParameter=Bekraeftelse}" />
+                <TextBlock Text="—" Foreground="#C0C0C0" Margin="14,0" />
+                <TextBlock Text="4. Resultat"
+                           Foreground="{Binding CurrentStep, Converter={StaticResource TrinAktivTilFarveConverter}, ConverterParameter=Resultat}"
+                           FontWeight="{Binding CurrentStep, Converter={StaticResource TrinAktivTilVaegtConverter}, ConverterParameter=Resultat}" />
+            </StackPanel>
+        </Border>
+
+        <!-- Trin-indhold -->
+        <ContentControl Grid.Row="2" Content="{Binding CurrentContent}" Margin="20" />
+
+        <!-- Fælles bundnavigation - kun trin 1 og 2. Trin 3 og 4 har egne knapper. -->
+        <Border Grid.Row="3" Background="White" BorderBrush="#E5E5E5" BorderThickness="0,1,0,0" Padding="20,14"
+                Visibility="{Binding VisGlobalNavigation, Converter={StaticResource BoolTilSynlighedConverter}}">
+            <DockPanel>
+                <Button Content="_Annuller" Command="{Binding AnnullerCommand}" Style="{StaticResource SekundaerKnapStil}" DockPanel.Dock="Left" />
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button Content="_Tilbage" Command="{Binding TilbageCommand}" Style="{StaticResource SekundaerKnapStil}"
+                            Visibility="{Binding KanGaaTilbage, Converter={StaticResource BoolTilSynlighedConverter}}" Margin="0,0,8,0" />
+                    <Button Content="_Næste" Command="{Binding NaesteCommand}" Style="{StaticResource PrimaerKnapStil}" IsDefault="True" />
+                </StackPanel>
+            </DockPanel>
+        </Border>
+    </Grid>
+</Window>

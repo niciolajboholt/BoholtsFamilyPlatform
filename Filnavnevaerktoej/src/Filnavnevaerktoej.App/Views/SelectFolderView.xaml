@@ -1,0 +1,73 @@
+<UserControl x:Class="Filnavnevaerktoej.App.Views.SelectFolderView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:conv="clr-namespace:Filnavnevaerktoej.App.Converters">
+
+    <UserControl.Resources>
+        <conv:FilstoerrelseConverter x:Key="FilstoerrelseConverter" />
+        <conv:StringIkkeTomTilSynlighedConverter x:Key="StringIkkeTomTilSynlighedConverter" />
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" Text="Vælg filer" Style="{StaticResource OverskriftStil}" />
+        <TextBlock Grid.Row="1" Style="{StaticResource UnderoverskriftStil}"
+                    Text="Vælg den mappe, der indeholder de filer, du vil omdøbe. Du kan gennemse efter mappen eller skrive/indsætte stien direkte." />
+
+        <!-- Mappevalg -->
+        <Border Grid.Row="2" Style="{StaticResource GruppeKortStil}">
+            <StackPanel>
+                <Label Content="_Mappesti" Target="{Binding ElementName=MappeStiTekstboks}" Padding="0,0,0,4" />
+                <DockPanel>
+                    <Button DockPanel.Dock="Right" Content="_Gennemse..." Command="{Binding GennemseCommand}" Style="{StaticResource SekundaerKnapStil}" Margin="8,0,0,0" />
+                    <TextBox x:Name="MappeStiTekstboks" Text="{Binding MappeSti, UpdateSourceTrigger=PropertyChanged}" />
+                </DockPanel>
+                <TextBlock Text="{Binding MappeFejlBesked}" Foreground="{StaticResource FejlRoedBrush}" Margin="0,6,0,0"
+                            Visibility="{Binding MappeFejlBesked, Converter={StaticResource StringIkkeTomTilSynlighedConverter}}" TextWrapping="Wrap" />
+            </StackPanel>
+        </Border>
+
+        <!-- Filter og indstillinger -->
+        <Border Grid.Row="3" Style="{StaticResource GruppeKortStil}">
+            <StackPanel>
+                <TextBlock Text="Filtre og indstillinger" Style="{StaticResource SektionsOverskriftStil}" Margin="0,0,0,4" />
+                <Label Content="_Filtypefilter (fx *.dwg;*.pdf, eller *.* for alle filer)" Target="{Binding ElementName=FilterTekstboks}" Padding="0" />
+                <TextBox x:Name="FilterTekstboks" Text="{Binding FilFilter, UpdateSourceTrigger=PropertyChanged}" Margin="0,4,0,10" />
+
+                <CheckBox Content="Medtag _undermapper" IsChecked="{Binding MedtagUndermapper}" />
+                <CheckBox Content="Medtag sk_julte filer" IsChecked="{Binding MedtagSkjulteFiler}" />
+                <CheckBox Content="Medtag s_ystemfiler" IsChecked="{Binding MedtagSystemfiler}" />
+            </StackPanel>
+        </Border>
+
+        <!-- Forhåndsvisning af fundne filer -->
+        <Border Grid.Row="4" Style="{StaticResource GruppeKortStil}" Margin="0">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+                <TextBlock Grid.Row="0" Text="Fundne filer" Style="{StaticResource SektionsOverskriftStil}" Margin="0,0,0,4" />
+                <DataGrid Grid.Row="1" ItemsSource="{Binding FundneFiler}">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Filnavn" Binding="{Binding FileName}" Width="2*" />
+                        <DataGridTextColumn Header="Filtype" Binding="{Binding Extension}" Width="*" />
+                        <DataGridTextColumn Header="Mappe" Binding="{Binding DirectoryPath}" Width="3*" />
+                        <DataGridTextColumn Header="Størrelse" Binding="{Binding SizeBytes, Converter={StaticResource FilstoerrelseConverter}}" Width="*" />
+                        <DataGridTextColumn Header="Senest ændret" Binding="{Binding LastModifiedUtc, StringFormat='dd-MM-yyyy HH:mm'}" Width="1.4*" />
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Grid>
+        </Border>
+
+        <TextBlock Grid.Row="5" Text="{Binding StatusBesked}" Margin="0,10,0,0" FontWeight="SemiBold" />
+    </Grid>
+</UserControl>

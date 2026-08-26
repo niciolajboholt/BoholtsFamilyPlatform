@@ -1,0 +1,26 @@
+FILNAVNEVÆRKTØJ - INTERN PROPRIETÆR SOFTWARELICENS
+
+Copyright (c) Boholt. Alle rettigheder forbeholdes.
+
+Dette er en pladsholder-licens til intern brug, indtil en endelig licensform
+er besluttet.
+
+Denne software og tilhørende dokumentationsfiler ("Softwaren") stilles til
+rådighed udelukkende til intern brug for den organisation, der har fået
+Softwaren udleveret. Medmindre andet er skriftligt aftalt:
+
+1. Softwaren må installeres og bruges internt til det tiltænkte formål
+   (masseomdøbning af filer).
+2. Softwaren må ikke videredistribueres, sælges, udlejes eller på anden
+   måde gøres tilgængelig for tredjepart uden for organisationen.
+3. Kildekoden må ikke offentliggøres uden forudgående skriftlig tilladelse.
+4. Softwaren leveres "SOM DEN ER", uden nogen form for garanti, hverken
+   direkte eller indirekte, herunder men ikke begrænset til garantier om
+   salgbarhed eller egnethed til et bestemt formål.
+5. Ophavsmanden/organisationen bag Softwaren er under ingen
+   omstændigheder ansvarlig for tab af data eller andre skader, der måtte
+   opstå som følge af brug af Softwaren - brug altid programmets
+   fortrydelsesfunktion og egne sikkerhedskopier ved vigtige filer.
+
+Denne pladsholder-licens erstattes med en endelig, gennemgået licenstekst,
+når organisationen har taget stilling til den ønskede licensform.
