@@ -39,4 +39,5 @@ export interface OutlookCalendarEventRequest {
   isAllDay?: boolean;
   start: OutlookEventDateTime;
   end: OutlookEventDateTime;
+  sensitivity?: "normal" | "private";
 }

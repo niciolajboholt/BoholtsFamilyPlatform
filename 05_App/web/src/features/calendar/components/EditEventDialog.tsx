@@ -15,6 +15,8 @@ import {
   DialogContent,
   DialogTitle,
   MenuItem,
+  FormControlLabel,
+  Switch,
   TextField,
   type DialogProps,
 } from "@mui/material";
@@ -112,6 +114,7 @@ function createInitialFormState(
       ownerIds: [],
       description: "",
       location: "",
+      privacy: "details",
     };
   }
 
@@ -156,6 +159,7 @@ function createInitialFormState(
       event.description ?? "",
     location:
       event.location ?? "",
+    privacy: event.privacy === "busy" ? "busy" : "details",
   };
 }
 
@@ -505,6 +509,7 @@ function EditEventDialog({
       description:
         formState.description.trim() || undefined,
       location: formState.location.trim() || undefined,
+      privacy: formState.privacy === "busy" ? "busy" as const : undefined,
     };
 
     try {
@@ -827,6 +832,22 @@ function EditEventDialog({
                   ))}
                 </TextField>
               )}
+
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={formState.privacy === "busy"}
+                    disabled={!isInternalEvent || isSaving}
+                    onChange={(changeEvent) =>
+                      setField(
+                        "privacy",
+                        changeEvent.target.checked ? "busy" : "details",
+                      )
+                    }
+                  />
+                }
+                label="Privat aftale – familien ser kun Optaget"
+              />
 
               <TextField
                 label="Sted (valgfrit)"

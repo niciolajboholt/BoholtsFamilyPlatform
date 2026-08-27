@@ -13,4 +13,5 @@ export interface CreateCalendarEventInput {
   description?: string;
   location?: string;
   recurrence?: RecurrenceRule;
+  privacy?: "busy";
 }
