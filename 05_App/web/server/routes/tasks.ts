@@ -9,6 +9,7 @@ import type { Context } from "hono";
 import { Hono } from "hono";
 
 import type { Env } from "../env";
+import { logError } from "../lib/structuredLog";
 import { generateRoutineDraft } from "../lib/aiAssistant";
 import { getMembershipForFamily } from "../lib/familyMembership";
 import { sendPushNotificationToFamily, sendPushNotificationToUser } from "../lib/pushNotifications";
@@ -31,7 +32,7 @@ async function parseJsonBody<T extends object>(c: Context): Promise<Partial<T>> 
 
 tasks.onError((error, c) => {
   const message = error instanceof Error ? error.message : String(error);
-  console.error("Opgave-API fejlede:", message);
+  logError("Opgave-API fejlede", message, { path: c.req.path });
   return c.json({ error: "Der skete en serverfejl. Prøv igen." }, 500);
 });
 
@@ -302,7 +303,7 @@ tasks.post("/:id/tasks", async (c) => {
       body: `"${name}" er tilføjet.`,
       url: "/tasks",
     }).catch((error: unknown) => {
-      console.error("Kunne ikke sende opgave-push-notifikation:", error);
+      logError("Kunne ikke sende opgave-push-notifikation", error, { familyId });
     }),
   );
 
@@ -527,7 +528,7 @@ tasks.post("/:id/task-routines", async (c) => {
       body: `"${name}" er oprettet.`,
       url: "/tasks",
     }).catch((error: unknown) => {
-      console.error("Kunne ikke sende rutine-push-notifikation:", error);
+      logError("Kunne ikke sende rutine-push-notifikation", error, { familyId });
     }),
   );
 

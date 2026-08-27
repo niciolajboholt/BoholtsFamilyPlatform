@@ -76,6 +76,9 @@
   "ai": {
     "binding": "AI"
   },
+  "version_metadata": {
+    "binding": "CF_VERSION_METADATA"
+  },
   // Sprint 28 (2026-08-19): ingen cron-triggers på det ikke-navngivne
   // (produktions-)miljø længere — Nicolaj bekræftede, at familiens
   // rigtige, daglige data ligger i "beta"-miljøet, ikke her, så dette
@@ -94,7 +97,7 @@
   // deploy. Logs persisteres (så et fejlet kald kan slås op bagefter), traces
   // er bevidst fra — ingen nuværende behov, og det er den dyrere af de to.
   "observability": {
-    "enabled": false,
+    "enabled": true,
     "head_sampling_rate": 1,
     "logs": {
       "enabled": true,
@@ -166,11 +169,15 @@
         {
           "binding": "DB",
           "database_name": "boholtsfamilyplatform-beta",
-          "database_id": "cd369f99-abc2-44e0-9647-300ee6d85a13"
+          "database_id": "cd369f99-abc2-44e0-9647-300ee6d85a13",
+          "migrations_dir": "./server/migrations"
         }
       ],
       "ai": {
         "binding": "AI"
+      },
+      "version_metadata": {
+        "binding": "CF_VERSION_METADATA"
       },
       // Det reelt brugte miljø (Nicolaj og Christines PWA på hjemmeskærmen
       // peger her, ikke på det ikke-navngivne produktionsmiljø ovenfor) —
@@ -181,7 +188,7 @@
         "crons": ["0 4 * * *", "*/5 * * * *", "0 17 * * SUN"]
       },
       "observability": {
-        "enabled": false,
+        "enabled": true,
         "head_sampling_rate": 1,
         "logs": {
           "enabled": true,

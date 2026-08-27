@@ -152,6 +152,7 @@ function TasksPage() {
 
             <TextField
               size="small"
+              label="Opgave"
               placeholder="Tilføj en opgave…"
               value={newTaskName}
               onChange={(event) => setNewTaskName(event.target.value)}
@@ -161,6 +162,7 @@ function TasksPage() {
             <TextField
               select
               size="small"
+              label="Tildel til"
               value={newTaskAssignee}
               onChange={(event) => setNewTaskAssignee(event.target.value)}
               sx={{ minWidth: 160 }}
@@ -524,6 +526,7 @@ function RoutineCreateDialog({ open, onClose, members, onCreate, onSuggest }: Ro
             <TextField
               fullWidth
               size="small"
+              label="Beskrivelse til AI-forslag"
               placeholder="Fx morgenrutine med tandbørstning, tøj og skoletaske"
               value={aiDescription}
               onChange={(event) => setAiDescription(event.target.value)}
@@ -606,6 +609,7 @@ function RoutineCreateDialog({ open, onClose, members, onCreate, onSuggest }: Ro
               <TextField
                 select
                 size="small"
+                label={`Ikon til opgave ${index + 1}`}
                 value={item.icon}
                 onChange={(event) => updateItem(index, { icon: event.target.value })}
                 sx={{ minWidth: 120 }}
@@ -619,6 +623,7 @@ function RoutineCreateDialog({ open, onClose, members, onCreate, onSuggest }: Ro
 
               <TextField
                 size="small"
+                label={`Opgave ${index + 1}`}
                 placeholder="Navn"
                 value={item.name}
                 onChange={(event) => updateItem(index, { name: event.target.value })}

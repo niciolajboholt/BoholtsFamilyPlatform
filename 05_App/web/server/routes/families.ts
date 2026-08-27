@@ -6,6 +6,7 @@ import { familyMemberSeeds, generateInviteCode, generateShareToken } from "../li
 import { getMembership, getMembershipForFamily } from "../lib/familyMembership";
 import { checkRateLimit } from "../lib/rateLimit";
 import { getSessionUser, type SessionUser } from "../lib/session";
+import { logError } from "../lib/structuredLog";
 
 // Sprint 24: en invitationskode har rigelig entropi til at gøre reel
 // brute-force upraktisk (8 tegn fra et 33-tegns alfabet), men uden nogen
@@ -30,7 +31,7 @@ async function parseJsonBody<T extends object>(
 // stødte på i auth.ts's callback, før den fik sin egen try/catch.
 families.onError((error, c) => {
   const message = error instanceof Error ? error.message : String(error);
-  console.error("Familie-API fejlede:", message);
+  logError("Familie-API fejlede", message, { path: c.req.path });
   return c.json({ error: "Der skete en serverfejl. Prøv igen." }, 500);
 });
 
@@ -52,12 +53,15 @@ interface FamilyRow {
   name: string;
   ownerUserId: string;
   createdAt: string;
+  aiWeeklySummaryEnabled: number;
 }
 
 async function getFamily(db: D1Database, familyId: string): Promise<FamilyRow | null> {
   const row = await db
     .prepare(
-      `SELECT id, name, owner_user_id AS ownerUserId, created_at AS createdAt FROM families WHERE id = ?`,
+      `SELECT id, name, owner_user_id AS ownerUserId, created_at AS createdAt,
+              ai_weekly_summary_enabled AS aiWeeklySummaryEnabled
+       FROM families WHERE id = ?`,
     )
     .bind(familyId)
     .first<FamilyRow>();
@@ -134,7 +138,13 @@ families.post("/", async (c) => {
   const members = await listFamilyMembers(c.env.DB, familyId);
 
   return c.json({
-    family: { id: familyId, name, ownerUserId: user.id, createdAt: now },
+    family: {
+      id: familyId,
+      name,
+      ownerUserId: user.id,
+      createdAt: now,
+      aiWeeklySummaryEnabled: 1,
+    },
     role: "owner",
     members,
     inviteCode,
@@ -401,6 +411,31 @@ families.get("/:id/weekly-summary", async (c) => {
     .first<{ weekStart: string; content: string; createdAt: string }>();
 
   return c.json({ summary: summary ?? null });
+});
+
+// Privatlivsvalg for automatisk AI-behandling — ejer/admin, da indstillingen
+// gælder hele familiens kalender-, opgave- og indkøbsdata.
+families.patch("/:id/privacy-settings", async (c) => {
+  const user = c.get("user");
+  const familyId = c.req.param("id");
+  const membership = await getMembershipForFamily(c.env.DB, familyId, user.id);
+
+  if (!membership || (membership.role !== "owner" && membership.role !== "admin")) {
+    return c.json({ error: "Kun ejer eller admin kan ændre familiens privatlivsvalg." }, 403);
+  }
+
+  const body = await parseJsonBody<{ aiWeeklySummaryEnabled: boolean }>(c);
+  if (typeof body.aiWeeklySummaryEnabled !== "boolean") {
+    return c.json({ error: "AI-indstillingen skal være sand eller falsk." }, 400);
+  }
+
+  await c.env.DB.prepare(
+    "UPDATE families SET ai_weekly_summary_enabled = ? WHERE id = ?",
+  )
+    .bind(body.aiWeeklySummaryEnabled ? 1 : 0, familyId)
+    .run();
+
+  return c.json({ aiWeeklySummaryEnabled: body.aiWeeklySummaryEnabled });
 });
 
 // Omdøb familien — ejer/admin.

@@ -7,6 +7,7 @@ import type { Context } from "hono";
 import { Hono } from "hono";
 
 import type { Env } from "../env";
+import { logError } from "../lib/structuredLog";
 import { getMembershipForFamily } from "../lib/familyMembership";
 import { GoogleNotConnectedError, getGoogleAccessToken } from "../lib/googleConnection";
 import { decodeGoogleEventId, encodeGoogleEventId } from "../lib/googleEventIds";
@@ -26,7 +27,7 @@ export const allowedOffsetMinutes = [10, 30, 60, 24 * 60, 3 * 24 * 60] as const;
 
 eventReminders.onError((error, c) => {
   const message = error instanceof Error ? error.message : String(error);
-  console.error("Aftale-påmindelse-API fejlede:", message);
+  logError("Aftale-påmindelse-API fejlede", message, { path: c.req.path });
   return c.json({ error: "Der skete en serverfejl. Prøv igen." }, 500);
 });
 

@@ -1,77 +1,81 @@
-# 13_Release_And_Security_Baseline
+# 13 — Release- og sikkerhedsgrundlag
 
-> Status: Active
+> Status: Aktiv · Version 2.0 · Opdateret 2026-08-26
 
-Version: 1.0
+## Arkitektur og data
 
-Project:
-Boholts Family Platform
+Appen er en React/TypeScript-PWA serveret af en Cloudflare Worker (Hono).
+Fælles data ligger i D1; enhedspræferencer og en begrænset kalendercache kan
+ligge i browseren. Google-login er server-ejet med PKCE, HttpOnly-session og
+krypteret refresh-token. Outlook bruger MSAL på klienten.
 
-Last Updated:
-2026-07-30
-
-Owner:
-Nicolaj Bach Boholt
-
-Maintained by:
-Claude
-
----
-
-## Formål
-
-Dette dokument samler det minimumsgrundlag for release og sikkerhed, som en lille familieapp med rigtige familie- og kalenderdata samt Google OAuth bør have (Audit F-08). Det erstatter ikke en fuld enterprise-sikkerhedspolitik — det er bevidst afgrænset til projektets faktiske størrelse og risikoprofil (single-device, én familie, ingen backend).
-
----
+Hemmeligheder ligger i Cloudflare Secrets Store og bindes i `wrangler.jsonc`.
+Ikke-hemmelige værdier som OAuth client-id og VAPID public key må ligge i
+konfigurationen. `.env*` og `.dev.vars*` er ignoreret af Git.
 
 ## Release-checkliste
 
-Før en `develop` → `main`-merge eller anden release:
+Før merge eller deploy:
 
-1. `npm run lint` — grøn.
-2. `npm run build` — grøn.
-3. `npm test` — grøn (kører automatisk i CI, se `.github/workflows/ci.yml`).
-4. Manuel smoke-test i browser: opret/redigér/slet en lokal aftale, tjek "Vis kalendere", og hvis Google er konfigureret, tjek forbindelse/synkronisering.
-5. Gennemgå diff'en for utilsigtet committede hemmeligheder (`.env.local`, tokens) — `.gitignore` udelukker allerede `.env*` (undtagen `.env.example`).
+1. `npm ci`
+2. `npm run lint`
+3. `npm run build`
+4. `npm test`
+5. `npm run test:e2e`
+6. `wrangler deploy --dry-run --env beta`
+7. Gennemgå diff og dependency-advarsler for secrets og risikable ændringer.
+8. Kør nye D1-migrationer på beta og kontrollér `/api/health`.
+9. Smoke-test login, kalender, opgaver, indkøb, indstillinger og delelink på beta.
+10. Merge først derefter til `main`; kør migrationer i produktion før kode, der
+    kræver de nye kolonner/tabeller, bliver taget i brug.
 
-## Miljøvariabler og Google-konfiguration
+GitHub Actions kører lint, build, Vitest og Playwright på pull requests og
+pushes til `develop`/`main`. Cloudflare Workers Builds deployer `develop` til
+beta og `main` til produktion.
 
-Dokumenteret i `05_App/web/.env.example` og rod-`README.md`. Kort opsummeret:
+## Sikkerhedskontroller
 
-- `VITE_GOOGLE_CALENDAR_ENABLED` — slår Google-integrationen til/fra.
-- `VITE_GOOGLE_CLIENT_ID` — et OAuth Web Client ID fra Google Cloud Console. Ikke en hemmelighed i klassisk forstand (det er offentligt synligt i klientkoden), men skal stadig kun oprettes af projektejeren i eget Google Cloud-projekt.
+- CSP, `X-Content-Type-Options`, `Referrer-Policy` og `frame-ancestors 'none'`.
+- `Cache-Control: no-store` på auth- og API-svar.
+- Rate limits på invitationer, AI, push og offentlige delelinks.
+- Rolle-/medlemskabstjek på familieendpoints.
+- Krypterede Google refresh-tokens og Secure/HttpOnly/SameSite-sessioncookies.
+- Offentlige kalenderlinks viser som standard kun titel og tidspunkt;
+  beskrivelse/lokation kræver aktivt tilvalg og linket kan tilbagekaldes.
+- AI-ugeresumé kan fravælges for hele familien; fravalget filtreres før data
+  indsamles.
+- Strukturerede Worker-logs og Cloudflare versionsmetadata i `/api/health`.
 
-Der er ingen server-side hemmeligheder (client secret, API-nøgler) i dette projekt, fordi der ikke er nogen backend — se ADR-011 (single-device).
+## Backup, retention og offline
 
-## Token-livscyklus og storage-begrænsninger
+D1 er den autoritative kilde til familie, opgaver og indkøbslister. Eksporten i
+Indstillinger dækker lokale browserdata; den er ikke en komplet D1-backup.
+Google/Outlook ejer kalenderaftalerne. App-skallen og tidligere hentede assets
+kan åbnes offline, men servermutationer køes ikke endnu; UI'en siger derfor
+tydeligt, når ændringer kræver forbindelse.
 
-- Google OAuth-adgangstokenet opbevares **udelukkende i hukommelsen** (`GoogleCalendarSession`), aldrig i `localStorage` eller cookies.
-- Et sideindlæsning/reload kræver en ny forbindelse (evt. stille genoprettet, se Sprint 14) — der er ingen refresh token og ingen vedvarende session.
-- Service workerens cache (F-04) er eksplicit konfigureret til `NetworkOnly` for alle kald til `googleapis.com`/`accounts.google.com`, så der aldrig ligger en cached kopi af kalenderdata eller et token i offline-cachen.
+Udløbne sessioner og gamle rate-limit-poster ryddes af cron. En fuld slette-/
+retentionprocedure for en hel konto/familie bør dokumenteres før offentlig
+lancering.
 
-## Afhængigheder og sårbarhedskontrol
+## Rollback og migrationer
 
-- `npm ci` bruges konsekvent (i CI og lokalt), så installationen matcher `package-lock.json` nøjagtigt.
-- Anbefalet praksis: kør `npm audit` periodisk (fx ved større afhængighedsopdateringer) og ved reelle sikkerhedsadvarsler fra GitHub (Dependabot-alerts, hvis aktiveret på repoet).
-- Der er ingen automatisk `npm audit`-gate i CI endnu — det er en bevidst, lav-risiko fravalg for et lille, ikke-offentligt projekt, men kan tilføjes som et ekstra CI-trin, hvis det ønskes senere.
+Kode rulles tilbage med en ny Git-revert og Cloudflare-deploy; undgå at omskrive
+fælles branchhistorik. D1-migrationer er fremadrettede og skal designes
+additivt. Tag databasebackup/eksport før destruktive schemaændringer.
+`CF_VERSION_METADATA` på health-endpointet identificerer den aktive deploy.
 
-## Backup, restore og datatab
+## Eksterne releasekrav
 
-Se ADR-012 og den implementerede eksport/import-funktion i Indstillinger (`dataBackupStorage.ts`, Audit F-11). Al lokal data (`localStorage`) kan eksporteres til en JSON-fil og genindlæses. Dette er brugerens eget ansvar at gøre jævnligt — der er ingen automatisk, skjult backup, og ingen central server, der gemmer en kopi.
+Google OAuth consent screen skal have verificeret branding, autoriserede
+domæner samt offentlige links til privatlivspolitik og vilkår. Repositoryet
+leverer siderne `/privacy` og `/terms`; selve Google-verifikationen kræver
+projektejers adgang til Google Cloud Console.
 
-**Risiko, eksplicit accepteret**: rydder brugeren browserens data (eller skifter enhed) uden forudgående eksport, er de lokale data tabt. Google Calendar-data er upåvirket, da det ejes af Google, ikke af denne app.
+## Relaterede filer
 
-## Releaseansvar og rollback
-
-- Der er ingen automatiseret deployment-pipeline — releases sker ved at merge en valideret `develop` til `main` (se F-01), som beskrevet i `README.md`s "Repository-strategi".
-- Rollback er en almindelig Git-operation: revert af merge-commit'en på `main`, eller checkout af en tidligere tag/commit. Der findes ingen database-migrationer at rulle tilbage (single-device, `localStorage`).
-- Nicolaj er projektejer og eneste beslutningstager om, hvornår en `develop`-tilstand er klar til `main` — AI-agenter committer/pusher til feature-branches, men merger kun efter eksplicit test og godkendelse (se `06_Claude_Playbook.md`).
-
----
-
-## Relaterede dokumenter
-
-* `01_Project_Documentation/Architecture/05_ADR_Architecture_Decisions.md` (ADR-011, ADR-012)
-* `01_Project_Documentation/AI_Knowledge_Base/10_Future_Roadmap.md`
-* `05_App/web/.env.example`
-* `.github/workflows/ci.yml`
+- `05_App/web/wrangler.jsonc`
+- `05_App/web/server/worker-configuration.d.ts`
+- `05_App/web/server/migrations/`
+- `.github/workflows/ci.yml`
+- `01_Project_Documentation/Architecture/05_ADR_Architecture_Decisions.md`

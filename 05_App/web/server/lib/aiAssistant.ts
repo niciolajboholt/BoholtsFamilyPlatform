@@ -5,6 +5,7 @@
 // forlader ikke Cloudflares infrastruktur.
 
 import type { Env } from "../env";
+import { logError } from "./structuredLog";
 import { isTaskIcon, taskIcons } from "./taskIcons";
 
 const model = "@cf/zai-org/glm-4.7-flash";
@@ -45,7 +46,7 @@ async function runChatCompletion(
 
     return response.choices?.[0]?.message?.content ?? null;
   } catch (error: unknown) {
-    console.error("Workers AI-kald fejlede:", error);
+    logError("Workers AI-kald fejlede", error);
     return null;
   }
 }

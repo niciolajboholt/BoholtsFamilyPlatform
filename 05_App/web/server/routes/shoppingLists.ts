@@ -8,6 +8,7 @@ import type { Context } from "hono";
 import { Hono } from "hono";
 
 import type { Env } from "../env";
+import { logError } from "../lib/structuredLog";
 import { generateIngredientsDraft } from "../lib/aiAssistant";
 import { getMembershipForFamily } from "../lib/familyMembership";
 import { sendPushNotificationToFamily } from "../lib/pushNotifications";
@@ -35,7 +36,7 @@ async function parseJsonBody<T extends object>(c: Context): Promise<Partial<T>> 
 
 shoppingLists.onError((error, c) => {
   const message = error instanceof Error ? error.message : String(error);
-  console.error("Indkøbsliste-API fejlede:", message);
+  logError("Indkøbsliste-API fejlede", message, { path: c.req.path });
   return c.json({ error: "Der skete en serverfejl. Prøv igen." }, 500);
 });
 
@@ -388,7 +389,7 @@ shoppingLists.post("/:id/shopping-lists/:listId/items", async (c) => {
       body: `"${name}" er tilføjet.`,
       url: "/shopping-list",
     }).catch((error: unknown) => {
-      console.error("Kunne ikke sende indkøbsliste-push-notifikation:", error);
+      logError("Kunne ikke sende indkøbsliste-push-notifikation", error, { familyId });
     }),
   );
 

@@ -8,7 +8,10 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "worker:types": "wrangler types server/worker-configuration.d.ts --env beta --include-runtime false",
+    "worker:types:check": "npm run worker:types -- --check"
   },
   "dependencies": {
     "@azure/msal-browser": "^5.17.3",
@@ -27,6 +30,7 @@
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20260801.1",
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.62.1",
     "@types/node": "^26.2.0",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
