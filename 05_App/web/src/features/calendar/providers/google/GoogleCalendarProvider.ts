@@ -20,6 +20,8 @@ import { getExcludedGoogleCalendarIds } from "../../preferences/googleCalendarEx
 import {
   clearCachedCalendarSyncState,
   getCachedCalendarSyncState,
+  isCacheEntryFresh,
+  listCachedCalendarSyncEntries,
   setCachedCalendarSyncState,
 } from "../../preferences/googleCalendarSyncCacheStorage";
 import {
@@ -32,6 +34,16 @@ import { getFamilyMembers } from "../../preferences/familyMembersStorage";
 export class GoogleCalendarProvider implements CalendarProvider {
   private readonly api = new GoogleCalendarApi();
   private calendarSources: CalendarSource[] = [];
+
+  // Fase 8: sat af getEvents(), når det senest returnerede resultat kom fra
+  // den lokale offline-fallback i stedet for en frisk serverhentning — null
+  // ellers. Bruges af CompositeCalendarProvider til at vise en "sidst
+  // opdateret"-besked, jf. 31_Offline_Data_Policy.md.
+  private offlineCacheAsOf: string | null = null;
+
+  getOfflineCacheAsOf(): string | null {
+    return this.offlineCacheAsOf;
+  }
 
   async getCalendars(): Promise<CalendarSource[]> {
     await refreshCalendarMemberMappingsFromServer();
@@ -70,19 +82,57 @@ export class GoogleCalendarProvider implements CalendarProvider {
   async getEvents(
     range: CalendarEventRange,
   ): Promise<CalendarEvent[]> {
-    await refreshCalendarMemberMappingsFromServer();
-    const calendars = await this.api.listCalendars();
+    try {
+      await refreshCalendarMemberMappingsFromServer();
+      const calendars = await this.api.listCalendars();
+      const excludedIds = new Set(getExcludedGoogleCalendarIds());
+      const mappings = getCalendarMemberMappings();
+      const eventsByCalendar = await Promise.all(
+        calendars
+          .filter((calendar) => Boolean(calendar.id) && !excludedIds.has(calendar.id!))
+          .map((calendar) =>
+            this.fetchCalendarEvents(calendar.id!, range, mappings[calendar.id!]),
+          ),
+      );
+
+      this.offlineCacheAsOf = null;
+      return eventsByCalendar.flat();
+    } catch (error) {
+      const fallback = this.getOfflineFallbackEvents(error);
+      if (!fallback) {
+        throw error;
+      }
+
+      return fallback;
+    }
+  }
+
+  // Fase 8: kun en netværksfejl (reelt offline, eller Google Kalender
+  // uopnåelig) udløser fallbacket — enhver anden fejl (fx auth) skal stadig
+  // vises som en fejl, ikke tavst skjules bag potentielt forældet data.
+  // Jf. 31_Offline_Data_Policy.md: kun cache-poster inden for TTL'en
+  // (7 dage) bruges; er intet friskt nok, er der ingen fallback, og den
+  // oprindelige fejl kastes videre som hidtil.
+  private getOfflineFallbackEvents(error: unknown): CalendarEvent[] | null {
+    if (!(error instanceof CalendarProviderError) || error.code !== "network") {
+      return null;
+    }
+
     const excludedIds = new Set(getExcludedGoogleCalendarIds());
-    const mappings = getCalendarMemberMappings();
-    const eventsByCalendar = await Promise.all(
-      calendars
-        .filter((calendar) => Boolean(calendar.id) && !excludedIds.has(calendar.id!))
-        .map((calendar) =>
-          this.fetchCalendarEvents(calendar.id!, range, mappings[calendar.id!]),
-        ),
+    const freshEntries = listCachedCalendarSyncEntries().filter(
+      (entry) =>
+        !excludedIds.has(entry.calendarId) && isCacheEntryFresh(entry.state.updatedAt),
     );
 
-    return eventsByCalendar.flat();
+    if (freshEntries.length === 0) {
+      return null;
+    }
+
+    this.offlineCacheAsOf = freshEntries
+      .map((entry) => entry.state.updatedAt)
+      .reduce((oldest, current) => (current < oldest ? current : oldest));
+
+    return freshEntries.flatMap((entry) => entry.state.events);
   }
 
   // Sprint 25: bruger et cachet syncToken, hvis et findes, til kun at hente

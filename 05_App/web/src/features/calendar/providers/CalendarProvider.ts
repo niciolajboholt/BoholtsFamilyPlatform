@@ -29,4 +29,11 @@ export interface CalendarProvider {
   restoreEvent(
     event: CalendarEvent,
   ): Promise<CalendarEvent>;
+  /**
+   * Fase 8: ISO-tidsstempel for hvor gammel den senest returnerede
+   * getEvents()-liste er, hvis den kom fra en lokal offline-fallback i
+   * stedet for en frisk hentning — `null`/udeladt ellers. Valgfri, da ikke
+   * alle providere (endnu) understøtter et offline-fallback.
+   */
+  getOfflineCacheAsOf?(): string | null;
 }

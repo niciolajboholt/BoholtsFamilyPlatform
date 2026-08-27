@@ -42,7 +42,7 @@ verifikation.
 | 5 | Browserbaserede brugerflowtests | Delvist gennemført | CRUD-, rettigheds- og offline-scenarier |
 | 6 | Refaktorering | Gennemført | — |
 | 7 | Release, drift og dokumentation | Delvist gennemført | Fjern dobbelt Cloudflare-deploy (ekstern) |
-| 8 | Offlineoplevelse | Delvist gennemført | Implementér read-only kalendercache + skrivekø efter politikken |
+| 8 | Offlineoplevelse | Delvist gennemført | Skrivekø til indkøb/opgaver (afventer godkendt kalendercache-PR) |
 
 Appen er egnet til kontrolleret familiebrug og beta. Den er ikke vurderet som
 offentligt lanceringsklar, før privatliv pr. aftale, OAuth-verificering,
@@ -460,11 +460,24 @@ håndtere udvalgte læse- og skriveflows uden at cache følsomme credentials.
   slettet i mellemtiden). Selve IndexedDB/kø-implementeringen er ikke
   påbegyndt endnu — det er den efterfølgende opgave, nu med en skrevet
   ramme at bygge inden for.
+- [x] Read-only offline-kalendervisning implementeret efter politikken:
+  `googleCalendarSyncCacheStorage.ts` stempler nu hver cache-post med
+  `updatedAt`; `GoogleCalendarProvider.getEvents()` falder tilbage til den
+  lokale cache (kun poster ≤ 7 dage gamle, jf. politikkens TTL) ved en
+  netværksfejl i stedet for at fejle helt, og eksponerer hvornår den
+  viste cache er fra via `getOfflineCacheAsOf()`. `CompositeCalendarProvider`
+  og `CalendarProviderHealth` bærer dette videre som `staleDataAsOf`, og
+  `ExternalCalendarConnectionBanner` viser en synlig "viser gemte aftaler
+  fra ..."-besked, når det sker — intet vises tavst som live data.
+  Er cachen for gammel, eller findes den slet ikke, kastes netværksfejlen
+  videre uændret (samme adfærd som før denne PR). Afgrænset til Google
+  (den eneste provider med en eksisterende lokal cache i dag) —
+  Outlook-fallback er ikke en del af dette skridt. **Ikke selv-merget**:
+  ændrer appens faktiske funktion/oplevelse offline, afventer Nicolajs
+  gennemgang, jf. hans egen regel om funktions-/brugsændringer.
 
 ### Mangler
 
-- [ ] Gem senest hentede tilladte kalenderdata sikkert til read-only offline
-  (implementér efter politikken i `31_Offline_Data_Policy.md`).
 - [ ] Tilføj kø til udvalgte indkøbs- og opgaveændringer (samme politik).
 - [ ] Tilføj automatiske offline- og reconnect-tests.
 
@@ -476,10 +489,9 @@ håndtere udvalgte læse- og skriveflows uden at cache følsomme credentials.
 - Køede ændringer synkroniseres deterministisk eller giver en forståelig
   konfliktbesked.
 
-**Næste handling:** Implementér read-only offline-kalendervisning efter
-`31_Offline_Data_Policy.md` (7 dages TTL, synlig alderstekst) — den enkleste
-af de to resterende byggeopgaver, og et naturligt første skridt før
-skrivekøen.
+**Næste handling:** Afvent Nicolajs gennemgang af den åbne
+offline-kalendervisnings-PR. Derefter: skrivekø til udvalgte indkøbs- og
+opgaveændringer, samme politik.
 
 ## Prioriteret udførelsesrækkefølge
 
@@ -557,3 +569,4 @@ Efter hver fase eller material ændring skal den ansvarlige:
 | 2026-08-27 | `PROJECT_STATUS.md` rettet for forældet testtal og ufuldstændig Fase 6-status | PR #122 |
 | 2026-08-27 | Fase 7: D1 backup/restore-runbook dokumenteret (Time Travel-kommandoer, 30-dages-vindue, destruktivitetsadvarsel) | PR #123 |
 | 2026-08-27 | Fase 8: Offline-datapolitik skrevet (`31_Offline_Data_Policy.md`) — hvad der aldrig/må caches, TTL, hvilke skrivninger må køes, konfliktprincip | PR #124 |
+| 2026-08-27 | Fase 8: Read-only offline-kalendervisning (Google, 7-dages-TTL, synlig "sidst opdateret") — åben til Nicolajs gennemgang, ikke selv-merget | PR #125 (open) |
