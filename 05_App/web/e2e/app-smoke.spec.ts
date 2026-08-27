@@ -287,6 +287,8 @@ test("creating a private event writes provider privacy without exposing extra fi
 
   await page.goto("/calendar");
   await page.getByRole("button", { name: "Ny aftale" }).click();
+  await page.getByLabel("Hvem gælder aftalen for?").click();
+  await page.locator('[role="option"][data-value="google:alex-calendar"]').click();
   await page.getByLabel("Titel").fill("Fortrolig behandling");
   await page.getByRole("button", { name: "Flere muligheder" }).click();
   await page
