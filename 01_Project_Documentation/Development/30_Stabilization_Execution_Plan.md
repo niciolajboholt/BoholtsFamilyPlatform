@@ -40,7 +40,7 @@ verifikation.
 | 3 | Privatliv og AI | Delvist gennemført | E2E for ejer/andet medlem + offentligt delelink |
 | 4 | Login, branding og OAuth | Delvist gennemført | Google-verificering og scope-gennemgang |
 | 5 | Browserbaserede brugerflowtests | Delvist gennemført | CRUD-, rettigheds- og offline-scenarier |
-| 6 | Refaktorering | Delvist gennemført | Opdel `shoppingLists.ts` og `tasks.ts` (serverruter) |
+| 6 | Refaktorering | Delvist gennemført | Opdel `tasks.ts` (sidste serverrute) |
 | 7 | Release, drift og dokumentation | Delvist gennemført | Fjern dobbelt Cloudflare-deploy |
 | 8 | Offlineoplevelse | Delvist gennemført | Offline-skrivning, kø og konfliktløsning |
 
@@ -344,10 +344,17 @@ sidekomponenter og opdele serverruter efter ansvar uden adfærdsændringer.
   adfærdsændring — verificeret med den eksisterende
   `families.test.ts` (1039 linjer, dækker alle ruter end-to-end via
   Hono's `.request()`) uændret, samt fuld Playwright-suite.
+- [x] `shoppingLists.ts` (741 linjer, serverrute) opdelt efter ansvar i
+  `server/routes/shoppingListRoutes/`: `shoppingListQueries.ts` (delte
+  DB-hjælpefunktioner og typer), `lists.ts` (liste-CRUD), `items.ts`
+  (vare-CRUD, AI-ingrediens-udkast, ryd afkrydsede) og `templates.ts`
+  (skabelon-CRUD). `shoppingLists.ts` selv er nu blot en komponist —
+  samme mønster som `families.ts`. Ingen adfærdsændring — verificeret
+  med den eksisterende `shoppingLists.test.ts` (1216 linjer) uændret,
+  samt fuld Playwright-suite.
 
 ### Planlagt
 
-- [ ] Opdel `shoppingLists.ts`.
 - [ ] Opdel `tasks.ts`.
 - [ ] Flyt yderligere validering og genbrugelig forretningslogik til
   services/hooks med målrettede tests.
@@ -359,8 +366,10 @@ sidekomponenter og opdele serverruter efter ansvar uden adfærdsændringer.
 - Refaktorering og ny funktionalitet blandes ikke i samme PR.
 - Eksisterende adfærd og tests bevares; flyttet logik får direkte tests.
 
-**Næste handling:** Fortsæt med `shoppingLists.ts`, derefter `tasks.ts`,
-samme opdeling-efter-ansvar-mønster som `families.ts`, én fil pr. PR.
+**Næste handling:** Fortsæt med `tasks.ts`, samme
+opdeling-efter-ansvar-mønster som `families.ts`/`shoppingLists.ts`.
+Herefter er alle store filer i "Planlagt"-listen opdelt, og fase 6 kan
+markeres gennemført.
 
 ## Fase 7 – Release, drift og dokumentation
 
