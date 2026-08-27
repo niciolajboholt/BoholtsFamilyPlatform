@@ -150,6 +150,20 @@ describe("mapOutlookCalendarEvent", () => {
     expect(mapped?.recurrenceMasterId).toBe("series1");
   });
 
+  it("marks private and confidential Outlook events as busy-only", () => {
+    for (const sensitivity of ["private", "confidential"]) {
+      const mapped = mapOutlookCalendarEvent(calendarId, {
+        id: `private-${sensitivity}`,
+        sensitivity,
+        subject: "Fortrolig aftale",
+        start: { dateTime: "2026-07-31T09:00:00.0000000" },
+        end: { dateTime: "2026-07-31T10:00:00.0000000" },
+      });
+
+      expect(mapped?.privacy).toBe("busy");
+    }
+  });
+
   it("filters out an event missing an id", () => {
     const event: OutlookCalendarEvent = {
       start: { dateTime: "2026-07-31T09:00:00.0000000" },
