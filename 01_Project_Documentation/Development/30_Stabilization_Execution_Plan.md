@@ -542,3 +542,5 @@ Efter hver fase eller material ændring skal den ansvarlige:
 | 2026-08-27 | Fase 6: `families.ts` opdelt i seks ansvarsafgrænsede filer under `server/routes/familyRoutes/` | PR #119 |
 | 2026-08-27 | Fase 6: `shoppingLists.ts` opdelt i fire ansvarsafgrænsede filer under `server/routes/shoppingListRoutes/` | PR #120 |
 | 2026-08-27 | Fase 6: `tasks.ts` opdelt i tre ansvarsafgrænsede filer under `server/routes/taskRoutes/` — fase 6 gennemført | PR #121 |
+| 2026-08-27 | `PROJECT_STATUS.md` rettet for forældet testtal og ufuldstændig Fase 6-status | PR #122 |
+| 2026-08-27 | Fase 7: D1 backup/restore-runbook dokumenteret (Time Travel-kommandoer, 30-dages-vindue, destruktivitetsadvarsel) | PR #123 |
