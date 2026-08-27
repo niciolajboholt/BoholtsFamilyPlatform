@@ -158,9 +158,15 @@ test("mobile family planner is a readable agenda without horizontal overflow", a
 
   await page.getByRole("button", { name: "Familie", exact: true }).click();
 
-  await expect(page.getByText("Fælles fødselsdag hos familien")).toBeVisible();
-  await expect(page.getByText("Tandlæge og efterfølgende kontrol")).toBeVisible();
-  await expect(page.getByText("Alex", { exact: true }).first()).toBeVisible();
+  const eventCard = page.getByRole("button", {
+    name: /Fælles fødselsdag hos familien/,
+  });
+  await expect(eventCard).toBeVisible();
+
+  const eventFitsItsCard = await eventCard.evaluate(
+    (element) => element.scrollWidth <= element.clientWidth + 1,
+  );
+  expect(eventFitsItsCard).toBe(true);
 
   const hasHorizontalOverflow = await page.evaluate(
     () => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
