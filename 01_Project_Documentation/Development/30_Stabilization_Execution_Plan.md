@@ -42,7 +42,7 @@ verifikation.
 | 5 | Browserbaserede brugerflowtests | Delvist gennemført | CRUD-, rettigheds- og offline-scenarier |
 | 6 | Refaktorering | Gennemført | — |
 | 7 | Release, drift og dokumentation | Delvist gennemført | Fjern dobbelt Cloudflare-deploy (ekstern) |
-| 8 | Offlineoplevelse | Delvist gennemført | Skrivekø til udvalgte indkøbs-/opgaveændringer |
+| 8 | Offlineoplevelse | Delvist gennemført | Udvid skrivekø til opgaver + "ryd afkrydsede" |
 
 Appen er egnet til kontrolleret familiebrug og beta. Den er ikke vurderet som
 offentligt lanceringsklar, før privatliv pr. aftale, OAuth-verificering,
@@ -475,11 +475,37 @@ håndtere udvalgte læse- og skriveflows uden at cache følsomme credentials.
   Outlook-fallback er ikke en del af dette skridt. Ændrer appens faktiske
   funktion/oplevelse offline — derfor bevidst ikke selv-merget; godkendt og
   merget af Nicolaj (PR #125).
+- [x] Skrivekø til indkøbslistens vare-tilføjelse og af-/tilkrydsning
+  (første, bevidst afgrænsede skive af politikkens fulde skriveliste):
+  `offlineShoppingQueueStorage.ts` (ny, localStorage-baseret kø, samme
+  mønster som resten af appen — "IndexedDB" i politikteksten var en
+  arbejdstitel for "lokal skrivekø", ikke et krav om den specifikke
+  teknologi). `useShoppingList.ts`'s `addItem`/`toggleChecked` køer
+  ændringen ved en netværksfejl i stedet for blot at vise en generisk
+  fejl; af-/tilkrydsning er optimistisk (varen findes allerede lokalt, så
+  ingen id-forening nødvendig), tilføjelse er det bevidst ikke (undgår at
+  skulle forene et midlertidigt lokalt id med serverens rigtige bagefter).
+  Køen afspilles automatisk (FIFO) ved "online"-hændelsen og ved skift af
+  liste; et 404 (mål slettet) dropper netop den ændring med en synlig
+  besked og fortsætter resten, jf. politikkens konfliktprincip; enhver
+  anden fejl stopper afspilningen uden at fjerne resten. Et synligt "N
+  ændringer er gemt lokalt..."-banner opfylder acceptkriteriets krav om, at
+  brugeren tydeligt kan se det. Verificeret med en ny, reel Playwright-test
+  (`offline shopping list add is queued locally and syncs on reconnect`),
+  som simulerer en mislykket netværksforbindelse og bekræfter både
+  kø-tilstanden og den efterfølgende synkronisering — ikke kun enhedstests
+  af den isolerede logik. **Afgrænset bevidst fra:** "ryd afkrydsede"
+  (nævnt i politikken, men udskudt), rediger/slet-vare (allerede uden for
+  politikkens skriveliste), og opgaver (Tasks) — alle tre er en
+  efterfølgende, selvstændig PR, samme mønster.
 
 ### Mangler
 
-- [ ] Tilføj kø til udvalgte indkøbs- og opgaveændringer (samme politik).
-- [ ] Tilføj automatiske offline- og reconnect-tests.
+- [ ] Udvid skrivekøen til opgaver (af-/tilkrydsning) og "ryd afkrydsede"
+  på indkøbslisten, samme politik og mønster som ovenfor.
+- [ ] Flere automatiske offline-/reconnect-tests, efterhånden som
+  skrivekøen udvides (kalendervisningen og indkøb-tilføj/-afkryds har nu
+  hver sin).
 
 ### Acceptkriterier
 
@@ -489,9 +515,11 @@ håndtere udvalgte læse- og skriveflows uden at cache følsomme credentials.
 - Køede ændringer synkroniseres deterministisk eller giver en forståelig
   konfliktbesked.
 
-**Næste handling:** Afvent Nicolajs gennemgang af den åbne
-offline-kalendervisnings-PR. Derefter: skrivekø til udvalgte indkøbs- og
-opgaveændringer, samme politik.
+**Næste handling:** Udvid skrivekøen til opgaver (af-/tilkrydsning) — samme
+mønster som `offlineShoppingQueueStorage.ts`/`useShoppingList.ts` ovenfor,
+anvendt på `useTasks.ts`. Ligesom kalendervisnings- og
+indkøbskø-PR'erne ændrer dette appens faktiske funktion/oplevelse offline,
+så den bør ikke selv-merges uden Nicolajs gennemgang.
 
 ## Prioriteret udførelsesrækkefølge
 
