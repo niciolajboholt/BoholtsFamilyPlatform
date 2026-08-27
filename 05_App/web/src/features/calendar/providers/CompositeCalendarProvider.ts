@@ -8,6 +8,7 @@ import type {
 import type { CalendarProviderHealth } from "../models/calendarProviderHealth";
 import type { CalendarProvider } from "./CalendarProvider";
 import { CalendarProviderError } from "./calendarProviderErrors";
+import { deduplicateCalendarEvents } from "../utils/deduplicateCalendarEvents";
 
 export interface ExternalCalendarProvider {
   providerId: CalendarProviderType;
@@ -89,7 +90,7 @@ export class CompositeCalendarProvider
       }),
     );
 
-    return externalResults.flat();
+    return deduplicateCalendarEvents(externalResults.flat());
   }
 
   createEvent(
