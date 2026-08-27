@@ -1,6 +1,6 @@
 # 13 — Release- og sikkerhedsgrundlag
 
-> Status: Aktiv · Version 2.0 · Opdateret 2026-08-26
+> Status: Aktiv · Version 2.1 · Opdateret 2026-08-27
 
 ## Arkitektur og data
 
@@ -30,8 +30,16 @@ Før merge eller deploy:
     kræver de nye kolonner/tabeller, bliver taget i brug.
 
 GitHub Actions kører lint, build, Vitest og Playwright på pull requests og
-pushes til `develop`/`main`. Cloudflare Workers Builds deployer `develop` til
-beta og `main` til produktion.
+pushes til `develop`/`main`, og deployer selv beta (kvalitetssikret
+`wrangler deploy`-trin med migration og live health-verifikation) ved push
+til `develop`. Cloudflares egen native Git-integration ("Workers Builds") er
+stadig konfigureret på samme repo og forsøger at deploye ved hvert push, men
+fejler konsekvent og skal slås fra i Cloudflare-dashboardet — indtil da er
+den kun støj (to røde checks pr. push) og ikke den reelle deploy-vej. Se
+Fase 7 i `30_Stabilization_Execution_Plan.md`.
+
+`main` og `develop` er beskyttede branches: PR med grøn `Lint, build and
+test`-check er påkrævet, ingen direkte push er muligt (sat op 2026-08-27).
 
 ## Sikkerhedskontroller
 
@@ -42,6 +50,10 @@ beta og `main` til produktion.
 - Krypterede Google refresh-tokens og Secure/HttpOnly/SameSite-sessioncookies.
 - Offentlige kalenderlinks viser som standard kun titel og tidspunkt;
   beskrivelse/lokation kræver aktivt tilvalg og linket kan tilbagekaldes.
+- Aftaler markeret private (Google `visibility`/Outlook `sensitivity`, eller
+  markeret "Privat" i opret/redigér-dialogen) redigeres server-side til
+  "Optaget" i familievisning, delelinks, push og AI-ugeresumé — kun det
+  familiemedlem, kalenderen tilhører, ser de fulde detaljer.
 - AI-ugeresumé kan fravælges for hele familien; fravalget filtreres før data
   indsamles.
 - Strukturerede Worker-logs og Cloudflare versionsmetadata i `/api/health`.

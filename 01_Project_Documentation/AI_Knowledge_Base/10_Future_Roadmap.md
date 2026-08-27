@@ -2,14 +2,15 @@
 
 > Status: Active
 
-Version: 1.11
+Version: 1.12
 
 Project:
 Boholts Family Platform
 
 Last Updated:
-2026-08-18 (Sprint 20-23 markeret gennemført; ny Sprint 24-28-roadmap
-tilføjet efter eksternt review 2026-08-18, se Sprint24-planen)
+2026-08-27 (Sprint 24-29 markeret gennemført — var stadig beskrevet som
+fremtidig roadmap; teststrategi-punktet rettet, da komponent-/hook-tests
+nu findes; henvisning til den nye stabiliseringsplan tilføjet)
 
 Owner:
 Nicolaj Bach Boholt
@@ -39,11 +40,11 @@ tildeling på tværs af devices. Sprint 21 tilføjede Web Push (VAPID) og en
 delt indkøbsliste. Sprint 22 udvidede indkøbslisten til flere navngivne,
 typede lister. Sprint 23 tilføjede en Tiimo-inspireret opgave-/rutineløsning
 samt et AI-modul via Cloudflare Workers AI. Alle fire er merget til `main`.
-Se [05_Sprint_History](05_Sprint_History.md) for fuld detalje pr. sprint.
-
-Den nye roadmap efter Sprint 23 (Sprint 24-28, se nedenfor) blev besluttet
-efter et eksternt review 2026-08-18 — se
-`01_Project_Documentation/Development/24_Sprint24_Drift_Hygiejne_Plan.md`.
+Sprint 24-29 (drift-hygiejne, kalender-sync/PWA-ikoner, konfliktmarkering/
+delelink, tidsbaserede påmindelser, AI-ugeresumé, sikkerhed/privatliv/drift)
+er siden også gennemført og merget til `main` — se "Sprint 24-29 —
+Gennemført" nedenfor. Se [05_Sprint_History](05_Sprint_History.md) for fuld
+detalje pr. sprint.
 
 ---
 
@@ -126,27 +127,40 @@ Se sammenfatningen under "Nuværende status" ovenfor og
 
 ---
 
-## Sprint 24-28 — Ny roadmap efter eksternt review (2026-08-18)
+## Sprint 24-29 — Gennemført
 
 Besluttet i chat 2026-08-18, efter et nyt uafhængigt review pegede på
-dokumentationsdrift og et par mindre driftsrisici. Se
+dokumentationsdrift og et par mindre driftsrisici. Alle seks sprints er nu
+merget til `main`. Se
 `01_Project_Documentation/Development/24_Sprint24_Drift_Hygiejne_Plan.md`
-for det fulde Sprint 24-indhold.
+for det fulde Sprint 24-indhold, og [05_Sprint_History](05_Sprint_History.md)
+for detaljer om hvert sprint.
 
 - **Sprint 24 — Drift-hygiejne**: README/CHANGELOG-oprydning, bekræftelse af
   `secrets_store_secrets`-navne i produktion, Cron Trigger til periodisk
   session-oprydning, rate-limiting på invite-accept, Dependabot.
 - **Sprint 25**: `nextSyncToken`-inkrementel Google-sync (tidligere
-  nedprioriteret, se Fase 2/F-05 ovenfor) + et rigtigt PWA-ikonsæt i flere
-  PNG-størrelser (i dag kun ét SVG-ikon, se Fase 3-noten under Sprint 15's
-  stabiliseringsmilepæl).
+  nedprioriteret, se Fase 2/F-05 ovenfor, leveret) + et rigtigt PWA-ikonsæt i
+  flere PNG-størrelser.
 - **Sprint 26**: kalender-konfliktdetektion + en read-only delelink til
   familiens kalender.
-- **Sprint 27**: tidsbaserede rutine-/opgave-påmindelser (kræver en ny type
-  infrastruktur — Cloudflare Cron Trigger — som Sprint 24 introducerer i
-  lille skala til session-oprydning).
+- **Sprint 27**: tidsbaserede rutine-/opgave-påmindelser via Cloudflare Cron
+  Trigger.
 - **Sprint 28**: AI-ugeresumé til familien, via Cloudflare Workers AI (samme
   mønster som Sprint 23's AI-modul).
+- **Sprint 29 — Sikkerhed/privatliv/drift**: fuldstændig logout-oprydning,
+  delelinks med titel/tid som standard, misbrugsbegrænsning (AI, push,
+  delelinks), migrations-synlighed i `/api/health`, seks mindre UX-fejl. Se
+  `01_Project_Documentation/Development/29_Sprint29_Sikkerhed_Privatliv_Drift_Plan.md`.
+
+Et separat, senere eksternt review (2026-08-27) af den deployede beta
+affødte en ny otte-fasede stabiliseringsplan (kalender-UX, tilgængelighed,
+privatliv/AI, OAuth-branding, E2E-tests, refaktorering, drift,
+offlineoplevelse) — se
+`01_Project_Documentation/Development/30_Stabilization_Execution_Plan.md`,
+som er den autoritative, levende status for det aktuelt igangværende
+arbejde og bør foretrækkes frem for dette dokument ved tvivl om, hvad der
+sker lige nu.
 
 ---
 
@@ -178,7 +192,7 @@ Sprint 24-28:
 ## Åbne strategiske spørgsmål
 
 1. ~~**Platformstrategi**~~ — **Afklaret i Sprint 13**: formaliseret som ADR-010. Projektet er React/TypeScript/PWA, med Apple First som oplevelsesstrategi, ikke teknologikrav. Se [04_Project_History](04_Project_History.md) og `01_Project_Documentation/Architecture/05_ADR_Architecture_Decisions.md`.
-2. **Teststrategi** — **Delvist afklaret i Sprint 13**: Vitest indført, med regressionsdækning af de rene Google-mapper-funktioner. React-komponenter/hooks har fortsat ingen automatiseret test. Se [08_Development_Standards](08_Development_Standards.md).
+2. **Teststrategi** — **Afklaret i Sprint 13, udvidet siden**: Vitest indført, med regressionsdækning af de rene mapper-/hjælpefunktioner. React-komponenter og hooks har siden fået direkte tests (fx `EditEventDialog.test.tsx`, `NewEventDialog.test.tsx`, `useFamilyMembers.test.ts`, `useCalendarLoading.test.tsx`), og Playwright dækker de kritiske browser-flows. Se [08_Development_Standards](08_Development_Standards.md).
 3. ~~**Persistent Google-forbindelse**~~ — **Gennemført i Sprint 14**: en backend/refresh-token-løsning er bevidst fravalgt (omkostning/drift ikke proportional med 2-4 brugere). I stedet er stille genoprettelse ved appstart implementeret, med fald tilbage til det eksisterende "Genforbind"-flow. Se [05_Sprint_History](05_Sprint_History.md). Dette er en endelig arkitekturbeslutning, ikke kun udskudt.
 4. **Flere Google-konti pr. familie** — rejst af Nicolaj sammen med Sprint 16-ønsket. Kræver at singleton-arkitekturen omkring `GoogleCalendarSession` erstattes af flere samtidige sessioner, samt en ny ADR. Se "Flere Google-konti pr. familie" ovenfor. Ikke planlagt endnu.
 
