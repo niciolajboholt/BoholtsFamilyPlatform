@@ -173,3 +173,32 @@ test("mobile family planner is a readable agenda without horizontal overflow", a
   );
   expect(hasHorizontalOverflow).toBe(false);
 });
+
+test("desktop week view uses readable agenda columns instead of seven narrow cards", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  await mockAuthenticatedApi(page);
+  await page.goto("/calendar");
+
+  await page.getByRole("button", { name: "Uge", exact: true }).click();
+
+  const dayButtons = page.getByRole("button", {
+    name: /Vælg dag og opret aftale den/,
+  });
+  await expect(dayButtons).toHaveCount(7);
+
+  const rowPositions = await dayButtons.evaluateAll((buttons) =>
+    buttons.map((button) => Math.round(button.getBoundingClientRect().top)),
+  );
+
+  // Desktoplayoutet har højst tre kolonner, så syv dage skal fordele sig på
+  // mindst tre rækker. Den tidligere syvkolonne-visning gav kun én række og
+  // afkortede næsten alle aftaletitler.
+  expect(new Set(rowPositions).size).toBeGreaterThanOrEqual(3);
+
+  const hasHorizontalOverflow = await page.evaluate(
+    () => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
+  );
+  expect(hasHorizontalOverflow).toBe(false);
+});

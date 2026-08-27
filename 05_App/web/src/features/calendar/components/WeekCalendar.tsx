@@ -231,8 +231,8 @@ function WeekDayCard({
         width: "100%",
         minWidth: 0,
         minHeight: {
-          xs: 140,
-          md: 260,
+          xs: 0,
+          sm: 150,
         },
         p: 1.25,
         border: "1px solid",
@@ -408,7 +408,8 @@ function WeekCalendar({
             display: "grid",
             gridTemplateColumns: {
               xs: "1fr",
-              md: "repeat(7, minmax(0, 1fr))",
+              sm: "repeat(2, minmax(0, 1fr))",
+              lg: "repeat(3, minmax(0, 1fr))",
             },
             gap: 1,
           }}

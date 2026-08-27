@@ -35,7 +35,7 @@ verifikation.
 
 | Fase | Område | Status | Næste vigtigste restpunkt |
 |---:|---|---|---|
-| 1 | Kalenderens UI og dubletter | Delvist gennemført | Deduplikering samt bedre måned/uge-visning |
+| 1 | Kalenderens UI og dubletter | Delvist gennemført | Manuel iPhone-verifikation og eventuel kildespecifik dubletanalyse |
 | 2 | Tilgængelighed og visuelt polish | Delvist gennemført | App-dækkende audit og fysisk VoiceOver-test |
 | 3 | Privatliv og AI | Delvist gennemført | Privat aftale / “vis kun optaget” |
 | 4 | Login, branding og OAuth | Delvist gennemført | Google-verificering og scope-gennemgang |
@@ -63,7 +63,7 @@ Status pr. 2026-08-27:
 - Aktiv Cloudflare-version er `0734388f-31a3-4ce4-aa6c-7fae5c9a1546`.
 - D1-migrationsregisteret er baselinet for migration 0002-0016, og migration
   0017 er anvendt på beta.
-- Lokal kvalitetsbaseline: lint, produktionsbuild og 397 Vitest-tests består.
+- Lokal kvalitetsbaseline: lint, produktionsbuild og 401 Vitest-tests består.
 - Playwright indeholder login/jura, autentificeret navigation og mobil
   familieplanner-regression på desktop- og mobilprojekter.
 - Produktionsafhængigheder havde 0 kendte npm-sårbarheder ved sidste audit.
@@ -85,20 +85,19 @@ utilsigtede dubletter eller unødigt vandret scroll.
 - [x] Familievisningen under 600 px er erstattet af en lodret agenda med dato,
   person og aftalekort.
 - [x] Mobilvisningen har Playwright-regression mod vandret overflow.
+- [x] Provider-resultater deduplikeres kun på stabil identitet: kilde,
+  kalender-id, event-id og forekomststart. Seneste identiske kopi vinder.
+- [x] Deduplikeringen har regressionstests, som bevarer reelle ens aftaler og
+  forskellige forekomster af gentagelser.
+- [x] Månedsvisningen viser op til tre aftaler med to tekstlinjer fra
+  tabletbredde og bevarer den fulde titel som tilgængelig handling/tooltip.
+- [x] Ugevisningen bruger en responsiv agenda med højst tre kolonner i stedet
+  for syv smalle desktopkolonner og har en Playwright-layouttest.
 
 ### Mangler
 
 - [ ] Spor synlige dubletter til kilden: flere kalenderkilder,
   gentagelsesudfoldning eller medlemsmapping.
-- [ ] Indfør kun deduplikering med stabil identitet bestående af konto,
-  kalender-id, event-id og eventuelt forekomst-id. Titel/tidspunkt må ikke være
-  eneste nøgle.
-- [ ] Forbedr månedsvisningen med læsbare titler og en kompakt måde at se alle
-  aftaledetaljer på.
-- [ ] Gør ugevisningen mere agendaorienteret, så tomme dage ikke stjæler
-  størstedelen af pladsen.
-- [ ] Tilføj regressionstests for deduplikering, gentagelser og reelle ens
-  aftaler, som ikke må fjernes.
 - [ ] Genverificér den seneste mobilvisning manuelt på iPhone Safari/PWA.
 
 ### Acceptkriterier
@@ -109,8 +108,10 @@ utilsigtede dubletter eller unødigt vandret scroll.
   bevares.
 - Måned, uge, dag og familievisning fungerer på desktop og mobil.
 
-**Næste handling:** Kortlæg event-identiteten gennem API, normalisering og
-gentagelsesudfoldning. Forbedr derefter måned og uge i en afgrænset UI-PR.
+**Næste handling:** Deploy den afgrænsede kalender-PR og genverificér måned,
+uge og familieagenda på iPhone. Hvis en dublet stadig ses, logges de stabile
+identitetsfelter lokalt i en sikker debugvisning for at afgøre, om Google
+returnerer samme aftale gennem to reelt forskellige kalendere.
 
 ## Fase 2 – Tilgængelighed og visuelt polish
 
@@ -424,4 +425,5 @@ Efter hver fase eller material ændring skal den ansvarlige:
 | 2026-08-26 | Samlet stabilisering: kalenderfordeling, AI-fravalg, jura, version, logs, offline-status og Playwright | PR #102 |
 | 2026-08-27 | D1-register baselinet, migration 0017 anvendt, GitHub Actions beta-pipeline verificeret | GitHub Actions #301 |
 | 2026-08-27 | Mobil familieplanner erstattet af agenda og beskyttet mod overflow | PR #103 |
-| 2026-08-27 | Denne autoritative udførelses- og statusplan oprettet | Dokumentations-PR |
+| 2026-08-27 | Denne autoritative udførelses- og statusplan oprettet | PR #104 |
+| 2026-08-27 | Stabil event-deduplikering og mere læsbar måned/uge-visning | PR #105 |
