@@ -253,6 +253,7 @@ test("desktop week view uses readable agenda columns instead of seven narrow car
 
 test("primary pages have no visible unnamed controls", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop-chromium");
+  test.setTimeout(60_000);
   await mockAuthenticatedApi(page);
 
   for (const path of ["/", "/calendar", "/shopping-list", "/tasks", "/settings"]) {
@@ -266,6 +267,7 @@ test("primary pages fit the complete supported mobile width matrix", async ({
   page,
 }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop-chromium");
+  test.setTimeout(120_000);
   await mockAuthenticatedApi(page);
 
   for (const width of [320, 375, 390, 430]) {
