@@ -91,6 +91,31 @@ jobs:
       - name: Record D1 restore point
         run: npx wrangler d1 time-travel info DB --env beta --json
 
+      # Betaens skema blev historisk oprettet med manuelle D1-kommandoer,
+      # før Wrangler-migrationsregistret blev taget i brug. Health-tjekket
+      # bekræfter, at 0002-0016 allerede findes; registrér dem derfor
+      # idempotent, så Wrangler kun anvender reelt nye migrationer.
+      - name: Baseline legacy beta migrations
+        run: |
+          npx wrangler d1 execute DB --env beta --remote --command "
+            INSERT OR IGNORE INTO d1_migrations (name) VALUES
+              ('0002_auth.sql'),
+              ('0003_families.sql'),
+              ('0004_calendar_member_mappings.sql'),
+              ('0005_push_subscriptions.sql'),
+              ('0006_shopping_lists.sql'),
+              ('0007_shopping_list_types.sql'),
+              ('0008_tasks.sql'),
+              ('0009_rate_limits.sql'),
+              ('0010_family_share_links.sql'),
+              ('0011_task_reminders.sql'),
+              ('0012_weekly_summaries.sql'),
+              ('0013_share_link_field_toggles.sql'),
+              ('0014_feedback.sql'),
+              ('0015_shopping_list_templates.sql'),
+              ('0016_event_reminders.sql');
+          "
+
       - name: Apply beta D1 migrations
         run: npx wrangler d1 migrations apply DB --env beta --remote
 
