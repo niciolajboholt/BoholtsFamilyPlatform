@@ -251,6 +251,45 @@ test("desktop week view uses readable agenda columns instead of seven narrow car
   expect(hasHorizontalOverflow).toBe(false);
 });
 
+test("creating a private event writes provider privacy without exposing extra fields", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  await mockAuthenticatedApi(page);
+
+  let postedBody: Record<string, unknown> | undefined;
+  await page.route("**/api/calendar/calendars/*/events", async (route) => {
+    if (route.request().method() !== "POST") {
+      await route.fallback();
+      return;
+    }
+
+    postedBody = route.request().postDataJSON() as Record<string, unknown>;
+    await route.fulfill({
+      status: 201,
+      contentType: "application/json",
+      body: JSON.stringify({
+        id: "created-private-event",
+        summary: postedBody.summary,
+        visibility: postedBody.visibility,
+        start: postedBody.start,
+        end: postedBody.end,
+      }),
+    });
+  });
+
+  await page.goto("/calendar");
+  await page.getByRole("button", { name: "Ny aftale" }).click();
+  await page.getByLabel("Titel").fill("Fortrolig behandling");
+  await page.getByRole("button", { name: "Flere muligheder" }).click();
+  await page
+    .getByRole("checkbox", { name: "Privat aftale – familien ser kun Optaget" })
+    .check();
+  await page.getByRole("button", { name: "Opret aftale" }).click();
+
+  await expect.poll(() => postedBody?.visibility).toBe("private");
+});
+
 test("primary pages have no visible unnamed controls", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop-chromium");
   test.setTimeout(60_000);
