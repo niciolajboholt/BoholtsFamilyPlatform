@@ -40,7 +40,7 @@ verifikation.
 | 3 | Privatliv og AI | Delvist gennemført | E2E for ejer/andet medlem + offentligt delelink |
 | 4 | Login, branding og OAuth | Delvist gennemført | Google-verificering og scope-gennemgang |
 | 5 | Browserbaserede brugerflowtests | Delvist gennemført | CRUD-, rettigheds- og offline-scenarier |
-| 6 | Refaktorering | Delvist gennemført | Opdel `tasks.ts` (sidste serverrute) |
+| 6 | Refaktorering | Gennemført | — |
 | 7 | Release, drift og dokumentation | Delvist gennemført | Fjern dobbelt Cloudflare-deploy |
 | 8 | Offlineoplevelse | Delvist gennemført | Offline-skrivning, kø og konfliktløsning |
 
@@ -295,7 +295,7 @@ rettighedsscenarier efter fase 1 og 3.
 **Mål:** Reducér ændringsrisiko ved at flytte forretningslogik ud af store
 sidekomponenter og opdele serverruter efter ansvar uden adfærdsændringer.
 
-**Status: Delvist gennemført**
+**Status: Gennemført**
 
 ### Gennemført
 
@@ -352,12 +352,16 @@ sidekomponenter og opdele serverruter efter ansvar uden adfærdsændringer.
   samme mønster som `families.ts`. Ingen adfærdsændring — verificeret
   med den eksisterende `shoppingLists.test.ts` (1216 linjer) uændret,
   samt fuld Playwright-suite.
-
-### Planlagt
-
-- [ ] Opdel `tasks.ts`.
-- [ ] Flyt yderligere validering og genbrugelig forretningslogik til
-  services/hooks med målrettede tests.
+- [x] `tasks.ts` (666 linjer, serverrute) opdelt efter ansvar i
+  `server/routes/taskRoutes/`: `taskQueries.ts` (delte DB-hjælpefunktioner
+  og typer, inkl. `materializeTasksForDate` og `notifyForTask`, som
+  `server/lib/taskReminders.ts` og `server/lib/weeklySummary.ts` allerede
+  importerer), `tasksCrud.ts` (opgave-CRUD, ryd udførte) og
+  `taskRoutines.ts` (rutine-CRUD, AI-udkast). `tasks.ts` selv er nu blot
+  en komponist og re-eksporterer de to funktioner, så de to eksterne
+  importstier forblev uændrede. Ingen adfærdsændring — verificeret med
+  den eksisterende `tasks.test.ts` (770 linjer) uændret, samt fuld
+  Playwright-suite.
 
 ### Acceptkriterier
 
@@ -366,10 +370,12 @@ sidekomponenter og opdele serverruter efter ansvar uden adfærdsændringer.
 - Refaktorering og ny funktionalitet blandes ikke i samme PR.
 - Eksisterende adfærd og tests bevares; flyttet logik får direkte tests.
 
-**Næste handling:** Fortsæt med `tasks.ts`, samme
-opdeling-efter-ansvar-mønster som `families.ts`/`shoppingLists.ts`.
-Herefter er alle store filer i "Planlagt"-listen opdelt, og fase 6 kan
-markeres gennemført.
+Alle store side- og rutefiler identificeret ved fasens start er nu
+opdelt efter ansvar, uden adfærdsændring, og fasens acceptkriterier er
+opfyldt. Yderligere, mindre udflytning af validering/forretningslogik
+til services/hooks kan fortsat ske løbende i almindelige PR'er — det
+er en vedvarende kodekvalitetspraksis, ikke en resterende blokering for
+denne fase.
 
 ## Fase 7 – Release, drift og dokumentation
 
