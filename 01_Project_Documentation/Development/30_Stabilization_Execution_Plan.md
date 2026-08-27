@@ -40,7 +40,7 @@ verifikation.
 | 3 | Privatliv og AI | Delvist gennemført | E2E for ejer/andet medlem + offentligt delelink |
 | 4 | Login, branding og OAuth | Delvist gennemført | Google-verificering og scope-gennemgang |
 | 5 | Browserbaserede brugerflowtests | Delvist gennemført | CRUD-, rettigheds- og offline-scenarier |
-| 6 | Refaktorering | Delvist gennemført | Opdel `EditEventDialog.tsx` eller `families.ts` |
+| 6 | Refaktorering | Delvist gennemført | Opdel `families.ts` (serverruter) |
 | 7 | Release, drift og dokumentation | Delvist gennemført | Fjern dobbelt Cloudflare-deploy |
 | 8 | Offlineoplevelse | Delvist gennemført | Offline-skrivning, kø og konfliktløsning |
 
@@ -323,10 +323,18 @@ sidekomponenter og opdele serverruter efter ansvar uden adfærdsændringer.
   under 30 linjer. Ingen adfærdsændring — verificeret med den fulde
   Playwright-suite (inkl. a11y-navne- og mobilbredde-tests, som begge
   dækker Indstillinger-siden).
+- [x] `EditEventDialog.tsx` (983 linjer) opdelt: al tilstand, afledte
+  værdier, reset-på-åbn-logik og handlere (submit/slet) flyttet til
+  `useEditEventDialogController` (`features/calendar/hooks`). Dialogen
+  selv koordinerer nu udelukkende hooket og de allerede eksisterende
+  underkomponenter (`EventDateTimeSection`, `EventParticipantsSection`,
+  `EventRecurrenceSection`, `EventConflictAlert`, `ConfirmDiscardDialog`)
+  — ingen adfærdsændring. Verificeret med den fulde Playwright-suite,
+  inkl. den test der specifikt dækker privat-aftale-flowet gennem denne
+  dialog.
 
 ### Planlagt
 
-- [ ] Opdel `EditEventDialog.tsx`.
 - [ ] Opdel `families.ts`.
 - [ ] Opdel `shoppingLists.ts`.
 - [ ] Opdel `tasks.ts`.
@@ -340,8 +348,8 @@ sidekomponenter og opdele serverruter efter ansvar uden adfærdsændringer.
 - Refaktorering og ny funktionalitet blandes ikke i samme PR.
 - Eksisterende adfærd og tests bevares; flyttet logik får direkte tests.
 
-**Næste handling:** Fortsæt med `EditEventDialog.tsx` (frontend) eller
-`families.ts` (serverruter, størst), én fil pr. PR, samme mønster.
+**Næste handling:** Fortsæt med `families.ts` (serverruter, størst),
+derefter `shoppingLists.ts` og `tasks.ts`, én fil pr. PR, samme mønster.
 
 ## Fase 7 – Release, drift og dokumentation
 
@@ -492,3 +500,4 @@ Efter hver fase eller material ændring skal den ansvarlige:
 | 2026-08-27 | Roadmap, kravsporbarhed, release-baseline og Sprint 29-planen rettet for modstridende status | PR #115 |
 | 2026-08-27 | Fase 6: `ShoppingListPage.tsx` opdelt i fire underkomponenter + testede hjælpefunktioner | PR #116 |
 | 2026-08-27 | Fase 6: `SettingsPage.tsx` opdelt i fem sektionskomponenter + testet hjælpefunktion | PR #117 |
+| 2026-08-27 | Fase 6: `EditEventDialog.tsx` opdelt i controller-hook | PR #118 |
