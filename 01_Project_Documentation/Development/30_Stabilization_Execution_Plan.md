@@ -56,12 +56,16 @@ Status pr. 2026-08-27:
   [PR #102](https://github.com/niciolajboholt/BoholtsFamilyPlatform/pull/102).
 - Mobil familieagenda er merged til `develop` i
   [PR #103](https://github.com/niciolajboholt/BoholtsFamilyPlatform/pull/103).
-- Seneste kendte `develop`-commit er `d6966365b4f6923c0b544012891c3f34ca1ba94c`.
-- Seneste beta-release er grøn i
-  [GitHub Actions #301](https://github.com/niciolajboholt/BoholtsFamilyPlatform/actions/runs/33047118982).
+- Seneste kendte `develop`-commit er `f085fe22def57d0b80ad478879cac5329c0bf163`
+  (PR #109). Dette tal går forældet ved næste merge — se `git log origin/develop`
+  for den faktiske aktuelle HEAD i stedet for at stole blindt på denne linje.
+- Seneste grønne fulde pipeline (kvalitet + beta-migration + beta-deploy +
+  live health-verifikation) er
+  [GitHub Actions #327](https://github.com/niciolajboholt/BoholtsFamilyPlatform/actions/runs/33089792669).
 - Betaens `/api/health` rapporterer database og migrationsstatus som grøn.
-- Aktiv Cloudflare-version efter PR #105 er
-  `87cf798f-daaa-4354-aa71-36a1f2146820`.
+- Aktiv Cloudflare-version ændrer sig ved hver merge til `develop` (automatisk
+  beta-deploy) — se Indstillinger i appen eller `/api/health` for den aktuelle
+  værdi i stedet for et fastfrosset tal her.
 - D1-migrationsregisteret er baselinet for migration 0002-0016, og migration
   0017 er anvendt på beta.
 - Lokal kvalitetsbaseline: lint, produktionsbuild og 428 Vitest-tests består.
@@ -462,3 +466,5 @@ Efter hver fase eller material ændring skal den ansvarlige:
 | 2026-08-27 | Privat-aftale-redaktion for familievisning, delelink, AI og push | PR #107 |
 | 2026-08-27 | `main` og `develop` beskyttet: PR + 1 godkendelse + grøn CI påkrævet, ingen bypass | GitHub branch protection rules (repo-indstilling) |
 | 2026-08-27 | Fase 6 påbegyndt: `CalendarPage.tsx` opdelt i controller-hook + testede hjælpefunktioner | PR #110 |
+| 2026-08-27 | En automatisk oprettet `develop → main`-PR (#111) lukket uden merge — for tidligt jf. lanceringskriterierne ovenfor; en bevidst release-PR oprettes i stedet, når fase 1-5 og 7 er lanceringsklare | PR #111 (closed, unmerged) |
+| 2026-08-27 | Baseline-tal ajourført (commit-hash, seneste grønne pipeline), og fastfrosne, hurtigt forældede værdier (Cloudflare-version, ældre pipeline-nummer) erstattet med henvisning til deres levende kilde | Dokumentations-gennemgang |

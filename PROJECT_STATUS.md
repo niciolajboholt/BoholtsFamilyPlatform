@@ -80,7 +80,7 @@ faser; se det autoritative plandokument ovenfor.
   rate-limiting på AI-ruter/push-abonnement/delelinks, sikkerhedsheaders
   (CSP m.fl.), JSON-404 for ukendte API-stier, og en global React Error
   Boundary.
-- Vitest-testpakke (397 tests) + Playwright-smoke-tests + GitHub Actions-CI.
+- Vitest-testpakke (428 tests) + Playwright-smoke-tests + GitHub Actions-CI.
 
 ## Kvalitetsstatus
 
@@ -88,7 +88,7 @@ Seneste validerede `develop`-linje består:
 
 - `npm run lint`
 - `npm run build`
-- `npm test` (397 tests)
+- `npm test` (428 tests)
 - `npm run test:e2e` (desktop + mobil Chromium)
 - Grøn GitHub Actions-CI og kvalitetssikret beta-deploy
 
@@ -100,9 +100,11 @@ ende-til-ende, og opgave-/AI-modulet.
 
 Migration 0012 og 0013 er kørt og verificeret på beta. D1-migrationsregisteret
 er baselinet for 0002-0016, og migration 0017 (AI-privatlivsvalg) er kørt og
-verificeret på beta. Næste kodefase er resterende kalender-UX og stabil
-event-identitet/deduplikering. `main` og `develop` er nu beskyttede branches
-(PR + godkendelse + grøn CI påkrævet). Resterende eksterne handlinger —
+verificeret på beta. Kalenderens stabile deduplikering og læsbare måned/uge-UX
+(Fase 1) samt `CalendarPage.tsx`-opdelingen (Fase 6) er leveret. `main` og
+`develop` er nu beskyttede branches (PR + grøn CI påkrævet før merge). Den
+aktive fase-for-fase-status og næste konkrete handling findes udelukkende i
+den levende stabiliseringsplan ovenfor — den opdateres hyppigere end dette
+dokument og bør altid foretrækkes ved tvivl. Resterende eksterne handlinger —
 Cloudflare dobbelt deploy og Google OAuth-verificering — samt fysisk
-VoiceOver-test er samlet i den levende stabiliseringsplan og må ikke blokere
-øvrigt arbejde.
+VoiceOver-test er samlet dér og må ikke blokere øvrigt arbejde.
