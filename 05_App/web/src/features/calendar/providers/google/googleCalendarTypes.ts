@@ -31,6 +31,7 @@ export interface GoogleCalendarEvent {
   start?: GoogleEventDateTime;
   end?: GoogleEventDateTime;
   recurringEventId?: string;
+  visibility?: string;
 }
 
 // Kun til skrivning (create/update) — "date"/"dateTime"/"timeZone" skal
