@@ -26,6 +26,7 @@ import {
 import { WeeklySummaryCard } from "../features/family/WeeklySummaryCard";
 import { useCalendarEvents } from "../features/calendar/hooks/useCalendarEvents";
 import { useCurrentMember } from "../features/calendar/hooks/useCurrentMember";
+import { redactCalendarEventForViewer } from "../features/calendar/utils/redactCalendarEventForViewer";
 import { useFamilyMembers } from "../features/calendar/hooks/useFamilyMembers";
 import { useRecurrenceExceptions } from "../features/calendar/hooks/useRecurrenceExceptions";
 import { familyPseudoMemberId } from "../features/calendar/models/calendarEvent";
@@ -121,7 +122,7 @@ function HomePage() {
         events,
         { start: now.toISOString(), end: rangeEnd.toISOString() },
         recurrenceExceptions.exceptions,
-      );
+      ).map((event) => redactCalendarEventForViewer(event, currentMember?.id));
 
       const upcomingEvents = expandedEvents
         .filter((event) => new Date(event.end).getTime() > now.getTime())
@@ -146,7 +147,7 @@ function HomePage() {
           event.ownerIds.includes(familyPseudoMemberId),
         ),
       };
-    }, [events, recurrenceExceptions.exceptions]);
+    }, [currentMember?.id, events, recurrenceExceptions.exceptions]);
 
   const individualMembers = members.filter(
     (member) => member.id !== familyPseudoMemberId,
