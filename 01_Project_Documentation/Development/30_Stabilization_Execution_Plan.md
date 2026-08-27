@@ -40,7 +40,7 @@ verifikation.
 | 3 | Privatliv og AI | Delvist gennemført | E2E for ejer/andet medlem + offentligt delelink |
 | 4 | Login, branding og OAuth | Delvist gennemført | Google-verificering og scope-gennemgang |
 | 5 | Browserbaserede brugerflowtests | Delvist gennemført | CRUD-, rettigheds- og offline-scenarier |
-| 6 | Refaktorering | Delvist gennemført | Opdel `SettingsPage.tsx` eller `EditEventDialog.tsx` |
+| 6 | Refaktorering | Delvist gennemført | Opdel `EditEventDialog.tsx` eller `families.ts` |
 | 7 | Release, drift og dokumentation | Delvist gennemført | Fjern dobbelt Cloudflare-deploy |
 | 8 | Offlineoplevelse | Delvist gennemført | Offline-skrivning, kø og konfliktløsning |
 
@@ -68,7 +68,7 @@ Status pr. 2026-08-27:
   værdi i stedet for et fastfrosset tal her.
 - D1-migrationsregisteret er baselinet for migration 0002-0016, og migration
   0017 er anvendt på beta.
-- Lokal kvalitetsbaseline: lint, produktionsbuild og 434 Vitest-tests består.
+- Lokal kvalitetsbaseline: lint, produktionsbuild og 439 Vitest-tests består.
 - Playwright indeholder login/jura, autentificeret navigation, kalenderlayout,
   kontrolnavne og mobilbredde-matrix på desktop- og mobilprojekter.
 - Produktionsafhængigheder havde 0 kendte npm-sårbarheder ved sidste audit.
@@ -313,10 +313,19 @@ sidekomponenter og opdele serverruter efter ansvar uden adfærdsændringer.
   `features/shoppingList/utils/` med direkte enhedstests. Siden selv er
   nu 504 linjer og koordinerer udelukkende `useShoppingList`-hooket og
   underkomponenterne — ingen adfærdsændring.
+- [x] `SettingsPage.tsx` (987 linjer) opdelt i fem uafhængige
+  sektionskomponenter (`FamilySection`, `CalendarConnectionsSection`,
+  `AppNotificationsSection`, `AccountDataSection`, `HelpFeedbackSection`)
+  under `features/settings/components/`, hver med sine egne hook-kald
+  (ingen prop-drilling nødvendig, da sektionerne ikke deler tilstand).
+  Den rene `getProviderConnectionStatusText`-hjælpefunktion flyttet til
+  `features/settings/utils/` med direkte enhedstests. Siden selv er nu
+  under 30 linjer. Ingen adfærdsændring — verificeret med den fulde
+  Playwright-suite (inkl. a11y-navne- og mobilbredde-tests, som begge
+  dækker Indstillinger-siden).
 
 ### Planlagt
 
-- [ ] Opdel `SettingsPage.tsx`.
 - [ ] Opdel `EditEventDialog.tsx`.
 - [ ] Opdel `families.ts`.
 - [ ] Opdel `shoppingLists.ts`.
@@ -331,8 +340,8 @@ sidekomponenter og opdele serverruter efter ansvar uden adfærdsændringer.
 - Refaktorering og ny funktionalitet blandes ikke i samme PR.
 - Eksisterende adfærd og tests bevares; flyttet logik får direkte tests.
 
-**Næste handling:** Fortsæt med `SettingsPage.tsx` eller `EditEventDialog.tsx`
-(begge næststørst), én fil pr. PR, samme mønster.
+**Næste handling:** Fortsæt med `EditEventDialog.tsx` (frontend) eller
+`families.ts` (serverruter, størst), én fil pr. PR, samme mønster.
 
 ## Fase 7 – Release, drift og dokumentation
 
@@ -482,3 +491,4 @@ Efter hver fase eller material ændring skal den ansvarlige:
 | 2026-08-27 | Privat-kontakt ved opret/redigér og provider-lagring (genoprettet på frisk branch, da PR #108's CI aldrig blev trigget — se Lessons Learned) | PR #114 |
 | 2026-08-27 | Roadmap, kravsporbarhed, release-baseline og Sprint 29-planen rettet for modstridende status | PR #115 |
 | 2026-08-27 | Fase 6: `ShoppingListPage.tsx` opdelt i fire underkomponenter + testede hjælpefunktioner | PR #116 |
+| 2026-08-27 | Fase 6: `SettingsPage.tsx` opdelt i fem sektionskomponenter + testet hjælpefunktion | PR #117 |
