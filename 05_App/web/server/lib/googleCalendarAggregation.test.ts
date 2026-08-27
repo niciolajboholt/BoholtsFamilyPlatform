@@ -136,6 +136,47 @@ describe("fetchPublicFamilyCalendarEvents", () => {
     expect(events).toEqual([]);
   });
 
+  it("redigerer private detaljer før delelink og AI modtager eventet", async () => {
+    const env = createFakeEnv();
+    const familyId = await seedFamily(env);
+    await seedMemberMapping(env, familyId, "member-1", "Alfred", "alfred@group.calendar.google.com");
+
+    fetchMock.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          items: [
+            {
+              id: "private-event",
+              visibility: "private",
+              summary: "Fortrolig behandling",
+              description: "Følsomme noter",
+              location: "Klinik 4",
+              start: { dateTime: "2026-08-20T10:00:00.000Z" },
+              end: { dateTime: "2026-08-20T11:00:00.000Z" },
+            },
+          ],
+        }),
+        { status: 200 },
+      ),
+    );
+
+    const events = await fetchPublicFamilyCalendarEvents(env, familyId, "creator", ["member-1"], {
+      start: "2026-08-01T00:00:00.000Z",
+      end: "2026-09-01T00:00:00.000Z",
+    });
+
+    expect(events[0]).toEqual(
+      expect.objectContaining({
+        title: "Optaget",
+        description: undefined,
+        location: undefined,
+      }),
+    );
+    expect(JSON.stringify(events)).not.toContain("Fortrolig behandling");
+    expect(JSON.stringify(events)).not.toContain("Følsomme noter");
+    expect(JSON.stringify(events)).not.toContain("Klinik 4");
+  });
+
   it("maps an all-day event to UTC midnight boundaries", async () => {
     const env = createFakeEnv();
     const familyId = await seedFamily(env);
