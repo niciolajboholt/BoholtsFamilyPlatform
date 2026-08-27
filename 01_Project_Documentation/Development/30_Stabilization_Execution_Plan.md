@@ -41,7 +41,7 @@ verifikation.
 | 4 | Login, branding og OAuth | Delvist gennemført | Google-verificering og scope-gennemgang |
 | 5 | Browserbaserede brugerflowtests | Delvist gennemført | CRUD-, rettigheds- og offline-scenarier |
 | 6 | Refaktorering | Delvist gennemført | Opdel `ShoppingListPage.tsx` (næststørst) |
-| 7 | Release, drift og dokumentation | Delvist gennemført | Fjern dobbelt deploy og beskyt branches |
+| 7 | Release, drift og dokumentation | Delvist gennemført | Fjern dobbelt Cloudflare-deploy |
 | 8 | Offlineoplevelse | Delvist gennemført | Offline-skrivning, kø og konfliktløsning |
 
 Appen er egnet til kontrolleret familiebrug og beta. Den er ikke vurderet som
@@ -68,6 +68,10 @@ Status pr. 2026-08-27:
 - Playwright indeholder login/jura, autentificeret navigation, kalenderlayout,
   kontrolnavne og mobilbredde-matrix på desktop- og mobilprojekter.
 - Produktionsafhængigheder havde 0 kendte npm-sårbarheder ved sidste audit.
+- `main` og `develop` er nu beskyttede branches: PR med mindst 1 godkendelse
+  og en grøn `Lint, build and test`-statuscheck er påkrævet, branchen skal
+  være up to date før merge, og ingen (inkl. repository-ejeren) kan omgå
+  reglen. Sat op af Nicolaj 2026-08-27.
 
 ## Fase 1 – Kalenderens konkrete UI-fejl
 
@@ -334,13 +338,15 @@ tilbage uden at være afhængig af tavs manuel viden.
 - [x] D1 Time Travel-gendannelsespunkt blev taget før migrationsarbejdet.
 - [x] Arkitekturdokumentation er rettet fra gammel localStorage/single-device-
   beskrivelse til Worker, D1, sessioner, krypterede tokens, push, cron og AI.
+- [x] `main` og `develop` er beskyttet: PR-krav med mindst 1 godkendelse,
+  påkrævet grøn `Lint, build and test`-check, branch skal være up to date
+  før merge, ingen bypass for nogen — inkl. repository-ejeren. Ingen direkte
+  push til `main` (eller `develop`) er længere muligt.
 
 ### Mangler
 
 - [ ] Deaktivér Cloudflares gamle native Git-deploy, så kun den
   kvalitetssikrede GitHub Actions-pipeline deployer beta.
-- [ ] Beskyt `main` og `develop` med PR-krav og grøn CI; blokér direkte push til
-  `main`.
 - [ ] Gennemgå `PROJECT_STATUS.md`, roadmap, kravsporbarhed og Sprint 29 for
   resterende modstridende status.
 - [ ] Dokumentér fuld D1 backup/restore-runbook og test en rollbackøvelse.
@@ -354,8 +360,8 @@ tilbage uden at være afhængig af tavs manuel viden.
 - Releasechecklisten dækker deploy, migration, health, smoke-test og rollback.
 - `main` kan ikke ændres direkte uden den aftalte kontrol.
 
-**Ekstern handling:** Cloudflare Git-integration skal slås fra i dashboardet,
-og branch protection kan kræve repository-ejerens godkendelse.
+**Ekstern handling:** Cloudflare Git-integration skal slås fra i dashboardet
+(kræver dashboard-adgang).
 
 ## Fase 8 – Offlineoplevelse
 
@@ -418,7 +424,6 @@ arbejde; de samles i afsnittet nedenfor og tages til sidst.
 | Slå Cloudflare native Git-deploy fra | Kræver dashboard-adgang | GitHub Actions er den dokumenterede kvalitetspipeline |
 | Google OAuth-verificering | Kræver Google Cloud-ejergodkendelse | Login/jura og branding er kodeklargjort |
 | Eget produktionsdomæne | Domæne- og produktbeslutning | Beta fortsætter på `workers.dev` |
-| Branch protection | Kan kræve repository-ejer/plan | Alt arbejde leveres fortsat gennem PR og grøn CI |
 | Fysisk iPhone/VoiceOver | Kræver rigtig enhed og brugerhandling | Automatiske mobiltests køres i CI |
 
 ## Definition of Done for offentlig lancering
@@ -455,4 +460,5 @@ Efter hver fase eller material ændring skal den ansvarlige:
 | 2026-08-27 | Stabil event-deduplikering og mere læsbar måned/uge-visning | PR #105 |
 | 2026-08-27 | Automatisk kontrol af tilgængelige navne og mobilbredder; navngav pushkontakt | PR #106 |
 | 2026-08-27 | Privat-aftale-redaktion for familievisning, delelink, AI og push | PR #107 |
+| 2026-08-27 | `main` og `develop` beskyttet: PR + 1 godkendelse + grøn CI påkrævet, ingen bypass | GitHub branch protection rules (repo-indstilling) |
 | 2026-08-27 | Fase 6 påbegyndt: `CalendarPage.tsx` opdelt i controller-hook + testede hjælpefunktioner | PR #110 |
