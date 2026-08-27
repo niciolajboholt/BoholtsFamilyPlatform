@@ -265,7 +265,10 @@ test("creating a private event writes provider privacy without exposing extra fi
   );
 
   let postedBody: Record<string, unknown> | undefined;
-  await page.route("**/api/calendar/calendars/*/events", async (route) => {
+  // Google's write endpoint is called with a trailing "?sendUpdates=none"
+  // query string — the pattern needs a trailing wildcard, or it never
+  // matches and the request silently falls through to the generic mock.
+  await page.route("**/api/calendar/calendars/*/events*", async (route) => {
     if (route.request().method() !== "POST") {
       await route.fallback();
       return;
