@@ -242,7 +242,8 @@ function EditEventDialog({
       (source) => source.id === effectiveEvent.sourceId,
     )
     : undefined;
-  const isInternalEvent = eventSource?.isReadOnly === false;
+  const isInternalEvent =
+    eventSource?.isReadOnly === false && !effectiveEvent?.privacyRedacted;
 
   // Kun Google-aftaler kan skifte kalender i dag (se
   // GoogleCalendarProvider.updateEvent — Googles "move"-handling har ingen
@@ -265,7 +266,8 @@ function EditEventDialog({
   // Google-kalender/-aftale). Uafhængig af skrivbarhed, i modsætning til
   // canChangeCalendar ovenfor — man må gerne påmindes om en aftale på en
   // skrivebeskyttet, abonneret kalender, blot ikke redigere selve aftalen.
-  const canSetReminder = effectiveEvent?.source === "google";
+  const canSetReminder =
+    effectiveEvent?.source === "google" && !effectiveEvent.privacyRedacted;
   const { offsetMinutes: reminderOffsetMinutes, setReminder } = useEventReminder(
     canSetReminder ? effectiveEvent.id : null,
   );
@@ -609,9 +611,11 @@ function EditEventDialog({
         >
           {!isInternalEvent && (
             <Alert severity="info">
-              {isExternalCalendarProviderType(eventSource?.providerType)
-                ? "Denne kalender er skrivebeskyttet."
-                : "Kun interne aftaler kan redigeres eller slettes."}
+              {effectiveEvent?.privacyRedacted
+                ? "Dette er en privat aftale. Kun det tilknyttede familiemedlem kan se eller redigere detaljerne."
+                : isExternalCalendarProviderType(eventSource?.providerType)
+                  ? "Denne kalender er skrivebeskyttet."
+                  : "Kun interne aftaler kan redigeres eller slettes."}
             </Alert>
           )}
 
