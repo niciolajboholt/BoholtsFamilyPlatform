@@ -35,13 +35,34 @@ async function mockAuthenticatedApi(page: Page): Promise<void> {
             isPlaceholderName: 0,
             linkedUserId: "user-e2e",
           },
+          {
+            id: "member-chris",
+            name: "Chris",
+            color: "#C97653",
+            relation: "Voksen",
+            isPlaceholderName: 0,
+            linkedUserId: null,
+          },
+          {
+            id: "member-billie",
+            name: "Billie",
+            color: "#D19A2A",
+            relation: "Barn",
+            isPlaceholderName: 0,
+            linkedUserId: null,
+          },
         ],
         inviteCode: "TEST1234",
       };
     } else if (path.endsWith("/weekly-summary")) {
       body = { summary: null };
     } else if (path.endsWith("/calendar-mappings")) {
-      body = { mappings: [] };
+      body = {
+        mappings: [
+          { googleCalendarId: "alex-calendar", familyMemberId: "member-e2e" },
+          { googleCalendarId: "chris-calendar", familyMemberId: "member-chris" },
+        ],
+      };
     } else if (path.endsWith("/routines")) {
       body = { routines: [] };
     } else if (path.endsWith("/tasks")) {
@@ -50,6 +71,31 @@ async function mockAuthenticatedApi(page: Page): Promise<void> {
       body = { lists: [] };
     } else if (path === "/api/calendar/status") {
       body = { connected: false };
+    } else if (path === "/api/calendar/calendars") {
+      body = {
+        items: [
+          { id: "alex-calendar", summary: "Alex", accessRole: "owner" },
+          { id: "chris-calendar", summary: "Chris", accessRole: "owner" },
+          { id: "family-calendar", summary: "Familien", accessRole: "owner" },
+        ],
+      };
+    } else if (path.includes("/api/calendar/calendars/") && path.endsWith("/events")) {
+      const calendarId = decodeURIComponent(path.split("/")[4]);
+      const summaries: Record<string, string> = {
+        "alex-calendar": "Tandlæge og efterfølgende kontrol",
+        "chris-calendar": "Forældremøde på skolen",
+        "family-calendar": "Fælles fødselsdag hos familien",
+      };
+      body = {
+        items: [{
+          id: `${calendarId}-event`,
+          summary: summaries[calendarId],
+          status: "confirmed",
+          start: { dateTime: "2026-08-27T08:15:00+02:00" },
+          end: { dateTime: "2026-08-27T09:15:00+02:00" },
+        }],
+        nextSyncToken: `${calendarId}-sync-token`,
+      };
     } else if (path === "/api/health") {
       body = { status: "ok", version: { id: "e2e-version-123456" } };
     } else if (path === "/api/feedback") {
@@ -101,4 +147,29 @@ test("authenticated family can open every primary area", async ({ page }) => {
   }
 
   await expect(page.getByText("Version e2e-version-")).toBeVisible();
+});
+
+test("mobile family planner is a readable agenda without horizontal overflow", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "mobile-chromium");
+  await mockAuthenticatedApi(page);
+  await page.goto("/calendar");
+
+  await page.getByRole("button", { name: "Familie", exact: true }).click();
+
+  const eventCard = page.getByRole("button", {
+    name: /Fælles fødselsdag hos familien/,
+  });
+  await expect(eventCard).toBeVisible();
+
+  const eventFitsItsCard = await eventCard.evaluate(
+    (element) => element.scrollWidth <= element.clientWidth + 1,
+  );
+  expect(eventFitsItsCard).toBe(true);
+
+  const hasHorizontalOverflow = await page.evaluate(
+    () => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
+  );
+  expect(hasHorizontalOverflow).toBe(false);
 });
