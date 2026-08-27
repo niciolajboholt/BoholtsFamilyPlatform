@@ -42,7 +42,7 @@ verifikation.
 | 5 | Browserbaserede brugerflowtests | Delvist gennemført | CRUD-, rettigheds- og offline-scenarier |
 | 6 | Refaktorering | Gennemført | — |
 | 7 | Release, drift og dokumentation | Delvist gennemført | Fjern dobbelt Cloudflare-deploy (ekstern) |
-| 8 | Offlineoplevelse | Delvist gennemført | Udvid skrivekø til opgaver + "ryd afkrydsede" |
+| 8 | Offlineoplevelse | Delvist gennemført | Udvid skrivekø til opgaver (af-/tilkrydsning) |
 
 Appen er egnet til kontrolleret familiebrug og beta. Den er ikke vurderet som
 offentligt lanceringsklar, før privatliv pr. aftale, OAuth-verificering,
@@ -68,7 +68,7 @@ Status pr. 2026-08-27:
   værdi i stedet for et fastfrosset tal her.
 - D1-migrationsregisteret er baselinet for migration 0002-0016, og migration
   0017 er anvendt på beta.
-- Lokal kvalitetsbaseline: lint, produktionsbuild og 450 Vitest-tests består.
+- Lokal kvalitetsbaseline: lint, produktionsbuild og 457 Vitest-tests består.
 - Playwright indeholder login/jura, autentificeret navigation, kalenderlayout,
   kontrolnavne og mobilbredde-matrix på desktop- og mobilprojekter.
 - Produktionsafhængigheder havde 0 kendte npm-sårbarheder ved sidste audit.
@@ -497,7 +497,9 @@ håndtere udvalgte læse- og skriveflows uden at cache følsomme credentials.
   af den isolerede logik. **Afgrænset bevidst fra:** "ryd afkrydsede"
   (nævnt i politikken, men udskudt), rediger/slet-vare (allerede uden for
   politikkens skriveliste), og opgaver (Tasks) — alle tre er en
-  efterfølgende, selvstændig PR, samme mønster.
+  efterfølgende, selvstændig PR, samme mønster. Ændrer appens faktiske
+  funktion/oplevelse offline — derfor bevidst ikke selv-merget; godkendt og
+  merget af Nicolaj (PR #127).
 
 ### Mangler
 
@@ -516,10 +518,10 @@ håndtere udvalgte læse- og skriveflows uden at cache følsomme credentials.
   konfliktbesked.
 
 **Næste handling:** Udvid skrivekøen til opgaver (af-/tilkrydsning) — samme
-mønster som `offlineShoppingQueueStorage.ts`/`useShoppingList.ts` ovenfor,
-anvendt på `useTasks.ts`. Ligesom kalendervisnings- og
-indkøbskø-PR'erne ændrer dette appens faktiske funktion/oplevelse offline,
-så den bør ikke selv-merges uden Nicolajs gennemgang.
+mønster som `offlineShoppingQueueStorage.ts`/`useShoppingList.ts`, anvendt
+på `useTasks.ts`. Ligesom kalendervisnings- og indkøbskø-PR'erne ændrer
+dette appens faktiske funktion/oplevelse offline, så den bør ikke
+selv-merges uden Nicolajs gennemgang.
 
 ## Prioriteret udførelsesrækkefølge
 
@@ -598,4 +600,4 @@ Efter hver fase eller material ændring skal den ansvarlige:
 | 2026-08-27 | Fase 7: D1 backup/restore-runbook dokumenteret (Time Travel-kommandoer, 30-dages-vindue, destruktivitetsadvarsel) | PR #123 |
 | 2026-08-27 | Fase 8: Offline-datapolitik skrevet (`31_Offline_Data_Policy.md`) — hvad der aldrig/må caches, TTL, hvilke skrivninger må køes, konfliktprincip | PR #124 |
 | 2026-08-27 | Fase 8: Read-only offline-kalendervisning (Google, 7-dages-TTL, synlig "sidst opdateret") — godkendt og merget af Nicolaj efter gennemgang | PR #125 |
-| 2026-08-27 | Fase 8: Skrivekø til indkøbslistens tilføj/af-tilkryds vare, med reel Playwright-offline-test — åben til Nicolajs gennemgang, ikke selv-merget | PR #127 (open) |
+| 2026-08-27 | Fase 8: Skrivekø til indkøbslistens tilføj/af-tilkryds vare, med reel Playwright-offline-test — godkendt og merget af Nicolaj efter gennemgang | PR #127 |
