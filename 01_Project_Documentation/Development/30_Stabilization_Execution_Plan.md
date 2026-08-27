@@ -40,7 +40,7 @@ verifikation.
 | 3 | Privatliv og AI | Delvist gennemført | E2E for ejer/andet medlem + offentligt delelink |
 | 4 | Login, branding og OAuth | Delvist gennemført | Google-verificering og scope-gennemgang |
 | 5 | Browserbaserede brugerflowtests | Delvist gennemført | CRUD-, rettigheds- og offline-scenarier |
-| 6 | Refaktorering | Delvist gennemført | Opdel `families.ts` (serverruter) |
+| 6 | Refaktorering | Delvist gennemført | Opdel `shoppingLists.ts` og `tasks.ts` (serverruter) |
 | 7 | Release, drift og dokumentation | Delvist gennemført | Fjern dobbelt Cloudflare-deploy |
 | 8 | Offlineoplevelse | Delvist gennemført | Offline-skrivning, kø og konfliktløsning |
 
@@ -332,10 +332,21 @@ sidekomponenter og opdele serverruter efter ansvar uden adfærdsændringer.
   — ingen adfærdsændring. Verificeret med den fulde Playwright-suite,
   inkl. den test der specifikt dækker privat-aftale-flowet gennem denne
   dialog.
+- [x] `families.ts` (877 linjer, serverrute) opdelt efter ansvar i
+  `server/routes/familyRoutes/`: `familyQueries.ts` (delte
+  DB-hjælpefunktioner og typer), `familyCore.ts` (oprettelse, `/mine`,
+  invitationer, omdøbning), `familyMembers.ts` (medlemmer, roller,
+  ejerskifte), `shareLinks.ts`, `familySettings.ts`
+  (ugeresumé/privatlivsvalg) og `calendarMappings.ts`. `families.ts`
+  selv er nu blot en komponist: auth-middleware + fejlhåndtering,
+  derefter fem `.route("/", ...)`-monteringer — samme mønster som
+  `server/index.ts` allerede bruger til at samle alle rutefiler. Ingen
+  adfærdsændring — verificeret med den eksisterende
+  `families.test.ts` (1039 linjer, dækker alle ruter end-to-end via
+  Hono's `.request()`) uændret, samt fuld Playwright-suite.
 
 ### Planlagt
 
-- [ ] Opdel `families.ts`.
 - [ ] Opdel `shoppingLists.ts`.
 - [ ] Opdel `tasks.ts`.
 - [ ] Flyt yderligere validering og genbrugelig forretningslogik til
@@ -348,8 +359,8 @@ sidekomponenter og opdele serverruter efter ansvar uden adfærdsændringer.
 - Refaktorering og ny funktionalitet blandes ikke i samme PR.
 - Eksisterende adfærd og tests bevares; flyttet logik får direkte tests.
 
-**Næste handling:** Fortsæt med `families.ts` (serverruter, størst),
-derefter `shoppingLists.ts` og `tasks.ts`, én fil pr. PR, samme mønster.
+**Næste handling:** Fortsæt med `shoppingLists.ts`, derefter `tasks.ts`,
+samme opdeling-efter-ansvar-mønster som `families.ts`, én fil pr. PR.
 
 ## Fase 7 – Release, drift og dokumentation
 
