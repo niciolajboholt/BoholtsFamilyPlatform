@@ -60,12 +60,13 @@ Status pr. 2026-08-27:
 - Seneste beta-release er grøn i
   [GitHub Actions #301](https://github.com/niciolajboholt/BoholtsFamilyPlatform/actions/runs/33047118982).
 - Betaens `/api/health` rapporterer database og migrationsstatus som grøn.
-- Aktiv Cloudflare-version er `0734388f-31a3-4ce4-aa6c-7fae5c9a1546`.
+- Aktiv Cloudflare-version efter PR #105 er
+  `87cf798f-daaa-4354-aa71-36a1f2146820`.
 - D1-migrationsregisteret er baselinet for migration 0002-0016, og migration
   0017 er anvendt på beta.
 - Lokal kvalitetsbaseline: lint, produktionsbuild og 401 Vitest-tests består.
-- Playwright indeholder login/jura, autentificeret navigation og mobil
-  familieplanner-regression på desktop- og mobilprojekter.
+- Playwright indeholder login/jura, autentificeret navigation, kalenderlayout,
+  kontrolnavne og mobilbredde-matrix på desktop- og mobilprojekter.
 - Produktionsafhængigheder havde 0 kendte npm-sårbarheder ved sidste audit.
 
 ## Fase 1 – Kalenderens konkrete UI-fejl
@@ -129,13 +130,18 @@ skærmlæser og smalle mobilskærme uden at ændre appens varme grønne design.
 - [x] Overflødig højde og spacing er reduceret i de berørte indstillinger.
 - [x] Installations- og notifikationsvejledning er forbedret på mobil.
 - [x] Familieplannerens mobilvisning undgår vandret overflow.
+- [x] Alle fem hovedsider testes automatisk ved 320, 375, 390 og 430 px uden
+  vandret side-overflow.
+- [x] Alle synlige knapper, links og formularfelter på hovedsiderne kontrolleres
+  automatisk for et tilgængeligt navn.
+- [x] Pushnotifikationskontakten i Indstillinger har fået et eksplicit
+  tilgængeligt navn efter den automatiske audit.
 
 ### Mangler
 
 - [ ] Gennemfør tastatur- og fokusgennemgang af alle primære sider og dialoger.
 - [ ] Gennemfør systematisk WCAG-kontrastkontrol af tekst, ikoner, personfarver
   og tilstande.
-- [ ] Test alle hovedsider ved 320, 375, 390 og 430 px.
 - [ ] Test fysisk med iPhone Safari, installeret PWA og VoiceOver.
 - [ ] Ret eventuelle resterende felter uden label, fejlbesked eller tydelig
   fokusmarkering.
@@ -147,8 +153,8 @@ skærmlæser og smalle mobilskærme uden at ændre appens varme grønne design.
 - Alle primære handlinger kan nås og aktiveres med tastatur.
 - Kritiske farvekombinationer opfylder relevante WCAG-kontrastkrav.
 
-**Næste handling:** Kør en side-for-side audit efter fase 1's kalenderændringer,
-så samme UI ikke testes to gange.
+**Næste handling:** Udvid den automatiske audit med tastatur-rækkefølge og
+kontrastkontrol. Afslut derefter fasen med fysisk iPhone/PWA/VoiceOver-test.
 
 ## Fase 3 – Privatliv og AI
 
@@ -427,3 +433,4 @@ Efter hver fase eller material ændring skal den ansvarlige:
 | 2026-08-27 | Mobil familieplanner erstattet af agenda og beskyttet mod overflow | PR #103 |
 | 2026-08-27 | Denne autoritative udførelses- og statusplan oprettet | PR #104 |
 | 2026-08-27 | Stabil event-deduplikering og mere læsbar måned/uge-visning | PR #105 |
+| 2026-08-27 | Automatisk kontrol af tilgængelige navne og mobilbredder; navngav pushkontakt | PR #106 |
