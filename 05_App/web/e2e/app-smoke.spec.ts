@@ -283,7 +283,7 @@ test("creating a private event writes provider privacy without exposing extra fi
   await page.getByLabel("Titel").fill("Fortrolig behandling");
   await page.getByRole("button", { name: "Flere muligheder" }).click();
   await page
-    .getByRole("checkbox", { name: "Privat aftale – familien ser kun Optaget" })
+    .getByRole("switch", { name: "Privat aftale – familien ser kun Optaget" })
     .check();
   await page.getByRole("button", { name: "Opret aftale" }).click();
 
