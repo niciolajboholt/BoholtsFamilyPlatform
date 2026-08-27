@@ -175,6 +175,12 @@ export interface CalendarEvent {
   location?: string;
   color?: string;
 
+  /** Private provider-aftaler vises kun med detaljer for den kortlagte ejer. */
+  privacy?: "busy";
+
+  /** Sat på en visningskopi, hvor titel/beskrivelse/lokation er redigeret. */
+  privacyRedacted?: boolean;
+
   /**
    * Findes kun, hvis aftalen gentages.
    *
