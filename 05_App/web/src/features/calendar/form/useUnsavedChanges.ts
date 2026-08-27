@@ -42,6 +42,7 @@ function areEventFormStatesEqual(
     initialValues.description ===
       currentValues.description &&
     initialValues.location === currentValues.location &&
+    initialValues.privacy === currentValues.privacy &&
     haveSameOwnerIds(
       initialValues.ownerIds,
       currentValues.ownerIds,
