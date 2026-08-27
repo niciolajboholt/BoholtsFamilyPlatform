@@ -256,6 +256,13 @@ test("creating a private event writes provider privacy without exposing extra fi
 }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop-chromium");
   await mockAuthenticatedApi(page);
+  await page.route("**/api/calendar/status", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ connected: true }),
+    }),
+  );
 
   let postedBody: Record<string, unknown> | undefined;
   await page.route("**/api/calendar/calendars/*/events", async (route) => {
