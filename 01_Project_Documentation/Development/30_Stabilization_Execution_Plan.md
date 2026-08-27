@@ -42,7 +42,7 @@ verifikation.
 | 5 | Browserbaserede brugerflowtests | Delvist gennemført | CRUD-, rettigheds- og offline-scenarier |
 | 6 | Refaktorering | Gennemført | — |
 | 7 | Release, drift og dokumentation | Delvist gennemført | Fjern dobbelt Cloudflare-deploy (ekstern) |
-| 8 | Offlineoplevelse | Delvist gennemført | Skrivekø til indkøb/opgaver (afventer godkendt kalendercache-PR) |
+| 8 | Offlineoplevelse | Delvist gennemført | Skrivekø til udvalgte indkøbs-/opgaveændringer |
 
 Appen er egnet til kontrolleret familiebrug og beta. Den er ikke vurderet som
 offentligt lanceringsklar, før privatliv pr. aftale, OAuth-verificering,
@@ -68,7 +68,7 @@ Status pr. 2026-08-27:
   værdi i stedet for et fastfrosset tal her.
 - D1-migrationsregisteret er baselinet for migration 0002-0016, og migration
   0017 er anvendt på beta.
-- Lokal kvalitetsbaseline: lint, produktionsbuild og 439 Vitest-tests består.
+- Lokal kvalitetsbaseline: lint, produktionsbuild og 450 Vitest-tests består.
 - Playwright indeholder login/jura, autentificeret navigation, kalenderlayout,
   kontrolnavne og mobilbredde-matrix på desktop- og mobilprojekter.
 - Produktionsafhængigheder havde 0 kendte npm-sårbarheder ved sidste audit.
@@ -472,9 +472,9 @@ håndtere udvalgte læse- og skriveflows uden at cache følsomme credentials.
   Er cachen for gammel, eller findes den slet ikke, kastes netværksfejlen
   videre uændret (samme adfærd som før denne PR). Afgrænset til Google
   (den eneste provider med en eksisterende lokal cache i dag) —
-  Outlook-fallback er ikke en del af dette skridt. **Ikke selv-merget**:
-  ændrer appens faktiske funktion/oplevelse offline, afventer Nicolajs
-  gennemgang, jf. hans egen regel om funktions-/brugsændringer.
+  Outlook-fallback er ikke en del af dette skridt. Ændrer appens faktiske
+  funktion/oplevelse offline — derfor bevidst ikke selv-merget; godkendt og
+  merget af Nicolaj (PR #125).
 
 ### Mangler
 
@@ -569,4 +569,4 @@ Efter hver fase eller material ændring skal den ansvarlige:
 | 2026-08-27 | `PROJECT_STATUS.md` rettet for forældet testtal og ufuldstændig Fase 6-status | PR #122 |
 | 2026-08-27 | Fase 7: D1 backup/restore-runbook dokumenteret (Time Travel-kommandoer, 30-dages-vindue, destruktivitetsadvarsel) | PR #123 |
 | 2026-08-27 | Fase 8: Offline-datapolitik skrevet (`31_Offline_Data_Policy.md`) — hvad der aldrig/må caches, TTL, hvilke skrivninger må køes, konfliktprincip | PR #124 |
-| 2026-08-27 | Fase 8: Read-only offline-kalendervisning (Google, 7-dages-TTL, synlig "sidst opdateret") — åben til Nicolajs gennemgang, ikke selv-merget | PR #125 (open) |
+| 2026-08-27 | Fase 8: Read-only offline-kalendervisning (Google, 7-dages-TTL, synlig "sidst opdateret") — godkendt og merget af Nicolaj efter gennemgang | PR #125 |
