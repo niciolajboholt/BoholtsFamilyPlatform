@@ -40,7 +40,7 @@ verifikation.
 | 3 | Privatliv og AI | Delvist gennemført | Privat aftale / “vis kun optaget” |
 | 4 | Login, branding og OAuth | Delvist gennemført | Google-verificering og scope-gennemgang |
 | 5 | Browserbaserede brugerflowtests | Delvist gennemført | CRUD-, rettigheds- og offline-scenarier |
-| 6 | Refaktorering | Ikke startet | Opdeling af de største UI- og route-filer |
+| 6 | Refaktorering | Delvist gennemført | Opdel `ShoppingListPage.tsx` (næststørst) |
 | 7 | Release, drift og dokumentation | Delvist gennemført | Fjern dobbelt Cloudflare-deploy |
 | 8 | Offlineoplevelse | Delvist gennemført | Offline-skrivning, kø og konfliktløsning |
 
@@ -64,7 +64,7 @@ Status pr. 2026-08-27:
   `87cf798f-daaa-4354-aa71-36a1f2146820`.
 - D1-migrationsregisteret er baselinet for migration 0002-0016, og migration
   0017 er anvendt på beta.
-- Lokal kvalitetsbaseline: lint, produktionsbuild og 414 Vitest-tests består.
+- Lokal kvalitetsbaseline: lint, produktionsbuild og 428 Vitest-tests består.
 - Playwright indeholder login/jura, autentificeret navigation, kalenderlayout,
   kontrolnavne og mobilbredde-matrix på desktop- og mobilprojekter.
 - Produktionsafhængigheder havde 0 kendte npm-sårbarheder ved sidste audit.
@@ -287,19 +287,27 @@ rettighedsscenarier efter fase 1 og 3.
 **Mål:** Reducér ændringsrisiko ved at flytte forretningslogik ud af store
 sidekomponenter og opdele serverruter efter ansvar uden adfærdsændringer.
 
-**Status: Ikke startet**
+**Status: Delvist gennemført**
+
+### Gennemført
+
+- [x] `CalendarPage.tsx` (1160 linjer) opdelt: al tilstand, afledte
+  værdier og handlere flyttet til `useCalendarPageController`
+  (`features/calendar/hooks`), og de rene dato-/visningshjælpefunktioner
+  flyttet til `calendarPageDateNavigation.ts` med direkte enhedstests.
+  Siden selv er nu 473 linjer og koordinerer udelukkende hooket og
+  underkomponenter — ingen adfærdsændring, samme JSX-struktur.
 
 ### Planlagt
 
 - [ ] Opdel `ShoppingListPage.tsx`.
-- [ ] Opdel `CalendarPage.tsx` og den voksende familieplanner.
 - [ ] Opdel `SettingsPage.tsx`.
 - [ ] Opdel `EditEventDialog.tsx`.
 - [ ] Opdel `families.ts`.
 - [ ] Opdel `shoppingLists.ts`.
 - [ ] Opdel `tasks.ts`.
-- [ ] Flyt validering og genbrugelig forretningslogik til services/hooks med
-  målrettede tests.
+- [ ] Flyt yderligere validering og genbrugelig forretningslogik til
+  services/hooks med målrettede tests.
 
 ### Acceptkriterier
 
@@ -308,8 +316,8 @@ sidekomponenter og opdele serverruter efter ansvar uden adfærdsændringer.
 - Refaktorering og ny funktionalitet blandes ikke i samme PR.
 - Eksisterende adfærd og tests bevares; flyttet logik får direkte tests.
 
-**Næste handling:** Mål aktuelle filstørrelser og kobling efter fase 1-5, og
-opdel én fil pr. PR begyndende med kalenderområdet.
+**Næste handling:** Fortsæt med `ShoppingListPage.tsx` (næststørst), én fil
+pr. PR, samme mønster (kontroller-hook + rene, testede hjælpefunktioner).
 
 ## Fase 7 – Release, drift og dokumentation
 
@@ -453,3 +461,4 @@ Efter hver fase eller material ændring skal den ansvarlige:
 | 2026-08-27 | Automatisk kontrol af tilgængelige navne og mobilbredder; navngav pushkontakt | PR #106 |
 | 2026-08-27 | Privat-aftale-redaktion for familievisning, delelink, AI og push | PR #107 |
 | 2026-08-27 | `main` og `develop` beskyttet: PR + 1 godkendelse + grøn CI påkrævet, ingen bypass | GitHub branch protection rules (repo-indstilling) |
+| 2026-08-27 | Fase 6 påbegyndt: `CalendarPage.tsx` opdelt i controller-hook + testede hjælpefunktioner | PR #110 |
