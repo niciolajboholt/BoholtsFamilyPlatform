@@ -639,6 +639,9 @@ function SettingsPage() {
 
               <Switch
                 checked={pushNotificationStatus === "subscribed"}
+                slotProps={{
+                  input: { "aria-label": "Tillad pushnotifikationer" },
+                }}
                 disabled={
                   pushNotificationIsBusy ||
                   pushNotificationStatus === "loading" ||
