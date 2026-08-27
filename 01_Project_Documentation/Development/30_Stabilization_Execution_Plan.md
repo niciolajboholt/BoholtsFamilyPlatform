@@ -42,7 +42,7 @@ verifikation.
 | 5 | Browserbaserede brugerflowtests | Delvist gennemført | CRUD-, rettigheds- og offline-scenarier |
 | 6 | Refaktorering | Gennemført | — |
 | 7 | Release, drift og dokumentation | Delvist gennemført | Fjern dobbelt Cloudflare-deploy (ekstern) |
-| 8 | Offlineoplevelse | Delvist gennemført | Offline-skrivning, kø og konfliktløsning |
+| 8 | Offlineoplevelse | Delvist gennemført | Implementér read-only kalendercache + skrivekø efter politikken |
 
 Appen er egnet til kontrolleret familiebrug og beta. Den er ikke vurderet som
 offentligt lanceringsklar, før privatliv pr. aftale, OAuth-verificering,
@@ -447,15 +447,25 @@ håndtere udvalgte læse- og skriveflows uden at cache følsomme credentials.
 - [x] PWA-appskallen caches.
 - [x] Auth, tokens og følsomme API-svar er ikke tilføjet til service-worker-
   cache.
+- [x] Offline-datapolitik skrevet:
+  `01_Project_Documentation/Development/31_Offline_Data_Policy.md`.
+  Definerer præcist hvad der aldrig må caches (auth/tokens, urediegeret
+  privat aftaledata), hvad der må caches til read-only offline-visning
+  (kalender/indkøb/opgaver, 7 dages TTL, alder synlig for brugeren, ryddes
+  ved logout — bygger videre på den eksisterende kalender-sync-cache fra
+  Sprint 25), hvilke skrivninger der må køes offline i første omgang
+  (indkøbsvare tilføj/af-tilkryds, opgave af-tilkryds — bevidst afgrænset
+  til lavrisiko append/toggle-handlinger) og et simpelt konfliktprincip for
+  dem (drop den enkelte køede ændring med en synlig besked, hvis dens mål er
+  slettet i mellemtiden). Selve IndexedDB/kø-implementeringen er ikke
+  påbegyndt endnu — det er den efterfølgende opgave, nu med en skrevet
+  ramme at bygge inden for.
 
 ### Mangler
 
-- [ ] Definér præcist hvilke kalender-, indkøbs- og opgavedata der må gemmes
-  lokalt og hvor længe.
-- [ ] Gem senest hentede tilladte kalenderdata sikkert til read-only offline.
-- [ ] Tilføj kø til udvalgte indkøbs- og opgaveændringer.
-- [ ] Definér konflikt- og genforbindelsesadfærd, herunder brugerens valg ved
-  samtidige ændringer.
+- [ ] Gem senest hentede tilladte kalenderdata sikkert til read-only offline
+  (implementér efter politikken i `31_Offline_Data_Policy.md`).
+- [ ] Tilføj kø til udvalgte indkøbs- og opgaveændringer (samme politik).
 - [ ] Tilføj automatiske offline- og reconnect-tests.
 
 ### Acceptkriterier
@@ -466,8 +476,10 @@ håndtere udvalgte læse- og skriveflows uden at cache følsomme credentials.
 - Køede ændringer synkroniseres deterministisk eller giver en forståelig
   konfliktbesked.
 
-**Næste handling:** Skriv en kort offline-datapolitik før IndexedDB/kø
-implementeres.
+**Næste handling:** Implementér read-only offline-kalendervisning efter
+`31_Offline_Data_Policy.md` (7 dages TTL, synlig alderstekst) — den enkleste
+af de to resterende byggeopgaver, og et naturligt første skridt før
+skrivekøen.
 
 ## Prioriteret udførelsesrækkefølge
 
