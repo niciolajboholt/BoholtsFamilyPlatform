@@ -314,6 +314,113 @@ test("primary pages have no visible unnamed controls", async ({ page }, testInfo
   }
 });
 
+test("offline shopping list add is queued locally and syncs on reconnect", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  await mockAuthenticatedApi(page);
+
+  const list = {
+    id: "list-e2e",
+    familyId: family.id,
+    name: "Indkøbsliste",
+    type: "dagligvarer",
+    createdAt: "2026-08-20T00:00:00.000Z",
+  };
+  let items: Array<Record<string, unknown>> = [];
+  // page.context().setOffline() only blocks REAL network traffic — a
+  // page.route() handler still answers locally even while "offline", since
+  // it fulfills before the request ever reaches the network stack. To
+  // actually exercise the app's fetch-failure path, the route handler
+  // itself aborts while this flag is set, which makes fetch() reject client
+  // side exactly like a real dropped connection would. Scoped to only the
+  // add-item POST (not the GETs several unrelated hooks fire on page load)
+  // so the test doesn't race against other components' own in-flight
+  // requests to the same family/list.
+  let shouldFailAddItem = false;
+
+  await page.route("**/api/families/*/shopping-lists", async (route) => {
+    if (route.request().method() !== "GET") {
+      await route.fallback();
+      return;
+    }
+
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ lists: [list] }),
+    });
+  });
+
+  await page.route("**/api/families/*/shopping-lists/*/items", async (route) => {
+    const method = route.request().method();
+
+    if (method === "POST" && shouldFailAddItem) {
+      await route.abort("internetdisconnected");
+      return;
+    }
+
+    if (method === "GET") {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ items }),
+      });
+      return;
+    }
+
+    if (method === "POST") {
+      const posted = route.request().postDataJSON() as { name: string };
+      items = [
+        ...items,
+        {
+          id: `item-${items.length + 1}`,
+          listId: list.id,
+          name: posted.name,
+          category: "Andet",
+          isChecked: 0,
+          addedByUserId: "user-e2e",
+          createdAt: new Date().toISOString(),
+          checkedAt: null,
+        },
+      ];
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ items }),
+      });
+      return;
+    }
+
+    await route.fallback();
+  });
+
+  await page.goto("/shopping-list");
+  const addItemInput = page.getByPlaceholder("Tilføj en vare…");
+  await expect(addItemInput).toBeVisible();
+
+  shouldFailAddItem = true;
+
+  await addItemInput.fill("Mælk");
+  await page.getByRole("button", { name: "Tilføj" }).click();
+
+  await expect(
+    page.getByText("1 ændring er gemt lokalt og synkroniseres, når du er online igen."),
+  ).toBeVisible();
+  await expect(page.getByText("Mælk", { exact: true })).not.toBeVisible();
+
+  shouldFailAddItem = false;
+  // Udløser "online"-lytteren i useShoppingList.ts, som forsøger at
+  // afspille køen igen — svarer til at enheden reelt genopretter
+  // forbindelsen (browseren udsender selv denne hændelse i så fald).
+  await page.evaluate(() => window.dispatchEvent(new Event("online")));
+
+  await expect(page.getByText("Mælk", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("1 ændring er gemt lokalt og synkroniseres, når du er online igen."),
+  ).not.toBeVisible();
+});
+
 test("primary pages fit the complete supported mobile width matrix", async ({
   page,
 }, testInfo) => {

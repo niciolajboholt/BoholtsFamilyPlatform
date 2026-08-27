@@ -2,6 +2,11 @@ import { useCallback, useEffect, useState } from "react";
 
 import { getMyFamily } from "../../family/familyApi";
 import {
+  enqueueShoppingOperation,
+  listQueuedShoppingOperations,
+  removeQueuedShoppingOperation,
+} from "../preferences/offlineShoppingQueueStorage";
+import {
   addShoppingListItem,
   addShoppingListTemplateItem,
   clearCheckedShoppingListItems,
@@ -53,6 +58,9 @@ interface UseShoppingListResult {
   renameTemplate: (templateId: string, name: string) => Promise<void>;
   addTemplateItem: (templateId: string, name: string) => Promise<void>;
   deleteTemplateItem: (templateId: string, itemId: string) => Promise<void>;
+  // Fase 8: antal endnu ikke-synkroniserede offline-ændringer (tilføj/
+  // afkryds vare) for den valgte liste — se 31_Offline_Data_Policy.md.
+  pendingOfflineChangeCount: number;
 }
 
 /**
@@ -70,6 +78,7 @@ export function useShoppingList(): UseShoppingListResult {
   const [templates, setTemplates] = useState<ShoppingListTemplateDto[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [pendingOfflineChangeCount, setPendingOfflineChangeCount] = useState(0);
 
   // Henter familien og dens lister ved mount.
   useEffect(() => {
@@ -164,6 +173,86 @@ export function useShoppingList(): UseShoppingListResult {
       isCancelled = true;
     };
   }, [familyId, selectedListId]);
+
+  // Fase 8: afspiller ventende offline-ændringer for den VALGTE liste, én ad
+  // gangen (FIFO) — kun poster for netop denne liste, andre listers ventende
+  // ændringer rører vi ikke her (de afspilles, når/hvis brugeren vælger dem).
+  // Et "ikke fundet" (404) betyder målet (vare/liste) er slettet i
+  // mellemtiden — den ene ændring droppes med en synlig besked, og resten af
+  // køen fortsætter (jf. 31_Offline_Data_Policy.md's konfliktprincip). Enhver
+  // anden fejl betyder formentlig stadig ingen forbindelse — afspilningen
+  // stoppes uden at fjerne de resterende ventende ændringer, som forsøges
+  // igen ved næste mulighed.
+  const flushQueuedOperations = useCallback(async (): Promise<void> => {
+    if (!familyId || !selectedListId) {
+      return;
+    }
+
+    const queue = listQueuedShoppingOperations().filter(
+      (operation) => operation.familyId === familyId && operation.listId === selectedListId,
+    );
+
+    setPendingOfflineChangeCount(queue.length);
+
+    if (!navigator.onLine || queue.length === 0) {
+      return;
+    }
+
+    for (const operation of queue) {
+      let result: { ok: boolean; status: number; data: { items?: ShoppingListItemDto[] } };
+
+      if (operation.type === "add-item") {
+        result = await addShoppingListItem(familyId, selectedListId, operation.name);
+      } else {
+        result = await setShoppingListItemChecked(
+          familyId,
+          selectedListId,
+          operation.itemId,
+          operation.isChecked,
+        );
+      }
+
+      if (result.ok && result.data.items) {
+        removeQueuedShoppingOperation(operation.id);
+        setItems(result.data.items);
+        setPendingOfflineChangeCount((count) => Math.max(0, count - 1));
+        continue;
+      }
+
+      if (result.status === 404) {
+        removeQueuedShoppingOperation(operation.id);
+        setPendingOfflineChangeCount((count) => Math.max(0, count - 1));
+        setError(
+          operation.type === "add-item"
+            ? `Kunne ikke tilføje "${operation.name}" — listen findes ikke længere.`
+            : "Kunne ikke synkronisere en afkrydsning — varen er allerede slettet.",
+        );
+        continue;
+      }
+
+      // Formentlig stadig offline — stop og prøv resten igen senere.
+      return;
+    }
+  }, [familyId, selectedListId]);
+
+  useEffect(() => {
+    // flushQueuedOperations synchronously sets pendingOfflineChangeCount
+    // from localStorage before its first await — that's the point (it must
+    // reflect the newly selected list right away, not after a network
+    // round-trip) — same accepted pattern as useCalendarEvents.ts's
+    // refreshEvents() call.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void flushQueuedOperations();
+  }, [familyId, selectedListId, flushQueuedOperations]);
+
+  useEffect(() => {
+    function handleOnline() {
+      void flushQueuedOperations();
+    }
+
+    window.addEventListener("online", handleOnline);
+    return () => window.removeEventListener("online", handleOnline);
+  }, [flushQueuedOperations]);
 
   const selectList = useCallback((listId: string): void => {
     setIsLoading(true);
@@ -275,6 +364,36 @@ export function useShoppingList(): UseShoppingListResult {
     [],
   );
 
+  // Fase 8: kun tilføj og af-/tilkryds vare er i første omgang tilladt at
+  // køe offline, jf. 31_Offline_Data_Policy.md — enhver anden mutation
+  // bruger fortsat withMutation ovenfor uændret. Et THROWN fetch-svar (ikke
+  // et opløst { ok: false }) er reelt set altid et netværksproblem
+  // (shoppingListApi.ts's request() fanger aldrig selve fetch-fejlen), så
+  // det er sikkert at behandle det som "vi er nok offline" og køe ændringen
+  // i stedet for at vise en generisk fejl, brugeren ikke selv kan rette.
+  const withQueueableMutation = useCallback(
+    (
+      action: () => Promise<{ ok: boolean; data: { items?: ShoppingListItemDto[] } }>,
+      onNetworkFailure: () => void,
+    ) => {
+      setError(null);
+
+      action()
+        .then((result) => {
+          if (result.ok && result.data.items) {
+            setItems(result.data.items);
+          } else {
+            setError("Handlingen kunne ikke gennemføres. Prøv igen.");
+          }
+        })
+        .catch(() => {
+          onNetworkFailure();
+          setPendingOfflineChangeCount((count) => count + 1);
+        });
+    },
+    [],
+  );
+
   const addItem = useCallback(
     (name: string): void => {
       const trimmed = name.trim();
@@ -282,9 +401,18 @@ export function useShoppingList(): UseShoppingListResult {
         return;
       }
 
-      withMutation(() => addShoppingListItem(familyId, selectedListId, trimmed));
+      withQueueableMutation(
+        () => addShoppingListItem(familyId, selectedListId, trimmed),
+        () =>
+          enqueueShoppingOperation({
+            type: "add-item",
+            familyId,
+            listId: selectedListId,
+            name: trimmed,
+          }),
+      );
     },
-    [familyId, selectedListId, withMutation],
+    [familyId, selectedListId, withQueueableMutation],
   );
 
   const toggleChecked = useCallback(
@@ -293,9 +421,30 @@ export function useShoppingList(): UseShoppingListResult {
         return;
       }
 
-      withMutation(() => setShoppingListItemChecked(familyId, selectedListId, itemId, isChecked));
+      // Optimistisk: brugeren ser afkrydsningen med det samme, uanset om
+      // forbindelsen er der eller ej — trygt her, da varen allerede findes
+      // lokalt (i modsætning til en ny vare, som ikke optimistisk indsættes
+      // i denne første iteration, for at undgå at skulle forene et
+      // midlertidigt lokalt id med serverens rigtige id bagefter).
+      setItems((currentItems) =>
+        currentItems.map((item) =>
+          item.id === itemId ? { ...item, isChecked: isChecked ? 1 : 0 } : item,
+        ),
+      );
+
+      withQueueableMutation(
+        () => setShoppingListItemChecked(familyId, selectedListId, itemId, isChecked),
+        () =>
+          enqueueShoppingOperation({
+            type: "toggle-item",
+            familyId,
+            listId: selectedListId,
+            itemId,
+            isChecked,
+          }),
+      );
     },
-    [familyId, selectedListId, withMutation],
+    [familyId, selectedListId, withQueueableMutation],
   );
 
   const setCategory = useCallback(
@@ -526,5 +675,6 @@ export function useShoppingList(): UseShoppingListResult {
     renameTemplate,
     addTemplateItem,
     deleteTemplateItem,
+    pendingOfflineChangeCount,
   };
 }
