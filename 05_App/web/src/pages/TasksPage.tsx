@@ -68,6 +68,7 @@ function TasksPage() {
     createRoutine,
     removeRoutine,
     suggestRoutine,
+    pendingOfflineChangeCount,
   } = useTasks();
 
   const [viewMode, setViewMode] = useState<ViewMode>("mine");
@@ -191,6 +192,17 @@ function TasksPage() {
           {error && (
             <Alert severity="error" sx={{ mb: 2 }}>
               {error}
+            </Alert>
+          )}
+
+          {/* Fase 8: viser at ændringer er gemt lokalt, ikke tavst — jf.
+              31_Offline_Data_Policy.md's acceptkriterie om at brugeren
+              tydeligt skal kunne se det. Synkroniseres automatisk igen. */}
+          {pendingOfflineChangeCount > 0 && (
+            <Alert severity="info" sx={{ mb: 2 }}>
+              {pendingOfflineChangeCount === 1
+                ? "1 ændring er gemt lokalt og synkroniseres, når du er online igen."
+                : `${pendingOfflineChangeCount} ændringer er gemt lokalt og synkroniseres, når du er online igen.`}
             </Alert>
           )}
 

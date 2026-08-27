@@ -42,7 +42,7 @@ verifikation.
 | 5 | Browserbaserede brugerflowtests | Delvist gennemført | CRUD-, rettigheds- og offline-scenarier |
 | 6 | Refaktorering | Gennemført | — |
 | 7 | Release, drift og dokumentation | Delvist gennemført | Fjern dobbelt Cloudflare-deploy (ekstern) |
-| 8 | Offlineoplevelse | Delvist gennemført | Udvid skrivekø til opgaver (af-/tilkrydsning) |
+| 8 | Offlineoplevelse | Delvist gennemført | "Ryd afkrydsede" til skrivekøen (afventer opgave-PR-gennemgang) |
 
 Appen er egnet til kontrolleret familiebrug og beta. Den er ikke vurderet som
 offentligt lanceringsklar, før privatliv pr. aftale, OAuth-verificering,
@@ -500,14 +500,29 @@ håndtere udvalgte læse- og skriveflows uden at cache følsomme credentials.
   efterfølgende, selvstændig PR, samme mønster. Ændrer appens faktiske
   funktion/oplevelse offline — derfor bevidst ikke selv-merget; godkendt og
   merget af Nicolaj (PR #127).
+- [x] Skrivekø til opgavers af-/tilkrydsning, samme mønster som ovenfor:
+  `offlineTaskQueueStorage.ts` (ny, localStorage-baseret — ikke slået
+  sammen med `offlineShoppingQueueStorage.ts` til én delt abstraktion, da
+  opgaver kun har denne ene tilladte operationstype og er scopet pr. dato,
+  ikke pr. liste — de to domæner deler ikke nok struktur til at gøre en
+  fælles kø enklere end to små, selvstændige moduler).
+  `useTasks.ts`'s `toggleDone` er optimistisk og køer ved en netværksfejl;
+  samme FIFO-afspilning ved "online"-hændelsen, samme 404-droppes-med-
+  besked-konfliktregel, samme synlige "N ændringer er gemt lokalt..."-
+  banner på Opgaver-siden. Verificeret med en ny, reel Playwright-test
+  (`offline task toggle is queued locally and syncs on reconnect`), som
+  bevidst kun lader selve afkrydsnings-PATCH'et fejle (ikke en global
+  offline-tilstand) for at undgå den race mod andre samtidige
+  familiedata-kald, som gjorde en tidligere version af
+  indkøbsliste-testen flaky. Ændrer appens faktiske funktion/oplevelse
+  offline — derfor bevidst ikke selv-merget.
 
 ### Mangler
 
-- [ ] Udvid skrivekøen til opgaver (af-/tilkrydsning) og "ryd afkrydsede"
-  på indkøbslisten, samme politik og mønster som ovenfor.
-- [ ] Flere automatiske offline-/reconnect-tests, efterhånden som
-  skrivekøen udvides (kalendervisningen og indkøb-tilføj/-afkryds har nu
-  hver sin).
+- [ ] Udvid skrivekøen til "ryd afkrydsede" på indkøbslisten (nævnt i
+  politikken, udskudt i PR #127).
+- [ ] Yderligere automatiske offline-/reconnect-tests, efterhånden som
+  skrivekøen udvides.
 
 ### Acceptkriterier
 
@@ -517,11 +532,9 @@ håndtere udvalgte læse- og skriveflows uden at cache følsomme credentials.
 - Køede ændringer synkroniseres deterministisk eller giver en forståelig
   konfliktbesked.
 
-**Næste handling:** Udvid skrivekøen til opgaver (af-/tilkrydsning) — samme
-mønster som `offlineShoppingQueueStorage.ts`/`useShoppingList.ts`, anvendt
-på `useTasks.ts`. Ligesom kalendervisnings- og indkøbskø-PR'erne ændrer
-dette appens faktiske funktion/oplevelse offline, så den bør ikke
-selv-merges uden Nicolajs gennemgang.
+**Næste handling:** Afvent Nicolajs gennemgang af den åbne
+opgave-skrivekø-PR. Derefter: "ryd afkrydsede" på indkøbslisten, samme
+politik og mønster.
 
 ## Prioriteret udførelsesrækkefølge
 

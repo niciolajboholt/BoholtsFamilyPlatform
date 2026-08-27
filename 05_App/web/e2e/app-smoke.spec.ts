@@ -421,6 +421,97 @@ test("offline shopping list add is queued locally and syncs on reconnect", async
   ).not.toBeVisible();
 });
 
+test("offline task toggle is queued locally and syncs on reconnect", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  await mockAuthenticatedApi(page);
+
+  const task = {
+    id: "task-e2e",
+    familyId: family.id,
+    name: "Vande blomster",
+    icon: "hjem",
+    assignedMemberId: null,
+    timeOfDay: null,
+    isDone: 0,
+    routineItemId: null,
+    taskDate: "2026-08-27",
+    createdByUserId: "user-e2e",
+    createdAt: "2026-08-27T00:00:00.000Z",
+    doneAt: null,
+  };
+  let isDone = 0;
+  // Kun selve afkrydsnings-PATCH'et fejler i det kontrollerede vindue —
+  // ikke en global "offline"-tilstand for alle ruter. mockAuthenticatedApi
+  // dækker allerede GET .../tasks; flere uafhængige hooks henter samtidig
+  // familiedata ved sideindlæsning, og at gøre HELE forbindelsen ustabil
+  // (fx via page.context().setOffline()) rammer tilfældigt et af de andre
+  // kald i stedet for selve togglet, hvilket gjorde en tidligere version af
+  // denne slags test flaky (se den tilsvarende indkøbsliste-test ovenfor).
+  let shouldFailToggle = false;
+
+  await page.route("**/api/families/*/tasks?*", async (route) => {
+    if (route.request().method() !== "GET") {
+      await route.fallback();
+      return;
+    }
+
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ tasks: [{ ...task, isDone }] }),
+    });
+  });
+
+  await page.route("**/api/families/*/tasks/task-e2e", async (route) => {
+    if (route.request().method() !== "PATCH") {
+      await route.fallback();
+      return;
+    }
+
+    if (shouldFailToggle) {
+      await route.abort("internetdisconnected");
+      return;
+    }
+
+    const patch = route.request().postDataJSON() as { isDone?: boolean };
+    if (patch.isDone !== undefined) {
+      isDone = patch.isDone ? 1 : 0;
+    }
+
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ tasks: [{ ...task, isDone }] }),
+    });
+  });
+
+  await page.goto("/tasks");
+  const checkbox = page.getByRole("checkbox").first();
+  await expect(checkbox).toBeVisible();
+  await expect(checkbox).not.toBeChecked();
+
+  shouldFailToggle = true;
+  await checkbox.check();
+
+  // Optimistisk: afkrydsningen vises med det samme, selvom PATCH'et fejler.
+  await expect(checkbox).toBeChecked();
+  await expect(
+    page.getByText("1 ændring er gemt lokalt og synkroniseres, når du er online igen."),
+  ).toBeVisible();
+
+  shouldFailToggle = false;
+  // Udløser "online"-lytteren i useTasks.ts, som forsøger at afspille køen
+  // igen — svarer til at enheden reelt genopretter forbindelsen.
+  await page.evaluate(() => window.dispatchEvent(new Event("online")));
+
+  await expect(
+    page.getByText("1 ændring er gemt lokalt og synkroniseres, når du er online igen."),
+  ).not.toBeVisible();
+  await expect(checkbox).toBeChecked();
+});
+
 test("primary pages fit the complete supported mobile width matrix", async ({
   page,
 }, testInfo) => {
