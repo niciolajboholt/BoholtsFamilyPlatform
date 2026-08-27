@@ -40,7 +40,7 @@ verifikation.
 | 3 | Privatliv og AI | Delvist gennemført | E2E for ejer/andet medlem + offentligt delelink |
 | 4 | Login, branding og OAuth | Delvist gennemført | Google-verificering og scope-gennemgang |
 | 5 | Browserbaserede brugerflowtests | Delvist gennemført | CRUD-, rettigheds- og offline-scenarier |
-| 6 | Refaktorering | Delvist gennemført | Opdel `ShoppingListPage.tsx` (næststørst) |
+| 6 | Refaktorering | Delvist gennemført | Opdel `SettingsPage.tsx` eller `EditEventDialog.tsx` |
 | 7 | Release, drift og dokumentation | Delvist gennemført | Fjern dobbelt Cloudflare-deploy |
 | 8 | Offlineoplevelse | Delvist gennemført | Offline-skrivning, kø og konfliktløsning |
 
@@ -68,7 +68,7 @@ Status pr. 2026-08-27:
   værdi i stedet for et fastfrosset tal her.
 - D1-migrationsregisteret er baselinet for migration 0002-0016, og migration
   0017 er anvendt på beta.
-- Lokal kvalitetsbaseline: lint, produktionsbuild og 430 Vitest-tests består.
+- Lokal kvalitetsbaseline: lint, produktionsbuild og 434 Vitest-tests består.
 - Playwright indeholder login/jura, autentificeret navigation, kalenderlayout,
   kontrolnavne og mobilbredde-matrix på desktop- og mobilprojekter.
 - Produktionsafhængigheder havde 0 kendte npm-sårbarheder ved sidste audit.
@@ -305,10 +305,17 @@ sidekomponenter og opdele serverruter efter ansvar uden adfærdsændringer.
   flyttet til `calendarPageDateNavigation.ts` med direkte enhedstests.
   Siden selv er nu 473 linjer og koordinerer udelukkende hooket og
   underkomponenter — ingen adfærdsændring, samme JSX-struktur.
+- [x] `ShoppingListPage.tsx` (1078 linjer) opdelt: de fire allerede
+  selvstændige underkomponenter (`ItemRow`, `TemplateRow`,
+  `TemplatesDialog`, `SuggestIngredientsDialog`) flyttet til
+  `features/shoppingList/components/`, og de to rene hjælpefunktioner
+  (`groupItemsByCategory`, `shareItemsAsText`) flyttet til
+  `features/shoppingList/utils/` med direkte enhedstests. Siden selv er
+  nu 504 linjer og koordinerer udelukkende `useShoppingList`-hooket og
+  underkomponenterne — ingen adfærdsændring.
 
 ### Planlagt
 
-- [ ] Opdel `ShoppingListPage.tsx`.
 - [ ] Opdel `SettingsPage.tsx`.
 - [ ] Opdel `EditEventDialog.tsx`.
 - [ ] Opdel `families.ts`.
@@ -324,8 +331,8 @@ sidekomponenter og opdele serverruter efter ansvar uden adfærdsændringer.
 - Refaktorering og ny funktionalitet blandes ikke i samme PR.
 - Eksisterende adfærd og tests bevares; flyttet logik får direkte tests.
 
-**Næste handling:** Fortsæt med `ShoppingListPage.tsx` (næststørst), én fil
-pr. PR, samme mønster (kontroller-hook + rene, testede hjælpefunktioner).
+**Næste handling:** Fortsæt med `SettingsPage.tsx` eller `EditEventDialog.tsx`
+(begge næststørst), én fil pr. PR, samme mønster.
 
 ## Fase 7 – Release, drift og dokumentation
 
@@ -473,3 +480,5 @@ Efter hver fase eller material ændring skal den ansvarlige:
 | 2026-08-27 | En automatisk oprettet `develop → main`-PR (#111) lukket uden merge — for tidligt jf. lanceringskriterierne ovenfor; en bevidst release-PR oprettes i stedet, når fase 1-5 og 7 er lanceringsklare | PR #111 (closed, unmerged) |
 | 2026-08-27 | Baseline-tal ajourført (commit-hash, seneste grønne pipeline), og fastfrosne, hurtigt forældede værdier (Cloudflare-version, ældre pipeline-nummer) erstattet med henvisning til deres levende kilde | PR #113 |
 | 2026-08-27 | Privat-kontakt ved opret/redigér og provider-lagring (genoprettet på frisk branch, da PR #108's CI aldrig blev trigget — se Lessons Learned) | PR #114 |
+| 2026-08-27 | Roadmap, kravsporbarhed, release-baseline og Sprint 29-planen rettet for modstridende status | PR #115 |
+| 2026-08-27 | Fase 6: `ShoppingListPage.tsx` opdelt i fire underkomponenter + testede hjælpefunktioner | PR #116 |
