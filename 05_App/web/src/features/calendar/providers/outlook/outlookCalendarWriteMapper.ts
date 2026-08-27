@@ -5,7 +5,7 @@ import type { OutlookCalendarEventRequest } from "./outlookCalendarTypes";
 
 type WritableEvent = Pick<
   CalendarEvent,
-  "title" | "start" | "end" | "allDay" | "description" | "location"
+  "title" | "start" | "end" | "allDay" | "description" | "location" | "privacy"
 >;
 
 export function mapOutlookEventWriteRequest(
@@ -26,6 +26,7 @@ export function mapOutlookEventWriteRequest(
 
   const request: OutlookCalendarEventRequest = {
     subject: event.title.trim(),
+    sensitivity: event.privacy === "busy" ? "private" : "normal",
     isAllDay: event.allDay,
     start: event.allDay
       ? { dateTime: toAllDayDateTime(start), timeZone: "UTC" }

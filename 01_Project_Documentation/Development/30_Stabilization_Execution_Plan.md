@@ -37,7 +37,7 @@ verifikation.
 |---:|---|---|---|
 | 1 | Kalenderens UI og dubletter | Delvist gennemført | Manuel iPhone-verifikation og eventuel kildespecifik dubletanalyse |
 | 2 | Tilgængelighed og visuelt polish | Delvist gennemført | App-dækkende audit og fysisk VoiceOver-test |
-| 3 | Privatliv og AI | Delvist gennemført | Privat aftale / “vis kun optaget” |
+| 3 | Privatliv og AI | Delvist gennemført | E2E for ejer/andet medlem + offentligt delelink |
 | 4 | Login, branding og OAuth | Delvist gennemført | Google-verificering og scope-gennemgang |
 | 5 | Browserbaserede brugerflowtests | Delvist gennemført | CRUD-, rettigheds- og offline-scenarier |
 | 6 | Refaktorering | Delvist gennemført | Opdel `ShoppingListPage.tsx` (næststørst) |
@@ -68,7 +68,7 @@ Status pr. 2026-08-27:
   værdi i stedet for et fastfrosset tal her.
 - D1-migrationsregisteret er baselinet for migration 0002-0016, og migration
   0017 er anvendt på beta.
-- Lokal kvalitetsbaseline: lint, produktionsbuild og 428 Vitest-tests består.
+- Lokal kvalitetsbaseline: lint, produktionsbuild og 430 Vitest-tests består.
 - Playwright indeholder login/jura, autentificeret navigation, kalenderlayout,
   kontrolnavne og mobilbredde-matrix på desktop- og mobilprojekter.
 - Produktionsafhængigheder havde 0 kendte npm-sårbarheder ved sidste audit.
@@ -193,12 +193,17 @@ bevidst valg.
 - [x] Manglende profilkobling bruger den sikre standard og redigerer detaljerne.
 - [x] Redaktionslaget har tests mod titel, beskrivelse og lokation i klient,
   serveraggregation og push.
+- [x] Opret- og redigér-dialogerne har en tydelig kontakt med teksten “Privat
+  aftale – familien ser kun Optaget”.
+- [x] Privatlivsvalget skrives til Google `visibility` og Outlook
+  `sensitivity`; fravalg rydder providerens private markering eksplicit.
+- [x] Provider-mapperne og det mock-baserede browserflow tester både privat og
+  almindelig lagring uden rigtige kalenderdata.
 
 ### Mangler
 
-- [ ] Tilføj privatliv pr. aftale eller kalender: “Privat” / “Vis kun optaget”.
-- [ ] Tilføj en tydelig “Privat / vis kun optaget”-kontrol ved oprettelse og
-  redigering, og skriv valget til Google `visibility` / Outlook `sensitivity`.
+- [ ] Overvej et separat privatlivsvalg på kalenderniveau; aftaleniveau er nu
+  implementeret som “Privat / vis kun optaget”.
 - [ ] Definér privatlivssikre standardværdier for nye familier og nye
   delinger.
 - [ ] Tilføj frontend- og servertests for redigering, adgangskontrol og
@@ -213,9 +218,8 @@ bevidst valg.
 - AI-resumé kan fravælges og modtager aldrig private felter.
 - Offentlige links viser mindst mulige data som standard.
 
-**Næste handling:** Tilføj den brugerrettede privatlivskontrol i opret/redigér,
-skriv providerens privacy-felt, og udbyg E2E med ejer/andet familiemedlem samt
-offentligt delelink.
+**Næste handling:** Udbyg E2E med ejer/andet familiemedlem samt offentligt
+delelink, og dokumentér præcist Workers AI-feltgrundlag og datalevetid.
 
 ## Fase 4 – Login, branding og OAuth-klargøring
 
@@ -467,4 +471,5 @@ Efter hver fase eller material ændring skal den ansvarlige:
 | 2026-08-27 | `main` og `develop` beskyttet: PR + 1 godkendelse + grøn CI påkrævet, ingen bypass | GitHub branch protection rules (repo-indstilling) |
 | 2026-08-27 | Fase 6 påbegyndt: `CalendarPage.tsx` opdelt i controller-hook + testede hjælpefunktioner | PR #110 |
 | 2026-08-27 | En automatisk oprettet `develop → main`-PR (#111) lukket uden merge — for tidligt jf. lanceringskriterierne ovenfor; en bevidst release-PR oprettes i stedet, når fase 1-5 og 7 er lanceringsklare | PR #111 (closed, unmerged) |
-| 2026-08-27 | Baseline-tal ajourført (commit-hash, seneste grønne pipeline), og fastfrosne, hurtigt forældede værdier (Cloudflare-version, ældre pipeline-nummer) erstattet med henvisning til deres levende kilde | Dokumentations-gennemgang |
+| 2026-08-27 | Baseline-tal ajourført (commit-hash, seneste grønne pipeline), og fastfrosne, hurtigt forældede værdier (Cloudflare-version, ældre pipeline-nummer) erstattet med henvisning til deres levende kilde | PR #113 |
+| 2026-08-27 | Privat-kontakt ved opret/redigér og provider-lagring (genoprettet på frisk branch, da PR #108's CI aldrig blev trigget — se Lessons Learned) | PR #114 |
