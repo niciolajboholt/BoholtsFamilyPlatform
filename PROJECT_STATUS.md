@@ -101,6 +101,8 @@ ende-til-ende, og opgave-/AI-modulet.
 Migration 0012 og 0013 er kørt og verificeret på beta. D1-migrationsregisteret
 er baselinet for 0002-0016, og migration 0017 (AI-privatlivsvalg) er kørt og
 verificeret på beta. Næste kodefase er resterende kalender-UX og stabil
-event-identitet/deduplikering. Eksterne handlinger — Cloudflare dobbelt deploy,
-Google OAuth-verificering, branch protection og fysisk VoiceOver-test — er
-samlet i den levende stabiliseringsplan og må ikke blokere øvrigt arbejde.
+event-identitet/deduplikering. `main` og `develop` er nu beskyttede branches
+(PR + godkendelse + grøn CI påkrævet). Resterende eksterne handlinger —
+Cloudflare dobbelt deploy og Google OAuth-verificering — samt fysisk
+VoiceOver-test er samlet i den levende stabiliseringsplan og må ikke blokere
+øvrigt arbejde.

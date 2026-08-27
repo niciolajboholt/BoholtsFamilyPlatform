@@ -37,11 +37,11 @@ verifikation.
 |---:|---|---|---|
 | 1 | Kalenderens UI og dubletter | Delvist gennemført | Manuel iPhone-verifikation og eventuel kildespecifik dubletanalyse |
 | 2 | Tilgængelighed og visuelt polish | Delvist gennemført | App-dækkende audit og fysisk VoiceOver-test |
-| 3 | Privatliv og AI | Delvist gennemført | Privat aftale / “vis kun optaget” |
+| 3 | Privatliv og AI | Delvist gennemført | E2E for ejer/andet medlem + offentligt delelink |
 | 4 | Login, branding og OAuth | Delvist gennemført | Google-verificering og scope-gennemgang |
 | 5 | Browserbaserede brugerflowtests | Delvist gennemført | CRUD-, rettigheds- og offline-scenarier |
-| 6 | Refaktorering | Ikke startet | Opdeling af de største UI- og route-filer |
-| 7 | Release, drift og dokumentation | Delvist gennemført | Fjern dobbelt deploy og beskyt branches |
+| 6 | Refaktorering | Delvist gennemført | Opdel `ShoppingListPage.tsx` (næststørst) |
+| 7 | Release, drift og dokumentation | Delvist gennemført | Fjern dobbelt Cloudflare-deploy |
 | 8 | Offlineoplevelse | Delvist gennemført | Offline-skrivning, kø og konfliktløsning |
 
 Appen er egnet til kontrolleret familiebrug og beta. Den er ikke vurderet som
@@ -64,10 +64,14 @@ Status pr. 2026-08-27:
   `87cf798f-daaa-4354-aa71-36a1f2146820`.
 - D1-migrationsregisteret er baselinet for migration 0002-0016, og migration
   0017 er anvendt på beta.
-- Lokal kvalitetsbaseline: lint, produktionsbuild og 416 Vitest-tests består.
+- Lokal kvalitetsbaseline: lint, produktionsbuild og 430 Vitest-tests består.
 - Playwright indeholder login/jura, autentificeret navigation, kalenderlayout,
   kontrolnavne og mobilbredde-matrix på desktop- og mobilprojekter.
 - Produktionsafhængigheder havde 0 kendte npm-sårbarheder ved sidste audit.
+- `main` og `develop` er nu beskyttede branches: PR med mindst 1 godkendelse
+  og en grøn `Lint, build and test`-statuscheck er påkrævet, branchen skal
+  være up to date før merge, og ingen (inkl. repository-ejeren) kan omgå
+  reglen. Sat op af Nicolaj 2026-08-27.
 
 ## Fase 1 – Kalenderens konkrete UI-fejl
 
@@ -287,19 +291,27 @@ rettighedsscenarier efter fase 1 og 3.
 **Mål:** Reducér ændringsrisiko ved at flytte forretningslogik ud af store
 sidekomponenter og opdele serverruter efter ansvar uden adfærdsændringer.
 
-**Status: Ikke startet**
+**Status: Delvist gennemført**
+
+### Gennemført
+
+- [x] `CalendarPage.tsx` (1160 linjer) opdelt: al tilstand, afledte
+  værdier og handlere flyttet til `useCalendarPageController`
+  (`features/calendar/hooks`), og de rene dato-/visningshjælpefunktioner
+  flyttet til `calendarPageDateNavigation.ts` med direkte enhedstests.
+  Siden selv er nu 473 linjer og koordinerer udelukkende hooket og
+  underkomponenter — ingen adfærdsændring, samme JSX-struktur.
 
 ### Planlagt
 
 - [ ] Opdel `ShoppingListPage.tsx`.
-- [ ] Opdel `CalendarPage.tsx` og den voksende familieplanner.
 - [ ] Opdel `SettingsPage.tsx`.
 - [ ] Opdel `EditEventDialog.tsx`.
 - [ ] Opdel `families.ts`.
 - [ ] Opdel `shoppingLists.ts`.
 - [ ] Opdel `tasks.ts`.
-- [ ] Flyt validering og genbrugelig forretningslogik til services/hooks med
-  målrettede tests.
+- [ ] Flyt yderligere validering og genbrugelig forretningslogik til
+  services/hooks med målrettede tests.
 
 ### Acceptkriterier
 
@@ -308,8 +320,8 @@ sidekomponenter og opdele serverruter efter ansvar uden adfærdsændringer.
 - Refaktorering og ny funktionalitet blandes ikke i samme PR.
 - Eksisterende adfærd og tests bevares; flyttet logik får direkte tests.
 
-**Næste handling:** Mål aktuelle filstørrelser og kobling efter fase 1-5, og
-opdel én fil pr. PR begyndende med kalenderområdet.
+**Næste handling:** Fortsæt med `ShoppingListPage.tsx` (næststørst), én fil
+pr. PR, samme mønster (kontroller-hook + rene, testede hjælpefunktioner).
 
 ## Fase 7 – Release, drift og dokumentation
 
@@ -330,13 +342,15 @@ tilbage uden at være afhængig af tavs manuel viden.
 - [x] D1 Time Travel-gendannelsespunkt blev taget før migrationsarbejdet.
 - [x] Arkitekturdokumentation er rettet fra gammel localStorage/single-device-
   beskrivelse til Worker, D1, sessioner, krypterede tokens, push, cron og AI.
+- [x] `main` og `develop` er beskyttet: PR-krav med mindst 1 godkendelse,
+  påkrævet grøn `Lint, build and test`-check, branch skal være up to date
+  før merge, ingen bypass for nogen — inkl. repository-ejeren. Ingen direkte
+  push til `main` (eller `develop`) er længere muligt.
 
 ### Mangler
 
 - [ ] Deaktivér Cloudflares gamle native Git-deploy, så kun den
   kvalitetssikrede GitHub Actions-pipeline deployer beta.
-- [ ] Beskyt `main` og `develop` med PR-krav og grøn CI; blokér direkte push til
-  `main`.
 - [ ] Gennemgå `PROJECT_STATUS.md`, roadmap, kravsporbarhed og Sprint 29 for
   resterende modstridende status.
 - [ ] Dokumentér fuld D1 backup/restore-runbook og test en rollbackøvelse.
@@ -350,8 +364,8 @@ tilbage uden at være afhængig af tavs manuel viden.
 - Releasechecklisten dækker deploy, migration, health, smoke-test og rollback.
 - `main` kan ikke ændres direkte uden den aftalte kontrol.
 
-**Ekstern handling:** Cloudflare Git-integration skal slås fra i dashboardet,
-og branch protection kan kræve repository-ejerens godkendelse.
+**Ekstern handling:** Cloudflare Git-integration skal slås fra i dashboardet
+(kræver dashboard-adgang).
 
 ## Fase 8 – Offlineoplevelse
 
@@ -414,7 +428,6 @@ arbejde; de samles i afsnittet nedenfor og tages til sidst.
 | Slå Cloudflare native Git-deploy fra | Kræver dashboard-adgang | GitHub Actions er den dokumenterede kvalitetspipeline |
 | Google OAuth-verificering | Kræver Google Cloud-ejergodkendelse | Login/jura og branding er kodeklargjort |
 | Eget produktionsdomæne | Domæne- og produktbeslutning | Beta fortsætter på `workers.dev` |
-| Branch protection | Kan kræve repository-ejer/plan | Alt arbejde leveres fortsat gennem PR og grøn CI |
 | Fysisk iPhone/VoiceOver | Kræver rigtig enhed og brugerhandling | Automatiske mobiltests køres i CI |
 
 ## Definition of Done for offentlig lancering
@@ -451,4 +464,6 @@ Efter hver fase eller material ændring skal den ansvarlige:
 | 2026-08-27 | Stabil event-deduplikering og mere læsbar måned/uge-visning | PR #105 |
 | 2026-08-27 | Automatisk kontrol af tilgængelige navne og mobilbredder; navngav pushkontakt | PR #106 |
 | 2026-08-27 | Privat-aftale-redaktion for familievisning, delelink, AI og push | PR #107 |
+| 2026-08-27 | `main` og `develop` beskyttet: PR + 1 godkendelse + grøn CI påkrævet, ingen bypass | GitHub branch protection rules (repo-indstilling) |
+| 2026-08-27 | Fase 6 påbegyndt: `CalendarPage.tsx` opdelt i controller-hook + testede hjælpefunktioner | PR #110 |
 | 2026-08-27 | Privat-kontakt ved opret/redigér og provider-lagring | PR #108 |
