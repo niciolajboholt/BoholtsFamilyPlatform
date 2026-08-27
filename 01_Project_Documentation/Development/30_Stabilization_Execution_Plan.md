@@ -522,3 +522,4 @@ Efter hver fase eller material ændring skal den ansvarlige:
 | 2026-08-27 | Fase 6: `SettingsPage.tsx` opdelt i fem sektionskomponenter + testet hjælpefunktion | PR #117 |
 | 2026-08-27 | Fase 6: `EditEventDialog.tsx` opdelt i controller-hook | PR #118 |
 | 2026-08-27 | Fase 6: `families.ts` opdelt i seks ansvarsafgrænsede filer under `server/routes/familyRoutes/` | PR #119 |
+| 2026-08-27 | Fase 6: `shoppingLists.ts` opdelt i fire ansvarsafgrænsede filer under `server/routes/shoppingListRoutes/` | PR #120 |
