@@ -241,6 +241,45 @@ describe("calendar routes", () => {
       expect(sendPushNotificationToFamilyMock).not.toHaveBeenCalled();
     });
 
+    it("never includes a private event title in the family push", async () => {
+      const env = createFakeEnv();
+      const { cookieHeader } = await seedLoggedInUser(env.DB as never, { id: "user-1" });
+      await seedFamily(env, "user-1");
+      getGoogleAccessTokenMock.mockResolvedValue("access-token-123");
+      fetchMock.mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            id: "private-event",
+            summary: "Fortrolig behandling",
+            visibility: "private",
+          }),
+          { status: 201 },
+        ),
+      );
+
+      await calendarRoutes.request(
+        "/calendars/nicolaj%40example.com/events",
+        {
+          method: "POST",
+          headers: { Cookie: cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({ summary: "Fortrolig behandling", visibility: "private" }),
+        },
+        env,
+        fakeExecutionCtx,
+      );
+      await lastWaitUntilTask;
+
+      expect(sendPushNotificationToFamilyMock).toHaveBeenCalledWith(
+        env,
+        "family-1",
+        "user-1",
+        expect.objectContaining({ body: "En privat aftale er tilføjet til kalenderen." }),
+      );
+      expect(JSON.stringify(sendPushNotificationToFamilyMock.mock.calls)).not.toContain(
+        "Fortrolig behandling",
+      );
+    });
+
     it("does not notify when the Google request itself failed", async () => {
       const env = createFakeEnv();
       const { cookieHeader } = await seedLoggedInUser(env.DB as never, { id: "user-1" });

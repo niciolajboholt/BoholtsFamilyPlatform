@@ -32,6 +32,7 @@ import MonthCalendar from "../features/calendar/components/MonthCalendar";
 import NewEventDialog from "../features/calendar/components/NewEventDialog";
 import WeekCalendar from "../features/calendar/components/WeekCalendar";
 import { useCalendarEvents } from "../features/calendar/hooks/useCalendarEvents";
+import { useCurrentMember } from "../features/calendar/hooks/useCurrentMember";
 import { useCalendarSources } from "../features/calendar/hooks/useCalendarSources";
 import { useFamilyId } from "../features/calendar/hooks/useFamilyId";
 import { useFamilyMembers } from "../features/calendar/hooks/useFamilyMembers";
@@ -49,6 +50,7 @@ import type { CalendarView } from "../features/calendar/models/calendarView";
 import { expandRecurringEvents } from "../features/calendar/utils/expandRecurringEvents";
 import { findAllCalendarConflicts } from "../features/calendar/utils/findAllCalendarConflicts";
 import { getEventsForDate } from "../features/calendar/utils/getEventsForDate";
+import { redactCalendarEventForViewer } from "../features/calendar/utils/redactCalendarEventForViewer";
 
 type SnackbarSeverity =
   | "success"
@@ -309,6 +311,7 @@ function CalendarPage() {
   } = useCalendarSources();
 
   const { members } = useFamilyMembers();
+  const { currentMember } = useCurrentMember();
 
   // Kun brugt til aftale-påmindelser (Sprint 31) — resten af kalenderen
   // scopes sig selv via sessionen alene, se useFamilyId's egen kommentar.
@@ -383,14 +386,22 @@ function CalendarPage() {
     [visibleDate, calendarView],
   );
 
+  const viewerEvents = useMemo(
+    () =>
+      events.map((event) =>
+        redactCalendarEventForViewer(event, currentMember?.id),
+      ),
+    [currentMember?.id, events],
+  );
+
   const expandedEvents = useMemo(
     () =>
       expandRecurringEvents(
-        events,
+        viewerEvents,
         visibleRange,
         recurrenceExceptions.exceptions,
       ),
-    [events, visibleRange, recurrenceExceptions.exceptions],
+    [viewerEvents, visibleRange, recurrenceExceptions.exceptions],
   );
 
   const visibleEvents =
@@ -419,10 +430,10 @@ function CalendarPage() {
     useMemo(() => {
       const visibleSourceIds = new Set(visibleCalendarSourceIds);
 
-      return events.filter((event) =>
+      return viewerEvents.filter((event) =>
         visibleSourceIds.has(event.sourceId),
       );
-    }, [events, visibleCalendarSourceIds]);
+    }, [viewerEvents, visibleCalendarSourceIds]);
 
   const eventsForSelectedDate =
     useMemo(() => {
@@ -1072,7 +1083,7 @@ function CalendarPage() {
       <NewEventDialog
         open={isNewEventDialogOpen}
         initialDate={longPressCreateDate ?? selectedDate}
-        events={events}
+        events={viewerEvents}
         calendarSources={calendarSources}
         members={members}
         isSaving={isSaving}
@@ -1086,7 +1097,7 @@ function CalendarPage() {
       <EditEventDialog
         open={selectedEvent !== null}
         event={selectedEvent}
-        events={events}
+        events={viewerEvents}
         calendarSources={calendarSources}
         members={members}
         isSaving={isSaving}

@@ -24,6 +24,7 @@ export interface OutlookCalendarEvent {
   start?: OutlookEventDateTime;
   end?: OutlookEventDateTime;
   seriesMasterId?: string;
+  sensitivity?: string;
 }
 
 export interface OutlookCalendarEventsResponse {

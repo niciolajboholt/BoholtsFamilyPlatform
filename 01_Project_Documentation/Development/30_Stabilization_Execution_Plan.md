@@ -64,7 +64,7 @@ Status pr. 2026-08-27:
   `87cf798f-daaa-4354-aa71-36a1f2146820`.
 - D1-migrationsregisteret er baselinet for migration 0002-0016, og migration
   0017 er anvendt på beta.
-- Lokal kvalitetsbaseline: lint, produktionsbuild og 401 Vitest-tests består.
+- Lokal kvalitetsbaseline: lint, produktionsbuild og 414 Vitest-tests består.
 - Playwright indeholder login/jura, autentificeret navigation, kalenderlayout,
   kontrolnavne og mobilbredde-matrix på desktop- og mobilprojekter.
 - Produktionsafhængigheder havde 0 kendte npm-sårbarheder ved sidste audit.
@@ -174,12 +174,23 @@ bevidst valg.
 - [x] Delelinks viser som udgangspunkt ikke beskrivelse eller lokation; disse
   kræver et aktivt tilvalg.
 - [x] Privatlivspolitikken beskriver de væsentlige databehandlinger.
+- [x] Eksisterende Google- og Outlook-aftaler markeret `private` eller
+  `confidential` genkendes som “vis kun optaget”.
+- [x] Private Google-felter redigeres server-side til “Optaget”, før de kan nå
+  offentlige delelinks eller AI-ugeresuméet.
+- [x] Kalenderændrings-push og tidsbaserede påmindelser bruger en generisk
+  privat tekst uden titel.
+- [x] I den autentificerede app kan kun det familiemedlem, kalenderen er
+  knyttet til, se private detaljer; andre ser tidspunkt og “Optaget”.
+- [x] Manglende profilkobling bruger den sikre standard og redigerer detaljerne.
+- [x] Redaktionslaget har tests mod titel, beskrivelse og lokation i klient,
+  serveraggregation og push.
 
 ### Mangler
 
 - [ ] Tilføj privatliv pr. aftale eller kalender: “Privat” / “Vis kun optaget”.
-- [ ] Redigér private data server-side, før de når dashboard, familievisning,
-  delelink, pushnotifikation eller AI-input.
+- [ ] Tilføj en tydelig “Privat / vis kun optaget”-kontrol ved oprettelse og
+  redigering, og skriv valget til Google `visibility` / Outlook `sensitivity`.
 - [ ] Definér privatlivssikre standardværdier for nye familier og nye
   delinger.
 - [ ] Tilføj frontend- og servertests for redigering, adgangskontrol og
@@ -194,8 +205,9 @@ bevidst valg.
 - AI-resumé kan fravælges og modtager aldrig private felter.
 - Offentlige links viser mindst mulige data som standard.
 
-**Næste handling:** Udarbejd datamodel og redaktionsfunktion som ét centralt
-server-side privatlivslag før UI-kontrollen tilføjes.
+**Næste handling:** Tilføj den brugerrettede privatlivskontrol i opret/redigér,
+skriv providerens privacy-felt, og udbyg E2E med ejer/andet familiemedlem samt
+offentligt delelink.
 
 ## Fase 4 – Login, branding og OAuth-klargøring
 
@@ -434,3 +446,4 @@ Efter hver fase eller material ændring skal den ansvarlige:
 | 2026-08-27 | Denne autoritative udførelses- og statusplan oprettet | PR #104 |
 | 2026-08-27 | Stabil event-deduplikering og mere læsbar måned/uge-visning | PR #105 |
 | 2026-08-27 | Automatisk kontrol af tilgængelige navne og mobilbredder; navngav pushkontakt | PR #106 |
+| 2026-08-27 | Privat-aftale-redaktion for familievisning, delelink, AI og push | PR #107 |

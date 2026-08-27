@@ -192,6 +192,20 @@ describe("mapGoogleCalendarEvent", () => {
     expect(mapped?.recurrenceMasterId).toBe("series1");
   });
 
+  it("marks private and confidential Google events as busy-only", () => {
+    for (const visibility of ["private", "confidential"]) {
+      const mapped = mapGoogleCalendarEvent(calendarId, {
+        id: `private-${visibility}`,
+        visibility,
+        summary: "Fortrolig aftale",
+        start: { dateTime: "2026-07-31T09:00:00Z" },
+        end: { dateTime: "2026-07-31T10:00:00Z" },
+      });
+
+      expect(mapped?.privacy).toBe("busy");
+    }
+  });
+
   it("does not set recurrenceMasterId for a non-recurring event", () => {
     const event: GoogleCalendarEvent = {
       id: "single1",
