@@ -426,4 +426,4 @@ Efter hver fase eller material ændring skal den ansvarlige:
 | 2026-08-27 | D1-register baselinet, migration 0017 anvendt, GitHub Actions beta-pipeline verificeret | GitHub Actions #301 |
 | 2026-08-27 | Mobil familieplanner erstattet af agenda og beskyttet mod overflow | PR #103 |
 | 2026-08-27 | Denne autoritative udførelses- og statusplan oprettet | PR #104 |
-| 2026-08-27 | Stabil event-deduplikering og mere læsbar måned/uge-visning | Kalender-PR under udarbejdelse |
+| 2026-08-27 | Stabil event-deduplikering og mere læsbar måned/uge-visning | PR #105 |
