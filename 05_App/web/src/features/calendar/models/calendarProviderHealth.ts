@@ -13,4 +13,10 @@ export interface CalendarProviderHealth {
   status: CalendarProviderStatus;
   message?: string;
   canRetry?: boolean;
+  /**
+   * Fase 8: sat når status er "ready", men de viste aftaler kommer fra en
+   * lokal offline-fallback (enheden er offline) i stedet for en frisk
+   * hentning — ISO-tidsstempel for hvor gammel den cache er.
+   */
+  staleDataAsOf?: string;
 }
