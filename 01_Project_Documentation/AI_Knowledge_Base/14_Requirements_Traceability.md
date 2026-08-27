@@ -8,7 +8,8 @@ Project:
 Boholts Family Platform
 
 Last Updated:
-2026-07-30
+2026-08-27 (F-05 rettet til Løst efter Sprint 25's nextSyncToken-sync;
+F-16 note udvidet)
 
 Owner:
 Nicolaj Bach Boholt
@@ -34,7 +35,7 @@ En letvægts-sporbarhedsmatrix mellem den eksterne audits fund (F-01 til F-17), 
 | F-02 | Ubrugte Sprint 16-imports fejler lint/build | [#6](https://github.com/niciolajboholt/BoholtsFamilyPlatform/issues/6) | `CalendarPage.tsx` | `npm run lint`/`build` | Løst (2026-07-29) |
 | F-03 | Kalenderlås i React Strict Mode | [#7](https://github.com/niciolajboholt/BoholtsFamilyPlatform/issues/7) | `useCalendarSources.ts`, `useCalendarEvents.ts`, `NewEventDialog.tsx` | `useCalendarLoading.test.tsx` | Løst (2026-07-29) |
 | F-04 | PWA/offline kun installeret, ikke konfigureret | [#8](https://github.com/niciolajboholt/BoholtsFamilyPlatform/issues/8) | `vite.config.ts`, `index.html` | Manuel: produktions-preview + service worker-registrering verificeret | Løst (2026-07-30) |
-| F-05 | Google-hentning bruger ugyldige RFC3339-år, ineffektiv | [#9](https://github.com/niciolajboholt/BoholtsFamilyPlatform/issues/9) | `calendarProvider.ts`, `useCalendarEvents.ts`, `LocalCalendarProvider.ts` | `calendarProvider.test.ts`, `LocalCalendarProvider.test.ts` | Delvist løst (2026-07-30) — bundet vindue løst; `nextSyncToken`/delt cache fortsat åbent |
+| F-05 | Google-hentning bruger ugyldige RFC3339-år, ineffektiv | [#9](https://github.com/niciolajboholt/BoholtsFamilyPlatform/issues/9) | `calendarProvider.ts`, `useCalendarEvents.ts`, `LocalCalendarProvider.ts` | `calendarProvider.test.ts`, `LocalCalendarProvider.test.ts` | Løst (2026-08-19, Sprint 25) — `nextSyncToken`-inkrementel sync leveret; bundet vindue løst 2026-07-30 |
 | F-06 | Ingen dokumenteret single source of truth | [#10](https://github.com/niciolajboholt/BoholtsFamilyPlatform/issues/10) | ADR-012 (dokumentation, ingen kodeændring) | — | Løst (2026-07-30) |
 | F-07 | Ingen CI | [#11](https://github.com/niciolajboholt/BoholtsFamilyPlatform/issues/11) | `.github/workflows/ci.yml` | CI kører sig selv | Løst (2026-07-29) |
 | F-08 | Manglende release-/sikkerhedsgrundlag | [#12](https://github.com/niciolajboholt/BoholtsFamilyPlatform/issues/12) | `13_Release_And_Security_Baseline.md` (dokumentation) | — | Løst (2026-07-30) |
@@ -45,14 +46,16 @@ En letvægts-sporbarhedsmatrix mellem den eksterne audits fund (F-01 til F-17), 
 | F-13 | Ufærdig recurrence | [#17](https://github.com/niciolajboholt/BoholtsFamilyPlatform/issues/17) | `expandRecurringEvents.ts` | `expandRecurringEvents.test.ts` | Løst (2026-07-29) |
 | F-14 | Forældet README/projektstatus | [#18](https://github.com/niciolajboholt/BoholtsFamilyPlatform/issues/18) | `README.md`, `10_Future_Roadmap.md` | — | Løst (2026-07-30) |
 | F-15 | Manglende kravsporbarhed | [#19](https://github.com/niciolajboholt/BoholtsFamilyPlatform/issues/19) | Dette dokument | — | Løst (2026-07-30) |
-| F-16 | Forkert sprogmetadata, delvis a11y/UX | [#20](https://github.com/niciolajboholt/BoholtsFamilyPlatform/issues/20) | `index.html` (`lang`, titel) | — | Delvist løst (2026-07-29) — a11y/fysisk enhedstest kræver Nicolaj |
+| F-16 | Forkert sprogmetadata, delvis a11y/UX | [#20](https://github.com/niciolajboholt/BoholtsFamilyPlatform/issues/20) | `index.html` (`lang`, titel) | — | Delvist løst (2026-07-29). Sprogmetadata/titel løst da; a11y-omfanget er siden udvidet og videreført som Fase 2 i `30_Stabilization_Execution_Plan.md` (automatiseret navne-/mobilbredde-audit leveret; fysisk iPhone/VoiceOver-test kræver stadig Nicolaj) |
 | F-17 | UTF-8-encodingfejl | [#21](https://github.com/niciolajboholt/BoholtsFamilyPlatform/issues/21) | `GoogleCalendarApi.ts`, `GoogleCalendarSession.ts` | — | Løst (2026-07-29) |
 
 ---
 
 ## Åbne krav uden for denne matrix' løsningsomfang
 
-Nogle punkter i F-05 og F-16 er bevidst kun delvist løst — de resterende dele kræver enten en større arkitekturbeslutning (F-05: `nextSyncToken`/inkrementel sync) eller fysisk enhedsadgang, som en AI-agent ikke kan udføre alene (F-16: iPhone/Safari/VoiceOver-test). Disse forbliver åbne i GitHub Issues #9 og #20 med kommentarer, der beskriver præcis hvad der mangler.
+F-16's resterende del kræver fysisk enhedsadgang, som en AI-agent ikke kan udføre alene (iPhone/Safari/VoiceOver-test). Forbliver åbent i GitHub Issue #20. F-05 er nu fuldt løst (se matrix ovenfor).
+
+Denne matrix dækker kun den oprindelige eksterne audit (F-01 til F-17, 2026-07-29). Et separat, senere eksternt review (2026-08-27) affødte en ny otte-fasede stabiliseringsplan — se `01_Project_Documentation/Development/30_Stabilization_Execution_Plan.md`, som er den autoritative status for det igangværende arbejde. De to dokumenters faseinddelinger er uafhængige af hinanden og bør ikke forveksles.
 
 ---
 
@@ -60,3 +63,4 @@ Nogle punkter i F-05 og F-16 er bevidst kun delvist løst — de resterende dele
 
 * `01_Project_Documentation/AI_Knowledge_Base/10_Future_Roadmap.md`
 * `01_Project_Documentation/Architecture/05_ADR_Architecture_Decisions.md`
+* `01_Project_Documentation/Development/30_Stabilization_Execution_Plan.md`
