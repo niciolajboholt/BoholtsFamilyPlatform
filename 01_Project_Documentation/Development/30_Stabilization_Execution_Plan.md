@@ -446,4 +446,4 @@ Efter hver fase eller material ændring skal den ansvarlige:
 | 2026-08-27 | Denne autoritative udførelses- og statusplan oprettet | PR #104 |
 | 2026-08-27 | Stabil event-deduplikering og mere læsbar måned/uge-visning | PR #105 |
 | 2026-08-27 | Automatisk kontrol af tilgængelige navne og mobilbredder; navngav pushkontakt | PR #106 |
-| 2026-08-27 | Privat-aftale-redaktion for familievisning, delelink, AI og push | Privatlivs-PR under udarbejdelse |
+| 2026-08-27 | Privat-aftale-redaktion for familievisning, delelink, AI og push | PR #107 |
