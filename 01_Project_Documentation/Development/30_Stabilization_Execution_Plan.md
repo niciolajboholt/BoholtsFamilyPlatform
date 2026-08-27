@@ -41,7 +41,7 @@ verifikation.
 | 4 | Login, branding og OAuth | Delvist gennemført | Google-verificering og scope-gennemgang |
 | 5 | Browserbaserede brugerflowtests | Delvist gennemført | CRUD-, rettigheds- og offline-scenarier |
 | 6 | Refaktorering | Gennemført | — |
-| 7 | Release, drift og dokumentation | Delvist gennemført | Fjern dobbelt Cloudflare-deploy |
+| 7 | Release, drift og dokumentation | Delvist gennemført | Fjern dobbelt Cloudflare-deploy (ekstern) |
 | 8 | Offlineoplevelse | Delvist gennemført | Offline-skrivning, kø og konfliktløsning |
 
 Appen er egnet til kontrolleret familiebrug og beta. Den er ikke vurderet som
@@ -400,14 +400,26 @@ tilbage uden at være afhængig af tavs manuel viden.
   påkrævet grøn `Lint, build and test`-check, branch skal være up to date
   før merge, ingen bypass for nogen — inkl. repository-ejeren. Ingen direkte
   push til `main` (eller `develop`) er længere muligt.
+- [x] `PROJECT_STATUS.md` gennemgået og rettet for modstridende status
+  (forældet testtal, ufuldstændig Fase 6-beskrivelse). Roadmap,
+  kravsporbarhed, release-baseline og Sprint 29-planen blev tidligere rettet
+  i PR #115 og er stadig konsistente.
+- [x] D1 backup/restore-runbook dokumenteret i
+  `13_Release_And_Security_Baseline.md` med præcis `wrangler d1 time-travel
+  info`/`restore`-kommandosyntaks (verificeret mod den installerede
+  CLI's `--help`), 30-dages-vinduet og en eksplicit advarsel om at
+  gendannelsen er destruktiv og aldrig må køres mod produktion uden
+  Nicolajs accept. Selve gendannelses**øvelsen** (at faktisk køre
+  `restore` og bekræfte resultatet) er bevidst ikke udført autonomt — det
+  er en skarp handling på en database med rigtige brugeres data, og afventer
+  et aftalt tidspunkt med Nicolaj.
 
 ### Mangler
 
 - [ ] Deaktivér Cloudflares gamle native Git-deploy, så kun den
   kvalitetssikrede GitHub Actions-pipeline deployer beta.
-- [ ] Gennemgå `PROJECT_STATUS.md`, roadmap, kravsporbarhed og Sprint 29 for
-  resterende modstridende status.
-- [ ] Dokumentér fuld D1 backup/restore-runbook og test en rollbackøvelse.
+- [ ] Udfør selve D1-gendannelsesøvelsen (kør `time-travel restore` og
+  bekræft resultatet) — kræver et aftalt tidspunkt med Nicolaj, se ovenfor.
 - [ ] Definér og udfør kontrolleret release fra `develop` til `main`, når de
   lanceringskritiske faser er opfyldt.
 
@@ -530,3 +542,5 @@ Efter hver fase eller material ændring skal den ansvarlige:
 | 2026-08-27 | Fase 6: `families.ts` opdelt i seks ansvarsafgrænsede filer under `server/routes/familyRoutes/` | PR #119 |
 | 2026-08-27 | Fase 6: `shoppingLists.ts` opdelt i fire ansvarsafgrænsede filer under `server/routes/shoppingListRoutes/` | PR #120 |
 | 2026-08-27 | Fase 6: `tasks.ts` opdelt i tre ansvarsafgrænsede filer under `server/routes/taskRoutes/` — fase 6 gennemført | PR #121 |
+| 2026-08-27 | `PROJECT_STATUS.md` rettet for forældet testtal og ufuldstændig Fase 6-status | PR #122 |
+| 2026-08-27 | Fase 7: D1 backup/restore-runbook dokumenteret (Time Travel-kommandoer, 30-dages-vindue, destruktivitetsadvarsel) | PR #123 |

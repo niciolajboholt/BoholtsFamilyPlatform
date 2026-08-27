@@ -1,6 +1,6 @@
 # 13 — Release- og sikkerhedsgrundlag
 
-> Status: Aktiv · Version 2.1 · Opdateret 2026-08-27
+> Status: Aktiv · Version 2.2 · Opdateret 2026-08-27
 
 ## Arkitektur og data
 
@@ -74,8 +74,66 @@ lancering.
 
 Kode rulles tilbage med en ny Git-revert og Cloudflare-deploy; undgå at omskrive
 fælles branchhistorik. D1-migrationer er fremadrettede og skal designes
-additivt. Tag databasebackup/eksport før destruktive schemaændringer.
-`CF_VERSION_METADATA` på health-endpointet identificerer den aktive deploy.
+additivt. `CF_VERSION_METADATA` på health-endpointet identificerer den aktive
+deploy.
+
+### D1 backup/restore-runbook (Time Travel)
+
+D1 har ingen manuel "tag en backup"-handling — Cloudflare gemmer i stedet
+løbende et point-in-time-restore-vindue på **30 dage** for hver database
+("Time Travel"), uden ekstra opsætning. Det er den reelle backup-mekanisme;
+"Eksporter data" i Indstillinger dækker kun browserdata og er ikke en
+D1-backup (se ovenfor).
+
+**1. Find et gendannelsespunkt (ikke-destruktivt, sikkert at køre når som helst):**
+
+```sh
+npx wrangler d1 time-travel info DB --env beta --json
+```
+
+Dette kører allerede automatisk som "Record D1 restore point" i
+`deploy-beta`-jobbet i `.github/workflows/ci.yml`, **før** hver
+migrationskørsel — så der altid findes et logget bookmark fra lige før
+seneste deploy i GitHub Actions-loggen. `--timestamp=<Unix eller RFC3339>`
+kan bruges til at slå et bookmark op for et bestemt tidspunkt op til 30 dage
+tilbage, hvis man ikke har den automatisk loggede værdi ved hånden.
+
+**2. Gendan til det punkt (destruktivt — se advarsel nedenfor):**
+
+```sh
+npx wrangler d1 time-travel restore DB --env beta --bookmark=<bookmark>
+# eller, uden et gemt bookmark:
+npx wrangler d1 time-travel restore DB --env beta --timestamp=<Unix eller RFC3339>
+```
+
+`DB` er bindingnavnet fra `wrangler.jsonc`, ikke databasens visningsnavn —
+samme konvention som de øvrige `wrangler d1`-kommandoer i
+`deploy-beta`-jobbet.
+
+**Advarsler, før kommandoen køres:**
+
+- Gendannelsen overskriver databasens NUVÆRENDE indhold med tilstanden fra
+  gendannelsespunktet — enhver skrivning efter det tidspunkt (nye
+  familiemedlemmer, aftaler, opgaver, indkøb) går tabt for den database, det
+  køres mod. Der er ingen "fortryd" ud over at gendanne til et endnu senere
+  bookmark, hvis et sådant findes.
+- Kør aldrig denne kommando mod produktionsdatabasen (`--env` udeladt/uden
+  `beta`) uden at have talt med Nicolaj først — det er præcis den slags
+  hård-at-fortryde, delt-system-handling, som kræver eksplicit accept, jf.
+  denne sessions arbejdsregel.
+- Efter en gendannelse: kør `npx wrangler d1 migrations apply DB --env <miljø>
+  --remote` for at sikre at migrationsregistret stemmer overens med skemaet,
+  og verificér `/api/health` bagefter.
+
+**Status:** Selve mekanismen (bookmark-optagelse) er allerede i produktion via
+CI, og er dokumenteret her med korrekt kommandosyntaks (verificeret mod den
+installerede `wrangler`-CLI's egen `--help`, ikke kun hukommelse). En reel
+gendannelsesøvelse — at faktisk køre `restore` og bekræfte resultatet — er
+bevidst **ikke** udført af denne agent, da det er en skarp, produktions-lignende
+handling på en database, appen deler med rigtige brugere. Den bør planlægges
+som en bevidst øvelse (fx mod en kortvarigt oprettet test-D1-database, eller
+et aftalt tidsvindue på beta) næste gang Nicolaj har tid, ikke udføres
+autonomt.
 
 ## Eksterne releasekrav
 
