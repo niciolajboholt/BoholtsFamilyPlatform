@@ -50,6 +50,7 @@ export interface GoogleCalendarEventRequest {
   location?: string;
   start: GoogleEventDateTimeWrite;
   end: GoogleEventDateTimeWrite;
+  visibility?: "default" | "private";
 }
 
 export interface GoogleCalendarEventsResponse {
