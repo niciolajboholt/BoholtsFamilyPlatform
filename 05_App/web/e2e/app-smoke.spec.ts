@@ -112,6 +112,54 @@ async function mockAuthenticatedApi(page: Page): Promise<void> {
   });
 }
 
+async function getUnnamedInteractiveElements(page: Page): Promise<string[]> {
+  return page
+    .locator("button, a[href], input:not([type='hidden']), select, textarea")
+    .evaluateAll((elements) =>
+      elements.flatMap((element, index) => {
+        const htmlElement = element as HTMLElement;
+        const isVisible = htmlElement.offsetParent !== null;
+
+        if (!isVisible || element.getAttribute("aria-hidden") === "true") {
+          return [];
+        }
+
+        const labelledBy = (element.getAttribute("aria-labelledby") ?? "")
+          .split(/\s+/)
+          .filter(Boolean)
+          .map((id) => document.getElementById(id)?.textContent?.trim() ?? "")
+          .join(" ")
+          .trim();
+        const labels = "labels" in element
+          ? Array.from((element as HTMLInputElement).labels ?? [])
+              .map((label) => label.textContent?.trim() ?? "")
+              .join(" ")
+              .trim()
+          : "";
+        const imageAlt = Array.from(element.querySelectorAll("img"))
+          .map((image) => image.alt.trim())
+          .join(" ")
+          .trim();
+        const accessibleName = [
+          element.getAttribute("aria-label")?.trim(),
+          labelledBy,
+          labels,
+          htmlElement.innerText?.trim(),
+          element.getAttribute("title")?.trim(),
+          element.getAttribute("placeholder")?.trim(),
+          imageAlt,
+        ].find(Boolean);
+
+        if (accessibleName) {
+          return [];
+        }
+
+        const id = element.id ? `#${element.id}` : "";
+        return [`${element.tagName.toLowerCase()}${id} (nr. ${index + 1})`];
+      }),
+    );
+}
+
 test("login links to public privacy and terms pages", async ({ page }) => {
   await page.route("**/api/me", (route) =>
     route.fulfill({ status: 401, contentType: "application/json", body: "{}" }),
@@ -201,4 +249,36 @@ test("desktop week view uses readable agenda columns instead of seven narrow car
     () => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
   );
   expect(hasHorizontalOverflow).toBe(false);
+});
+
+test("primary pages have no visible unnamed controls", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  await mockAuthenticatedApi(page);
+
+  for (const path of ["/", "/calendar", "/shopping-list", "/tasks", "/settings"]) {
+    await page.goto(path);
+    await expect(page.locator("main")).toBeVisible();
+    expect(await getUnnamedInteractiveElements(page), `Kontroller på ${path}`).toEqual([]);
+  }
+});
+
+test("primary pages fit the complete supported mobile width matrix", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  await mockAuthenticatedApi(page);
+
+  for (const width of [320, 375, 390, 430]) {
+    await page.setViewportSize({ width, height: 844 });
+
+    for (const path of ["/", "/calendar", "/shopping-list", "/tasks", "/settings"]) {
+      await page.goto(path);
+      await expect(page.locator("main")).toBeVisible();
+
+      const overflow = await page.evaluate(
+        () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      );
+      expect(overflow, `${path} ved ${width}px`).toBeLessThanOrEqual(1);
+    }
+  }
 });
