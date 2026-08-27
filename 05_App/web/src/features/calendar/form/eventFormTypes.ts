@@ -10,4 +10,5 @@ export interface EventFormState {
   ownerIds: CalendarOwnerId[];
   description: string;
   location: string;
+  privacy: "details" | "busy";
 }
