@@ -177,15 +177,16 @@ function DayCalendar({
                     aria-label={getEventActionLabel(event)}
                     onClick={() => onSelectEvent(event)}
                     sx={{
+                      position: "relative",
                       justifyContent: "flex-start",
                       minWidth: 0,
                       p: 0.75,
                       borderRadius: 1,
                       ...getEventOwnerBorderSx(ownerColors, 4),
-                      backgroundColor: `${ownerColor}30`,
+                      backgroundColor: `${ownerColor}14`,
 
                       "&:hover": {
-                        backgroundColor: `${ownerColor}45`,
+                        backgroundColor: `${ownerColor}24`,
                       },
 
                       "&:focus-visible": {
@@ -331,11 +332,11 @@ function DayCalendar({
                       overflow: "hidden",
                       borderRadius: 1,
                       ...getEventOwnerBorderSx(ownerColors, 3),
-                      backgroundColor: `${ownerColor}30`,
+                      backgroundColor: `${ownerColor}14`,
                       textAlign: "left",
 
                       "&:hover": {
-                        backgroundColor: `${ownerColor}45`,
+                        backgroundColor: `${ownerColor}24`,
                       },
 
                       "&:focus-visible": {

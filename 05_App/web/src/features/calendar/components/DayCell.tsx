@@ -409,6 +409,7 @@ function DayCell({
                     title={`${event.allDay ? "Hele dagen" : formatEventTime(new Date(event.start))} · ${event.title}`}
                     onClick={() => onSelectEvent(event)}
                     sx={{
+                      position: "relative",
                       pointerEvents: "auto",
                       justifyContent: "flex-start",
                       px: 1,
@@ -418,14 +419,14 @@ function DayCell({
                       // kun en tynd venstrekant — så aftalen er nem at
                       // skelne uden at skulle læse teksten først.
                       backgroundColor:
-                        `${ownerColor}30`,
+                        `${ownerColor}14`,
                       ...getEventOwnerBorderSx(ownerColors, 3),
                       overflow: "hidden",
                       cursor: "pointer",
 
                       "&:hover": {
                         backgroundColor:
-                          `${ownerColor}45`,
+                          `${ownerColor}24`,
                       },
 
                       "&:focus-visible": {

@@ -411,6 +411,7 @@ function FamilyPlannerCalendar({
                             <Box key={column.id} sx={{ minWidth: 0 }}>
                               <Box
                                 sx={{
+                                  position: "relative",
                                   display: "flex",
                                   alignItems: "center",
                                   gap: 0.75,
@@ -446,6 +447,7 @@ function FamilyPlannerCalendar({
                                       aria-label={getEventActionLabel(event)}
                                       onClick={() => onSelectEvent(event)}
                                       sx={{
+                                        position: "relative",
                                         display: "grid",
                                         gridTemplateColumns: "52px minmax(0, 1fr)",
                                         alignItems: "start",
@@ -455,7 +457,7 @@ function FamilyPlannerCalendar({
                                         p: 1,
                                         borderRadius: 1.75,
                                         ...getEventOwnerBorderSx(ownerColors, 4),
-                                        backgroundColor: `${ownerColor}12`,
+                                        backgroundColor: `${ownerColor}14`,
                                         textAlign: "left",
                                         "&:focus-visible": {
                                           outline: "2px solid",

@@ -112,11 +112,11 @@ function EventCard({
         p: 0.75,
         borderRadius: 1,
         ...getEventOwnerBorderSx(ownerColors, 4),
-        backgroundColor: `${ownerColor}30`,
+        backgroundColor: `${ownerColor}14`,
         cursor: "pointer",
 
         "&:hover": {
-          backgroundColor: `${ownerColor}45`,
+          backgroundColor: `${ownerColor}24`,
         },
 
         "&:focus-visible": {
