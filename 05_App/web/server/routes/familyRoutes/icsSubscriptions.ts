@@ -40,6 +40,7 @@ export interface IcsCalendarSubscriptionRow {
   url: string;
   label: string;
   familyMemberId: string | null;
+  color: string | null;
   lastFetchedAt: string | null;
   lastFetchStatus: string | null;
   createdAt: string;
@@ -52,7 +53,7 @@ async function listIcsSubscriptions(
   const result = await db
     .prepare(
       `SELECT id, family_id AS familyId, url, label, family_member_id AS familyMemberId,
-              last_fetched_at AS lastFetchedAt, last_fetch_status AS lastFetchStatus,
+              color, last_fetched_at AS lastFetchedAt, last_fetch_status AS lastFetchStatus,
               created_at AS createdAt
        FROM ics_calendar_subscriptions WHERE family_id = ? ORDER BY created_at ASC`,
     )
@@ -113,10 +114,16 @@ icsSubscriptions.post("/:id/ics-subscriptions", async (c) => {
     );
   }
 
-  const body = await parseJsonBody<{ url: string; label: string; familyMemberId?: string | null }>(c);
+  const body = await parseJsonBody<{
+    url: string;
+    label: string;
+    familyMemberId?: string | null;
+    color?: string | null;
+  }>(c);
   const url = body.url?.trim();
   const label = body.label?.trim();
   const familyMemberId = body.familyMemberId?.trim() || null;
+  const color = body.color?.trim() || null;
 
   if (!url || !isValidHttpUrl(url)) {
     return c.json({ error: "Angiv et gyldigt kalenderlink (http:// eller https://)." }, 400);
@@ -146,10 +153,10 @@ icsSubscriptions.post("/:id/ics-subscriptions", async (c) => {
 
   await c.env.DB.prepare(
     `INSERT INTO ics_calendar_subscriptions
-       (id, family_id, url, label, family_member_id, created_by_user_id, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+       (id, family_id, url, label, family_member_id, color, created_by_user_id, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
   )
-    .bind(id, familyId, url, label, familyMemberId, user.id, now)
+    .bind(id, familyId, url, label, familyMemberId, color, user.id, now)
     .run();
 
   const subscriptions = await listIcsSubscriptions(c.env.DB, familyId);
@@ -179,7 +186,12 @@ icsSubscriptions.patch("/:id/ics-subscriptions/:subscriptionId", async (c) => {
     return c.json({ error: "Abonnementet findes ikke i denne familie." }, 404);
   }
 
-  const body = await parseJsonBody<{ url: string; label: string; familyMemberId: string | null }>(c);
+  const body = await parseJsonBody<{
+    url: string;
+    label: string;
+    familyMemberId: string | null;
+    color: string | null;
+  }>(c);
 
   if (body.url !== undefined) {
     const url = body.url?.trim();
@@ -218,6 +230,13 @@ icsSubscriptions.patch("/:id/ics-subscriptions/:subscriptionId", async (c) => {
 
     await c.env.DB.prepare("UPDATE ics_calendar_subscriptions SET family_member_id = ? WHERE id = ?")
       .bind(familyMemberId, subscriptionId)
+      .run();
+  }
+
+  if (body.color !== undefined) {
+    const color = body.color?.trim() || null;
+    await c.env.DB.prepare("UPDATE ics_calendar_subscriptions SET color = ? WHERE id = ?")
+      .bind(color, subscriptionId)
       .run();
   }
 

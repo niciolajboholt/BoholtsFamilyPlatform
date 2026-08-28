@@ -14,6 +14,12 @@ const fallbackColor = "#5C6BC0";
  * da medlemmets navn/farve i stedet for abonnementets eget navn, samme
  * princip som Google/Outlook (ADR-014). Selve tildelingen slås op af
  * kalderen (IcsCalendarProvider), ikke her.
+ *
+ * Farve-fortrin: tildelt medlems farve > familiens eget valgte farve på
+ * abonnementet > generisk standardfarve. Et tildelt medlem vinder altid,
+ * så kalenderen ser ud og opfører sig som en af appens egne
+ * familiekalendre — den valgte farve er kun til at adskille flere
+ * IKKE-tildelte abonnementer fra hinanden.
  */
 export function mapIcsCalendarSource(
   subscription: IcsCalendarSubscriptionDto,
@@ -23,7 +29,7 @@ export function mapIcsCalendarSource(
     id: encodeIcsCalendarSourceId(subscription.id),
     name: mappedOwner?.name ?? subscription.label,
     providerType: "ics",
-    color: mappedOwner?.color ?? fallbackColor,
+    color: mappedOwner?.color ?? subscription.color ?? fallbackColor,
     isVisible: true,
     isReadOnly: true,
     externalReference: subscription.id,

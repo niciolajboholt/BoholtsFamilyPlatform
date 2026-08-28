@@ -237,6 +237,7 @@ export interface IcsCalendarSubscriptionDto {
   url: string;
   label: string;
   familyMemberId: string | null;
+  color: string | null;
   lastFetchedAt: string | null;
   lastFetchStatus: string | null;
   createdAt: string;
@@ -250,7 +251,7 @@ export function getIcsSubscriptions(familyId: string) {
 
 export function createIcsSubscription(
   familyId: string,
-  input: { url: string; label: string; familyMemberId?: string | null },
+  input: { url: string; label: string; familyMemberId?: string | null; color?: string | null },
 ) {
   return request<{ subscriptions?: IcsCalendarSubscriptionDto[]; error?: string }>(
     `/api/families/${familyId}/ics-subscriptions`,
@@ -261,7 +262,7 @@ export function createIcsSubscription(
 export function updateIcsSubscription(
   familyId: string,
   subscriptionId: string,
-  input: { url?: string; label?: string; familyMemberId?: string | null },
+  input: { url?: string; label?: string; familyMemberId?: string | null; color?: string | null },
 ) {
   return request<{ subscriptions?: IcsCalendarSubscriptionDto[]; error?: string }>(
     `/api/families/${familyId}/ics-subscriptions/${subscriptionId}`,

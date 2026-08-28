@@ -1139,6 +1139,7 @@ test("a family member can add and remove an ICS calendar subscription in Setting
   await mockAuthenticatedApi(page);
 
   let subscriptions: Array<Record<string, unknown>> = [];
+  let lastPatchedColor: string | null | undefined;
 
   await page.route("**/api/families/*/ics-subscriptions", async (route) => {
     const method = route.request().method();
@@ -1157,6 +1158,7 @@ test("a family member can add and remove an ICS calendar subscription in Setting
         url: string;
         label: string;
         familyMemberId?: string | null;
+        color?: string | null;
       };
       subscriptions = [
         ...subscriptions,
@@ -1166,6 +1168,7 @@ test("a family member can add and remove an ICS calendar subscription in Setting
           url: posted.url,
           label: posted.label,
           familyMemberId: posted.familyMemberId ?? null,
+          color: posted.color ?? null,
           lastFetchedAt: null,
           lastFetchStatus: null,
           createdAt: new Date().toISOString(),
@@ -1189,13 +1192,18 @@ test("a family member can add and remove an ICS calendar subscription in Setting
       const patched = route.request().postDataJSON() as {
         label?: string;
         familyMemberId?: string | null;
+        color?: string | null;
       };
+      if (patched.color !== undefined) {
+        lastPatchedColor = patched.color;
+      }
       subscriptions = subscriptions.map((subscription) => ({
         ...subscription,
         ...(patched.label !== undefined ? { label: patched.label } : {}),
         ...(patched.familyMemberId !== undefined
           ? { familyMemberId: patched.familyMemberId }
           : {}),
+        ...(patched.color !== undefined ? { color: patched.color } : {}),
       }));
       await route.fulfill({
         status: 200,
@@ -1241,17 +1249,22 @@ test("a family member can add and remove an ICS calendar subscription in Setting
 
   await expect(icsDialog.getByText("Skolekalender 3A")).toBeVisible();
 
-  // Redigér navn og medlemstildeling på det netop tilføjede abonnement —
-  // ikke selve ICS-linket, jf. Nicolajs afgrænsning af ønsket.
+  // Redigér navn, medlemstildeling og farve på det netop tilføjede
+  // abonnement — ikke selve ICS-linket, jf. Nicolajs afgrænsning af ønsket.
   await icsDialog.getByRole("button", { name: "Redigér Skolekalender 3A" }).click();
   await icsDialog.getByLabel("Navn").fill("Skolekalender 3B");
   await icsDialog.getByLabel("Tildel familiemedlem (valgfrit)").click();
   await page.getByRole("option", { name: "Ikke tildelt" }).click();
+
+  // Farvevælgeren vises kun, når intet familiemedlem er tildelt — netop
+  // muliggjort ved skiftet til "Ikke tildelt" ovenfor.
+  await icsDialog.getByRole("button", { name: "Vælg farven #D99832" }).click();
   await icsDialog.getByRole("button", { name: "Gem" }).click();
 
   await expect(icsDialog.getByText("Skolekalender 3B")).toBeVisible();
   await expect(icsDialog.getByText("Skolekalender 3A")).not.toBeVisible();
   await expect(icsDialog.getByText("Ikke tildelt")).toBeVisible();
+  expect(lastPatchedColor).toBe("#D99832");
 
   await icsDialog.getByRole("button", { name: "Fjern Skolekalender 3B" }).click();
   await expect(icsDialog.getByText("Skolekalender 3B")).not.toBeVisible();

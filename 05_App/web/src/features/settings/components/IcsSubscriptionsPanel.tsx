@@ -15,6 +15,7 @@ import {
   Typography,
 } from "@mui/material";
 
+import { familyMemberColorSwatches as colorSwatches } from "../../calendar/data/familyMemberColorSwatches";
 import { clearCachedIcsEvents } from "../../calendar/preferences/icsCalendarSyncCacheStorage";
 import { getInitials } from "../../calendar/utils/getInitials";
 import {
@@ -28,6 +29,52 @@ import {
 } from "../../family/familyApi";
 
 const maxSubscriptions = 5;
+
+// Genbruger FamilyMemberDialog.tsx's swatch-mønster (samme faste 8-farve-
+// palet, samme cirkel-som-knap-opbygning) — abonnementets farve bruges kun,
+// når det IKKE er tildelt et familiemedlem; et tildelt medlems egen farve
+// vinder altid (se icsCalendarMapper.ts), så vælgeren skjules mens et
+// medlem er valgt for ikke at love en effekt, den ikke har.
+function ColorSwatchPicker({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (color: string) => void;
+}) {
+  return (
+    <Box>
+      <Typography variant="body2" sx={{ mb: 1 }}>
+        Farve
+      </Typography>
+      <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
+        {colorSwatches.map((swatch) => (
+          <Box
+            key={swatch}
+            component="button"
+            type="button"
+            aria-label={`Vælg farven ${swatch}`}
+            aria-pressed={value === swatch}
+            onClick={() => onChange(swatch)}
+            sx={{
+              width: 28,
+              height: 28,
+              borderRadius: "50%",
+              backgroundColor: swatch,
+              cursor: "pointer",
+              border: "3px solid",
+              borderColor: value === swatch ? "text.primary" : "transparent",
+              outline: "1px solid",
+              outlineColor: "divider",
+              outlineOffset: -1,
+              p: 0,
+            }}
+          />
+        ))}
+      </Box>
+    </Box>
+  );
+}
 
 function fetchStatusText(subscription: IcsCalendarSubscriptionDto): string | null {
   if (!subscription.lastFetchedAt) {
@@ -68,16 +115,18 @@ export function IcsSubscriptionsPanel({ isOpen }: IcsSubscriptionsPanelProps) {
   const [url, setUrl] = useState("");
   const [label, setLabel] = useState("");
   const [memberId, setMemberId] = useState("");
+  const [color, setColor] = useState(colorSwatches[0]);
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Redigering af et eksisterende abonnements navn/medlemstildeling — kun
-  // disse to felter, ikke selve ICS-linket, jf. Nicolajs ønske. Adskilt fra
-  // "Tilføj ny"-formularens felter ovenfor, så et igangværende redigering
-  // ikke rammes af den formulars egen reset efter et vellykket opret.
+  // Redigering af et eksisterende abonnements navn/medlemstildeling/farve —
+  // ikke selve ICS-linket, jf. Nicolajs ønske. Adskilt fra "Tilføj ny"-
+  // formularens felter ovenfor, så et igangværende redigering ikke rammes
+  // af den formulars egen reset efter et vellykket opret.
   const [editingSubscriptionId, setEditingSubscriptionId] = useState<string | null>(null);
   const [editLabel, setEditLabel] = useState("");
   const [editMemberId, setEditMemberId] = useState("");
+  const [editColor, setEditColor] = useState(colorSwatches[0]);
   const [isEditSaving, setIsEditSaving] = useState(false);
   const [editErrorMessage, setEditErrorMessage] = useState<string | null>(null);
 
@@ -122,6 +171,13 @@ export function IcsSubscriptionsPanel({ isOpen }: IcsSubscriptionsPanelProps) {
     return members.find((member) => member.id === id)?.name ?? null;
   }
 
+  function rowColor(subscription: IcsCalendarSubscriptionDto): string | undefined {
+    const assignedMember = subscription.familyMemberId
+      ? members.find((member) => member.id === subscription.familyMemberId)
+      : undefined;
+    return assignedMember?.color ?? subscription.color ?? undefined;
+  }
+
   async function handleAdd() {
     if (!familyId || !url.trim() || !label.trim()) {
       return;
@@ -133,6 +189,7 @@ export function IcsSubscriptionsPanel({ isOpen }: IcsSubscriptionsPanelProps) {
       url: url.trim(),
       label: label.trim(),
       familyMemberId: memberId || null,
+      color: memberId ? null : color,
     });
     setIsSaving(false);
 
@@ -141,6 +198,7 @@ export function IcsSubscriptionsPanel({ isOpen }: IcsSubscriptionsPanelProps) {
       setUrl("");
       setLabel("");
       setMemberId("");
+      setColor(colorSwatches[0]);
     } else {
       setErrorMessage(result.data.error ?? "Kunne ikke tilføje kalenderen.");
     }
@@ -160,6 +218,7 @@ export function IcsSubscriptionsPanel({ isOpen }: IcsSubscriptionsPanelProps) {
     setEditingSubscriptionId(subscription.id);
     setEditLabel(subscription.label);
     setEditMemberId(subscription.familyMemberId ?? "");
+    setEditColor(subscription.color ?? colorSwatches[0]);
     setEditErrorMessage(null);
   }
 
@@ -178,6 +237,7 @@ export function IcsSubscriptionsPanel({ isOpen }: IcsSubscriptionsPanelProps) {
     const result = await updateIcsSubscription(familyId, editingSubscriptionId, {
       label: editLabel.trim(),
       familyMemberId: editMemberId || null,
+      color: editMemberId ? null : editColor,
     });
     setIsEditSaving(false);
 
@@ -235,6 +295,10 @@ export function IcsSubscriptionsPanel({ isOpen }: IcsSubscriptionsPanelProps) {
                           ))}
                         </TextField>
 
+                        {!editMemberId && (
+                          <ColorSwatchPicker value={editColor} onChange={setEditColor} />
+                        )}
+
                         {editErrorMessage && <Alert severity="error">{editErrorMessage}</Alert>}
 
                         <Box sx={{ display: "flex", gap: 1 }}>
@@ -259,7 +323,7 @@ export function IcsSubscriptionsPanel({ isOpen }: IcsSubscriptionsPanelProps) {
                             height: 32,
                             fontSize: 14,
                             fontWeight: 700,
-                            bgcolor: "secondary.main",
+                            bgcolor: rowColor(subscription) ?? "secondary.main",
                             mr: 1.5,
                           }}
                         >
@@ -342,6 +406,8 @@ export function IcsSubscriptionsPanel({ isOpen }: IcsSubscriptionsPanelProps) {
                   </MenuItem>
                 ))}
               </TextField>
+
+              {!memberId && <ColorSwatchPicker value={color} onChange={setColor} />}
 
               {errorMessage && <Alert severity="error">{errorMessage}</Alert>}
 

@@ -729,6 +729,16 @@ aldrig i en ICS-kilde.
   519 grønne Vitest-tests og fuld grøn Playwright-suite (14 tests,
   desktop-chromium, inkl. WCAG-audit). Synlig ny funktion (aftaler fra en
   delt kalender vises nu i appen) — til gennemgang, ikke selv-merget.
+- [x] Valgfri farve pr. ICS-abonnement, efter ønske fra Nicolaj. Ny
+  nullable `color`-kolonne (migration 0019, ingen format-/enum-tjek,
+  samme princip som `family_members.color`); accepteret af POST/PATCH i
+  `icsSubscriptions.ts`. UI'et genbruger `FamilyMemberDialog.tsx`s
+  faste 8-farve-swatch-vælger (`familyMemberColorSwatches.ts`) i både
+  tilføj- og redigér-formularen — vist KUN når intet familiemedlem er
+  tildelt, da et tildelt medlems egen farve altid vinder
+  (`icsCalendarMapper.ts`: `mappedOwner?.color ?? subscription.color ??
+  fallbackColor`). Godkendt visuelt af Nicolaj ud fra skærmbilleder.
+  Synlig ny funktion — til gennemgang, ikke selv-merget.
 
 ### Beslutninger truffet (2026-08-28, Nicolaj)
 
@@ -883,3 +893,4 @@ Efter hver fase eller material ændring skal den ansvarlige:
 | 2026-08-28 | Fase 3: Reel Playwright-E2E for selve redigerings-flowet af en privat aftale (feltskift bevarer `visibility: "private"`; at slå privatliv fra sender rent faktisk `visibility: "default"`) + `32_Workers_AI_Data_Policy.md` (kodeverificeret gennemgang af alle tre AI-brugssteder, felter sendt/aldrig sendt, fejlhåndtering logger ikke prompten) — ren test/dokumentation, ingen adfærdsændring, selv-merget efter grøn CI | PR #143 |
 | 2026-08-28 | Fase 9: "Delte kalendere (ICS)" fik sin egen række + dedikeret dialog i "Kalenderforbindelser" (samme niveau som Google/Outlook, efter ønske fra Nicolaj), og hvert abonnements navn/medlemstildeling kan nu redigeres (ikke selve ICS-linket) — genbruger eksisterende PATCH-rute/klientfunktion, ingen ny backend. Godkendt visuelt af Nicolaj ud fra skærmbilleder. Synlig ny funktion — til gennemgang, ikke selv-merget | PR #144 |
 | 2026-08-28 | Fase 5: Reel Playwright-E2E for kalenderaftale-CRUD gennem den rigtige UI (opret/redigér/slet), plus en arkitektonisk afklaring: "gentagen aftale/enkeltforekomst" kan ikke testes gennem noget UI i dag, da kun en "internal"-kilde (ikke længere i produktionskoden) understøtter det — fjernet fra "Mangler" i stedet for markeret som en manglende test. Ren test/dokumentation, ingen adfærdsændring, selv-merget efter grøn CI | PR #145 |
+| 2026-08-28 | Fase 9: Valgfri farve pr. ICS-abonnement, efter ønske fra Nicolaj — ny nullable `color`-kolonne (migration 0019), genbruger familiemedlemmers faste 8-farve-swatch-vælger, vist kun når intet medlem er tildelt. Godkendt visuelt af Nicolaj ud fra skærmbilleder. Synlig ny funktion — til gennemgang, ikke selv-merget | PR #146 |
