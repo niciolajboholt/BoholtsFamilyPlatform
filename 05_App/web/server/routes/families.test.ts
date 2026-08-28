@@ -1036,4 +1036,59 @@ describe("families routes", () => {
       expect(response.status).toBe(404);
     });
   });
+
+  describe("PATCH /:id", () => {
+    it("rejects a rename from a user who belongs to a different family entirely", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader, "Boholt");
+
+      const outsiderOwner = await seedLoggedInUser(env.DB as never, { id: "outsider-owner" });
+      await createFamily(env, outsiderOwner.cookieHeader, "Naboerne");
+
+      const response = await families.request(
+        `/${created.family.id}`,
+        {
+          method: "PATCH",
+          headers: { Cookie: outsiderOwner.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({ name: "Kapret navn" }),
+        },
+        env,
+      );
+
+      expect(response.status).toBe(403);
+
+      const unchanged = await families.request(
+        `/${created.family.id}`,
+        { headers: { Cookie: owner.cookieHeader } },
+        env,
+      );
+      expect((await unchanged.json()).family.name).toBe("Boholt");
+    });
+  });
+
+  describe("POST /:id/invites/regenerate", () => {
+    it("rejects a regenerate request from a user who belongs to a different family entirely", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader, "Boholt");
+      const originalCode = created.inviteCode;
+
+      const outsiderOwner = await seedLoggedInUser(env.DB as never, { id: "outsider-owner" });
+      await createFamily(env, outsiderOwner.cookieHeader, "Naboerne");
+
+      const response = await families.request(
+        `/${created.family.id}/invites/regenerate`,
+        { method: "POST", headers: { Cookie: outsiderOwner.cookieHeader } },
+        env,
+      );
+
+      expect(response.status).toBe(403);
+
+      const mine = await families.request(
+        "/mine",
+        { headers: { Cookie: owner.cookieHeader } },
+        env,
+      );
+      expect((await mine.json()).inviteCode).toBe(originalCode);
+    });
+  });
 });

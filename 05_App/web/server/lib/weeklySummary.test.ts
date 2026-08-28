@@ -206,4 +206,55 @@ describe("sendWeeklySummaries", () => {
       expect.objectContaining({ openTasks: ["Storrengøring"] }),
     );
   });
+
+  it("never forwards a private event's description/location to the AI prompt, even if the calendar layer included them", async () => {
+    const env = createFakeEnv();
+    await seedFamily(env);
+    await env.DB.prepare(
+      `INSERT INTO family_members (id, family_id, name, color, is_placeholder_name, created_at)
+       VALUES (?, ?, ?, ?, 0, ?)`,
+    )
+      .bind("member-1", "family-1", "Nicolaj", "#2E7D32", new Date().toISOString())
+      .run();
+    await env.DB.prepare(
+      "INSERT INTO calendar_member_mappings (family_id, google_calendar_id, family_member_id) VALUES (?, ?, ?)",
+    )
+      .bind("family-1", "primary", "member-1")
+      .run();
+
+    // fetchPublicFamilyCalendarEvents (googleCalendarAggregation.ts) already
+    // redigerer et privat event til {title: "Optaget", description:
+    // undefined, location: undefined} — se dens egen test "redigerer private
+    // detaljer før delelink og AI modtager eventet". Denne test antager
+    // BEVIDST det modsatte (som om den redigering fejlede opstrøms) for at
+    // bevise, at collectUpcomingEvents() har sit eget, uafhængige lag:
+    // typen den returnerer ({title, start}) gør det umuligt at lække
+    // description/location videre til AI-prompten, uanset hvad opstrøms
+    // funktionen leverer.
+    fetchPublicFamilyCalendarEventsMock.mockResolvedValue([
+      {
+        title: "Optaget",
+        description: "Følsomme lægenoter — må aldrig nå AI'en",
+        location: "Klinik 4 — må aldrig nå AI'en",
+        start: "2026-08-18T10:00:00.000Z",
+        end: "2026-08-18T11:00:00.000Z",
+        allDay: false,
+        memberName: "Nicolaj",
+        memberColor: "#2E7D32",
+      },
+    ]);
+
+    await sendWeeklySummaries(env, aSunday);
+
+    expect(generateWeeklySummaryMock).toHaveBeenCalledWith(
+      env,
+      expect.objectContaining({
+        events: [{ title: "Optaget", start: "2026-08-18T10:00:00.000Z" }],
+      }),
+    );
+
+    const [, payload] = generateWeeklySummaryMock.mock.calls[0]!;
+    expect(JSON.stringify(payload)).not.toContain("lægenoter");
+    expect(JSON.stringify(payload)).not.toContain("Klinik 4");
+  });
 });

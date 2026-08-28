@@ -37,9 +37,9 @@ verifikation.
 |---:|---|---|---|
 | 1 | Kalenderens UI og dubletter | Delvist gennemført | Manuel iPhone-verifikation og eventuel kildespecifik dubletanalyse |
 | 2 | Tilgængelighed og visuelt polish | Delvist gennemført | Tastatur-/fokusgennemgang og fysisk VoiceOver-test |
-| 3 | Privatliv og AI | Delvist gennemført | E2E for ejer/andet medlem + offentligt delelink |
+| 3 | Privatliv og AI | Delvist gennemført | E2E for redigering af privat aftale + Workers AI-datadokumentation |
 | 4 | Login, branding og OAuth | Delvist gennemført | Google-verificering og scope-gennemgang |
-| 5 | Browserbaserede brugerflowtests | Delvist gennemført | CRUD-, rettigheds- og offline-scenarier |
+| 5 | Browserbaserede brugerflowtests | Delvist gennemført | Kalenderaftale-CRUD + fuldt invitations-/rolle-UI-flow |
 | 6 | Refaktorering | Gennemført | — |
 | 7 | Release, drift og dokumentation | Delvist gennemført | Fjern dobbelt Cloudflare-deploy (ekstern) |
 | 8 | Offlineoplevelse | Gennemført | — |
@@ -68,10 +68,11 @@ Status pr. 2026-08-27:
   værdi i stedet for et fastfrosset tal her.
 - D1-migrationsregisteret er baselinet for migration 0002-0016, og migration
   0017 er anvendt på beta.
-- Lokal kvalitetsbaseline: lint, produktionsbuild og 464 Vitest-tests består.
+- Lokal kvalitetsbaseline: lint, produktionsbuild og 468 Vitest-tests består.
 - Playwright indeholder login/jura, autentificeret navigation, kalenderlayout,
   kontrolnavne, en automatisk WCAG 2.0/2.1 A/AA-audit (axe-core) af de fem
-  hovedsider og mobilbredde-matrix på desktop- og mobilprojekter.
+  hovedsider, offline-scenarier, privatlivs-redaktion (ejer/andet medlem +
+  offentligt delelink) og mobilbredde-matrix på desktop- og mobilprojekter.
 - Produktionsafhængigheder havde 0 kendte npm-sårbarheder ved sidste audit.
 - `main` og `develop` er nu beskyttede branches: PR med mindst 1 godkendelse
   og en grøn `Lint, build and test`-statuscheck er påkrævet, branchen skal
@@ -205,6 +206,22 @@ bevidst valg.
   `sensitivity`; fravalg rydder providerens private markering eksplicit.
 - [x] Provider-mapperne og det mock-baserede browserflow tester både privat og
   almindelig lagring uden rigtige kalenderdata.
+- [x] Reel Playwright-E2E (ikke kun enhedstests af den isolerede
+  redaktionsfunktion): en privat aftale er fuldt synlig for det familiemedlem,
+  kalenderen er kortlagt til, og redigeres til kun tid + "Optaget" — uden
+  titel/beskrivelse/lokation nogetsteds i DOM'en — for et andet familiemedlem
+  på samme enhed.
+- [x] Reel Playwright-E2E af det offentlige delelink (`/share/:token`, uden
+  session-cookie, præcis som en modtager ville opleve det): en almindelig
+  aftale viser fuld titel/beskrivelse/lokation, en privat aftale viser kun
+  "Optaget" uden nogen af de øvrige felter.
+- [x] Eksplicit servertest for, at AI-ugeresuméet aldrig videresender en privat
+  aftales beskrivelse/lokation — selv i en simuleret situation, hvor
+  aggregationslaget fejlagtigt skulle inkludere dem, dropper
+  `collectUpcomingEvents()`'s egen type/mapping dem uafhængigt.
+- [x] Eksplicit servertest for den sikre standard, når et familiemedlem slet
+  ikke har en kalender-kortlægning: intet vises for vedkommende (ikke en
+  gættet fallback).
 
 ### Mangler
 
@@ -212,8 +229,9 @@ bevidst valg.
   implementeret som “Privat / vis kun optaget”.
 - [ ] Definér privatlivssikre standardværdier for nye familier og nye
   delinger.
-- [ ] Tilføj frontend- og servertests for redigering, adgangskontrol og
-  flerfamilie-isolation.
+- [ ] Tilføj E2E for selve REDIGERING af en privat aftale (adgangskontrol og
+  flerfamilie-isolation for læsning/visning er nu dækket, se ovenfor —
+  redigerings-flowet specifikt er stadig udækket).
 - [ ] Dokumentér præcist hvilke felter Workers AI modtager, og hvor længe de
   behandles.
 
@@ -224,8 +242,8 @@ bevidst valg.
 - AI-resumé kan fravælges og modtager aldrig private felter.
 - Offentlige links viser mindst mulige data som standard.
 
-**Næste handling:** Udbyg E2E med ejer/andet familiemedlem samt offentligt
-delelink, og dokumentér præcist Workers AI-feltgrundlag og datalevetid.
+**Næste handling:** Tilføj E2E for selve redigerings-flowet af en privat
+aftale, og dokumentér præcist Workers AI-feltgrundlag og datalevetid.
 
 ## Fase 4 – Login, branding og OAuth-klargøring
 
@@ -275,16 +293,28 @@ produktionsdata eller private kalenderkonti.
 - [x] Mock-autentificeret bruger kan navigere gennem de fem hovedområder på
   desktop og mobil.
 - [x] Mobil familieplanner testes for vandret overflow.
+- [x] Offline-tilstand og genforbindelse: fire reelle Playwright-tests
+  (kalender-cache, indkøb tilføj/ryd afkrydsede, opgave-afkrydsning) — se
+  fase 8, gennemført.
+- [x] Offentligt kalenderlink og privatlivsvalg: reel E2E af `/share/:token`
+  (privat vs. almindelig aftale) samt af opret-dialogens "Privat
+  aftale"-kontakt — se fase 3.
+- [x] Familie-isolation, delmængde: to nye servertests bekræfter, at et
+  medlem af én familie ikke kan omdøbe en anden families navn eller
+  regenerere dens invitationskode (`families.test.ts`, PATCH /:id og
+  POST /:id/invites/regenerate) — supplerer den eksisterende
+  cross-family-dækning på indkøbslister, opgaver og skabeloner.
 
 ### Mangler
 
 - [ ] Opret, redigér og slet kalenderaftale med mock/testkonto.
 - [ ] Gentagen aftale samt redigering af enkeltforekomst.
-- [ ] Invitation, roller og isolation mellem to familier.
-- [ ] Indkøbsliste, opgaver og rutiner.
-- [ ] Offentligt kalenderlink og privatlivsvalg.
+- [ ] Fuldt invitations-/rolleflow gennem UI'et (acceptér kode, skift rolle,
+  fjern medlem) — isolation mellem to familier har nu delvis
+  servertestdækning (se ovenfor), men selve UI-flowet er udækket.
+- [ ] Indkøbsliste, opgaver og rutiner (opret/redigér/slet gennem UI'et).
 - [ ] Logout og fuldstændig lokal oprydning.
-- [ ] API-fejl, offline-tilstand og genforbindelse.
+- [ ] Generelle API-fejl uden for de allerede dækkede offline-scenarier.
 
 ### Acceptkriterier
 
@@ -293,8 +323,8 @@ produktionsdata eller private kalenderkonti.
 - Fejl giver læsbare traces/screenshots, og flaky tests blokerer ikke uden en
   dokumenteret årsag.
 
-**Næste handling:** Udbyg den eksisterende mock-backend med event-CRUD og
-rettighedsscenarier efter fase 1 og 3.
+**Næste handling:** Udbyg den eksisterende mock-backend med event-CRUD
+(opret/redigér/slet) og et fuldt invitations-/rolle-UI-flow.
 
 ## Fase 6 – Refaktorering
 
@@ -658,3 +688,4 @@ Efter hver fase eller material ændring skal den ansvarlige:
 | 2026-08-28 | Fase 8: Playwright-offline-test for kalendervisnings-fallbacket (PR #125) — ren test, ingen adfærdsændring, selv-merget. Fase 8 gennemført | PR #133 |
 | 2026-08-28 | Fase 2: Automatisk WCAG 2.0/2.1 A/AA-audit (axe-core) indført; navigationslistens semantik og tre marginale kontrastbrud rettet — synlig farveændring, til gennemgang, ikke selv-merget | PR #134 |
 | 2026-08-28 | Fase 8: Ryddet modstridende tekst om, at offline-skrivning/skrivekøen "endnu ikke er implementeret/påbegyndt" (forældet efter PR #125-#133); flyttet fremtidige udvidelser (offline redigering/sletning, Outlook-fallback) fra "Mangler" til et separat "Fremtidige forbedringer"-afsnit — ren dokumentation, selv-merget efter grøn CI | PR #135 |
+| 2026-08-28 | Fase 3/5: Reel Playwright-E2E for privat-aftale-redaktion (ejer/andet medlem + offentligt delelink), servertests for AI-ugeresumé-redaktion, manglende kalender-kortlægning og cross-family-isolation på familie-omdøbning/invitationsregenerering — ren test/dokumentation, ingen adfærdsændring | PR #137 |
