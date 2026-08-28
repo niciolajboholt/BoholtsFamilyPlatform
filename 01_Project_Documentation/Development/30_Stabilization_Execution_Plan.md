@@ -3,8 +3,8 @@
 | Felt | Værdi |
 |---|---|
 | Status | Aktiv |
-| Version | 1.0 |
-| Senest opdateret | 2026-08-27 |
+| Version | 1.1 |
+| Senest opdateret | 2026-08-28 |
 | Ejer | Nicolaj Boholts |
 | Arbejdsgren | `develop` |
 | Produktionsgren | `main` |
@@ -43,6 +43,7 @@ verifikation.
 | 6 | Refaktorering | Gennemført | — |
 | 7 | Release, drift og dokumentation | Delvist gennemført | Fjern dobbelt Cloudflare-deploy (ekstern) |
 | 8 | Offlineoplevelse | Gennemført | — |
+| 9 | ICS-kalenderabonnementer | Ikke startet | Teknisk design og afgrænset implementerings-PR |
 
 Appen er egnet til kontrolleret familiebrug og beta. Den er ikke vurderet som
 offentligt lanceringsklar, før privatliv pr. aftale, OAuth-verificering,
@@ -449,7 +450,7 @@ håndtere udvalgte læse- og skriveflows uden at cache følsomme credentials.
 ### Gennemført
 
 - [x] Appen viser offline- og genforbindelsesstatus.
-- [x] Teksten lover ikke offline-skrivning, som endnu ikke er implementeret.
+- [x] Appens offline-tekst afspejler de implementerede læse- og skriveflows uden at love understøttelse ud over den vedtagne offlinepolitik.
 - [x] PWA-appskallen caches.
 - [x] Auth, tokens og følsomme API-svar er ikke tilføjet til service-worker-
   cache.
@@ -567,6 +568,118 @@ opfyldt.
 acceptkriterier. En fremtidig udvidelse af skrivekøen (se "Mangler"
 ovenfor) kræver en ny politikbeslutning, før den påbegyndes.
 
+## Fase 9 – Abonnement på eksterne ICS-kalendere
+
+**Mål:** En bruger skal kunne abonnere direkte på en ekstern, publiceret
+ICS-kalender – eksempelvis en arbejdskalender fra Outlook – uden Microsoft
+Graph-login, samtidig med at det hemmelige feed-link og kalenderens indhold
+behandles sikkert.
+
+**Status: Ikke startet**
+
+Denne fase er en ny produktfunktion og er ikke en rest fra fase 8. Fase 8
+forbliver gennemført inden for den vedtagne offlinepolitik.
+
+### Godkendt brugerflow
+
+- [ ] Under **Indstillinger → Kalenderforbindelser** vises knappen
+  **“Abonner på en kalender”**.
+- [ ] Knappen åbner en selvstændig dialogboks.
+- [ ] Dialogen indeholder som minimum:
+  - ICS-link (påkrævet).
+  - Kalendernavn, med mulighed for at bruge feedets navn.
+  - Tilknytning til et familiemedlem.
+  - Synlighed for familien:
+    - **“Vis aftalens titel”** – godkendt standard.
+    - **“Vis kun Optaget”** – valgfrit ekstra privatliv.
+  - **“Test forbindelse”**, som validerer feedet uden at gemme.
+  - **“Abonner”** og **“Annuller”**.
+- [ ] Efter oprettelse vises kalenderen som en tydeligt markeret,
+  skrivebeskyttet kalenderforbindelse med seneste synkronisering, mulighed
+  for synkronisering nu, ændring af synlighed og fjernelse.
+
+### Detaljeniveau og privatliv
+
+Outlooks publiceringsvalg bestemmer det maksimale detaljeniveau i ICS-feedet.
+Appen kan skjule data, der findes i feedet, men kan aldrig vise oplysninger,
+som Outlook ikke har publiceret.
+
+Første version følger disse regler:
+
+- [ ] Tidspunkt, heldagsstatus og aftalens titel vises, når feedet indeholder
+  dem, og abonnementet bruger standardvalget “Vis aftalens titel”.
+- [ ] Ved “Vis kun Optaget” redigeres titlen server-side til “Optaget”.
+- [ ] Beskrivelse/brødtekst, deltagere, arrangør, mødelinks, vedhæftninger og
+  øvrige fritekstfelter vises eller gemmes ikke i første version.
+- [ ] Lokation vises ikke i første version; dette kan tilføjes senere som et
+  særskilt, bevidst tilvalg.
+- [ ] Private eller fortrolige ICS-aftaler vises altid som “Optaget”, hvis
+  feedet indeholder en anvendelig privatlivsmarkering.
+- [ ] Appens privatlivsvalg kan kun reducere – aldrig udvide – det
+  detaljeniveau, som kilden har publiceret.
+- [ ] UI'et forklarer, at et ICS-link kan fungere som en hemmelig
+  adgangsnøgle, og at et nyt link skal indsættes, hvis det gamle tilbagekaldes.
+
+### Teknisk og sikkerhedsmæssig løsning
+
+- [ ] ICS-linket sendes til Cloudflare Workeren og hentes server-side; klienten
+  henter ikke tredjepartsfeedet direkte.
+- [ ] Linket krypteres før lagring i D1 med projektets eksisterende
+  secret-/krypteringsmønster.
+- [ ] Hele linket returneres aldrig til klienten efter lagring og må ikke
+  forekomme i logs, fejlbeskeder, analytics eller health-data.
+- [ ] Abonnementet scopes til korrekt bruger, familie og familiemedlem med
+  server-side adgangskontrol.
+- [ ] Workerens URL-hentning beskyttes mod SSRF:
+  - Kun HTTPS.
+  - Ingen localhost, private/link-local adresser eller Cloudflare metadata-
+    endpoints.
+  - DNS-/redirectmål genvalideres.
+  - Korte timeouts, maksimal redirectgrænse og maksimal svarstørrelse.
+  - Ingen credentials i URL'en ud over selve det uigennemsigtige ICS-link.
+- [ ] ICS-parseren håndterer tidszoner, sommertid, heldagsaftaler,
+  gentagelser/undtagelser, aflysninger og stabile event-identiteter.
+- [ ] Synkronisering bruger ETag/Last-Modified, når kilden tilbyder det, og
+  viser seneste succesfulde synkronisering samt forståelige fejl.
+- [ ] En fejlet synkronisering sletter ikke den seneste gyldige visning.
+- [ ] Fjernelse af abonnementet sletter krypteret URL, synkroniseringsmetadata
+  og eventuel lokal/server-cache.
+- [ ] ICS-kilden er altid skrivebeskyttet; opret, redigér og slet må aldrig
+  forsøges mod feedet.
+
+### Testkrav
+
+- [ ] Enheds-/integrationstest for parsing af normale, private, gentagne,
+  aflyste, tidszonebaserede og heldagsaftaler.
+- [ ] Test af ugyldigt link, forkert indholdstype, for stort svar, timeout,
+  redirectkæde og blokerede interne adresser.
+- [ ] Test af kryptering og at rå ICS-links ikke optræder i API-svar eller
+  logs.
+- [ ] Test af adgangskontrol og isolation mellem to familier.
+- [ ] Playwright-flow for åbn dialog, test link, opret abonnement, vis titel,
+  skift til “Optaget”, synkronisér og fjern.
+- [ ] Mobiltest ved 320, 375, 390 og 430 px uden overflow.
+- [ ] Manuel iPhone Safari/PWA-test før funktionens PR merges.
+
+### Acceptkriterier
+
+- Brugeren kan abonnere via den godkendte dialog uden Microsoft-login.
+- Kalenderen vises læsbart og skrivebeskyttet i de eksisterende
+  kalendervisninger.
+- Titler vises som standard, når Outlook har inkluderet dem; “Optaget”
+  redigerer sikkert server-side.
+- Det hemmelige ICS-link kan ikke aflæses af andre familiemedlemmer eller
+  findes i klient-/logdata.
+- Fejl i et feed påvirker ikke Google-, Outlook- eller andre ICS-kilder.
+- Ingen SSRF-adgang til interne eller ikke-godkendte netværksmål.
+- Lint, build, Vitest og Playwright er grønne.
+
+**Næste handling:** Claude udarbejder først en kort kodebaseret designanalyse
+med datamodel, API-kontrakter, parservalg, SSRF-værn og UI-komponenter.
+Implementeringen opdeles derefter i en sikker backend-PR og en funktionel
+UI/flow-PR. UI/flow-PR'en må ikke merges uden Nicolajs gennemgang, fordi den
+ændrer appens synlige funktionalitet.
+
 ## Prioriteret udførelsesrækkefølge
 
 Arbejdet fortsætter autonomt i denne rækkefølge, med grøn CI efter hver
@@ -579,7 +692,8 @@ afgrænset PR:
 5. Opdel de største filer i rene refaktor-PR'er (fase 6).
 6. Færdiggør drift/runbooks og eliminér dobbelt deploy (fase 7).
 7. Implementér den aftalte offline-datapolitik og tests (fase 8).
-8. Afslut Google OAuth-verificering og fysisk enhedstest, og frigiv derefter
+8. Implementér det godkendte, sikre ICS-abonnement (fase 9).
+9. Afslut Google OAuth-verificering og fysisk enhedstest, og frigiv derefter
    kontrolleret fra `develop` til `main`.
 
 Eksterne handlinger eller reelle produktvalg må ikke blokere uafhængigt
@@ -593,6 +707,7 @@ arbejde; de samles i afsnittet nedenfor og tages til sidst.
 | Google OAuth-verificering | Kræver Google Cloud-ejergodkendelse | Login/jura og branding er kodeklargjort |
 | Eget produktionsdomæne | Domæne- og produktbeslutning | Beta fortsætter på `workers.dev` |
 | Fysisk iPhone/VoiceOver | Kræver rigtig enhed og brugerhandling | Automatiske mobiltests køres i CI |
+| Outlook ICS-detaljeniveau | Styres først af P+P's Microsoft 365-delingspolitik og det publicerede feed | Appen viser højst feedets data og kan altid reducere til “Optaget” |
 
 ## Definition of Done for offentlig lancering
 
@@ -647,5 +762,6 @@ Efter hver fase eller material ændring skal den ansvarlige:
 | 2026-08-27 | Fase 8: Skrivekø til indkøbslistens tilføj/af-tilkryds vare, med reel Playwright-offline-test — godkendt og merget af Nicolaj efter gennemgang | PR #127 |
 | 2026-08-27 | Fase 8: Skrivekø til opgavers af-/tilkrydsning, med reel Playwright-offline-test — godkendt og merget af Nicolaj efter gennemgang | PR #129 |
 | 2026-08-28 | Fase 8: Skrivekø til indkøbslistens "ryd afkrydsede" (sidste punkt fra politikkens skriveliste), med reel Playwright-offline-test — godkendt og merget af Nicolaj efter gennemgang | PR #132 |
+| 2026-08-28 | Fase 9 tilføjet: sikker, skrivebeskyttet ICS-abonnement via dialog i Kalenderforbindelser; titel som standard, “Optaget” som valg | Godkendt produktbeslutning fra Nicolaj |
 | 2026-08-28 | Fase 8: Playwright-offline-test for kalendervisnings-fallbacket (PR #125) — ren test, ingen adfærdsændring, selv-merget. Fase 8 gennemført | PR #133 |
 | 2026-08-28 | Fase 2: Automatisk WCAG 2.0/2.1 A/AA-audit (axe-core) indført; navigationslistens semantik og tre marginale kontrastbrud rettet — synlig farveændring, til gennemgang, ikke selv-merget | PR #134 |
