@@ -936,6 +936,129 @@ test("a private calendar event is fully visible to its owner and redacted to 'Op
   await expect(page.getByLabel("Sted (valgfrit)")).toHaveValue("");
 });
 
+// Fase 3: adgangskontrol og læsning/visning af en privat aftale er dækket
+// ovenfor — selve REDIGERINGS-flowet (gem-kaldets faktiske payload) var
+// stadig udækket. Dækker to ting i ét flow: (1) et almindeligt feltskift på
+// en privat aftale skal bevare visibility: "private" i skrivekaldet, og
+// (2) at slå "Privat aftale"-kontakten fra og gemme skal rent faktisk sende
+// visibility: "default" — ikke kun opdatere UI'et lokalt.
+test("editing an existing private event sends the updated fields, and turning privacy off actually clears it server-side", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  await mockAuthenticatedApi(page);
+  await page.route("**/api/calendar/status", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ connected: true }),
+    }),
+  );
+
+  const originalTitle = "Fortrolig lægesamtale";
+  const originalDescription = "Følsomme noter om behandlingsforløbet";
+  const renamedTitle = "Fortrolig lægesamtale, flyttet til fredag";
+
+  // Efter et gem genhenter appen (refreshEvents() i useCalendarEvents.ts) —
+  // en statisk GET-mock ville derfor stadig vise de oprindelige data efter
+  // en vellykket redigering. GET'et skal i stedet afspejle den seneste
+  // PATCH, ligesom ICS-abonnements-testens mutable `subscriptions`-mønster.
+  let currentSummary = originalTitle;
+  let currentVisibility: string | undefined = "private";
+
+  await page.route("**/api/calendar/calendars/*/events*", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    const calendarId = decodeURIComponent(path.split("/")[4] ?? "");
+
+    if (route.request().method() !== "GET" || calendarId !== "alex-calendar") {
+      await route.fallback();
+      return;
+    }
+
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        items: [
+          {
+            id: "alex-calendar-event",
+            summary: currentSummary,
+            description: originalDescription,
+            visibility: currentVisibility,
+            status: "confirmed",
+            start: { dateTime: "2026-08-27T08:15:00+02:00" },
+            end: { dateTime: "2026-08-27T09:15:00+02:00" },
+          },
+        ],
+        nextSyncToken: "alex-calendar-sync-token",
+      }),
+    });
+  });
+
+  let patchedBody: Record<string, unknown> | undefined;
+  // Opdatering går til /events/:eventId (PATCH), til forskel fra opret-
+  // testens rene /events (POST) — kræver et separat mønster med det
+  // ekstra sti-segment, ellers matcher det aldrig.
+  await page.route("**/api/calendar/calendars/*/events/*", async (route) => {
+    if (route.request().method() !== "PATCH") {
+      await route.fallback();
+      return;
+    }
+
+    patchedBody = route.request().postDataJSON() as Record<string, unknown>;
+    currentSummary = patchedBody.summary as string;
+    currentVisibility = patchedBody.visibility as string | undefined;
+
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        id: "alex-calendar-event",
+        summary: patchedBody.summary,
+        description: patchedBody.description,
+        visibility: patchedBody.visibility,
+        start: patchedBody.start,
+        end: patchedBody.end,
+      }),
+    });
+  });
+
+  await page.goto("/calendar");
+  await page.waitForFunction(() => localStorage.getItem("boholts-family-members") !== null);
+  await page.evaluate(() => localStorage.setItem("boholts-current-member-id", "member-e2e"));
+  await page.reload();
+
+  const ownerEventButton = page.getByRole("button", {
+    name: new RegExp(`Rediger aftale: ${originalTitle}`),
+  });
+  await expect(ownerEventButton).toBeVisible();
+  await ownerEventButton.click();
+
+  // 1) Et almindeligt feltskift må ikke stille og utilsigtet rydde
+  // privatlivsvalget — visibility skal forblive "private" i skrivekaldet.
+  await page.getByLabel("Titel").fill(renamedTitle);
+  await page.getByRole("button", { name: "Gem ændringer" }).click();
+
+  await expect.poll(() => patchedBody?.summary).toBe(renamedTitle);
+  expect(patchedBody?.visibility).toBe("private");
+
+  // 2) Slå privatliv fra på den samme aftale og gem igen — skrivekaldet skal
+  // rent faktisk rydde visibility, ikke kun opdatere den lokale visning.
+  patchedBody = undefined;
+  const renamedEventButton = page.getByRole("button", {
+    name: new RegExp(`Rediger aftale: ${renamedTitle}`),
+  });
+  await expect(renamedEventButton).toBeVisible();
+  await renamedEventButton.click();
+
+  await page
+    .getByRole("switch", { name: "Privat aftale – familien ser kun Optaget" })
+    .uncheck();
+  await page.getByRole("button", { name: "Gem ændringer" }).click();
+
+  await expect.poll(() => patchedBody?.visibility).toBe("default");
+});
+
 test("a public share link redacts a private event's title, description, and location", async ({
   page,
 }, testInfo) => {
