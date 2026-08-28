@@ -1639,12 +1639,12 @@ test("an event with multiple matched family members shows their own colors, spli
 
   // Kernen i testen: den FAKTISKE gengivne kant er en opdelt gradient med
   // begge medlemmers egne farver — ikke en solid Familien-lilla kant.
-  const borderImage = await eventButton.evaluate(
-    (element) => getComputedStyle(element).borderImageSource,
+  const accentImage = await eventButton.evaluate(
+    (element) => getComputedStyle(element, "::before").backgroundImage,
   );
-  expect(borderImage).toContain(hexToRgb("#2F6B4F"));
-  expect(borderImage).toContain(hexToRgb("#C97653"));
-  expect(borderImage).not.toContain(hexToRgb("#6D597A")); // Familien-farven
+  expect(accentImage).toContain(hexToRgb("#2F6B4F"));
+  expect(accentImage).toContain(hexToRgb("#C97653"));
+  expect(accentImage).not.toContain(hexToRgb("#6D597A")); // Familien-farven
 });
 
 // Fase 1-følgeret (PR #148-opfølgning): et ICS-abonnement UDEN
@@ -1709,9 +1709,9 @@ test("an unassigned ICS subscription's event uses the subscription's own color, 
   });
   await expect(eventButton).toBeVisible();
 
-  const borderColor = await eventButton.evaluate(
-    (element) => getComputedStyle(element).borderLeftColor,
+  const accentColor = await eventButton.evaluate(
+    (element) => getComputedStyle(element, "::before").backgroundColor,
   );
-  expect(borderColor).toBe(hexToRgb("#D99832"));
-  expect(borderColor).not.toBe(hexToRgb("#6D597A")); // Familien-farven
+  expect(accentColor).toBe(hexToRgb("#D99832"));
+  expect(accentColor).not.toBe(hexToRgb("#6D597A")); // Familien-farven
 });
