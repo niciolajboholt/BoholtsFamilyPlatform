@@ -1091,4 +1091,284 @@ describe("families routes", () => {
       expect((await mine.json()).inviteCode).toBe(originalCode);
     });
   });
+
+  describe("ICS-abonnementer (Fase 9)", () => {
+    it("returns an empty list for a new family", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader);
+
+      const response = await families.request(
+        `/${created.family.id}/ics-subscriptions`,
+        { headers: { Cookie: owner.cookieHeader } },
+        env,
+      );
+
+      expect(response.status).toBe(200);
+      expect((await response.json()).subscriptions).toEqual([]);
+    });
+
+    it("lets the owner create a subscription and assign it to a member", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader);
+      const memberId = created.members[0]!.id;
+
+      const response = await families.request(
+        `/${created.family.id}/ics-subscriptions`,
+        {
+          method: "POST",
+          headers: { Cookie: owner.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            url: "https://calendar.example.com/skole.ics",
+            label: "Skolekalender",
+            familyMemberId: memberId,
+          }),
+        },
+        env,
+      );
+
+      expect(response.status).toBe(200);
+      const body = await response.json();
+      expect(body.subscriptions).toHaveLength(1);
+      expect(body.subscriptions[0]).toMatchObject({
+        url: "https://calendar.example.com/skole.ics",
+        label: "Skolekalender",
+        familyMemberId: memberId,
+      });
+    });
+
+    it("rejects a plain member trying to create a subscription", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader);
+      const member = await seedLoggedInUser(env.DB as never, { id: "member" });
+      await families.request(
+        `/invites/${created.inviteCode}/accept`,
+        { method: "POST", headers: { Cookie: member.cookieHeader } },
+        env,
+      );
+
+      const response = await families.request(
+        `/${created.family.id}/ics-subscriptions`,
+        {
+          method: "POST",
+          headers: { Cookie: member.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({ url: "https://calendar.example.com/x.ics", label: "X" }),
+        },
+        env,
+      );
+
+      expect(response.status).toBe(403);
+    });
+
+    it("rejects a non-http(s) URL", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader);
+
+      const response = await families.request(
+        `/${created.family.id}/ics-subscriptions`,
+        {
+          method: "POST",
+          headers: { Cookie: owner.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({ url: "file:///etc/passwd", label: "X" }),
+        },
+        env,
+      );
+
+      expect(response.status).toBe(400);
+    });
+
+    it("rejects a missing label", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader);
+
+      const response = await families.request(
+        `/${created.family.id}/ics-subscriptions`,
+        {
+          method: "POST",
+          headers: { Cookie: owner.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({ url: "https://calendar.example.com/x.ics" }),
+        },
+        env,
+      );
+
+      expect(response.status).toBe(400);
+    });
+
+    it("rejects a familyMemberId that belongs to a different family", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader, "Boholt");
+
+      const otherOwner = await seedLoggedInUser(env.DB as never, { id: "other-owner" });
+      const otherFamily = await createFamily(env, otherOwner.cookieHeader, "Naboerne");
+      const foreignMemberId = otherFamily.members[0]!.id;
+
+      const response = await families.request(
+        `/${created.family.id}/ics-subscriptions`,
+        {
+          method: "POST",
+          headers: { Cookie: owner.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            url: "https://calendar.example.com/x.ics",
+            label: "X",
+            familyMemberId: foreignMemberId,
+          }),
+        },
+        env,
+      );
+
+      expect(response.status).toBe(400);
+    });
+
+    it("enforces the 5-subscription cap per family", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader);
+
+      for (let i = 0; i < 5; i++) {
+        const response = await families.request(
+          `/${created.family.id}/ics-subscriptions`,
+          {
+            method: "POST",
+            headers: { Cookie: owner.cookieHeader, "Content-Type": "application/json" },
+            body: JSON.stringify({ url: `https://calendar.example.com/${i}.ics`, label: `Kalender ${i}` }),
+          },
+          env,
+        );
+        expect(response.status).toBe(200);
+      }
+
+      const sixth = await families.request(
+        `/${created.family.id}/ics-subscriptions`,
+        {
+          method: "POST",
+          headers: { Cookie: owner.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({ url: "https://calendar.example.com/6.ics", label: "Kalender 6" }),
+        },
+        env,
+      );
+
+      expect(sixth.status).toBe(409);
+    });
+
+    it("lets the owner update a subscription's label and member assignment", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader);
+      const memberId = created.members[0]!.id;
+
+      const createResponse = await families.request(
+        `/${created.family.id}/ics-subscriptions`,
+        {
+          method: "POST",
+          headers: { Cookie: owner.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({ url: "https://calendar.example.com/x.ics", label: "Oprindeligt navn" }),
+        },
+        env,
+      );
+      const subscriptionId = (await createResponse.json()).subscriptions[0].id;
+
+      const updateResponse = await families.request(
+        `/${created.family.id}/ics-subscriptions/${subscriptionId}`,
+        {
+          method: "PATCH",
+          headers: { Cookie: owner.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({ label: "Nyt navn", familyMemberId: memberId }),
+        },
+        env,
+      );
+
+      expect(updateResponse.status).toBe(200);
+      const updated = (await updateResponse.json()).subscriptions[0];
+      expect(updated.label).toBe("Nyt navn");
+      expect(updated.familyMemberId).toBe(memberId);
+    });
+
+    it("returns 404 when updating a subscription that belongs to a different family", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader, "Boholt");
+      const createResponse = await families.request(
+        `/${created.family.id}/ics-subscriptions`,
+        {
+          method: "POST",
+          headers: { Cookie: owner.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({ url: "https://calendar.example.com/x.ics", label: "X" }),
+        },
+        env,
+      );
+      const subscriptionId = (await createResponse.json()).subscriptions[0].id;
+
+      const otherOwner = await seedLoggedInUser(env.DB as never, { id: "other-owner" });
+      const otherFamily = await createFamily(env, otherOwner.cookieHeader, "Naboerne");
+
+      const response = await families.request(
+        `/${otherFamily.family.id}/ics-subscriptions/${subscriptionId}`,
+        {
+          method: "PATCH",
+          headers: { Cookie: otherOwner.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({ label: "Kapret" }),
+        },
+        env,
+      );
+
+      expect(response.status).toBe(404);
+    });
+
+    it("lets the owner delete a subscription", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader);
+      const createResponse = await families.request(
+        `/${created.family.id}/ics-subscriptions`,
+        {
+          method: "POST",
+          headers: { Cookie: owner.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({ url: "https://calendar.example.com/x.ics", label: "X" }),
+        },
+        env,
+      );
+      const subscriptionId = (await createResponse.json()).subscriptions[0].id;
+
+      const deleteResponse = await families.request(
+        `/${created.family.id}/ics-subscriptions/${subscriptionId}`,
+        { method: "DELETE", headers: { Cookie: owner.cookieHeader } },
+        env,
+      );
+
+      expect(deleteResponse.status).toBe(200);
+      expect((await deleteResponse.json()).subscriptions).toEqual([]);
+    });
+
+    it("does not let a plain member delete a subscription", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader);
+      const createResponse = await families.request(
+        `/${created.family.id}/ics-subscriptions`,
+        {
+          method: "POST",
+          headers: { Cookie: owner.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({ url: "https://calendar.example.com/x.ics", label: "X" }),
+        },
+        env,
+      );
+      const subscriptionId = (await createResponse.json()).subscriptions[0].id;
+
+      const member = await seedLoggedInUser(env.DB as never, { id: "member" });
+      await families.request(
+        `/invites/${created.inviteCode}/accept`,
+        { method: "POST", headers: { Cookie: member.cookieHeader } },
+        env,
+      );
+
+      const deleteResponse = await families.request(
+        `/${created.family.id}/ics-subscriptions/${subscriptionId}`,
+        { method: "DELETE", headers: { Cookie: member.cookieHeader } },
+        env,
+      );
+
+      expect(deleteResponse.status).toBe(403);
+
+      const stillThere = await families.request(
+        `/${created.family.id}/ics-subscriptions`,
+        { headers: { Cookie: owner.cookieHeader } },
+        env,
+      );
+      expect((await stillThere.json()).subscriptions).toHaveLength(1);
+    });
+  });
 });

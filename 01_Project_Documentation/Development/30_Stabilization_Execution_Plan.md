@@ -43,6 +43,7 @@ verifikation.
 | 6 | Refaktorering | Gennemført | — |
 | 7 | Release, drift og dokumentation | Delvist gennemført | Fjern dobbelt Cloudflare-deploy (ekstern) |
 | 8 | Offlineoplevelse | Gennemført | — |
+| 9 | ICS-abonnementskalendere | Delvist gennemført | SSRF-hærdet hentningsproxy + ICS-parser + RRULE |
 
 Appen er egnet til kontrolleret familiebrug og beta. Den er ikke vurderet som
 offentligt lanceringsklar, før privatliv pr. aftale, OAuth-verificering,
@@ -68,7 +69,7 @@ Status pr. 2026-08-27:
   værdi i stedet for et fastfrosset tal her.
 - D1-migrationsregisteret er baselinet for migration 0002-0016, og migration
   0017 er anvendt på beta.
-- Lokal kvalitetsbaseline: lint, produktionsbuild og 468 Vitest-tests består.
+- Lokal kvalitetsbaseline: lint, produktionsbuild og 479 Vitest-tests består.
 - Playwright indeholder login/jura, autentificeret navigation, kalenderlayout,
   kontrolnavne, en automatisk WCAG 2.0/2.1 A/AA-audit (axe-core) af de fem
   hovedsider, offline-scenarier, privatlivs-redaktion (ejer/andet medlem +
@@ -604,6 +605,114 @@ Begge kræver en ny politikbeslutning i
 acceptkriterier. En fremtidig udvidelse af skrivekøen (se "Fremtidige
 forbedringer" ovenfor) kræver en ny politikbeslutning, før den påbegyndes.
 
+## Fase 9 – ICS-abonnementskalendere
+
+**Mål:** Et familiemedlem skal kunne tilføje en delt kalender via et ICS-link
+(fx Googles "hemmelige iCal-adresse", Outlooks offentlige kalenderlink, en
+skole- eller idrætskalender) og se dens aftaler i appen, uden at skulle logge
+ind på den konto, kalenderen tilhører. Skrivebeskyttet — appen redigerer
+aldrig i en ICS-kilde.
+
+**Status: Delvist gennemført**
+
+### Gennemført
+
+- [x] D1-migration `0018_ics_calendar_subscriptions.sql`: ny tabel med
+  familyId, url (klartekst, jf. beslutning nedenfor), label,
+  familyMemberId (valgfri), createdByUserId, lastFetchedAt,
+  lastFetchStatus, createdAt.
+- [x] Server-CRUD for abonnementer (`server/routes/familyRoutes/
+  icsSubscriptions.ts`, mountet i `families.ts`): list (alle medlemmer),
+  opret/redigér/slet (kun ejer/admin), med samme cross-family-tjek af
+  `familyMemberId` som `calendarMappings.ts`. Validerer kun URL-skema
+  (http/https) — reel nåbarheds-/SSRF-kontrol hører til den kommende
+  hentnings-rute, hvor der rent faktisk sker et netværkskald.
+- [x] 5-abonnements-loftet håndhæves server-side (409 ved forsøg på et
+  sjette). 11 nye servertests dækker opret/list/redigér/slet, loftet,
+  rolle-tjek og cross-family-isolation. Rent backend — ingen UI eksponerer
+  endnu disse ruter, så ingen ændring i appens brug eller udseende;
+  selv-merget.
+
+### Beslutninger truffet (2026-08-28, Nicolaj)
+
+- URL'en gemmes i klartekst i D1 for v1 — ikke krypteret som Googles
+  OAuth-token. Kan tilføjes senere, hvis en sikkerhedsgennemgang anbefaler
+  det; krypteringshjælperen i `server/lib/tokenEncryption.ts` (AES-GCM) er
+  allerede generisk nok til at genbruge, hvis det bliver aktuelt.
+- Et ICS-abonnement kan tildeles et familiemedlem, ligesom en Google-/
+  Outlook-kalender — vises med medlemmets navn/farve og indgår i personens
+  kolonne i familieplanleggeren, ikke kun som en løsrevet ekstra kilde.
+- En familie kan have højst 5 ICS-abonnementer ad gangen (håndhæves
+  server-side), for at holde UI'et overskueligt og begrænse
+  proxy-udnyttelse.
+
+### Genanvendelige mønstre (fra research forud for denne fase)
+
+- `CalendarProvider`-interfacet kræver ingen ændring — en ny
+  `IcsCalendarProvider` implementerer det som Google/Outlook, med
+  create/update/delete/restore der kaster (samme mønster som
+  `assertWritableSource()` og de eksisterende providers' skrivebeskyttede
+  `restoreEvent()`).
+- `CompositeCalendarProvider` kræver ingen ændring — registreres blot som
+  endnu en `external`-indgang med sin egen `sourceIdPrefix` (fx `"ics:"`).
+- Fase 8's offline-cache-mønster (`googleCalendarSyncCacheStorage.ts`s
+  TTL/friskhed/oversigt) genbruges til selve hentnings-cachen — uden
+  sync-token-halvdelen, som er Google-specifik. Her er cachen den primære
+  friskhedsstrategi (ikke kun et offline-fallback), da et ICS-link ikke har
+  nogen delta-synk-API.
+- Servertets rute-skelet (Hono-underrouter + `.onError()` + `logError`, jf.
+  `server/routes/calendar.ts`/`publicCalendar.ts`) genbruges til den nye
+  proxy-rute.
+- `googleCalendarPrivacy.ts`s koncept — ikke koden — genbruges: ICS'
+  `CLASS`-felt (`PUBLIC`/`PRIVATE`/`CONFIDENTIAL`, RFC 5545 §3.8.1.3) er den
+  direkte pendant til Googles `visibility`. Ikke en stærk garanti på samme
+  niveau som Google/Outlook, da mange offentlige ICS-feeds slet ikke sætter
+  feltet (og dermed reelt er offentlige) — skal kommunikeres tydeligt i
+  UI'et, ikke stilles som en garanti appen ikke kan indfri.
+
+### Ny arbejde (ingen eksisterende kode/mønster at læne sig op ad)
+
+- [ ] Ny server-rute, der proxyer hentningen af en vilkårlig, bruger-angivet
+  URL — **ingen eksisterende kode i repoet gør dette i dag** (Google/Outlook
+  går til faste, kendte endpoints). Kræver reel SSRF-hærdning: kun
+  `https:`, blokér private/loopback/link-local IP-adresser, grænse for
+  svarstørrelse og timeout, begrænset redirect-håndtering.
+- [ ] ICS-tekstparsing — ingen parser i repoet i dag; ny npm-afhængighed
+  (skal være Workers-runtime-kompatibel, dvs. ingen Node-specifikke API'er).
+- [ ] RRULE-udfoldning — appens eget `expandRecurringEvents.ts` har aldrig
+  skullet parse en rå RRULE-streng (Google/Outlook udfolder allerede
+  gentagelser, før data når appen). Sandsynligvis løst via `rrule`-pakken
+  direkte snarere end at udvide den eksisterende motor, da RRULEs
+  funktionsflade er bredere end appens nuværende `RecurrenceRule`-model.
+- [ ] Ny kildetype: `CalendarEventSource`/`CalendarProviderType` skal have en
+  ny værdi (fx `"ics"`) — "apple" er kun delvist forberedt og dækker et
+  andet, CalDAV-baseret scenarie.
+- [ ] UI til at tilføje/redigere/fjerne ICS-abonnementer og tildele dem et
+  familiemedlem (nyt afsnit i Indstillinger, samme sted som Google/Outlook-
+  forbindelser i dag).
+
+### Acceptkriterier
+
+- Et gyldigt ICS-link kan tilføjes, og dets aftaler (inkl. gentagne, via
+  RRULE) vises korrekt i kalenderen inden for få minutter.
+- Et ugyldigt eller utilgængeligt link giver en tydelig fejl, ikke en tavs
+  tom kalender.
+- Serverens proxy kan ikke misbruges til at nå interne/private IP-adresser
+  eller andre Cloudflare-interne ressourcer (SSRF).
+- ICS-kilder er altid skrivebeskyttede i appens UI — intet forsøg på at
+  redigere/slette en ICS-hentet aftale lykkes.
+- En familie kan ikke oprette mere end 5 ICS-abonnementer.
+- Aftaler markeret `CLASS:PRIVATE`/`CONFIDENTIAL` redigeres på samme måde
+  som private Google-/Outlook-aftaler, med en synlig forbeholdstekst om, at
+  garantien afhænger af, om kildekalenderen rent faktisk sætter feltet.
+
+**Næste handling:** Byg den nye server-proxy-rute (SSRF-hærdet hentning af
+en vilkårlig ICS-URL), tilføj en ICS-parser + RRULE-udfoldning, og byg
+`IcsCalendarProvider`. Dette ændrer reel funktion (nye netværkskald,
+ny afhængighed) og skal derfor til gennemgang hos Nicolaj, ikke
+selv-merges. Selve UI'et til at tilføje/administrere abonnementer bliver
+en selvstændig, efterfølgende PR.
+
 ## Prioriteret udførelsesrækkefølge
 
 Arbejdet fortsætter autonomt i denne rækkefølge, med grøn CI efter hver
@@ -619,6 +728,8 @@ afgrænset PR:
    Gennemført — se fase 8 ovenfor.
 8. Afslut Google OAuth-verificering og fysisk enhedstest, og frigiv derefter
    kontrolleret fra `develop` til `main`.
+9. Implementér fase 9's ICS-abonnementskalendere (ny, uafhængig funktion —
+   blokerer ikke øvrige punkter og kan foregå parallelt).
 
 Eksterne handlinger eller reelle produktvalg må ikke blokere uafhængigt
 arbejde; de samles i afsnittet nedenfor og tages til sidst.
@@ -689,3 +800,5 @@ Efter hver fase eller material ændring skal den ansvarlige:
 | 2026-08-28 | Fase 2: Automatisk WCAG 2.0/2.1 A/AA-audit (axe-core) indført; navigationslistens semantik og tre marginale kontrastbrud rettet — synlig farveændring, til gennemgang, ikke selv-merget | PR #134 |
 | 2026-08-28 | Fase 8: Ryddet modstridende tekst om, at offline-skrivning/skrivekøen "endnu ikke er implementeret/påbegyndt" (forældet efter PR #125-#133); flyttet fremtidige udvidelser (offline redigering/sletning, Outlook-fallback) fra "Mangler" til et separat "Fremtidige forbedringer"-afsnit — ren dokumentation, selv-merget efter grøn CI | PR #135 |
 | 2026-08-28 | Fase 3/5: Reel Playwright-E2E for privat-aftale-redaktion (ejer/andet medlem + offentligt delelink), servertests for AI-ugeresumé-redaktion, manglende kalender-kortlægning og cross-family-isolation på familie-omdøbning/invitationsregenerering — ren test/dokumentation, ingen adfærdsændring | PR #137 |
+| 2026-08-28 | Fase 9 oprettet: ICS-abonnementskalendere. Omfang undersøgt (genanvendelige mønstre vs. reelt nyt arbejde) og tre produktbeslutninger truffet af Nicolaj (ingen URL-kryptering i v1, tildeles et familiemedlem, loft på 5 abonnementer pr. familie) — ren planlægning/dokumentation, ingen kode endnu | PR #138 |
+| 2026-08-28 | Fase 9: D1-migration + server-CRUD for ICS-abonnementer (opret/list/redigér/slet, rolle-tjek, cross-family-isolation, 5-loft) — rent backend, ingen UI endnu, ingen ændring i appens brug/udseende, selv-merget | PR #139 |
