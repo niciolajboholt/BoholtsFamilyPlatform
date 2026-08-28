@@ -1,3 +1,4 @@
+import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
 const family = {
@@ -371,6 +372,22 @@ test("primary pages have no visible unnamed controls", async ({ page }, testInfo
     await page.goto(path);
     await expect(page.locator("main")).toBeVisible();
     expect(await getUnnamedInteractiveElements(page), `Kontroller på ${path}`).toEqual([]);
+  }
+});
+
+test("primary pages have no WCAG 2.0/2.1 A/AA accessibility violations", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  test.setTimeout(60_000);
+  await mockAuthenticatedApi(page);
+
+  for (const path of ["/", "/calendar", "/shopping-list", "/tasks", "/settings"]) {
+    await page.goto(path);
+    await expect(page.locator("main")).toBeVisible();
+    const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
+
+    expect(results.violations, JSON.stringify(results.violations, null, 2)).toEqual([]);
   }
 });
 
