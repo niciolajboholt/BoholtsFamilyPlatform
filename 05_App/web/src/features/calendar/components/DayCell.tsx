@@ -242,7 +242,7 @@ function DayCell({
         sx={{
           minHeight: {
             xs: 72,
-            sm: 100,
+            sm: 116,
           },
           height: "100%",
           p: {
@@ -374,13 +374,13 @@ function DayCell({
               mt: 1,
               display: {
                 xs: "none",
-                md: "grid",
+                sm: "grid",
               },
               gap: 0.4,
             }}
           >
             {events
-              .slice(0, 2)
+              .slice(0, 3)
               .map((event) => {
                 const ownerColor = getEventOwnerColor(
                   event,
@@ -402,6 +402,7 @@ function DayCell({
                   <ButtonBase
                     key={event.id}
                     aria-label={getEventActionLabel(event)}
+                    title={`${event.allDay ? "Hele dagen" : formatEventTime(new Date(event.start))} · ${event.title}`}
                     onClick={() => onSelectEvent(event)}
                     sx={{
                       pointerEvents: "auto",
@@ -445,13 +446,18 @@ function DayCell({
                     >
                       <Typography
                         variant="body2"
-                        noWrap
                         sx={{
-                          display: "block",
                           minWidth: 0,
                           flex: 1,
-                          fontSize: "0.875rem",
-                          lineHeight: 1.3,
+                          fontSize: {
+                            sm: "0.72rem",
+                            md: "0.8rem",
+                          },
+                          lineHeight: 1.2,
+                          overflow: "hidden",
+                          display: "-webkit-box",
+                          WebkitBoxOrient: "vertical",
+                          WebkitLineClamp: 2,
                         }}
                       >
                         {!event.allDay && (
@@ -499,12 +505,12 @@ function DayCell({
                 );
               })}
 
-            {events.length > 2 && (
+            {events.length > 3 && (
               <Typography
                 variant="caption"
                 color="text.secondary"
               >
-                +{events.length - 2} flere
+                +{events.length - 3} flere
               </Typography>
             )}
           </Box>

@@ -40,6 +40,13 @@ describe("mapGoogleEventWriteRequest", () => {
     });
   });
 
+  it("writes and clears Google's private visibility explicitly", () => {
+    expect(
+      mapGoogleEventWriteRequest({ ...baseInput, privacy: "busy" }).visibility,
+    ).toBe("private");
+    expect(mapGoogleEventWriteRequest(baseInput).visibility).toBe("default");
+  });
+
   it("sends the exact locally-selected date for a single-day all-day event, with a cleared dateTime (regression test)", () => {
     // Mirrors what NewEventDialog builds for a single-day all-day event:
     // start = local midnight of the selected day, end = local midnight of

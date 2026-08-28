@@ -31,6 +31,7 @@ export interface GoogleCalendarEvent {
   start?: GoogleEventDateTime;
   end?: GoogleEventDateTime;
   recurringEventId?: string;
+  visibility?: string;
 }
 
 // Kun til skrivning (create/update) — "date"/"dateTime"/"timeZone" skal
@@ -49,6 +50,7 @@ export interface GoogleCalendarEventRequest {
   location?: string;
   start: GoogleEventDateTimeWrite;
   end: GoogleEventDateTimeWrite;
+  visibility?: "default" | "private";
 }
 
 export interface GoogleCalendarEventsResponse {

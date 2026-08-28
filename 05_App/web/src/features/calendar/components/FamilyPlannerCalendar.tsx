@@ -13,6 +13,8 @@ import {
   Card,
   CardContent,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 
 import type { CalendarOwner } from "../data/calendarOwners";
@@ -26,6 +28,7 @@ import { expandRecurringEvents } from "../utils/expandRecurringEvents";
 import { findAllCalendarConflicts } from "../utils/findAllCalendarConflicts";
 import { getDayKey, groupEventsByDay } from "../utils/groupEventsByDay";
 import { getIsoWeekNumber } from "../utils/getIsoWeekNumber";
+import { getPlannerEventsForColumn } from "../utils/getPlannerEventsForColumn";
 import {
   buildInitialWindow,
   windowReducer,
@@ -45,7 +48,6 @@ interface FamilyPlannerCalendarProps {
 // Denne visning ruller sammen med hele siden (ikke i en indre boks) for at
 // navne-headeren reelt kan fastfryses mod skærmen, når man ruller.
 const HEADER_ROW_HEIGHT_PX = 44;
-const WEEK_BAND_HEIGHT_PX = 32;
 const DATE_COLUMN_WIDTH_PX = 64;
 const MEMBER_COLUMN_MIN_WIDTH_PX = 128;
 
@@ -115,21 +117,7 @@ function formatEventTime(event: CalendarEvent): string {
 interface PlannerColumn {
   id: string;
   label: string;
-}
-
-function getEventsForColumn(
-  dayEvents: CalendarEvent[],
-  columnId: string,
-): CalendarEvent[] {
-  if (columnId === familyPseudoMemberId) {
-    return dayEvents.filter(
-      (event) =>
-        event.ownerIds.includes(familyPseudoMemberId) ||
-        event.ownerIds.length > 1,
-    );
-  }
-
-  return dayEvents.filter((event) => event.ownerIds.includes(columnId));
+  color: string;
 }
 
 function FamilyPlannerCalendar({
@@ -139,15 +127,25 @@ function FamilyPlannerCalendar({
   members,
   onSelectEvent,
 }: FamilyPlannerCalendarProps) {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const individualMembers = members.filter(
     (member) => member.id !== familyPseudoMemberId,
   );
+  const familyMember = members.find(
+    (member) => member.id === familyPseudoMemberId,
+  );
 
   const columns: PlannerColumn[] = [
-    { id: familyPseudoMemberId, label: "Alle" },
+    {
+      id: familyPseudoMemberId,
+      label: familyMember?.name ?? "Fælles",
+      color: familyMember?.color ?? "#6D597A",
+    },
     ...individualMembers.map((member) => ({
       id: member.id,
       label: member.name,
+      color: member.color,
     })),
   ];
 
@@ -226,13 +224,13 @@ function FamilyPlannerCalendar({
 
     if (row) {
       const stickyOffset =
-        getMeasuredAppBarHeight() + HEADER_ROW_HEIGHT_PX + WEEK_BAND_HEIGHT_PX;
+        getMeasuredAppBarHeight() + (isMobile ? 12 : HEADER_ROW_HEIGHT_PX);
 
       const rowTop = row.getBoundingClientRect().top + window.scrollY;
       window.scrollTo({ top: rowTop - stickyOffset, behavior: "auto" });
       pendingScrollDateRef.current = null;
     }
-  });
+  }, [isMobile, visibleDate, windowRange]);
 
   // Bevarer scroll-positionen, når der udvides bagud (nye rækker sat ind
   // foroven ville ellers rykke den synlige position ned) — kun relevant når
@@ -295,10 +293,219 @@ function FamilyPlannerCalendar({
         // hvilket ville tvinge klæbende elementer herunder til kun at
         // fastfryse inden for selve kortets boks i stedet for mod hele
         // siden, når man ruller — se APP_BAR_HEIGHT_VAR-noten.
-        overflow: "visible",
+        overflow: isMobile ? "hidden" : "visible",
+        backgroundColor: isMobile ? "transparent" : "background.paper",
+        boxShadow: isMobile ? "none" : undefined,
       }}
     >
-      <CardContent sx={{ p: { xs: 1, sm: 1.5 } }}>
+      <CardContent
+        sx={{
+          p: isMobile ? 0 : 1.5,
+          "&:last-child": { pb: isMobile ? 0 : 1.5 },
+        }}
+      >
+        {isMobile ? (
+          <Box sx={{ display: "grid", gap: 1.25, minWidth: 0 }}>
+            <div ref={topSentinelRef} style={{ height: 1 }} />
+
+            {weekBands.map((weekDays) => (
+              <Box
+                component="section"
+                key={weekDays[0].toISOString()}
+                sx={{ display: "grid", gap: 1 }}
+              >
+                <Typography
+                  variant="overline"
+                  sx={{
+                    px: 0.5,
+                    color: "text.secondary",
+                    fontWeight: 800,
+                    letterSpacing: "0.06em",
+                    textTransform: "capitalize",
+                  }}
+                >
+                  {formatWeekBandLabel(weekDays[0])}
+                </Typography>
+
+                {weekDays.map((day) => {
+                  const dayKey = getDayKey(day);
+                  const dayEvents = eventsByDay.get(dayKey) ?? [];
+                  const isToday = isSameDate(day, today);
+                  const populatedColumns = columns
+                    .map((column) => ({
+                      ...column,
+                      events: getPlannerEventsForColumn(dayEvents, column.id),
+                    }))
+                    .filter((column) => column.events.length > 0);
+
+                  return (
+                    <Box
+                      component="article"
+                      key={dayKey}
+                      ref={(element: HTMLDivElement | null) => {
+                        if (element) {
+                          dayRowRefs.current.set(dayKey, element);
+                        } else {
+                          dayRowRefs.current.delete(dayKey);
+                        }
+                      }}
+                      sx={{
+                        minWidth: 0,
+                        overflow: "hidden",
+                        border: "1px solid",
+                        borderColor: isToday ? "primary.main" : "divider",
+                        borderRadius: 2.5,
+                        backgroundColor: "background.paper",
+                        boxShadow: isToday ? "0 5px 18px rgba(28, 74, 57, 0.10)" : "none",
+                      }}
+                    >
+                      <Box
+                        sx={{
+                          display: "flex",
+                          alignItems: "baseline",
+                          justifyContent: "space-between",
+                          gap: 1,
+                          px: 1.5,
+                          py: 1,
+                          backgroundColor: isToday ? "action.selected" : "action.hover",
+                        }}
+                      >
+                        <Typography
+                          variant="subtitle2"
+                          sx={{
+                            minWidth: 0,
+                            fontWeight: 800,
+                            textTransform: "capitalize",
+                            color: isToday ? "primary.main" : "text.primary",
+                          }}
+                        >
+                          {new Intl.DateTimeFormat("da-DK", {
+                            weekday: "long",
+                            day: "numeric",
+                            month: "short",
+                          }).format(day)}
+                        </Typography>
+
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          sx={{ flexShrink: 0 }}
+                        >
+                          {dayEvents.length === 0
+                            ? "Ingen aftaler"
+                            : `${dayEvents.length} ${dayEvents.length === 1 ? "aftale" : "aftaler"}`}
+                        </Typography>
+                      </Box>
+
+                      {populatedColumns.length === 0 ? (
+                        <Typography
+                          variant="body2"
+                          color="text.secondary"
+                          sx={{ px: 1.5, py: 1.25 }}
+                        >
+                          Dagen er fri.
+                        </Typography>
+                      ) : (
+                        <Box sx={{ display: "grid", gap: 1.25, p: 1.25 }}>
+                          {populatedColumns.map((column) => (
+                            <Box key={column.id} sx={{ minWidth: 0 }}>
+                              <Box
+                                sx={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 0.75,
+                                  mb: 0.625,
+                                }}
+                              >
+                                <Box
+                                  aria-hidden="true"
+                                  sx={{
+                                    width: 8,
+                                    height: 8,
+                                    flexShrink: 0,
+                                    borderRadius: "50%",
+                                    backgroundColor: column.color,
+                                  }}
+                                />
+                                <Typography
+                                  variant="caption"
+                                  sx={{ fontWeight: 800, color: "text.secondary" }}
+                                >
+                                  {column.label}
+                                </Typography>
+                              </Box>
+
+                              <Box sx={{ display: "grid", gap: 0.625 }}>
+                                {column.events.map((event) => {
+                                  const ownerColor = getEventOwnerColor(event, members);
+
+                                  return (
+                                    <ButtonBase
+                                      key={`${column.id}::${event.id}`}
+                                      aria-label={getEventActionLabel(event)}
+                                      onClick={() => onSelectEvent(event)}
+                                      sx={{
+                                        display: "grid",
+                                        gridTemplateColumns: "52px minmax(0, 1fr)",
+                                        alignItems: "start",
+                                        gap: 1,
+                                        width: "100%",
+                                        minWidth: 0,
+                                        p: 1,
+                                        borderRadius: 1.75,
+                                        borderLeft: `4px solid ${ownerColor}`,
+                                        backgroundColor: `${ownerColor}12`,
+                                        textAlign: "left",
+                                        "&:focus-visible": {
+                                          outline: "2px solid",
+                                          outlineColor: "primary.main",
+                                          outlineOffset: 1,
+                                        },
+                                      }}
+                                    >
+                                      <Box sx={{ minWidth: 0 }}>
+                                        <Typography
+                                          variant="caption"
+                                          sx={{ display: "block", fontWeight: 800 }}
+                                        >
+                                          {formatEventTime(event)}
+                                        </Typography>
+                                        <EventSourceBadge source={event.source} />
+                                      </Box>
+
+                                      <Box sx={{ minWidth: 0 }}>
+                                        <Typography
+                                          variant="body2"
+                                          sx={{
+                                            fontWeight: 650,
+                                            lineHeight: 1.35,
+                                            overflowWrap: "anywhere",
+                                          }}
+                                        >
+                                          {event.title}
+                                        </Typography>
+                                        <ConflictBadge
+                                          isConflict={conflictEventIds.has(event.id)}
+                                        />
+                                      </Box>
+                                    </ButtonBase>
+                                  );
+                                })}
+                              </Box>
+                            </Box>
+                          ))}
+                        </Box>
+                      )}
+                    </Box>
+                  );
+                })}
+              </Box>
+            ))}
+
+            <div ref={bottomSentinelRef} style={{ height: 1 }} />
+          </Box>
+        ) : (
+          <>
         {/*
           Hele tabellen (header + alle dage) er ÉT delt CSS-grid, ikke ét
           grid pr. række — ellers udregner hver række sine "1fr"-kolonner
@@ -386,11 +593,8 @@ function FamilyPlannerCalendar({
               <Box
                 sx={{
                   gridColumn: "1 / -1",
-                  position: "sticky",
-                  top: `calc(${APP_BAR_HEIGHT_VAR} + ${HEADER_ROW_HEIGHT_PX}px)`,
-                  zIndex: 2,
                   backgroundColor: "action.hover",
-                  minHeight: WEEK_BAND_HEIGHT_PX,
+                  minHeight: 32,
                   px: 1,
                   py: 0.5,
                 }}
@@ -450,7 +654,7 @@ function FamilyPlannerCalendar({
                     </Box>
 
                     {columns.map((column) => {
-                      const columnEvents = getEventsForColumn(
+                      const columnEvents = getPlannerEventsForColumn(
                         dayEvents,
                         column.id,
                       );
@@ -477,6 +681,7 @@ function FamilyPlannerCalendar({
                               <ButtonBase
                                 key={`${column.id}::${event.id}`}
                                 aria-label={getEventActionLabel(event)}
+                                title={`${formatEventTime(event)} · ${event.title}`}
                                 onClick={() => onSelectEvent(event)}
                                 sx={{
                                   display: "flex",
@@ -549,6 +754,8 @@ function FamilyPlannerCalendar({
             style={{ height: 1, gridColumn: "1 / -1" }}
           />
         </Box>
+          </>
+        )}
       </CardContent>
     </Card>
   );

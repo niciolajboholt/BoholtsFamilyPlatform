@@ -14,7 +14,7 @@ interface FamilyMemberJson {
 }
 
 interface CreateFamilyResponse {
-  family: { id: string; name: string; ownerUserId: string };
+  family: { id: string; name: string; ownerUserId: string; aiWeeklySummaryEnabled: number };
   role: string;
   members: FamilyMemberJson[];
   inviteCode: string;
@@ -722,6 +722,57 @@ describe("families routes", () => {
       );
 
       expect(response.status).toBe(403);
+    });
+  });
+
+  describe("PATCH /:id/privacy-settings", () => {
+    it("lets the owner disable the AI weekly summary", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader);
+
+      const response = await families.request(
+        `/${created.family.id}/privacy-settings`,
+        {
+          method: "PATCH",
+          headers: { Cookie: owner.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({ aiWeeklySummaryEnabled: false }),
+        },
+        env,
+      );
+      const family = await env.DB.prepare(
+        "SELECT ai_weekly_summary_enabled AS enabled FROM families WHERE id = ?",
+      ).bind(created.family.id).first<{ enabled: number }>();
+
+      expect(response.status).toBe(200);
+      expect(family?.enabled).toBe(0);
+    });
+
+    it("rejects invalid values and non-members", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const outsider = await seedLoggedInUser(env.DB as never, { id: "outsider" });
+      const created = await createFamily(env, owner.cookieHeader);
+
+      const invalid = await families.request(
+        `/${created.family.id}/privacy-settings`,
+        {
+          method: "PATCH",
+          headers: { Cookie: owner.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({ aiWeeklySummaryEnabled: "yes" }),
+        },
+        env,
+      );
+      const forbidden = await families.request(
+        `/${created.family.id}/privacy-settings`,
+        {
+          method: "PATCH",
+          headers: { Cookie: outsider.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({ aiWeeklySummaryEnabled: false }),
+        },
+        env,
+      );
+
+      expect(invalid.status).toBe(400);
+      expect(forbidden.status).toBe(403);
     });
   });
 

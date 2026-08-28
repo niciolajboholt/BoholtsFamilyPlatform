@@ -24,6 +24,7 @@ export interface OutlookCalendarEvent {
   start?: OutlookEventDateTime;
   end?: OutlookEventDateTime;
   seriesMasterId?: string;
+  sensitivity?: string;
 }
 
 export interface OutlookCalendarEventsResponse {
@@ -38,4 +39,5 @@ export interface OutlookCalendarEventRequest {
   isAllDay?: boolean;
   start: OutlookEventDateTime;
   end: OutlookEventDateTime;
+  sensitivity?: "normal" | "private";
 }

@@ -6,6 +6,7 @@
 import { deserializeVapidKeys, sendPushNotification } from "web-push-browser";
 
 import type { Env } from "../env";
+import { logError } from "./structuredLog";
 
 export interface PushNotificationPayload {
   title: string;
@@ -87,16 +88,15 @@ export async function sendPushNotificationToUser(
           // — en push-tjeneste, der afviser med fx 400/401/413, ville derfor
           // ellers passere helt ubemærket herfra: hverken logget som fejl,
           // eller ryddet op som en udløbet 404/410-subscription.
-          const body = await response.text().catch(() => "");
-          console.error(
-            `Push-notifikation afvist af push-tjenesten (status ${response.status}):`,
-            body,
-          );
+          logError("Push-notifikation afvist af push-tjenesten", undefined, {
+            status: response.status,
+            subscriptionId: row.id,
+          });
         }
       } catch (error: unknown) {
         // Ét devices fejlende push (netværksfejl, ugyldigt endpoint) må
         // ikke afbryde afsendelsen til familiens øvrige devices.
-        console.error("Push-notifikation fejlede:", error);
+        logError("Push-notifikation fejlede", error, { subscriptionId: row.id });
       }
     }),
   );

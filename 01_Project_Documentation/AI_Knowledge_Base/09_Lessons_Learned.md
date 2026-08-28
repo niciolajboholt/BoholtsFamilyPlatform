@@ -2,13 +2,13 @@
 
 > Status: Active
 
-Version: 1.5
+Version: 1.6
 
 Project:
 Boholts Family Platform
 
 Last Updated:
-2026-08-16 (Sprint 22)
+2026-08-27 (stabiliseringsplan)
 
 Owner:
 Nicolaj Bach Boholt
@@ -142,6 +142,16 @@ Sprint 22 afslørede, at produktions-databasen manglede *hele* familie-datamodel
 - **Observation**: Claudes eget D1-forespørgselsværktøj var blokeret ("MCP tool call requires approval") netop i de øjeblikke, hvor en uafhængig verifikation var mest nødvendig — hvilket førte til, at en brugerpåstand blev accepteret og dokumenteret som bekræftet fakta uden selv at kunne tjekkes.
 - **Konsekvens**: To sprints' funktionalitet (kalender-tildeling, indkøbslister) var reelt i stykker i produktion i en periode, uden at nogen opdagede det, fordi dokumentationen sagde "gennemført".
 - **Fremtidig regel**: Skriv aldrig "bekræftet"/"kørt" i et sprint-dokument alene på baggrund af en brugers besked — enten verificér selv via en direkte databaseforespørgsel (`SELECT type, name, sql FROM sqlite_master ...` er den mest pålidelige, da den viser hele det faktiske skema, ikke kun tabelnavne), eller bed eksplicit brugeren om at køre og indsætte resultatet af netop den forespørgsel, og vent med at opdatere dokumentationen til svaret er set. Hvis værktøjet er blokeret, er "afventer uafhængig verifikation" den ærlige status — ikke "bekræftet".
+
+---
+
+## Playwright route-mocks kræver en trailing wildcard, hvis den rigtige URL har en query-streng
+
+En ny Playwright E2E-test (PR #108, "creating a private event...") fejlede konsekvent i CI, selvom den tilsvarende enhedstest og selve app-koden var korrekte. Testen mockede `**/api/calendar/calendars/*/events` og forventede at fange den udgående POST — men Google-skriveendpointet kalder i virkeligheden `.../events?sendUpdates=none`. Playwright's glob-matching kræver et eksakt match til slutningen af URL'en; uden en afsluttende wildcard matcher mønstret aldrig en URL med query-parametre, og requesten falder tavst igennem til den generiske mock i stedet — ingen fejlbesked peger på årsagen, kun en `expect.poll`-timeout på den forkerte linje.
+
+Fundet ved at instrumentere route-handlerne med `console.log` af den fulde URL (ikke kun `pathname`) og først derefter reproducere problemet isoleret uden appens kompleksitet, for at udelukke en registrerings-rækkefølge-fejl, før den faktiske query-streng blev opdaget.
+
+**Erfaring**: Enhver Playwright `page.route()`-mock mod et endepunkt, der kan modtage query-parametre (paginering, `sendUpdates`, `syncToken` osv.), skal have en afsluttende `*` i mønstret (`**/events*`, ikke `**/events`) — ellers matcher mocket kun requests uden parametre, og fejlen viser sig et helt andet sted end den reelle årsag.
 
 ---
 

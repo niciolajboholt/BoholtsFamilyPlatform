@@ -13,6 +13,7 @@ export type RecurrenceExceptionOverride = Partial<
     | "location"
     | "ownerIds"
     | "color"
+    | "privacy"
   >
 >;
 
@@ -74,6 +75,10 @@ function isValidOverride(
   }
 
   if (candidate.color !== undefined && typeof candidate.color !== "string") {
+    return false;
+  }
+
+  if (candidate.privacy !== undefined && candidate.privacy !== "busy") {
     return false;
   }
 

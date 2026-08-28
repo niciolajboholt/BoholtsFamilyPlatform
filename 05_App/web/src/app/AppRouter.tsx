@@ -14,6 +14,7 @@ const ShoppingListPage = lazy(() => import('../pages/ShoppingListPage'))
 const TasksPage = lazy(() => import('../pages/TasksPage'))
 const SettingsPage = lazy(() => import('../pages/SettingsPage'))
 const PublicSharedCalendarPage = lazy(() => import('../pages/PublicSharedCalendarPage'))
+const LegalPage = lazy(() => import('../pages/LegalPage'))
 
 function RouteLoadingFallback() {
   return (
@@ -31,6 +32,8 @@ export function AppRouter() {
           {/* Sprint 26: uden for AppLayout bevidst — /share/:token skal aldrig
               gå gennem login-gaten (AppLayout's useSession-tjek). */}
           <Route path="share/:token" element={<PublicSharedCalendarPage />} />
+          <Route path="privacy" element={<LegalPage kind="privacy" />} />
+          <Route path="terms" element={<LegalPage kind="terms" />} />
 
           <Route element={<AppLayout />}>
             <Route index element={<HomePage />} />

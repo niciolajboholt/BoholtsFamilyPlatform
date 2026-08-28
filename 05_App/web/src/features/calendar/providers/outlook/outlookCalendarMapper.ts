@@ -69,6 +69,10 @@ export function mapOutlookCalendarEvent(
     description: event.bodyPreview,
     location: event.location?.displayName,
     recurrenceMasterId: event.seriesMasterId,
+    privacy:
+      event.sensitivity === "private" || event.sensitivity === "confidential"
+        ? "busy"
+        : undefined,
   };
 }
 

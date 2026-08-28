@@ -1,10 +1,3 @@
-import {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
-
 import AddIcon from "@mui/icons-material/Add";
 import { CloudDoneRounded } from "@mui/icons-material";
 import {
@@ -19,8 +12,6 @@ import {
   Typography,
 } from "@mui/material";
 
-import { useLocation, useNavigate } from "react-router-dom";
-
 import CalendarToolbar from "../features/calendar/components/CalendarToolbar";
 import { CalendarSourceFilter } from "../features/calendar/components/CalendarSourceFilter";
 import DayCalendar from "../features/calendar/components/DayCalendar";
@@ -31,734 +22,67 @@ import FamilyPlannerCalendar from "../features/calendar/components/FamilyPlanner
 import MonthCalendar from "../features/calendar/components/MonthCalendar";
 import NewEventDialog from "../features/calendar/components/NewEventDialog";
 import WeekCalendar from "../features/calendar/components/WeekCalendar";
-import { useCalendarEvents } from "../features/calendar/hooks/useCalendarEvents";
-import { useCalendarSources } from "../features/calendar/hooks/useCalendarSources";
-import { useFamilyId } from "../features/calendar/hooks/useFamilyId";
-import { useFamilyMembers } from "../features/calendar/hooks/useFamilyMembers";
-import { setEventReminder } from "../features/calendar/eventReminders/eventReminderApi";
-import { useGoogleCalendarConnection } from "../features/calendar/hooks/useGoogleCalendarConnection";
-import { useOutlookCalendarConnection } from "../features/calendar/hooks/useOutlookCalendarConnection";
-import { useRecurrenceExceptions } from "../features/calendar/hooks/useRecurrenceExceptions";
-import { useSwipeNavigation } from "../features/calendar/hooks/useSwipeNavigation";
-import type {
-  CalendarEvent,
-} from "../features/calendar/models/calendarEvent";
-import type { CreateCalendarEventInput } from "../features/calendar/models/calendarEventInput";
-import type { CalendarEventRange } from "../features/calendar/models/calendarProvider";
-import type { CalendarView } from "../features/calendar/models/calendarView";
-import { expandRecurringEvents } from "../features/calendar/utils/expandRecurringEvents";
-import { findAllCalendarConflicts } from "../features/calendar/utils/findAllCalendarConflicts";
-import { getEventsForDate } from "../features/calendar/utils/getEventsForDate";
-
-type SnackbarSeverity =
-  | "success"
-  | "error";
-
-interface SnackbarState {
-  open: boolean;
-  severity: SnackbarSeverity;
-  message: string;
-  showUndo: boolean;
-}
-
-function getTodayCalendarDate(): Date {
-  const today = new Date();
-
-  today.setHours(12, 0, 0, 0);
-
-  return today;
-}
-
-function startOfMonth(
-  date: Date,
-): Date {
-  const result = new Date(
-    date.getFullYear(),
-    date.getMonth(),
-    1,
-  );
-
-  result.setHours(12, 0, 0, 0);
-
-  return result;
-}
-
-function changeMonth(
-  date: Date,
-  numberOfMonths: number,
-): Date {
-  const result = new Date(
-    date.getFullYear(),
-    date.getMonth() +
-      numberOfMonths,
-    1,
-  );
-
-  result.setHours(12, 0, 0, 0);
-
-  return result;
-}
-
-function changeWeek(
-  date: Date,
-  numberOfWeeks: number,
-): Date {
-  const result = new Date(date);
-
-  result.setDate(
-    result.getDate() +
-      numberOfWeeks * 7,
-  );
-
-  result.setHours(12, 0, 0, 0);
-
-  return result;
-}
-
-function changeDay(
-  date: Date,
-  numberOfDays: number,
-): Date {
-  const result = new Date(date);
-
-  result.setDate(result.getDate() + numberOfDays);
-  result.setHours(12, 0, 0, 0);
-
-  return result;
-}
-
-// Rundhåndet interval omkring det synlige tidsrum (uge- eller måneds-gitter
-// kan række ~1 uge ind i nabomåneder) — bruges kun til at afgrænse
-// gentagelses-udfoldning, ikke til præcis dag-visning (det gør
-// getEventsForDate/getEventsForWeek stadig nedstrøms). Planlæggeren udregner
-// sit eget, dynamisk voksende interval internt (se FamilyPlannerCalendar) og
-// bruger ikke denne værdi — falder derfor blot igennem til månedens brede
-// standardbuffer nedenfor.
-function getVisibleRange(
-  visibleDate: Date,
-  calendarView: CalendarView,
-): CalendarEventRange {
-  if (calendarView === "week") {
-    const start = new Date(visibleDate);
-    start.setDate(start.getDate() - 7);
-    start.setHours(0, 0, 0, 0);
-
-    const end = new Date(visibleDate);
-    end.setDate(end.getDate() + 14);
-    end.setHours(0, 0, 0, 0);
-
-    return {
-      start: start.toISOString(),
-      end: end.toISOString(),
-    };
-  }
-
-  if (calendarView === "day") {
-    const start = new Date(visibleDate);
-    start.setDate(start.getDate() - 3);
-    start.setHours(0, 0, 0, 0);
-
-    const end = new Date(visibleDate);
-    end.setDate(end.getDate() + 4);
-    end.setHours(0, 0, 0, 0);
-
-    return {
-      start: start.toISOString(),
-      end: end.toISOString(),
-    };
-  }
-
-  const start = new Date(
-    visibleDate.getFullYear(),
-    visibleDate.getMonth(),
-    1,
-  );
-  start.setDate(start.getDate() - 7);
-  start.setHours(0, 0, 0, 0);
-
-  const end = new Date(
-    visibleDate.getFullYear(),
-    visibleDate.getMonth() + 1,
-    1,
-  );
-  end.setDate(end.getDate() + 7);
-  end.setHours(0, 0, 0, 0);
-
-  return {
-    start: start.toISOString(),
-    end: end.toISOString(),
-  };
-}
-
-// Månedsvisningen er svær at læse på en telefon (aftalekortene skal være
-// meget små for at være der) — mobil starter derfor i ugevisning, mens
-// større skærme fortsat starter i månedsvisning.
-function getDefaultCalendarView(): CalendarView {
-  if (typeof window === "undefined") {
-    return "month";
-  }
-
-  return window.innerWidth < 600 ? "week" : "month";
-}
+import { useCalendarPageController } from "../features/calendar/hooks/useCalendarPageController";
 
 function CalendarPage() {
-  const [
+  const {
     selectedDate,
-    setSelectedDate,
-  ] = useState(getTodayCalendarDate);
-
-  const [
     calendarView,
-    setCalendarView,
-  ] =
-    useState<CalendarView>(getDefaultCalendarView);
-
-  const [
     visibleDate,
-    setVisibleDate,
-  ] = useState(() =>
-    calendarView === "month"
-      ? startOfMonth(getTodayCalendarDate())
-      : getTodayCalendarDate(),
-  );
-
-  const location = useLocation();
-  const navigate = useNavigate();
-
-  // Sprint 29: HomePage's "Ny aftale"-genvej navigerer hertil med
-  // state.openNewEventDialog — læses direkte som initial-værdi (ikke
-  // via setState i en effekt) for at undgå en unødvendig ekstra render.
-  const [
     isNewEventDialogOpen,
     setIsNewEventDialogOpen,
-  ] = useState(
-    () => Boolean((location.state as { openNewEventDialog?: boolean } | null)?.openNewEventDialog),
-  );
-
-  // Ryddes med det samme via replace, så et browser-tilbage-klik ikke
-  // åbner dialogen igen.
-  useEffect(() => {
-    if (location.state) {
-      navigate(".", { replace: true, state: null });
-    }
-  }, [location.state, navigate]);
-
-  // Langt tryk på et tomt sted i kalenderen (alle tre visninger) åbner
-  // opret-dialogen forudfyldt med det tryk-ramte tidspunkt, i stedet for
-  // altid "selectedDate" kl. 09:00 — nulstilles ved dialogens luk, så den
-  // almindelige "Ny aftale"-knap fortsat bruger selectedDate som før.
-  const [
     longPressCreateDate,
     setLongPressCreateDate,
-  ] = useState<Date | null>(null);
-
-  function handleLongPressCreate(date: Date) {
-    setLongPressCreateDate(date);
-    setIsNewEventDialogOpen(true);
-  }
-
-  const [
+    handleLongPressCreate,
     selectedEvent,
-    setSelectedEvent,
-  ] =
-    useState<CalendarEvent | null>(
-      null,
-    );
-
-  const [
-    deletedEvent,
-    setDeletedEvent,
-  ] =
-    useState<CalendarEvent | null>(
-      null,
-    );
-
-  const [
     snackbar,
-    setSnackbar,
-  ] = useState<SnackbarState>({
-    open: false,
-    severity: "success",
-    message: "",
-    showUndo: false,
-  });
-
-  const {
     events,
     hasLoadedEvents,
     isLoading,
     isSaving,
     error,
     providerHealth,
-    createEvent,
-    updateEvent,
-    deleteEvent,
-    restoreEvent,
-    refreshEvents,
-  } = useCalendarEvents();
-
-  const {
     calendarSources,
     visibleCalendarSourceIds,
-    isLoading: isLoadingCalendarSources,
-    hasLoadedSources,
-    error: calendarSourcesError,
+    isLoadingCalendarSources,
+    calendarSourcesError,
     toggleCalendarSource,
-    showAll: showAllCalendarSources,
-    refresh: refreshCalendarSources,
-  } = useCalendarSources();
-
-  const { members } = useFamilyMembers();
-
-  // Kun brugt til aftale-påmindelser (Sprint 31) — resten af kalenderen
-  // scopes sig selv via sessionen alene, se useFamilyId's egen kommentar.
-  const familyId = useFamilyId();
-
-  const recurrenceExceptions = useRecurrenceExceptions();
-
-  const {
-    isLoading: isGoogleCalendarStatusLoading,
-    isConnected: isGoogleCalendarConnected,
-  } = useGoogleCalendarConnection();
-
-  const {
-    isConfigured: isOutlookCalendarConfigured,
-    configurationError: outlookCalendarConfigurationError,
-    isConnected: isOutlookCalendarConnected,
-    wasEverConnected: wasOutlookCalendarEverConnected,
-    isAttemptingSilentReconnect: isAttemptingOutlookSilentReconnect,
-  } = useOutlookCalendarConnection();
-
-  const wasGoogleCalendarConnectedRef = useRef(isGoogleCalendarConnected);
-  const wasOutlookCalendarConnectedRef = useRef(isOutlookCalendarConnected);
-
-  useEffect(() => {
-    const wasConnected = wasGoogleCalendarConnectedRef.current;
-    wasGoogleCalendarConnectedRef.current = isGoogleCalendarConnected;
-
-    if (!wasConnected && isGoogleCalendarConnected) {
-      // Covers both a manual connect and Sprint 14's silent reconnect —
-      // either way, the calendar list and events need to catch up now
-      // that Google is reachable.
-      void refreshCalendarSources();
-      void refreshEvents();
-    }
-  }, [isGoogleCalendarConnected, refreshCalendarSources, refreshEvents]);
-
-  useEffect(() => {
-    const wasConnected = wasOutlookCalendarConnectedRef.current;
-    wasOutlookCalendarConnectedRef.current = isOutlookCalendarConnected;
-
-    if (!wasConnected && isOutlookCalendarConnected) {
-      void refreshCalendarSources();
-      void refreshEvents();
-    }
-  }, [isOutlookCalendarConnected, refreshCalendarSources, refreshEvents]);
-
-  // Erstatter det tidligere permanente grønne "Google Kalender er
-  // forbundet"-banner over kalenderen — den gode tilstand fylder nu kun et
-  // lille synkroniseringsikon ved overskriften (se JSX nedenfor), mens
-  // ExternalCalendarConnectionBanner stadig viser fejl/afbrudt-tilstande.
-  const connectedProviderLabels = [
-    isGoogleCalendarConnected &&
-    providerHealth.find((health) => health.providerId === "google")?.status !== "error"
-      ? "Google"
-      : null,
-    isOutlookCalendarConfigured &&
-    isOutlookCalendarConnected &&
-    providerHealth.find((health) => health.providerId === "outlook")?.status !== "error"
-      ? "Outlook"
-      : null,
-  ].filter((label): label is string => Boolean(label));
-
-  const isInitialLoading =
-    isLoading && !hasLoadedEvents;
-  const isInitialSourceLoading =
-    isLoadingCalendarSources && !hasLoadedSources;
-  const isRefreshing =
-    isLoading && hasLoadedEvents;
-
-  const visibleRange = useMemo(
-    () => getVisibleRange(visibleDate, calendarView),
-    [visibleDate, calendarView],
-  );
-
-  const expandedEvents = useMemo(
-    () =>
-      expandRecurringEvents(
-        events,
-        visibleRange,
-        recurrenceExceptions.exceptions,
-      ),
-    [events, visibleRange, recurrenceExceptions.exceptions],
-  );
-
-  const visibleEvents =
-    useMemo(() => {
-      const visibleSourceIds = new Set(visibleCalendarSourceIds);
-
-      return expandedEvents.filter((event) =>
-        visibleSourceIds.has(event.sourceId),
-      );
-    }, [expandedEvents, visibleCalendarSourceIds]);
-
-  // Sprint 26: vedvarende visuel markering af overlappende aftaler direkte i
-  // kalendervisningen — beregnes over det viste sæt (samme grundlag som
-  // eventsForSelectedDate nedenfor), ikke over ALLE hentede aftaler.
-  const conflictEventIds = useMemo(
-    () => findAllCalendarConflicts(visibleEvents),
-    [visibleEvents],
-  );
-
-  // Planlæggeren udfolder selv gentagne aftaler internt over sit eget,
-  // dynamisk voksende rulle-vindue (se FamilyPlannerCalendar) — sourceId er
-  // uændret på tværs af gentagelses-udfoldning, så det er korrekt at filtrere
-  // her på de rå aftaler, i stedet for at afhænge af expandedEvents' faste,
-  // lille synlige interval.
-  const sourceFilteredRawEvents =
-    useMemo(() => {
-      const visibleSourceIds = new Set(visibleCalendarSourceIds);
-
-      return events.filter((event) =>
-        visibleSourceIds.has(event.sourceId),
-      );
-    }, [events, visibleCalendarSourceIds]);
-
-  const eventsForSelectedDate =
-    useMemo(() => {
-      const dateEvents =
-        getEventsForDate(
-          visibleEvents,
-          selectedDate,
-        );
-
-      return dateEvents;
-    }, [
-      visibleEvents,
-      selectedDate,
-    ]);
-
-  function showSnackbar(
-    severity: SnackbarSeverity,
-    message: string,
-    showUndo = false,
-  ) {
-    setSnackbar({
-      open: true,
-      severity,
-      message,
-      showUndo,
-    });
-  }
-
-  function handleCloseSnackbar(
-    _event?: Event | React.SyntheticEvent,
-    reason?: string,
-  ) {
-    if (reason === "clickaway") {
-      return;
-    }
-
-    setSnackbar(
-      (currentSnackbar) => ({
-        ...currentSnackbar,
-        open: false,
-      }),
-    );
-  }
-
-  function handleSelectDate(
-    date: Date,
-  ) {
-    setSelectedDate(date);
-
-    if (
-      calendarView === "month"
-    ) {
-      setVisibleDate(
-        startOfMonth(date),
-      );
-    } else {
-      setVisibleDate(date);
-    }
-  }
-
-  // Ugevisningens dagkort er en agenda-oversigt, for lille til selv at vise
-  // aftalernes fulde detaljer — et tryk på en dag giver derfor mere mening
-  // som "gå til den dags fulde dagvisning" end blot at markere dagen uden at
-  // skifte visning (det sidste er stadig det rigtige for månedsvisningen,
-  // hvor EventList nedenunder allerede viser den valgte dags aftaler).
-  function handleOpenDayFromWeek(
-    date: Date,
-  ) {
-    setSelectedDate(date);
-    setVisibleDate(date);
-    setCalendarView("day");
-  }
-
-  function handlePrevious() {
-    setVisibleDate((currentDate) => {
-      if (calendarView === "month") return changeMonth(currentDate, -1);
-      if (calendarView === "week") return changeWeek(currentDate, -1);
-      if (calendarView === "day") return changeDay(currentDate, -1);
-      return changeMonth(currentDate, -1); // planner: skifter vinduets centrum en måned ad gangen
-    });
-
-    if (calendarView === "week") {
-      setSelectedDate((currentDate) => changeWeek(currentDate, -1));
-    } else if (calendarView === "day") {
-      setSelectedDate((currentDate) => changeDay(currentDate, -1));
-    }
-  }
-
-  function handleNext() {
-    setVisibleDate((currentDate) => {
-      if (calendarView === "month") return changeMonth(currentDate, 1);
-      if (calendarView === "week") return changeWeek(currentDate, 1);
-      if (calendarView === "day") return changeDay(currentDate, 1);
-      return changeMonth(currentDate, 1); // planner: skifter vinduets centrum en måned ad gangen
-    });
-
-    if (calendarView === "week") {
-      setSelectedDate((currentDate) => changeWeek(currentDate, 1));
-    } else if (calendarView === "day") {
-      setSelectedDate((currentDate) => changeDay(currentDate, 1));
-    }
-  }
-
-  // Swipe venstre/højre over selve kalendervisningen genbruger nøjagtig de
-  // samme handlere som </>-knapperne i CalendarToolbar — samme betydning
-  // (venstre = frem, højre = tilbage), bare som gestus i stedet for tryk.
-  const swipeNavigation = useSwipeNavigation({
-    onSwipeLeft: handleNext,
-    onSwipeRight: handlePrevious,
-  });
-
-  function handleToday() {
-    const today = getTodayCalendarDate();
-
-    setSelectedDate(today);
-
-    setVisibleDate(
-      calendarView === "month"
-        ? startOfMonth(today)
-        : today,
-    );
-  }
-
-  function handleChangeView(
-    view: CalendarView,
-  ) {
-    setCalendarView(view);
-
-    setVisibleDate(
-      view === "month"
-        ? startOfMonth(
-            selectedDate,
-          )
-        : selectedDate,
-    );
-  }
-
-  async function handleCreateEvent(
-    input: CreateCalendarEventInput,
-    reminderOffsetMinutes: number | null,
-  ) {
-    try {
-      const createdEvent =
-        await createEvent(input);
-
-      if (reminderOffsetMinutes !== null && familyId) {
-        // Et nyoprettet event har intet id at knytte en påmindelse til, før
-        // createEvent selv er lykkedes (se NewEventDialog) — en fejlet
-        // påmindelse her må ikke vælte selve aftale-oprettelsen, som
-        // allerede er gennemført.
-        setEventReminder(familyId, createdEvent.id, reminderOffsetMinutes).catch(() => undefined);
-      }
-
-      const createdDate =
-        new Date(
-          createdEvent.start,
-        );
-
-      createdDate.setHours(
-        12,
-        0,
-        0,
-        0,
-      );
-
-      setSelectedDate(
-        createdDate,
-      );
-
-      setVisibleDate(
-        calendarView === "month"
-          ? startOfMonth(
-              createdDate,
-            )
-          : createdDate,
-      );
-
-      showSnackbar(
-        "success",
-        "Aftalen blev oprettet.",
-      );
-    } catch {
-      showSnackbar(
-        "error",
-        "Aftalen kunne ikke oprettes.",
-      );
-    }
-  }
-
-  function handleSelectEvent(
-    event: CalendarEvent,
-  ) {
-    setSelectedEvent(event);
-  }
-
-  function handleCloseEditDialog() {
-    setSelectedEvent(null);
-  }
-
-  async function handleUpdateEvent(
-    event: CalendarEvent,
-  ) {
-    try {
-      const updatedEvent =
-        await updateEvent(event);
-
-      const updatedDate =
-        new Date(
-          updatedEvent.start,
-        );
-
-      updatedDate.setHours(
-        12,
-        0,
-        0,
-        0,
-      );
-
-      setSelectedDate(
-        updatedDate,
-      );
-
-      setVisibleDate(
-        calendarView === "month"
-          ? startOfMonth(
-              updatedDate,
-            )
-          : updatedDate,
-      );
-
-      setSelectedEvent(
-        updatedEvent,
-      );
-
-      showSnackbar(
-        "success",
-        "Aftalen blev opdateret.",
-      );
-    } catch (caughtError: unknown) {
-      showSnackbar(
-        "error",
-        caughtError instanceof Error && caughtError.message
-          ? caughtError.message
-          : "Aftalen kunne ikke opdateres.",
-      );
-    }
-  }
-
-  async function handleDeleteEvent(
-    eventId: string,
-  ) {
-    const eventToDelete =
-      events.find(
-        (event) =>
-          event.id === eventId,
-      );
-
-    if (!eventToDelete) {
-      showSnackbar(
-        "error",
-        "Aftalen kunne ikke findes.",
-      );
-
-      return;
-    }
-
-    try {
-      await deleteEvent(eventId);
-
-      setDeletedEvent(
-        eventToDelete,
-      );
-
-      setSelectedEvent(null);
-
-      showSnackbar(
-        "success",
-        "Aftalen blev slettet.",
-        true,
-      );
-    } catch {
-      showSnackbar(
-        "error",
-        "Aftalen kunne ikke slettes.",
-      );
-    }
-  }
-
-  async function handleUndoDelete() {
-    if (!deletedEvent) {
-      return;
-    }
-
-    try {
-      const restoredEvent =
-        await restoreEvent(
-          deletedEvent,
-        );
-
-      const restoredDate =
-        new Date(
-          restoredEvent.start,
-        );
-
-      restoredDate.setHours(
-        12,
-        0,
-        0,
-        0,
-      );
-
-      setSelectedDate(
-        restoredDate,
-      );
-
-      setVisibleDate(
-        calendarView === "month"
-          ? startOfMonth(
-              restoredDate,
-            )
-          : restoredDate,
-      );
-
-      setDeletedEvent(null);
-
-      showSnackbar(
-        "success",
-        "Aftalen blev gendannet.",
-      );
-    } catch {
-      showSnackbar(
-        "error",
-        "Aftalen kunne ikke gendannes.",
-      );
-    }
-  }
+    showAllCalendarSources,
+    refreshCalendarSources,
+    refreshEvents,
+    members,
+    recurrenceExceptions,
+    isGoogleCalendarStatusLoading,
+    isGoogleCalendarConnected,
+    isOutlookCalendarConfigured,
+    outlookCalendarConfigurationError,
+    isOutlookCalendarConnected,
+    wasOutlookCalendarEverConnected,
+    isAttemptingOutlookSilentReconnect,
+    connectedProviderLabels,
+    isInitialLoading,
+    isInitialSourceLoading,
+    isRefreshing,
+    viewerEvents,
+    visibleEvents,
+    conflictEventIds,
+    sourceFilteredRawEvents,
+    eventsForSelectedDate,
+    swipeNavigation,
+    handleCloseSnackbar,
+    handleSelectDate,
+    handleOpenDayFromWeek,
+    handlePrevious,
+    handleNext,
+    handleToday,
+    handleChangeView,
+    handleCreateEvent,
+    handleSelectEvent,
+    handleCloseEditDialog,
+    handleUpdateEvent,
+    handleDeleteEvent,
+    handleUndoDelete,
+  } = useCalendarPageController();
 
   return (
     <Box
@@ -1072,7 +396,7 @@ function CalendarPage() {
       <NewEventDialog
         open={isNewEventDialogOpen}
         initialDate={longPressCreateDate ?? selectedDate}
-        events={events}
+        events={viewerEvents}
         calendarSources={calendarSources}
         members={members}
         isSaving={isSaving}
@@ -1086,7 +410,7 @@ function CalendarPage() {
       <EditEventDialog
         open={selectedEvent !== null}
         event={selectedEvent}
-        events={events}
+        events={viewerEvents}
         calendarSources={calendarSources}
         members={members}
         isSaving={isSaving}

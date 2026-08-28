@@ -68,6 +68,7 @@ function TasksPage() {
     createRoutine,
     removeRoutine,
     suggestRoutine,
+    pendingOfflineChangeCount,
   } = useTasks();
 
   const [viewMode, setViewMode] = useState<ViewMode>("mine");
@@ -152,6 +153,7 @@ function TasksPage() {
 
             <TextField
               size="small"
+              label="Opgave"
               placeholder="Tilføj en opgave…"
               value={newTaskName}
               onChange={(event) => setNewTaskName(event.target.value)}
@@ -161,6 +163,7 @@ function TasksPage() {
             <TextField
               select
               size="small"
+              label="Tildel til"
               value={newTaskAssignee}
               onChange={(event) => setNewTaskAssignee(event.target.value)}
               sx={{ minWidth: 160 }}
@@ -189,6 +192,17 @@ function TasksPage() {
           {error && (
             <Alert severity="error" sx={{ mb: 2 }}>
               {error}
+            </Alert>
+          )}
+
+          {/* Fase 8: viser at ændringer er gemt lokalt, ikke tavst — jf.
+              31_Offline_Data_Policy.md's acceptkriterie om at brugeren
+              tydeligt skal kunne se det. Synkroniseres automatisk igen. */}
+          {pendingOfflineChangeCount > 0 && (
+            <Alert severity="info" sx={{ mb: 2 }}>
+              {pendingOfflineChangeCount === 1
+                ? "1 ændring er gemt lokalt og synkroniseres, når du er online igen."
+                : `${pendingOfflineChangeCount} ændringer er gemt lokalt og synkroniseres, når du er online igen.`}
             </Alert>
           )}
 
@@ -524,6 +538,7 @@ function RoutineCreateDialog({ open, onClose, members, onCreate, onSuggest }: Ro
             <TextField
               fullWidth
               size="small"
+              label="Beskrivelse til AI-forslag"
               placeholder="Fx morgenrutine med tandbørstning, tøj og skoletaske"
               value={aiDescription}
               onChange={(event) => setAiDescription(event.target.value)}
@@ -606,6 +621,7 @@ function RoutineCreateDialog({ open, onClose, members, onCreate, onSuggest }: Ro
               <TextField
                 select
                 size="small"
+                label={`Ikon til opgave ${index + 1}`}
                 value={item.icon}
                 onChange={(event) => updateItem(index, { icon: event.target.value })}
                 sx={{ minWidth: 120 }}
@@ -619,6 +635,7 @@ function RoutineCreateDialog({ open, onClose, members, onCreate, onSuggest }: Ro
 
               <TextField
                 size="small"
+                label={`Opgave ${index + 1}`}
                 placeholder="Navn"
                 value={item.name}
                 onChange={(event) => updateItem(index, { name: event.target.value })}

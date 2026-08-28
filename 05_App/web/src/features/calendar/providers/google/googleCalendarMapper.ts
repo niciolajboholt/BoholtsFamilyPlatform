@@ -67,7 +67,7 @@ export function mapGoogleCalendarEvent(
   // gentagelse (Google udfolder selv serien pga. singleEvents: "true" i
   // GoogleCalendarApi.listEvents) — mappes til recurrenceMasterId, samme
   // felt som lokale udfoldede forekomster bruger (expandRecurringEvents).
-  return { id: encodeGoogleEventId(calendarId, event.id), source: "google", sourceId: encodeGoogleCalendarSourceId(calendarId), title: event.summary || "Google-aftale", start, end, allDay, ownerIds: mappedOwnerId ? [mappedOwnerId] : [], description: event.description, location: event.location, recurrenceMasterId: event.recurringEventId };
+  return { id: encodeGoogleEventId(calendarId, event.id), source: "google", sourceId: encodeGoogleCalendarSourceId(calendarId), title: event.summary || "Google-aftale", start, end, allDay, ownerIds: mappedOwnerId ? [mappedOwnerId] : [], description: event.description, location: event.location, recurrenceMasterId: event.recurringEventId, privacy: event.visibility === "private" || event.visibility === "confidential" ? "busy" : undefined };
 }
 
 export function toLocalMidnightIso(dateOnly: string | undefined): string | undefined {

@@ -7,6 +7,7 @@ import type { Context } from "hono";
 import { Hono } from "hono";
 
 import type { Env } from "../env";
+import { logError } from "../lib/structuredLog";
 import { sendFeedbackNotificationEmail } from "../lib/email";
 import { checkRateLimit } from "../lib/rateLimit";
 import { getSessionUser, type SessionUser } from "../lib/session";
@@ -41,7 +42,7 @@ async function parseJsonBody<T extends object>(
 
 feedback.onError((error, c) => {
   const message = error instanceof Error ? error.message : String(error);
-  console.error("Feedback-API fejlede:", message);
+  logError("Feedback-API fejlede", message, { path: c.req.path });
   return c.json({ error: "Der skete en serverfejl. Prøv igen." }, 500);
 });
 
@@ -120,7 +121,7 @@ feedback.post("/", async (c) => {
       senderName: user.name,
       senderEmail: user.email,
     }).catch((error: unknown) => {
-      console.error("Kunne ikke sende feedback-mail:", error);
+      logError("Kunne ikke sende feedback-mail", error);
     }),
   );
 

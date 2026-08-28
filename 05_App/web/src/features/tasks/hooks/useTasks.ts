@@ -2,6 +2,11 @@ import { useCallback, useEffect, useState } from "react";
 
 import { getMyFamily, type FamilyMemberDto } from "../../family/familyApi";
 import {
+  enqueueTaskToggle,
+  listQueuedTaskToggles,
+  removeQueuedTaskToggle,
+} from "../preferences/offlineTaskQueueStorage";
+import {
   addTask,
   clearDoneTasks,
   createTaskRoutine,
@@ -52,6 +57,9 @@ interface UseTasksResult {
   ) => void;
   removeRoutine: (routineId: string) => void;
   suggestRoutine: (description: string) => Promise<RoutineDraft>;
+  // Fase 8: antal endnu ikke-synkroniserede offline-afkrydsninger — se
+  // 31_Offline_Data_Policy.md.
+  pendingOfflineChangeCount: number;
 }
 
 /**
@@ -67,6 +75,7 @@ export function useTasks(): UseTasksResult {
   const [routines, setRoutines] = useState<TaskRoutineDto[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [pendingOfflineChangeCount, setPendingOfflineChangeCount] = useState(0);
 
   useEffect(() => {
     let isCancelled = false;
@@ -112,6 +121,67 @@ export function useTasks(): UseTasksResult {
     };
   }, [date]);
 
+  // Fase 8: afspiller ventende offline-afkrydsninger, én ad gangen (FIFO).
+  // Et "ikke fundet" (404) betyder opgaven er slettet i mellemtiden — den
+  // ene ændring droppes med en synlig besked, og resten af køen fortsætter
+  // (jf. 31_Offline_Data_Policy.md's konfliktprincip). Enhver anden fejl
+  // betyder formentlig stadig ingen forbindelse — afspilningen stoppes uden
+  // at fjerne de resterende ventende ændringer. Samme mønster som
+  // useShoppingList.ts's flushQueuedOperations.
+  const flushQueuedTaskToggles = useCallback(async (): Promise<void> => {
+    if (!familyId) {
+      return;
+    }
+
+    const queue = listQueuedTaskToggles().filter((operation) => operation.familyId === familyId);
+
+    setPendingOfflineChangeCount(queue.length);
+
+    if (!navigator.onLine || queue.length === 0) {
+      return;
+    }
+
+    for (const operation of queue) {
+      const result = await updateTask(familyId, operation.taskId, { isDone: operation.isDone });
+
+      if (result.ok && result.data.tasks) {
+        removeQueuedTaskToggle(operation.id);
+        setTasksState(result.data.tasks);
+        setPendingOfflineChangeCount((count) => Math.max(0, count - 1));
+        continue;
+      }
+
+      if (result.status === 404) {
+        removeQueuedTaskToggle(operation.id);
+        setPendingOfflineChangeCount((count) => Math.max(0, count - 1));
+        setError("Kunne ikke synkronisere en afkrydsning — opgaven er allerede slettet.");
+        continue;
+      }
+
+      // Formentlig stadig offline — stop og prøv resten igen senere.
+      return;
+    }
+  }, [familyId]);
+
+  useEffect(() => {
+    // flushQueuedTaskToggles synchronously sets pendingOfflineChangeCount
+    // from localStorage before its first await — that's the point (it must
+    // reflect the resolved family right away, not after a network
+    // round-trip) — same accepted pattern as useShoppingList.ts's
+    // flushQueuedOperations call.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void flushQueuedTaskToggles();
+  }, [familyId, flushQueuedTaskToggles]);
+
+  useEffect(() => {
+    function handleOnline() {
+      void flushQueuedTaskToggles();
+    }
+
+    window.addEventListener("online", handleOnline);
+    return () => window.removeEventListener("online", handleOnline);
+  }, [flushQueuedTaskToggles]);
+
   const withTaskMutation = useCallback(
     (action: () => Promise<{ ok: boolean; data: { tasks?: TaskDto[] } }>) => {
       setError(null);
@@ -125,6 +195,32 @@ export function useTasks(): UseTasksResult {
           }
         })
         .catch(() => setError("Handlingen kunne ikke gennemføres. Prøv igen."));
+    },
+    [],
+  );
+
+  // Fase 8: kun af-/tilkrydsning er i første omgang tilladt at køe offline,
+  // jf. 31_Offline_Data_Policy.md — samme begrundelse og mønster som
+  // useShoppingList.ts's withQueueableMutation.
+  const withQueueableTaskMutation = useCallback(
+    (
+      action: () => Promise<{ ok: boolean; data: { tasks?: TaskDto[] } }>,
+      onNetworkFailure: () => void,
+    ) => {
+      setError(null);
+
+      action()
+        .then((result) => {
+          if (result.ok && result.data.tasks) {
+            setTasksState(result.data.tasks);
+          } else {
+            setError("Handlingen kunne ikke gennemføres. Prøv igen.");
+          }
+        })
+        .catch(() => {
+          onNetworkFailure();
+          setPendingOfflineChangeCount((count) => count + 1);
+        });
     },
     [],
   );
@@ -152,9 +248,19 @@ export function useTasks(): UseTasksResult {
         return;
       }
 
-      withTaskMutation(() => updateTask(familyId, taskId, { isDone }));
+      // Optimistisk: brugeren ser afkrydsningen med det samme, uanset om
+      // forbindelsen er der eller ej — opgaven findes allerede lokalt, så
+      // der er ingen midlertidigt-id-forening at bekymre sig om.
+      setTasksState((currentTasks) =>
+        currentTasks.map((task) => (task.id === taskId ? { ...task, isDone: isDone ? 1 : 0 } : task)),
+      );
+
+      withQueueableTaskMutation(
+        () => updateTask(familyId, taskId, { isDone }),
+        () => enqueueTaskToggle({ familyId, taskId, isDone }),
+      );
     },
-    [familyId, withTaskMutation],
+    [familyId, withQueueableTaskMutation],
   );
 
   const renameTask = useCallback(
@@ -307,5 +413,6 @@ export function useTasks(): UseTasksResult {
     createRoutine,
     removeRoutine,
     suggestRoutine,
+    pendingOfflineChangeCount,
   };
 }

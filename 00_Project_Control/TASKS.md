@@ -176,6 +176,18 @@ Se `05_Sprint_History.md` for detaljer pr. sprint.
     beta/produktion — /api/health viser nu status direkte
 [x] Merget til `main` (PR #75-#79)
 
+## Stabiliseringsrunde 2026-08-26
+
+[x] Familieplanlægger: entydig fordeling af fælles/personlige aftaler og ingen kolliderende sticky-ugebånd
+[x] Opgaveformularer og indstillingsrækker: labels og venstrejusteret skanning
+[x] Loginbranding samt offentlige `/privacy`- og `/terms`-sider
+[x] Migration 0017 + serverhåndhævet fravalg af automatisk AI-ugeresumé
+[x] Cloudflare observability, genererede bindingstyper og versionsmetadata i health
+[x] Tydelig offline-status uden at love offline-skrivning
+[x] Playwright-smoke-tests for login/juridiske sider og alle hovedområder på desktop/mobil
+[ ] Kør migration 0017 på beta og produktion (kræver Cloudflare-adgang)
+[ ] Fuldfør Google OAuth-verifikation med de nye juridiske URL'er (kræver Google Cloud Console)
+
 ## Ikke planlagt endnu
 
 [ ] Flere Google-konti pr. familie (kræver egen ADR — se `10_Future_Roadmap.md`)

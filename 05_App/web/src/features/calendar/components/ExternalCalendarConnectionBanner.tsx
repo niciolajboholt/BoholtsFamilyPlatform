@@ -1,6 +1,7 @@
 import { Alert, Button, CircularProgress, Stack, Typography } from "@mui/material";
 
 import type { CalendarProviderHealth } from "../models/calendarProviderHealth";
+import { formatDanishDateTime } from "../utils/formatDanishDateTime";
 
 interface ExternalCalendarConnectionBannerProps {
   providerLabel: string;
@@ -40,28 +41,33 @@ export function ExternalCalendarConnectionBanner({
   }
 
   const hasReadError = health?.status === "error";
+  const staleDataAsOf = health?.staleDataAsOf;
 
   // Den "glade" tilstand (forbundet, ingen fejl) fylder ikke længere en
   // permanent bannerplads over kalenderen — den vises i stedet som et lille
   // synkroniseringsikon ved kalenderoverskriften (se CalendarPage), med den
-  // fulde status stadig tilgængelig under Indstillinger.
-  if (isConnected && !hasReadError) {
+  // fulde status stadig tilgængelig under Indstillinger. En offline-fallback
+  // (Fase 8) er hverken den glade tilstand eller en fejl — brugeren skal se
+  // tydeligt, at data ikke er live.
+  if (isConnected && !hasReadError && !staleDataAsOf) {
     return null;
   }
 
   const message = hasReadError
     ? health.message ?? `${providerLabel} Kalender kunne ikke opdateres. Dine lokale kalendere vises stadig.`
-    : isConnected
-      ? `${providerLabel} Kalender er forbundet. Skrivbare ${providerLabel}-kalendere kan ændres.`
-      : isAttemptingSilentReconnect
-        ? `Genopretter forbindelsen til ${providerLabel} Kalender...`
-        : wasEverConnected
-          ? `${providerLabel} Kalender er ikke forbundet i denne session. Genopret forbindelsen under Indstillinger.`
-          : `Forbind ${providerLabel} Kalender under Indstillinger for at se dine eksterne aftaler.`;
+    : staleDataAsOf
+      ? `${providerLabel} Kalender viser gemte aftaler fra ${formatDanishDateTime(staleDataAsOf)}, da enheden er offline.`
+      : isConnected
+        ? `${providerLabel} Kalender er forbundet. Skrivbare ${providerLabel}-kalendere kan ændres.`
+        : isAttemptingSilentReconnect
+          ? `Genopretter forbindelsen til ${providerLabel} Kalender...`
+          : wasEverConnected
+            ? `${providerLabel} Kalender er ikke forbundet i denne session. Genopret forbindelsen under Indstillinger.`
+            : `Forbind ${providerLabel} Kalender under Indstillinger for at se dine eksterne aftaler.`;
 
   return (
     <Alert
-      severity={hasReadError ? "error" : isConnected ? "success" : "info"}
+      severity={hasReadError ? "error" : staleDataAsOf ? "warning" : isConnected ? "success" : "info"}
       sx={{ mb: 2.5 }}
     >
       <Stack

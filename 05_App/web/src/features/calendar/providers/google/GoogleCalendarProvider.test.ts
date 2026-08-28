@@ -3,7 +3,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { GoogleCalendarEvent, GoogleCalendarListEntry } from "./googleCalendarTypes";
 import type { GoogleCalendarEventsPage } from "./GoogleCalendarApi";
-import { getCachedCalendarSyncState } from "../../preferences/googleCalendarSyncCacheStorage";
+import {
+  getCachedCalendarSyncState,
+  OFFLINE_CACHE_MAX_AGE_MS,
+} from "../../preferences/googleCalendarSyncCacheStorage";
 import { CalendarProviderError } from "../calendarProviderErrors";
 
 const listCalendars = vi.fn<() => Promise<GoogleCalendarListEntry[]>>();
@@ -152,7 +155,7 @@ describe("GoogleCalendarProvider.getEvents (Sprint 25: inkrementel synk)", () =>
     expect(getCachedCalendarSyncState(calendarId)?.syncToken).toBe("token-3");
   });
 
-  it("kaster videre fejl der ikke er syncToken-udløb (fx netværksfejl)", async () => {
+  it("kaster videre fejl der hverken er syncToken-udløb eller en netværksfejl", async () => {
     listEvents.mockResolvedValue({
       events: [googleEvent({ id: "evt-1" })],
       nextSyncToken: "token-1",
@@ -160,8 +163,64 @@ describe("GoogleCalendarProvider.getEvents (Sprint 25: inkrementel synk)", () =>
     const provider = await createProvider();
     await provider.getEvents(range);
 
-    listEvents.mockRejectedValueOnce(new CalendarProviderError("network", "netværksfejl"));
+    listEvents.mockRejectedValueOnce(new CalendarProviderError("authentication", "udløbet login"));
 
-    await expect(provider.getEvents(range)).rejects.toThrow("netværksfejl");
+    await expect(provider.getEvents(range)).rejects.toThrow("udløbet login");
+  });
+
+  describe("Fase 8: offline-fallback ved netværksfejl", () => {
+    it("falder tilbage til den friske cache i stedet for at kaste fejlen videre", async () => {
+      listEvents.mockResolvedValue({
+        events: [googleEvent({ id: "evt-1" })],
+        nextSyncToken: "token-1",
+      });
+      const provider = await createProvider();
+      await provider.getEvents(range);
+
+      listEvents.mockRejectedValueOnce(new CalendarProviderError("network", "netværksfejl"));
+
+      const events = await provider.getEvents(range);
+
+      expect(events).toHaveLength(1);
+      expect(events[0].title).toBe("Tandlæge");
+      expect(provider.getOfflineCacheAsOf()).not.toBeNull();
+    });
+
+    it("returnerer null fra getOfflineCacheAsOf() efter en normal, vellykket hentning", async () => {
+      listEvents.mockResolvedValue({
+        events: [googleEvent({ id: "evt-1" })],
+        nextSyncToken: "token-1",
+      });
+      const provider = await createProvider();
+      await provider.getEvents(range);
+
+      expect(provider.getOfflineCacheAsOf()).toBeNull();
+    });
+
+    it("kaster netværksfejlen videre, hvis intet er cachet endnu", async () => {
+      const provider = await createProvider();
+      listCalendars.mockRejectedValueOnce(new CalendarProviderError("network", "netværksfejl"));
+
+      await expect(provider.getEvents(range)).rejects.toThrow("netværksfejl");
+    });
+
+    it("kaster netværksfejlen videre, hvis den eneste cache er ældre end 7-dages-TTL'en", async () => {
+      listEvents.mockResolvedValue({
+        events: [googleEvent({ id: "evt-1" })],
+        nextSyncToken: "token-1",
+      });
+      const provider = await createProvider();
+      await provider.getEvents(range);
+
+      const staleTime = Date.now() + OFFLINE_CACHE_MAX_AGE_MS + 1000;
+      vi.useFakeTimers();
+      vi.setSystemTime(staleTime);
+
+      listEvents.mockRejectedValueOnce(new CalendarProviderError("network", "netværksfejl"));
+
+      await expect(provider.getEvents(range)).rejects.toThrow("netværksfejl");
+
+      vi.useRealTimers();
+    });
   });
 });

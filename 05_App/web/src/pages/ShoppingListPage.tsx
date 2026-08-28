@@ -4,12 +4,10 @@ import type { FormEvent, SyntheticEvent } from "react";
 import {
   AddRounded,
   AutoAwesomeOutlined,
-  BookmarkAddOutlined,
   BookmarksOutlined,
   DeleteOutlineRounded,
   EditRounded,
   IosShareRounded,
-  LabelOutlined,
   MoreVertRounded,
   ShoppingCartOutlined,
 } from "@mui/icons-material";
@@ -20,7 +18,6 @@ import {
   Button,
   Card,
   CardContent,
-  Checkbox,
   CircularProgress,
   Dialog,
   DialogActions,
@@ -39,53 +36,19 @@ import {
   Typography,
 } from "@mui/material";
 
+import { ItemRow } from "../features/shoppingList/components/ItemRow";
+import { SuggestIngredientsDialog } from "../features/shoppingList/components/SuggestIngredientsDialog";
+import { TemplatesDialog } from "../features/shoppingList/components/TemplatesDialog";
 import { useShoppingList } from "../features/shoppingList/hooks/useShoppingList";
 import {
   shoppingCategoriesByListType,
   shoppingListTypeLabels,
   shoppingListTypes,
-  type IngredientDraftItem,
-  type ShoppingListItemDto,
-  type ShoppingListTemplateDto,
   type ShoppingListType,
 } from "../features/shoppingList/shoppingListApi";
+import { groupItemsByCategory, shareItemsAsText } from "../features/shoppingList/utils/shoppingListPageHelpers";
 
 const newListTabValue = "__new__";
-
-function groupItemsByCategory(
-  items: ShoppingListItemDto[],
-): Map<string, ShoppingListItemDto[]> {
-  const groups = new Map<string, ShoppingListItemDto[]>();
-
-  for (const item of items) {
-    const existing = groups.get(item.category);
-    if (existing) {
-      existing.push(item);
-    } else {
-      groups.set(item.category, [item]);
-    }
-  }
-
-  return groups;
-}
-
-// Web Share API er ikke understøttet overalt (fx desktop Firefox) — falder
-// tilbage til udklipsholderen, så knappen altid gør noget brugbart.
-async function shareItemsAsText(items: ShoppingListItemDto[]): Promise<void> {
-  const text = items
-    .filter((item) => !item.isChecked)
-    .map((item) => `- ${item.name}`)
-    .join("\n");
-
-  const shareText = `Indkøbsliste:\n${text}`;
-
-  if (navigator.share) {
-    await navigator.share({ text: shareText });
-    return;
-  }
-
-  await navigator.clipboard.writeText(shareText);
-}
 
 function ShoppingListPage() {
   const {
@@ -113,6 +76,7 @@ function ShoppingListPage() {
     renameTemplate,
     addTemplateItem,
     deleteTemplateItem,
+    pendingOfflineChangeCount,
   } = useShoppingList();
   const [newItemName, setNewItemName] = useState("");
   const [shareError, setShareError] = useState<string | null>(null);
@@ -346,6 +310,17 @@ function ShoppingListPage() {
             </Alert>
           )}
 
+          {/* Fase 8: viser at ændringer er gemt lokalt, ikke tavst — jf.
+              31_Offline_Data_Policy.md's acceptkriterie om at brugeren
+              tydeligt skal kunne se det. Synkroniseres automatisk igen. */}
+          {pendingOfflineChangeCount > 0 && (
+            <Alert severity="info" sx={{ mb: 2 }}>
+              {pendingOfflineChangeCount === 1
+                ? "1 ændring er gemt lokalt og synkroniseres, når du er online igen."
+                : `${pendingOfflineChangeCount} ændringer er gemt lokalt og synkroniseres, når du er online igen.`}
+            </Alert>
+          )}
+
           {isLoading ? (
             <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
               <CircularProgress size={28} />
@@ -534,543 +509,6 @@ function ShoppingListPage() {
         onAddItem={addTemplateItem}
         onDeleteItem={deleteTemplateItem}
       />
-    </Box>
-  );
-}
-
-interface TemplatesDialogProps {
-  open: boolean;
-  onClose: () => void;
-  templates: ShoppingListTemplateDto[];
-  hasItems: boolean;
-  onSave: (name: string) => Promise<void>;
-  onApply: (templateId: string) => Promise<void>;
-  onDelete: (templateId: string) => Promise<void>;
-  onRename: (templateId: string, name: string) => Promise<void>;
-  onAddItem: (templateId: string, name: string) => Promise<void>;
-  onDeleteItem: (templateId: string, itemId: string) => Promise<void>;
-}
-
-// Mønster efter SuggestIngredientsDialog ovenfor — samme slags
-// "vælg/handling"-dialog, blot med skabelonens FASTE varenavne i stedet for
-// AI-genererede forslag, og uden en afkrydsningsbar udvælgelse (en skabelon
-// tilføjes altid i sin helhed; man kan altid slette enkeltvarer bagefter).
-function TemplatesDialog({
-  open,
-  onClose,
-  templates,
-  hasItems,
-  onSave,
-  onApply,
-  onDelete,
-  onRename,
-  onAddItem,
-  onDeleteItem,
-}: TemplatesDialogProps) {
-  const [isSaveFormOpen, setIsSaveFormOpen] = useState(false);
-  const [newTemplateName, setNewTemplateName] = useState("");
-  const [isSaving, setIsSaving] = useState(false);
-  const [applyingTemplateId, setApplyingTemplateId] = useState<string | null>(null);
-  const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  function handleClose(): void {
-    setIsSaveFormOpen(false);
-    setNewTemplateName("");
-    setEditingTemplateId(null);
-    setError(null);
-    onClose();
-  }
-
-  function handleSave(): void {
-    if (!newTemplateName.trim()) {
-      return;
-    }
-
-    setIsSaving(true);
-    setError(null);
-
-    onSave(newTemplateName)
-      .then(() => {
-        setIsSaveFormOpen(false);
-        setNewTemplateName("");
-      })
-      .catch(() => setError("Skabelonen kunne ikke gemmes."))
-      .finally(() => setIsSaving(false));
-  }
-
-  function handleApply(templateId: string): void {
-    setApplyingTemplateId(templateId);
-    setError(null);
-
-    onApply(templateId)
-      .catch(() => setError("Varerne kunne ikke tilføjes."))
-      .finally(() => setApplyingTemplateId(null));
-  }
-
-  return (
-    <Dialog open={open} onClose={handleClose} fullWidth maxWidth="xs">
-      <DialogTitle>Skabeloner</DialogTitle>
-
-      <DialogContent sx={{ display: "grid", gap: 2 }}>
-        {error && <Alert severity="error">{error}</Alert>}
-
-        {templates.length === 0 ? (
-          <Typography color="text.secondary">
-            Ingen skabeloner endnu — gem den nuværende liste som en, hvis du ofte handler de samme
-            varer.
-          </Typography>
-        ) : (
-          <Box>
-            {templates.map((template) => (
-              <TemplateRow
-                key={template.id}
-                template={template}
-                isEditing={editingTemplateId === template.id}
-                isApplying={applyingTemplateId === template.id}
-                onToggleEditing={() =>
-                  setEditingTemplateId((current) => (current === template.id ? null : template.id))
-                }
-                onApply={() => handleApply(template.id)}
-                onDelete={() => void onDelete(template.id)}
-                onRename={(name) => onRename(template.id, name)}
-                onAddItem={(name) => onAddItem(template.id, name)}
-                onDeleteItem={(itemId) => onDeleteItem(template.id, itemId)}
-              />
-            ))}
-          </Box>
-        )}
-
-        <Divider />
-
-        {isSaveFormOpen ? (
-          <Box sx={{ display: "flex", gap: 1 }}>
-            <TextField
-              autoFocus
-              fullWidth
-              size="small"
-              placeholder="Navn på skabelon"
-              value={newTemplateName}
-              onChange={(event) => setNewTemplateName(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  handleSave();
-                }
-              }}
-            />
-            <Button
-              variant="outlined"
-              onClick={handleSave}
-              disabled={!newTemplateName.trim() || isSaving}
-            >
-              Gem
-            </Button>
-          </Box>
-        ) : (
-          <Button
-            startIcon={<BookmarkAddOutlined />}
-            onClick={() => setIsSaveFormOpen(true)}
-            disabled={!hasItems}
-            sx={{ justifySelf: "flex-start" }}
-          >
-            Gem nuværende liste som skabelon
-          </Button>
-        )}
-      </DialogContent>
-
-      <DialogActions>
-        <Button onClick={handleClose}>Luk</Button>
-      </DialogActions>
-    </Dialog>
-  );
-}
-
-interface TemplateRowProps {
-  template: ShoppingListTemplateDto;
-  isEditing: boolean;
-  isApplying: boolean;
-  onToggleEditing: () => void;
-  onApply: () => void;
-  onDelete: () => void;
-  onRename: (name: string) => Promise<void>;
-  onAddItem: (name: string) => Promise<void>;
-  onDeleteItem: (itemId: string) => Promise<void>;
-}
-
-// Udtrukket til sin egen komponent, så navne-udkastet og
-// "tilføj vare"-feltet kan have deres egen lokale tilstand pr. skabelon,
-// uden at det lækker til søskende-rækkerne (samme begrundelse som fx
-// WeekDayCard i kalenderen — hooks kan ikke ligge direkte i et .map()).
-function TemplateRow({
-  template,
-  isEditing,
-  isApplying,
-  onToggleEditing,
-  onApply,
-  onDelete,
-  onRename,
-  onAddItem,
-  onDeleteItem,
-}: TemplateRowProps) {
-  const [nameDraft, setNameDraft] = useState(template.name);
-  const [newItemName, setNewItemName] = useState("");
-
-  function commitRename(): void {
-    const trimmed = nameDraft.trim();
-    if (trimmed && trimmed !== template.name) {
-      void onRename(trimmed);
-    } else {
-      setNameDraft(template.name);
-    }
-  }
-
-  function handleAddItem(): void {
-    if (!newItemName.trim()) {
-      return;
-    }
-
-    void onAddItem(newItemName);
-    setNewItemName("");
-  }
-
-  return (
-    <Box sx={{ py: 0.5 }}>
-      <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-        <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-          <Typography noWrap>{template.name}</Typography>
-          <Typography variant="caption" color="text.secondary">
-            {template.items.length} {template.items.length === 1 ? "vare" : "varer"}
-          </Typography>
-        </Box>
-
-        <Button size="small" onClick={onApply} disabled={isApplying}>
-          Tilføj
-        </Button>
-
-        <IconButton
-          aria-label={`Rediger skabelonen ${template.name}`}
-          size="small"
-          onClick={onToggleEditing}
-        >
-          <EditRounded fontSize="small" />
-        </IconButton>
-
-        <IconButton aria-label={`Slet skabelonen ${template.name}`} size="small" onClick={onDelete}>
-          <DeleteOutlineRounded fontSize="small" />
-        </IconButton>
-      </Box>
-
-      {isEditing && (
-        <Box sx={{ pl: 1, pt: 1, display: "flex", flexDirection: "column", gap: 1 }}>
-          <TextField
-            size="small"
-            label="Navn"
-            value={nameDraft}
-            onChange={(event) => setNameDraft(event.target.value)}
-            onBlur={commitRename}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                event.currentTarget.blur();
-              }
-            }}
-          />
-
-          {template.items.map((item) => (
-            <Box key={item.id} sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-              <Typography sx={{ flexGrow: 1 }}>{item.name}</Typography>
-              <IconButton
-                aria-label={`Fjern ${item.name} fra skabelonen`}
-                size="small"
-                onClick={() => void onDeleteItem(item.id)}
-              >
-                <DeleteOutlineRounded fontSize="small" />
-              </IconButton>
-            </Box>
-          ))}
-
-          <Box sx={{ display: "flex", gap: 1 }}>
-            <TextField
-              size="small"
-              fullWidth
-              placeholder="Tilføj en vare til skabelonen…"
-              value={newItemName}
-              onChange={(event) => setNewItemName(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  handleAddItem();
-                }
-              }}
-            />
-            <Button size="small" variant="outlined" onClick={handleAddItem} disabled={!newItemName.trim()}>
-              Tilføj
-            </Button>
-          </Box>
-        </Box>
-      )}
-
-      <Divider sx={{ mt: 1 }} />
-    </Box>
-  );
-}
-
-interface SuggestIngredientsDialogProps {
-  open: boolean;
-  onClose: () => void;
-  onSuggest: (dish: string) => Promise<IngredientDraftItem[]>;
-  onAddSelected: (itemNames: string[]) => Promise<void>;
-}
-
-function SuggestIngredientsDialog({
-  open,
-  onClose,
-  onSuggest,
-  onAddSelected,
-}: SuggestIngredientsDialogProps) {
-  const [dish, setDish] = useState("");
-  const [suggestions, setSuggestions] = useState<IngredientDraftItem[] | null>(null);
-  const [selectedNames, setSelectedNames] = useState<Set<string>>(new Set());
-  const [isLoading, setIsLoading] = useState(false);
-  const [isAdding, setIsAdding] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  function reset(): void {
-    setDish("");
-    setSuggestions(null);
-    setSelectedNames(new Set());
-    setError(null);
-  }
-
-  function handleClose(): void {
-    reset();
-    onClose();
-  }
-
-  function handleSuggest(): void {
-    if (!dish.trim()) {
-      return;
-    }
-
-    setIsLoading(true);
-    setError(null);
-
-    onSuggest(dish)
-      .then((items) => {
-        setSuggestions(items);
-        setSelectedNames(new Set(items.map((item) => item.name)));
-      })
-      .catch((suggestError: unknown) => {
-        const message =
-          suggestError instanceof Error ? suggestError.message : "Kunne ikke generere et forslag.";
-        setError(message);
-      })
-      .finally(() => setIsLoading(false));
-  }
-
-  function toggleSelected(name: string): void {
-    setSelectedNames((previous) => {
-      const next = new Set(previous);
-      if (next.has(name)) {
-        next.delete(name);
-      } else {
-        next.add(name);
-      }
-      return next;
-    });
-  }
-
-  function handleAddSelected(): void {
-    setIsAdding(true);
-
-    onAddSelected(Array.from(selectedNames))
-      .then(() => {
-        reset();
-        onClose();
-      })
-      .finally(() => setIsAdding(false));
-  }
-
-  return (
-    <Dialog open={open} onClose={handleClose} fullWidth maxWidth="xs">
-      <DialogTitle>Foreslå varer ud fra en ret</DialogTitle>
-
-      <DialogContent sx={{ display: "grid", gap: 2 }}>
-        <Box sx={{ display: "flex", gap: 1 }}>
-          <TextField
-            autoFocus
-            fullWidth
-            size="small"
-            placeholder="Fx spaghetti bolognese"
-            value={dish}
-            onChange={(event) => setDish(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                handleSuggest();
-              }
-            }}
-          />
-          <Button variant="outlined" onClick={handleSuggest} disabled={!dish.trim() || isLoading}>
-            Foreslå
-          </Button>
-        </Box>
-
-        {isLoading && (
-          <Box sx={{ display: "flex", justifyContent: "center", py: 2 }}>
-            <CircularProgress size={24} />
-          </Box>
-        )}
-
-        {error && <Alert severity="error">{error}</Alert>}
-
-        {suggestions && suggestions.length > 0 && (
-          <Box>
-            {suggestions.map((item) => (
-              <Box key={item.name} sx={{ display: "flex", alignItems: "center" }}>
-                <Checkbox
-                  checked={selectedNames.has(item.name)}
-                  onChange={() => toggleSelected(item.name)}
-                />
-                <Typography sx={{ flexGrow: 1 }}>{item.name}</Typography>
-                <Typography variant="caption" color="text.secondary">
-                  {item.category}
-                </Typography>
-              </Box>
-            ))}
-          </Box>
-        )}
-
-        {suggestions && suggestions.length === 0 && (
-          <Typography color="text.secondary">Intet forslag denne gang — prøv at omformulere.</Typography>
-        )}
-      </DialogContent>
-
-      <DialogActions>
-        <Button onClick={handleClose}>Annuller</Button>
-        <Button
-          variant="contained"
-          onClick={handleAddSelected}
-          disabled={!suggestions || selectedNames.size === 0 || isAdding}
-        >
-          Tilføj valgte
-        </Button>
-      </DialogActions>
-    </Dialog>
-  );
-}
-
-interface ItemRowProps {
-  item: ShoppingListItemDto;
-  categories: readonly string[];
-  onToggleChecked: (itemId: string, isChecked: boolean) => void;
-  onChangeCategory?: (itemId: string, category: string) => void;
-  onRename: (itemId: string, name: string) => void;
-  onDelete: (itemId: string) => void;
-}
-
-function ItemRow({
-  item,
-  categories,
-  onToggleChecked,
-  onChangeCategory,
-  onRename,
-  onDelete,
-}: ItemRowProps) {
-  const [categoryMenuAnchor, setCategoryMenuAnchor] = useState<HTMLElement | null>(null);
-  const [isEditingName, setIsEditingName] = useState(false);
-  const [nameDraft, setNameDraft] = useState(item.name);
-
-  function startEditingName(): void {
-    setNameDraft(item.name);
-    setIsEditingName(true);
-  }
-
-  function commitNameEdit(): void {
-    setIsEditingName(false);
-
-    if (!nameDraft.trim() || nameDraft.trim() === item.name) {
-      return;
-    }
-
-    onRename(item.id, nameDraft);
-  }
-
-  return (
-    <Box
-      sx={{
-        display: "flex",
-        alignItems: "center",
-        gap: 0.5,
-        opacity: item.isChecked ? 0.5 : 1,
-      }}
-    >
-      <Checkbox
-        checked={Boolean(item.isChecked)}
-        onChange={(event) => onToggleChecked(item.id, event.target.checked)}
-      />
-
-      {isEditingName ? (
-        <TextField
-          autoFocus
-          size="small"
-          fullWidth
-          value={nameDraft}
-          onChange={(event) => setNameDraft(event.target.value)}
-          onBlur={commitNameEdit}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") {
-              event.currentTarget.blur();
-            } else if (event.key === "Escape") {
-              setIsEditingName(false);
-            }
-          }}
-          sx={{ flexGrow: 1 }}
-        />
-      ) : (
-        <Typography
-          onClick={startEditingName}
-          sx={{
-            flexGrow: 1,
-            cursor: "pointer",
-            textDecoration: item.isChecked ? "line-through" : "none",
-          }}
-        >
-          {item.name}
-        </Typography>
-      )}
-
-      {onChangeCategory && categories.length > 0 && (
-        <>
-          <IconButton
-            aria-label={`Skift kategori for ${item.name}`}
-            size="small"
-            onClick={(event) => setCategoryMenuAnchor(event.currentTarget)}
-          >
-            <LabelOutlined fontSize="small" />
-          </IconButton>
-
-          <Menu
-            anchorEl={categoryMenuAnchor}
-            open={Boolean(categoryMenuAnchor)}
-            onClose={() => setCategoryMenuAnchor(null)}
-          >
-            {categories.map((category) => (
-              <MenuItem
-                key={category}
-                selected={category === item.category}
-                onClick={() => {
-                  setCategoryMenuAnchor(null);
-                  onChangeCategory(item.id, category);
-                }}
-              >
-                {category}
-              </MenuItem>
-            ))}
-          </Menu>
-        </>
-      )}
-
-      <IconButton aria-label={`Fjern ${item.name}`} size="small" onClick={() => onDelete(item.id)}>
-        <DeleteOutlineRounded fontSize="small" />
-      </IconButton>
     </Box>
   );
 }

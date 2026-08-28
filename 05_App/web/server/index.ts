@@ -84,7 +84,12 @@ app.get("/api/health", async (c) => {
     const row = await c.env.DB.prepare("SELECT 1 AS ok").first<{ ok: number }>();
     const migrations = await checkSchema(c.env.DB);
 
-    return c.json({ status: "ok", db: row?.ok === 1, migrations });
+    return c.json({
+      status: "ok",
+      db: row?.ok === 1,
+      migrations,
+      version: c.env.CF_VERSION_METADATA,
+    });
   } catch {
     return c.json({ status: "error", db: false }, 500);
   }

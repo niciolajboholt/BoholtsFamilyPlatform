@@ -1,0 +1,53 @@
+import { Hono } from "hono";
+
+import type { Env } from "../../env";
+import { getMembershipForFamily } from "../../lib/familyMembership";
+import { parseJsonBody, type Variables } from "./familyQueries";
+
+const familySettings = new Hono<{ Bindings: Env; Variables: Variables }>();
+
+// Nyeste gemte AI-ugeresumé (Sprint 28) — genereret ugentligt af
+// server/lib/weeklySummary.ts's Cron Trigger, ikke on-demand her.
+familySettings.get("/:id/weekly-summary", async (c) => {
+  const user = c.get("user");
+  const familyId = c.req.param("id");
+  const membership = await getMembershipForFamily(c.env.DB, familyId, user.id);
+
+  if (!membership) {
+    return c.json({ error: "Ikke medlem af denne familie." }, 403);
+  }
+
+  const summary = await c.env.DB.prepare(
+    `SELECT week_start AS weekStart, content, created_at AS createdAt
+     FROM family_weekly_summaries WHERE family_id = ? ORDER BY week_start DESC LIMIT 1`,
+  )
+    .bind(familyId)
+    .first<{ weekStart: string; content: string; createdAt: string }>();
+
+  return c.json({ summary: summary ?? null });
+});
+
+// Privatlivsvalg for automatisk AI-behandling — ejer/admin, da indstillingen
+// gælder hele familiens kalender-, opgave- og indkøbsdata.
+familySettings.patch("/:id/privacy-settings", async (c) => {
+  const user = c.get("user");
+  const familyId = c.req.param("id");
+  const membership = await getMembershipForFamily(c.env.DB, familyId, user.id);
+
+  if (!membership || (membership.role !== "owner" && membership.role !== "admin")) {
+    return c.json({ error: "Kun ejer eller admin kan ændre familiens privatlivsvalg." }, 403);
+  }
+
+  const body = await parseJsonBody<{ aiWeeklySummaryEnabled: boolean }>(c);
+  if (typeof body.aiWeeklySummaryEnabled !== "boolean") {
+    return c.json({ error: "AI-indstillingen skal være sand eller falsk." }, 400);
+  }
+
+  await c.env.DB.prepare("UPDATE families SET ai_weekly_summary_enabled = ? WHERE id = ?")
+    .bind(body.aiWeeklySummaryEnabled ? 1 : 0, familyId)
+    .run();
+
+  return c.json({ aiWeeklySummaryEnabled: body.aiWeeklySummaryEnabled });
+});
+
+export default familySettings;

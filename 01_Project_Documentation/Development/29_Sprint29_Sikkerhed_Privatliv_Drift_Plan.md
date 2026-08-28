@@ -1,14 +1,15 @@
 # 29_Sprint29_Sikkerhed_Privatliv_Drift_Plan
 
-> Status: Afventer godkendelse
+> Status: Gennemført
 
-Version: 1.0
+Version: 1.1
 
 Project:
 Boholts Family Platform
 
 Last Updated:
-2026-08-20
+2026-08-27 (status rettet — planen blev godkendt og gennemført
+2026-08-20, men dokumentet viste stadig "Afventer godkendelse")
 
 Owner:
 Nicolaj Bach Boholt
@@ -188,3 +189,14 @@ dette sprint.
 
 Intet arbejde påbegyndes, før Nicolaj har godkendt denne plan — herunder
 specifikt beslutningerne ovenfor. Godkend ved at sige til i chatten.
+
+**Godkendt og gennemført 2026-08-20**, i rækkefølgen beskrevet ovenfor:
+
+| Rækkefølge | Indhold | PR |
+|---|---|---|
+| 1 | Delelinks: titel/tid som standard | [#75](https://github.com/niciolajboholt/BoholtsFamilyPlatform/pull/75) |
+| 2 | Fuldstændig logout-oprydning | [#76](https://github.com/niciolajboholt/BoholtsFamilyPlatform/pull/76) |
+| 3 | `/api/health` udvidet med migrations-synlighed | [#77](https://github.com/niciolajboholt/BoholtsFamilyPlatform/pull/77) |
+| 4 | Misbrugsbegrænsning (AI, push-endpoint, delelinks) | [#78](https://github.com/niciolajboholt/BoholtsFamilyPlatform/pull/78) |
+| 5 | Seks mindre fejl | [#79](https://github.com/niciolajboholt/BoholtsFamilyPlatform/pull/79) |
+| 6 | Dokumentationssynkronisering | [#80](https://github.com/niciolajboholt/BoholtsFamilyPlatform/pull/80) |

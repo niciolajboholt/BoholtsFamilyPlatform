@@ -8,6 +8,7 @@ import type {
 import type { CalendarProviderHealth } from "../models/calendarProviderHealth";
 import type { CalendarProvider } from "./CalendarProvider";
 import { CalendarProviderError } from "./calendarProviderErrors";
+import { deduplicateCalendarEvents } from "../utils/deduplicateCalendarEvents";
 
 export interface ExternalCalendarProvider {
   providerId: CalendarProviderType;
@@ -77,9 +78,11 @@ export class CompositeCalendarProvider
       this.external.map(async (entry) => {
         try {
           const events = await entry.provider.getEvents(range);
+          const staleDataAsOf = entry.provider.getOfflineCacheAsOf?.() ?? undefined;
           this.setProviderHealth(entry.providerId, {
             providerId: entry.providerId,
             status: "ready",
+            staleDataAsOf,
           });
           return events;
         } catch (error: unknown) {
@@ -89,7 +92,7 @@ export class CompositeCalendarProvider
       }),
     );
 
-    return externalResults.flat();
+    return deduplicateCalendarEvents(externalResults.flat());
   }
 
   createEvent(

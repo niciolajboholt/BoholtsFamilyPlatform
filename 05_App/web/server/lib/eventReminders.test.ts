@@ -131,6 +131,37 @@ describe("sendDueEventReminders", () => {
     expect(sendPushNotificationToFamilyMock).not.toHaveBeenCalled();
   });
 
+  it("never includes a private event title in a reminder push", async () => {
+    const env = createFakeEnv();
+    await seedFamily(env);
+    const eventId = encodeGoogleEventId(calendarId, "private-event");
+    await insertReminder(env, { eventId, offsetMinutes: 20 });
+
+    fetchMock.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          id: "private-event",
+          visibility: "private",
+          summary: "Fortrolig behandling",
+          start: { dateTime: "2026-09-16T10:22:00.000Z" },
+        }),
+        { status: 200 },
+      ),
+    );
+
+    await sendDueEventReminders(env, now);
+
+    expect(sendPushNotificationToFamilyMock).toHaveBeenCalledWith(
+      env,
+      "family-1",
+      "",
+      expect.objectContaining({ body: "En privat aftale er om 20 minutter." }),
+    );
+    expect(JSON.stringify(sendPushNotificationToFamilyMock.mock.calls)).not.toContain(
+      "Fortrolig behandling",
+    );
+  });
+
   it("does not re-send for an occurrence already recorded", async () => {
     const env = createFakeEnv();
     await seedFamily(env);

@@ -153,9 +153,12 @@ export async function sendWeeklySummaries(env: Env, now: Date = new Date()): Pro
   const weekStart = computeUpcomingWeekStart(today);
   const weekEnd = addDays(weekStart, 6);
 
-  const { results: families } = await env.DB.prepare("SELECT id, owner_user_id AS ownerUserId FROM families").all<
-    FamilyRow
-  >();
+  // Filtrér før dataindsamling: et fravalg må ikke blot springe AI-kaldet
+  // over, efter kalender-, opgave- og indkøbsdata er blevet læst.
+  const { results: families } = await env.DB.prepare(
+    `SELECT id, owner_user_id AS ownerUserId FROM families
+     WHERE ai_weekly_summary_enabled = 1`,
+  ).all<FamilyRow>();
 
   for (const family of families) {
     try {
@@ -176,7 +179,10 @@ export async function sendWeeklySummaries(env: Env, now: Date = new Date()): Pro
       const content = await generateWeeklySummary(env, { events, openTasks, shoppingItems });
 
       if (!content) {
-        console.error(`Kunne ikke generere ugeresumé for familie ${family.id} — springer over.`);
+        console.error(JSON.stringify({
+          message: "Kunne ikke generere ugeresumé",
+          familyId: family.id,
+        }));
         continue;
       }
 
@@ -194,7 +200,11 @@ export async function sendWeeklySummaries(env: Env, now: Date = new Date()): Pro
         url: "/",
       });
     } catch (error: unknown) {
-      console.error(`Ugeresumé fejlede for familie ${family.id}:`, error);
+      console.error(JSON.stringify({
+        message: "Ugeresumé fejlede",
+        familyId: family.id,
+        error: error instanceof Error ? error.message : String(error),
+      }));
     }
   }
 }

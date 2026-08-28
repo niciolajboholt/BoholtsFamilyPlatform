@@ -37,6 +37,7 @@ import {
 import { getMyFamily } from "../features/family/familyApi";
 import { syncFamilyMembersFromServer } from "../features/family/familyMembersSync";
 import LoginPage from "../pages/LoginPage";
+import { OfflineStatusBanner } from "../components/OfflineStatusBanner";
 
 interface NavItem {
   path: string;
@@ -295,6 +296,8 @@ function AppLayout() {
           </Box>
         </Toolbar>
       </AppBar>
+
+      <OfflineStatusBanner />
 
       <Box sx={{ display: "flex" }}>
         {/* Desktop/tablet: fast venstremenu i stedet for den flydende

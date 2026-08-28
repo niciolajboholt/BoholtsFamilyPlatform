@@ -10,9 +10,11 @@
 // flyttet siden).
 
 import type { Env } from "../env";
+import { logError } from "./structuredLog";
 import { GoogleNotConnectedError, getGoogleAccessToken } from "./googleConnection";
 import { decodeGoogleEventId } from "./googleEventIds";
 import { sendPushNotificationToFamily } from "./pushNotifications";
+import { isPrivateGoogleEvent } from "./googleCalendarPrivacy";
 
 const googleCalendarApiBaseUrl = "https://www.googleapis.com/calendar/v3";
 
@@ -27,6 +29,7 @@ interface GoogleCalendarEvent {
   status?: string;
   start?: GoogleEventDateTime;
   recurrence?: string[];
+  visibility?: string;
 }
 
 interface GoogleCalendarEventsResponse {
@@ -167,6 +170,7 @@ async function processReminder(
     return;
   }
 
+  const isPrivate = isPrivateGoogleEvent(occurrence) || isPrivateGoogleEvent(event);
   const title = occurrence.summary || event.summary || "Aftale";
 
   // Ingen handlende bruger at undtage for en tidsbaseret, system-udløst
@@ -174,7 +178,9 @@ async function processReminder(
   // weeklySummary.ts.
   await sendPushNotificationToFamily(env, reminder.familyId, "", {
     title: "Påmindelse",
-    body: `"${title}" er om ${formatOffsetLabel(reminder.offsetMinutes)}.`,
+    body: isPrivate
+      ? `En privat aftale er om ${formatOffsetLabel(reminder.offsetMinutes)}.`
+      : `"${title}" er om ${formatOffsetLabel(reminder.offsetMinutes)}.`,
     url: "/calendar",
   });
 
@@ -229,7 +235,7 @@ export async function sendDueEventReminders(env: Env, now: Date = new Date()): P
         continue;
       }
 
-      console.error(`Aftale-påmindelser fejlede for familie ${familyId}:`, error);
+      logError("Aftale-påmindelser fejlede", error, { familyId });
     }
   }
 }

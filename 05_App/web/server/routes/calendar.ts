@@ -11,6 +11,8 @@ import type { Context } from "hono";
 import { Hono } from "hono";
 
 import type { Env } from "../env";
+import { logError } from "../lib/structuredLog";
+import { isPrivateGoogleEvent } from "../lib/googleCalendarPrivacy";
 import { GoogleNotConnectedError, getGoogleAccessToken } from "../lib/googleConnection";
 import { sendPushNotificationToFamily } from "../lib/pushNotifications";
 import { getSessionUser, type SessionUser } from "../lib/session";
@@ -24,7 +26,7 @@ const googleCalendarApiBaseUrl = "https://www.googleapis.com/calendar/v3";
 
 calendar.onError((error, c) => {
   const message = error instanceof Error ? error.message : String(error);
-  console.error("Kalender-API fejlede:", message);
+  logError("Kalender-API fejlede", message, { path: c.req.path });
   return c.json({ error: "Der skete en serverfejl. Prøv igen." }, 500);
 });
 
@@ -135,19 +137,24 @@ function notifyFamilyOfCalendarChange(
       });
     })
     .catch((error: unknown) => {
-      console.error("Kunne ikke sende kalender-push-notifikation:", error);
+      logError("Kunne ikke sende kalender-push-notifikation", error);
     });
 
   c.executionCtx.waitUntil(task);
 }
 
-async function readEventSummary(response: Response): Promise<string | undefined> {
+async function readEventNotificationDetails(
+  response: Response,
+): Promise<{ summary?: string; isPrivate: boolean }> {
   const event = await response
     .clone()
-    .json<{ summary?: string }>()
+    .json<{ summary?: string; visibility?: string }>()
     .catch(() => undefined);
 
-  return event?.summary;
+  return {
+    summary: isPrivateGoogleEvent(event) ? undefined : event?.summary,
+    isPrivate: isPrivateGoogleEvent(event),
+  };
 }
 
 calendar.get("/calendars", (c) => proxyToGoogle(c, "GET", "/users/me/calendarList"));
@@ -160,11 +167,15 @@ calendar.post("/calendars/:calendarId/events", async (c) => {
   const response = await proxyToGoogle(c, "POST", `${calendarPath(c)}/events`);
 
   if (response.ok) {
-    const summary = await readEventSummary(response);
+    const { summary, isPrivate } = await readEventNotificationDetails(response);
     notifyFamilyOfCalendarChange(
       c,
       "Ny aftale",
-      summary ? `"${summary}" er tilføjet til kalenderen.` : "En ny aftale er tilføjet til kalenderen.",
+      summary
+        ? `"${summary}" er tilføjet til kalenderen.`
+        : isPrivate
+          ? "En privat aftale er tilføjet til kalenderen."
+          : "En ny aftale er tilføjet til kalenderen.",
     );
   }
 
@@ -179,11 +190,15 @@ calendar.patch("/calendars/:calendarId/events/:eventId", async (c) => {
   );
 
   if (response.ok) {
-    const summary = await readEventSummary(response);
+    const { summary, isPrivate } = await readEventNotificationDetails(response);
     notifyFamilyOfCalendarChange(
       c,
       "Aftale ændret",
-      summary ? `"${summary}" er blevet opdateret.` : "En aftale er blevet opdateret.",
+      summary
+        ? `"${summary}" er blevet opdateret.`
+        : isPrivate
+          ? "En privat aftale er blevet opdateret."
+          : "En aftale er blevet opdateret.",
     );
   }
 
@@ -203,11 +218,15 @@ calendar.post("/calendars/:calendarId/events/:eventId/move", async (c) => {
   );
 
   if (response.ok) {
-    const summary = await readEventSummary(response);
+    const { summary, isPrivate } = await readEventNotificationDetails(response);
     notifyFamilyOfCalendarChange(
       c,
       "Aftale flyttet",
-      summary ? `"${summary}" er flyttet til en anden kalender.` : "En aftale er flyttet til en anden kalender.",
+      summary
+        ? `"${summary}" er flyttet til en anden kalender.`
+        : isPrivate
+          ? "En privat aftale er flyttet til en anden kalender."
+          : "En aftale er flyttet til en anden kalender.",
     );
   }
 

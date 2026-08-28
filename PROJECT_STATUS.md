@@ -1,17 +1,26 @@
 # Projektstatus
 
-Senest opdateret: 2026-08-20
+Senest opdateret: 2026-08-27
+
+> Den autoritative fase-for-fase-plan og levende status findes i
+> [`30_Stabilization_Execution_Plan.md`](01_Project_Documentation/Development/30_Stabilization_Execution_Plan.md).
 
 ## Aktuel fase
 
-Sprint 23-29 er gennemført og merget til `main`. Sprint 25 (kalender-sync),
+Sprint 23-29 er gennemført på den hidtidige produktionslinje. En samlet
+stabiliseringsrunde er nu merget til `develop` via PR #102 og #103 med
+kalender-UX, tilgængelighed,
+AI-fravalg, juridiske sider, versionssporbarhed, offline-status og Playwright-
+smoke-tests. Betaen kører den kvalitetssikrede `develop`-linje, og migration
+0017 er anvendt. Sprint 25 (kalender-sync),
 26 (konfliktmarkering + delelink) og 27 (tidsbaserede påmindelser) er alle
 bekræftet virkende af Nicolaj på beta. Sprint 27's bekræftelse afdækkede
 endnu et lag af den samme rodårsag som tidligere: "Min profil"-koblingen
 blev kun oprettet ved et *nyt* valg, ikke ved almindelig genindlæsning af
 appen — rettet (PR #81), bekræftet virkende samme dag. Sprint 28
 (AI-ugeresumé) mangler stadig sin manuelle funktionelle test af et rigtigt
-ugentligt cron-tick. Ingen aktiv sprint lige nu.
+ugentligt cron-tick. Den aktive stabiliseringsplan fortsætter nu gennem otte
+faser; se det autoritative plandokument ovenfor.
 
 ## Leveret
 
@@ -71,16 +80,17 @@ ugentligt cron-tick. Ingen aktiv sprint lige nu.
   rate-limiting på AI-ruter/push-abonnement/delelinks, sikkerhedsheaders
   (CSP m.fl.), JSON-404 for ukendte API-stier, og en global React Error
   Boundary.
-- Vitest-testpakke (357 tests) + GitHub Actions-CI.
+- Vitest-testpakke (439 tests) + Playwright-smoke-tests + GitHub Actions-CI.
 
 ## Kvalitetsstatus
 
-`develop` og `main` er ens t.o.m. Sprint 29:
+Seneste validerede `develop`-linje består:
 
 - `npm run lint`
 - `npm run build`
-- `npm test` (357 tests)
-- Grøn GitHub Actions-CI og Cloudflare Workers Build (produktion + beta)
+- `npm test` (439 tests)
+- `npm run test:e2e` (desktop + mobil Chromium)
+- Grøn GitHub Actions-CI og kvalitetssikret beta-deploy
 
 Verificeret manuelt af Nicolaj og Christine på beta og produktion, inkl.
 push-notifikation leveret på tværs af to iPhones, indkøbsliste-flowet
@@ -88,8 +98,16 @@ ende-til-ende, og opgave-/AI-modulet.
 
 ## Næste skridt
 
-Migration 0012 og 0013 er kørt og verificeret på beta (2026-08-20, direkte
-i D1-konsollen). Sprint 28's ugeresumé mangler sin manuelle funktionelle
-test af et rigtigt ugentligt cron-tick (Nicolaj, tidsgated — næste søndag).
-Ellers ingen aktiv sprint. Flere Google-konti pr. familie og en fysisk
-VoiceOver-test forbliver ikke planlagt (se `10_Future_Roadmap.md`).
+Migration 0012 og 0013 er kørt og verificeret på beta. D1-migrationsregisteret
+er baselinet for 0002-0016, og migration 0017 (AI-privatlivsvalg) er kørt og
+verificeret på beta. Kalenderens stabile deduplikering og læsbare måned/uge-UX
+(Fase 1) er leveret. Fase 6 (refaktorering) er gennemført: de syv største
+side- og rutefiler (`CalendarPage.tsx`, `ShoppingListPage.tsx`,
+`SettingsPage.tsx`, `EditEventDialog.tsx`, `families.ts`, `shoppingLists.ts`,
+`tasks.ts`) er alle opdelt efter ansvar uden adfærdsændring. `main` og
+`develop` er nu beskyttede branches (PR + grøn CI påkrævet før merge). Den
+aktive fase-for-fase-status og næste konkrete handling findes udelukkende i
+den levende stabiliseringsplan ovenfor — den opdateres hyppigere end dette
+dokument og bør altid foretrækkes ved tvivl. Resterende eksterne handlinger —
+Cloudflare dobbelt deploy og Google OAuth-verificering — samt fysisk
+VoiceOver-test er samlet dér og må ikke blokere øvrigt arbejde.

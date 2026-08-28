@@ -6,6 +6,7 @@
 
 import type { Env } from "../env";
 import { getGoogleAccessToken } from "./googleConnection";
+import { getSafeGoogleEventDetails } from "./googleCalendarPrivacy";
 
 const googleCalendarApiBaseUrl = "https://www.googleapis.com/calendar/v3";
 
@@ -22,6 +23,7 @@ interface GoogleCalendarEvent {
   status?: string;
   start?: GoogleEventDateTime;
   end?: GoogleEventDateTime;
+  visibility?: string;
 }
 
 interface GoogleCalendarEventsResponse {
@@ -63,13 +65,15 @@ function mapEvent(
     return null;
   }
 
+  const safeDetails = getSafeGoogleEventDetails(event);
+
   return {
-    title: event.summary || "Aftale",
+    title: safeDetails.title,
     start,
     end,
     allDay,
-    description: event.description,
-    location: event.location,
+    description: safeDetails.description,
+    location: safeDetails.location,
     memberName,
     memberColor,
   };

@@ -45,5 +45,102 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Check Cloudflare binding types
+        run: npm run worker:types:check
+
       - name: Test
         run: npm test
+
+      - name: Install browser for end-to-end tests
+        run: npx playwright install --with-deps chromium
+
+      - name: End-to-end smoke tests
+        run: npm run test:e2e
+
+  deploy-beta:
+    name: Migrate and deploy beta
+    needs: quality
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: 05_App/web
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24.15.0
+          cache: npm
+          cache-dependency-path: 05_App/web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify Cloudflare credentials
+        run: |
+          test -n "$CLOUDFLARE_API_TOKEN"
+          test -n "$CLOUDFLARE_ACCOUNT_ID"
+
+      - name: Record D1 restore point
+        run: npx wrangler d1 time-travel info DB --env beta --json
+
+      # Betaens skema blev historisk oprettet med manuelle D1-kommandoer,
+      # før Wrangler-migrationsregistret blev taget i brug. Health-tjekket
+      # bekræfter, at 0002-0016 allerede findes; registrér dem derfor
+      # idempotent, så Wrangler kun anvender reelt nye migrationer.
+      - name: Baseline legacy beta migrations
+        run: |
+          npx wrangler d1 execute DB --env beta --remote --command "
+            INSERT OR IGNORE INTO d1_migrations (name) VALUES
+              ('0002_auth.sql'),
+              ('0003_families.sql'),
+              ('0004_calendar_member_mappings.sql'),
+              ('0005_push_subscriptions.sql'),
+              ('0006_shopping_lists.sql'),
+              ('0007_shopping_list_types.sql'),
+              ('0008_tasks.sql'),
+              ('0009_rate_limits.sql'),
+              ('0010_family_share_links.sql'),
+              ('0011_task_reminders.sql'),
+              ('0012_weekly_summaries.sql'),
+              ('0013_share_link_field_toggles.sql'),
+              ('0014_feedback.sql'),
+              ('0015_shopping_list_templates.sql'),
+              ('0016_event_reminders.sql');
+          "
+
+      - name: Apply beta D1 migrations
+        run: npx wrangler d1 migrations apply DB --env beta --remote
+
+      - name: Build production assets
+        run: npm run build
+
+      - name: Deploy beta Worker
+        run: npx wrangler deploy --env beta
+
+      - name: Verify live beta health
+        env:
+          HEALTH_URL: https://boholtsfamilyplatform-beta.nicolajbach12.workers.dev/api/health
+        run: |
+          for attempt in {1..12}; do
+            response="$(curl --fail --silent --show-error "$HEALTH_URL" || true)"
+            if HEALTH_JSON="$response" node -e '
+              const health = JSON.parse(process.env.HEALTH_JSON || "{}");
+              if (health.status !== "ok" || health.db !== true || health.migrations?.ok !== true) {
+                process.exit(1);
+              }
+              console.log(`Beta healthy; version ${health.version?.id ?? "unknown"}`);
+            '; then
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "Beta health check failed after 12 attempts."
+          exit 1

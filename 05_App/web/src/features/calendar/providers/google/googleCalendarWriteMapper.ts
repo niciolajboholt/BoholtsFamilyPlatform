@@ -5,7 +5,7 @@ import type { GoogleCalendarEventRequest } from "./googleCalendarTypes";
 
 type WritableEvent = Pick<
   CalendarEvent,
-  "title" | "start" | "end" | "allDay" | "description" | "location"
+  "title" | "start" | "end" | "allDay" | "description" | "location" | "privacy"
 >;
 
 export function mapGoogleEventWriteRequest(
@@ -34,6 +34,7 @@ export function mapGoogleEventWriteRequest(
   // felt via PATCH.
   const request: GoogleCalendarEventRequest = {
     summary: event.title.trim(),
+    visibility: event.privacy === "busy" ? "private" : "default",
     start: event.allDay
       ? { date: toCalendarDate(start), dateTime: null, timeZone: null }
       : { dateTime: start.toISOString(), timeZone: "Europe/Copenhagen", date: null },

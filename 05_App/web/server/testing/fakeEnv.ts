@@ -39,6 +39,11 @@ export function createFakeEnv(overrides: Partial<Env> = {}): Env {
     // test, der glemmer at stubbe det, fejler tydeligt i stedet for at
     // ramme et rigtigt netværkskald.
     AI: { run: async () => ({ choices: [] }) } as unknown as Env["AI"],
+    CF_VERSION_METADATA: {
+      id: "test-version-id",
+      tag: "test",
+      timestamp: "2026-08-26T00:00:00.000Z",
+    },
     ...overrides,
   };
 }
