@@ -37,7 +37,7 @@ verifikation.
 |---:|---|---|---|
 | 1 | Kalenderens UI og dubletter | Delvist gennemført | Manuel iPhone-verifikation og eventuel kildespecifik dubletanalyse |
 | 2 | Tilgængelighed og visuelt polish | Delvist gennemført | Fysisk VoiceOver-test (ekstern) |
-| 3 | Privatliv og AI | Delvist gennemført | E2E for redigering af privat aftale + Workers AI-datadokumentation |
+| 3 | Privatliv og AI | Delvist gennemført | Kalenderniveau-privatlivsvalg og sikre standardværdier (produktbeslutning) |
 | 4 | Login, branding og OAuth | Delvist gennemført | Google-verificering og scope-gennemgang |
 | 5 | Browserbaserede brugerflowtests | Delvist gennemført | Kalenderaftale-CRUD + fuldt invitations-/rolle-UI-flow |
 | 6 | Refaktorering | Gennemført | — |
@@ -234,6 +234,22 @@ bevidst valg.
 - [x] Eksplicit servertest for den sikre standard, når et familiemedlem slet
   ikke har en kalender-kortlægning: intet vises for vedkommende (ikke en
   gættet fallback).
+- [x] Reel Playwright-E2E af selve REDIGERINGS-flowet af en privat aftale
+  (ikke kun læsning/visning, som allerede var dækket): (1) et almindeligt
+  feltskift på en eksisterende privat aftale bevarer `visibility: "private"`
+  i det faktiske skrivekald til Google, og (2) at slå
+  "Privat aftale"-kontakten fra og gemme sender rent faktisk
+  `visibility: "default"` — ikke kun en lokal UI-opdatering. Ingen fejl
+  fundet, ren test.
+- [x] Præcis dokumentation af hvilke felter Workers AI modtager, og
+  databehandlingens levetid: `32_Workers_AI_Data_Policy.md` — kodeverificeret
+  gennemgang af alle tre AI-brugssteder (rutine-/ingrediensforslag,
+  ugeresumé), hvilke konkrete felter der sendes/aldrig sendes, bekræftelse
+  af at kaldet går uden om AI Gateway (dennes logging-adfærd er derfor
+  irrelevant), og at fejlhåndteringen aldrig logger selve prompten. Selve
+  Cloudflares infrastruktur-interne opbevaringsperiode kan ikke bekræftes
+  med en autoritativ kilde herfra — flaget som ekstern verifikation, samme
+  kategori som Fase 4's Google-gennemgang.
 
 ### Mangler
 
@@ -241,11 +257,6 @@ bevidst valg.
   implementeret som “Privat / vis kun optaget”.
 - [ ] Definér privatlivssikre standardværdier for nye familier og nye
   delinger.
-- [ ] Tilføj E2E for selve REDIGERING af en privat aftale (adgangskontrol og
-  flerfamilie-isolation for læsning/visning er nu dækket, se ovenfor —
-  redigerings-flowet specifikt er stadig udækket).
-- [ ] Dokumentér præcist hvilke felter Workers AI modtager, og hvor længe de
-  behandles.
 
 ### Acceptkriterier
 
@@ -254,8 +265,10 @@ bevidst valg.
 - AI-resumé kan fravælges og modtager aldrig private felter.
 - Offentlige links viser mindst mulige data som standard.
 
-**Næste handling:** Tilføj E2E for selve redigerings-flowet af en privat
-aftale, og dokumentér præcist Workers AI-feltgrundlag og datalevetid.
+**Næste handling:** Overvej et separat privatlivsvalg på kalenderniveau og
+privatlivssikre standardværdier for nye familier/delinger — begge er
+produktbeslutninger, ikke rene implementeringsopgaver, og bør lægges frem
+for Nicolaj, når fasen tages op igen.
 
 ## Fase 4 – Login, branding og OAuth-klargøring
 
@@ -855,4 +868,5 @@ Efter hver fase eller material ændring skal den ansvarlige:
 | 2026-08-28 | Fase 9: UI i Indstillinger til at tilføje/fjerne delte ICS-kalendere og tildele dem et familiemedlem — synlig ny funktion, godkendt visuelt af Nicolaj ud fra skærmbilleder før commit. Viser endnu ikke aftalerne i selve kalenderen (kræver klient-provider-integrationen, se Fase 9 "Ny arbejde") | PR #140 |
 | 2026-08-28 | Fase 9: Klient-integration (`IcsCalendarProvider` registreret i `CompositeCalendarProvider`, ny `"ics"`-kildetype, primær friskheds-cache) — tilføjede delte kalendere vises nu i selve kalenderen. ICS-panelet flyttet ind i den eksisterende "Kalenderforbindelser"-dialog i stedet for sin egen, efter ønske fra Nicolaj. Fase 9 gennemført. Synlig ny funktion — til gennemgang, ikke selv-merget | PR #141 |
 | 2026-08-28 | Fase 2: Automatiseret tastatur-/fokusgennemgang som faste Playwright-tests (venstremenuens fulde Tab-rækkefølge på alle fem hovedsider + en Indstillinger-dialogs fokusfælde/Escape-genoprettelse) — ingen fejl fundet, ren test, ingen adfærdsændring, selv-merget efter grøn CI | PR #142 |
+| 2026-08-28 | Fase 3: Reel Playwright-E2E for selve redigerings-flowet af en privat aftale (feltskift bevarer `visibility: "private"`; at slå privatliv fra sender rent faktisk `visibility: "default"`) + `32_Workers_AI_Data_Policy.md` (kodeverificeret gennemgang af alle tre AI-brugssteder, felter sendt/aldrig sendt, fejlhåndtering logger ikke prompten) — ren test/dokumentation, ingen adfærdsændring, selv-merget efter grøn CI | PR #143 |
 | 2026-08-28 | Fase 9: "Delte kalendere (ICS)" fik sin egen række + dedikeret dialog i "Kalenderforbindelser" (samme niveau som Google/Outlook, efter ønske fra Nicolaj), og hvert abonnements navn/medlemstildeling kan nu redigeres (ikke selve ICS-linket) — genbruger eksisterende PATCH-rute/klientfunktion, ingen ny backend. Godkendt visuelt af Nicolaj ud fra skærmbilleder. Synlig ny funktion — til gennemgang, ikke selv-merget | PR #144 |
