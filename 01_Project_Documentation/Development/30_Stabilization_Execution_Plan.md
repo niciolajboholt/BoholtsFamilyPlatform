@@ -640,4 +640,5 @@ Efter hver fase eller material ændring skal den ansvarlige:
 | 2026-08-27 | Fase 8: Read-only offline-kalendervisning (Google, 7-dages-TTL, synlig "sidst opdateret") — godkendt og merget af Nicolaj efter gennemgang | PR #125 |
 | 2026-08-27 | Fase 8: Skrivekø til indkøbslistens tilføj/af-tilkryds vare, med reel Playwright-offline-test — godkendt og merget af Nicolaj efter gennemgang | PR #127 |
 | 2026-08-27 | Fase 8: Skrivekø til opgavers af-/tilkrydsning, med reel Playwright-offline-test — godkendt og merget af Nicolaj efter gennemgang | PR #129 |
-| 2026-08-28 | Fase 8: Skrivekø til indkøbslistens "ryd afkrydsede" (sidste punkt fra politikkens skriveliste), med reel Playwright-offline-test — åben til Nicolajs gennemgang, ikke selv-merget | PR #132 (open) |
+| 2026-08-28 | Fase 8: Skrivekø til indkøbslistens "ryd afkrydsede" (sidste punkt fra politikkens skriveliste), med reel Playwright-offline-test — godkendt og merget af Nicolaj efter gennemgang | PR #132 |
+| 2026-08-28 | Fase 8: Playwright-offline-test for kalendervisnings-fallbacket (PR #125) — ren test, ingen adfærdsændring, selv-merget. Fase 8 gennemført | PR #133 |
