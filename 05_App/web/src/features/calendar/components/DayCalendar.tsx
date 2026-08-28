@@ -10,7 +10,7 @@ import {
 } from "@mui/material";
 
 import type { CalendarOwner } from "../data/calendarOwners";
-import { getEventOwnerColor } from "../utils/getEventOwnerColor";
+import { getEventOwnerBorderSx, getEventOwnerColors } from "../utils/getEventOwnerColor";
 import { useLongPress } from "../hooks/useLongPress";
 import type { CalendarEvent } from "../models/calendarEvent";
 import { getEventsForDate } from "../utils/getEventsForDate";
@@ -168,7 +168,8 @@ function DayCalendar({
 
             <Box sx={{ display: "grid", gap: 0.75 }}>
               {allDayEvents.map((event) => {
-                const ownerColor = getEventOwnerColor(event, members);
+                const ownerColors = getEventOwnerColors(event, members);
+                const ownerColor = ownerColors[0];
 
                 return (
                   <ButtonBase
@@ -180,7 +181,7 @@ function DayCalendar({
                       minWidth: 0,
                       p: 0.75,
                       borderRadius: 1,
-                      borderLeft: `4px solid ${ownerColor}`,
+                      ...getEventOwnerBorderSx(ownerColors, 4),
                       backgroundColor: `${ownerColor}30`,
 
                       "&:hover": {
@@ -299,10 +300,11 @@ function DayCalendar({
               }}
             >
               {layoutEntries.map((entry) => {
-                const ownerColor = getEventOwnerColor(
+                const ownerColors = getEventOwnerColors(
                   entry.event,
                   members,
                 );
+                const ownerColor = ownerColors[0];
                 const gapPx = 1;
 
                 return (
@@ -328,7 +330,7 @@ function DayCalendar({
                       p: 0.5,
                       overflow: "hidden",
                       borderRadius: 1,
-                      borderLeft: `3px solid ${ownerColor}`,
+                      ...getEventOwnerBorderSx(ownerColors, 3),
                       backgroundColor: `${ownerColor}30`,
                       textAlign: "left",
 

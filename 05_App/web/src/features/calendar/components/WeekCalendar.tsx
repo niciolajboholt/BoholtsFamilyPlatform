@@ -9,7 +9,7 @@ import {
 } from "@mui/material";
 
 import type { CalendarOwner } from "../data/calendarOwners";
-import { getEventOwnerColor } from "../utils/getEventOwnerColor";
+import { getEventOwnerBorderSx, getEventOwnerColors } from "../utils/getEventOwnerColor";
 import { useLongPress } from "../hooks/useLongPress";
 import type {
   CalendarEvent,
@@ -96,7 +96,8 @@ function EventCard({
   isConflict,
   onSelectEvent,
 }: EventCardProps) {
-  const ownerColor = getEventOwnerColor(event, members);
+  const ownerColors = getEventOwnerColors(event, members);
+  const ownerColor = ownerColors[0];
 
   return (
     <ButtonBase
@@ -110,7 +111,7 @@ function EventCard({
         minWidth: 0,
         p: 0.75,
         borderRadius: 1,
-        borderLeft: `4px solid ${ownerColor}`,
+        ...getEventOwnerBorderSx(ownerColors, 4),
         backgroundColor: `${ownerColor}30`,
         cursor: "pointer",
 

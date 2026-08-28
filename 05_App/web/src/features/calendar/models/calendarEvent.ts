@@ -174,6 +174,15 @@ export interface CalendarEvent {
   source: CalendarEventSource;
   sourceId: CalendarSourceId;
   location?: string;
+
+  /**
+   * En kildes egen farve, brugt som fald-tilbage af getEventOwnerColor(),
+   * når aftalen ikke har noget matchet familiemedlem-ejerskab (ownerIds er
+   * tom) — fx et ICS-abonnement uden medlemstilknytning, som stadig har sin
+   * egen valgte farve (se icsCalendarMapper.ts). Ikke sat af Google/Outlook-
+   * mapperne, da de altid har enten et medlem- eller intet ejerskab, aldrig
+   * en tredje "kilde-egen" farve at falde tilbage på.
+   */
   color?: string;
 
   /** Private provider-aftaler vises kun med detaljer for den kortlagte ejer. */

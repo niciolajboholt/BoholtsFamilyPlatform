@@ -18,7 +18,7 @@ import {
 } from "@mui/material";
 
 import type { CalendarOwner } from "../data/calendarOwners";
-import { getEventOwnerColor } from "../utils/getEventOwnerColor";
+import { getEventOwnerBorderSx, getEventOwnerColors } from "../utils/getEventOwnerColor";
 import {
   familyPseudoMemberId,
   type CalendarEvent,
@@ -437,7 +437,8 @@ function FamilyPlannerCalendar({
 
                               <Box sx={{ display: "grid", gap: 0.625 }}>
                                 {column.events.map((event) => {
-                                  const ownerColor = getEventOwnerColor(event, members);
+                                  const ownerColors = getEventOwnerColors(event, members);
+                                  const ownerColor = ownerColors[0];
 
                                   return (
                                     <ButtonBase
@@ -453,7 +454,7 @@ function FamilyPlannerCalendar({
                                         minWidth: 0,
                                         p: 1,
                                         borderRadius: 1.75,
-                                        borderLeft: `4px solid ${ownerColor}`,
+                                        ...getEventOwnerBorderSx(ownerColors, 4),
                                         backgroundColor: `${ownerColor}12`,
                                         textAlign: "left",
                                         "&:focus-visible": {
@@ -672,10 +673,11 @@ function FamilyPlannerCalendar({
                           }}
                         >
                           {columnEvents.map((event) => {
-                            const ownerColor = getEventOwnerColor(
+                            const ownerColors = getEventOwnerColors(
                               event,
                               members,
                             );
+                            const ownerColor = ownerColors[0];
 
                             return (
                               <ButtonBase
@@ -692,7 +694,7 @@ function FamilyPlannerCalendar({
                                   minWidth: 0,
                                   p: 0.5,
                                   borderRadius: 1,
-                                  borderLeft: `3px solid ${ownerColor}`,
+                                  ...getEventOwnerBorderSx(ownerColors, 3),
                                   backgroundColor: `${ownerColor}14`,
                                   textAlign: "left",
 

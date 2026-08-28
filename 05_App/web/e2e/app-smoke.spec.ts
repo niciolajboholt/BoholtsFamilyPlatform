@@ -1540,3 +1540,178 @@ test("an owner can change a member's role and remove a member's access in Settin
   await dialog.getByRole("button", { name: "Fjern Chris" }).click();
   await expect(dialog.getByText("Chris", { exact: true })).not.toBeVisible();
 });
+
+// Konverterer en hex-farve til den rgb(...)-form, browseren rapporterer i
+// getComputedStyle — bruges til at bevise den FAKTISKE gengivne farve, ikke
+// kun ownerIds-værdien.
+function hexToRgb(hex: string): string {
+  const value = hex.replace("#", "");
+  const r = parseInt(value.slice(0, 2), 16);
+  const g = parseInt(value.slice(2, 4), 16);
+  const b = parseInt(value.slice(4, 6), 16);
+  return `rgb(${r}, ${g}, ${b})`;
+}
+
+// Fase 1-følgeret (PR #148-opfølgning): getEventOwnerColor() gav hidtil
+// Familien-lilla for enhver aftale med mere end én ejer, selvom
+// deltagermatchningen korrekt havde fundet flere navngivne medlemmer.
+// Reel Playwright-verifikation af den FAKTISKE gengivne kantfarve — ikke
+// kun at ownerIds indeholder de rigtige id'er (allerede dækket af
+// googleCalendarMapper.test.ts) — for at bevise buggen er rettet visuelt,
+// ikke kun i data.
+test("an event with multiple matched family members shows their own colors, split, not the family color", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  await mockAuthenticatedApi(page);
+
+  // Overskriver den delte mock: Alex og Chris får en koblet konto-e-mail,
+  // så deltagermatchningen kan matche dem (samme mekanisme som
+  // googleCalendarMapper.ts's matchAttendeesToOwnerIds).
+  await page.route("**/api/families/mine", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        family,
+        role: "owner",
+        members: [
+          {
+            id: "member-e2e",
+            name: "Alex",
+            color: "#2F6B4F",
+            relation: "Andet",
+            isPlaceholderName: 0,
+            linkedUserId: "user-e2e",
+            linkedUserEmail: "alex@example.com",
+          },
+          {
+            id: "member-chris",
+            name: "Chris",
+            color: "#C97653",
+            relation: "Andet",
+            isPlaceholderName: 0,
+            linkedUserId: "user-chris",
+            linkedUserEmail: "chris@example.com",
+          },
+        ],
+        inviteCode: "TEST1234",
+      }),
+    });
+  });
+
+  // Overskriver alex-calendars aftaler: ÉN aftale med BEGGE som Google-
+  // deltagere — deltagermatchningen skal vinde over kalender-tildelingen
+  // (alex-calendar er ellers kortlagt til Alex alene, jf. den delte mock).
+  await page.route("**/api/calendar/calendars/alex-calendar/events*", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        items: [
+          {
+            id: "evt-ikea",
+            summary: "Tur til IKEA",
+            status: "confirmed",
+            start: { dateTime: "2026-08-24T10:00:00+02:00" },
+            end: { dateTime: "2026-08-24T11:30:00+02:00" },
+            attendees: [{ email: "alex@example.com" }, { email: "chris@example.com" }],
+          },
+        ],
+        nextSyncToken: "alex-calendar-sync-token",
+      }),
+    });
+  });
+
+  await page.goto("/calendar");
+  await page.getByRole("button", { name: "Uge", exact: true }).click();
+
+  const eventButton = page.getByRole("button", {
+    name: new RegExp(`^Rediger aftale: Tur til IKEA,`),
+  });
+  await expect(eventButton).toBeVisible();
+
+  // Begge navnemærkater vises — data-niveau, allerede dækket andetsteds,
+  // men bekræftet igen her for at sikre den samme aftale, testens
+  // farveassertion nedenfor gælder for.
+  await expect(eventButton.getByText("Alex", { exact: true })).toBeVisible();
+  await expect(eventButton.getByText("Chris", { exact: true })).toBeVisible();
+
+  // Kernen i testen: den FAKTISKE gengivne kant er en opdelt gradient med
+  // begge medlemmers egne farver — ikke en solid Familien-lilla kant.
+  const borderImage = await eventButton.evaluate(
+    (element) => getComputedStyle(element).borderImageSource,
+  );
+  expect(borderImage).toContain(hexToRgb("#2F6B4F"));
+  expect(borderImage).toContain(hexToRgb("#C97653"));
+  expect(borderImage).not.toContain(hexToRgb("#6D597A")); // Familien-farven
+});
+
+// Fase 1-følgeret (PR #148-opfølgning): et ICS-abonnement UDEN
+// medlemstilknytning fik ingen ejer på selve aftalen, så
+// getEventOwnerColor() faldt tilbage til Familien-lilla i stedet for
+// abonnementets egen valgte farve (mapIcsCalendarSource() brugte allerede
+// den rigtige farve på selve KILDEN, men aftalekortet gjorde ikke).
+test("an unassigned ICS subscription's event uses the subscription's own color, not the family color", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  await mockAuthenticatedApi(page);
+
+  const subscription = {
+    id: "sub-skole",
+    familyId: family.id,
+    url: "https://calendar.skole.dk/klasse-3a.ics",
+    label: "Skolekalender 3A",
+    familyMemberId: null,
+    color: "#D99832",
+    lastFetchedAt: null,
+    lastFetchStatus: null,
+    createdAt: "2026-08-26T00:00:00.000Z",
+  };
+
+  await page.route("**/api/families/*/ics-subscriptions", async (route) => {
+    if (route.request().method() !== "GET") {
+      await route.fallback();
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ subscriptions: [subscription] }),
+    });
+  });
+
+  await page.route("**/api/families/*/ics-subscriptions/*/events*", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        events: [
+          {
+            id: "evt-fodbold",
+            title: "Fodboldkamp",
+            start: "2026-08-24T14:00:00+02:00",
+            end: "2026-08-24T15:30:00+02:00",
+            allDay: false,
+            isPrivate: false,
+          },
+        ],
+      }),
+    });
+  });
+
+  await page.goto("/calendar");
+  await page.getByRole("button", { name: "Uge", exact: true }).click();
+
+  const eventButton = page.getByRole("button", {
+    name: new RegExp(`^Rediger aftale: Fodboldkamp,`),
+  });
+  await expect(eventButton).toBeVisible();
+
+  const borderColor = await eventButton.evaluate(
+    (element) => getComputedStyle(element).borderLeftColor,
+  );
+  expect(borderColor).toBe(hexToRgb("#D99832"));
+  expect(borderColor).not.toBe(hexToRgb("#6D597A")); // Familien-farven
+});
