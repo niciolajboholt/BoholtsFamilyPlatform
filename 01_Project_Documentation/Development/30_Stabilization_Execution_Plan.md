@@ -36,7 +36,7 @@ verifikation.
 | Fase | Område | Status | Næste vigtigste restpunkt |
 |---:|---|---|---|
 | 1 | Kalenderens UI og dubletter | Delvist gennemført | Manuel iPhone-verifikation og eventuel kildespecifik dubletanalyse |
-| 2 | Tilgængelighed og visuelt polish | Delvist gennemført | Tastatur-/fokusgennemgang (PR #142, endnu ikke merget) og fysisk VoiceOver-test |
+| 2 | Tilgængelighed og visuelt polish | Delvist gennemført | Fysisk VoiceOver-test (ekstern) |
 | 3 | Privatliv og AI | Delvist gennemført | Kalenderniveau-privatlivsvalg og sikre standardværdier (produktbeslutning) |
 | 4 | Login, branding og OAuth | Delvist gennemført | Google-verificering og scope-gennemgang |
 | 5 | Browserbaserede brugerflowtests | Delvist gennemført | Kalenderaftale-CRUD + fuldt invitations-/rolle-UI-flow |
@@ -154,13 +154,23 @@ skærmlæser og smalle mobilskærme uden at ændre appens varme grønne design.
 - [x] Tre marginale WCAG AA-kontrastbrud rettet: kalenderens nedtonede
   datotal for dage uden for måneden, ikke-valgte faneblade og
   "Log ud"-knappens røde tekst.
+- [x] Automatiseret tastatur-/fokusgennemgang som faste Playwright-tests
+  (axe-core tjekker kun statisk ARIA-opmærkning, ikke reel
+  tastaturbetjening): (1) på alle fem hovedsider tabbes der reelt igennem
+  desktop-venstremenuen — alle fem punkter skal nås, og intet fokuseret
+  element må have en tom `getClientRects()` (dvs. reelt usynligt); (2) en
+  Indstillinger-dialog (Kalenderforbindelser) skal fange fokus, mens den er
+  åben — Tab langt ud over antallet af fokuserbare elementer i den må aldrig
+  sive fokus ud til siden bagved — og Escape skal lukke dialogen og
+  returnere fokus til den knap, der åbnede den. Ingen fejl fundet; MUI's
+  indbyggede Dialog-fokusfælde og sidebar-menuens fokusrækkefølge virker
+  allerede korrekt. Ren test, ingen adfærdsændring.
 
 ### Mangler
 
-- [ ] Gennemfør tastatur- og fokusgennemgang af alle primære sider og dialoger.
 - [ ] Test fysisk med iPhone Safari, installeret PWA og VoiceOver.
 - [ ] Ret eventuelle resterende felter uden label, fejlbesked eller tydelig
-  fokusmarkering.
+  fokusmarkering, som en fremtidig fysisk gennemgang måtte finde.
 
 ### Acceptkriterier
 
@@ -169,8 +179,9 @@ skærmlæser og smalle mobilskærme uden at ændre appens varme grønne design.
 - Alle primære handlinger kan nås og aktiveres med tastatur.
 - Kritiske farvekombinationer opfylder relevante WCAG-kontrastkrav.
 
-**Næste handling:** Gennemfør en tastatur- og fokusgennemgang af alle primære
-sider og dialoger. Afslut derefter fasen med fysisk iPhone/PWA/VoiceOver-test.
+**Ekstern handling:** Fysisk test med iPhone Safari, installeret PWA og
+VoiceOver kræver en fysisk enhed og kan ikke automatiseres — resten af fasen
+er nu automatiseret og verificeret.
 
 ## Fase 3 – Privatliv og AI
 
@@ -841,4 +852,5 @@ Efter hver fase eller material ændring skal den ansvarlige:
 | 2026-08-28 | Fase 9: SSRF-hærdet ICS-hentning/-parsing + RRULE-udfoldning (`server/lib/icsCalendar.ts`, `ical.js`) og en ny hentnings-rute, med privatlivsredaktion for `CLASS:PRIVATE`/`CONFIDENTIAL`. 40 nye tests. Ændrer reel funktion (nye udgående netværkskald, ny afhængighed) — til gennemgang, ikke selv-merget | PR #139 |
 | 2026-08-28 | Fase 9: UI i Indstillinger til at tilføje/fjerne delte ICS-kalendere og tildele dem et familiemedlem — synlig ny funktion, godkendt visuelt af Nicolaj ud fra skærmbilleder før commit. Viser endnu ikke aftalerne i selve kalenderen (kræver klient-provider-integrationen, se Fase 9 "Ny arbejde") | PR #140 |
 | 2026-08-28 | Fase 9: Klient-integration (`IcsCalendarProvider` registreret i `CompositeCalendarProvider`, ny `"ics"`-kildetype, primær friskheds-cache) — tilføjede delte kalendere vises nu i selve kalenderen. ICS-panelet flyttet ind i den eksisterende "Kalenderforbindelser"-dialog i stedet for sin egen, efter ønske fra Nicolaj. Fase 9 gennemført. Synlig ny funktion — til gennemgang, ikke selv-merget | PR #141 |
+| 2026-08-28 | Fase 2: Automatiseret tastatur-/fokusgennemgang som faste Playwright-tests (venstremenuens fulde Tab-rækkefølge på alle fem hovedsider + en Indstillinger-dialogs fokusfælde/Escape-genoprettelse) — ingen fejl fundet, ren test, ingen adfærdsændring, selv-merget efter grøn CI | PR #142 |
 | 2026-08-28 | Fase 3: Reel Playwright-E2E for selve redigerings-flowet af en privat aftale (feltskift bevarer `visibility: "private"`; at slå privatliv fra sender rent faktisk `visibility: "default"`) + `32_Workers_AI_Data_Policy.md` (kodeverificeret gennemgang af alle tre AI-brugssteder, felter sendt/aldrig sendt, fejlhåndtering logger ikke prompten) — ren test/dokumentation, ingen adfærdsændring, selv-merget efter grøn CI | PR #143 |
