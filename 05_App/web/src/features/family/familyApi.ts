@@ -229,3 +229,49 @@ export function deleteShareLink(familyId: string) {
     { method: "DELETE" },
   );
 }
+
+// Fase 9: delte kalendere tilføjet via et ICS-link.
+export interface IcsCalendarSubscriptionDto {
+  id: string;
+  familyId: string;
+  url: string;
+  label: string;
+  familyMemberId: string | null;
+  lastFetchedAt: string | null;
+  lastFetchStatus: string | null;
+  createdAt: string;
+}
+
+export function getIcsSubscriptions(familyId: string) {
+  return request<{ subscriptions?: IcsCalendarSubscriptionDto[]; error?: string }>(
+    `/api/families/${familyId}/ics-subscriptions`,
+  );
+}
+
+export function createIcsSubscription(
+  familyId: string,
+  input: { url: string; label: string; familyMemberId?: string | null },
+) {
+  return request<{ subscriptions?: IcsCalendarSubscriptionDto[]; error?: string }>(
+    `/api/families/${familyId}/ics-subscriptions`,
+    { method: "POST", body: JSON.stringify(input) },
+  );
+}
+
+export function updateIcsSubscription(
+  familyId: string,
+  subscriptionId: string,
+  input: { url?: string; label?: string; familyMemberId?: string | null },
+) {
+  return request<{ subscriptions?: IcsCalendarSubscriptionDto[]; error?: string }>(
+    `/api/families/${familyId}/ics-subscriptions/${subscriptionId}`,
+    { method: "PATCH", body: JSON.stringify(input) },
+  );
+}
+
+export function deleteIcsSubscription(familyId: string, subscriptionId: string) {
+  return request<{ subscriptions?: IcsCalendarSubscriptionDto[]; error?: string }>(
+    `/api/families/${familyId}/ics-subscriptions/${subscriptionId}`,
+    { method: "DELETE" },
+  );
+}

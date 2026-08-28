@@ -899,3 +899,84 @@ test("a public share link redacts a private event's title, description, and loca
   await expect(detailsDialog.getByText("Bowlinghallen")).not.toBeVisible();
   await expect(detailsDialog.getByText("Alle er velkomne")).not.toBeVisible();
 });
+
+test("a family member can add and remove an ICS calendar subscription in Settings", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  await mockAuthenticatedApi(page);
+
+  let subscriptions: Array<Record<string, unknown>> = [];
+
+  await page.route("**/api/families/*/ics-subscriptions", async (route) => {
+    const method = route.request().method();
+
+    if (method === "GET") {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ subscriptions }),
+      });
+      return;
+    }
+
+    if (method === "POST") {
+      const posted = route.request().postDataJSON() as {
+        url: string;
+        label: string;
+        familyMemberId?: string | null;
+      };
+      subscriptions = [
+        ...subscriptions,
+        {
+          id: "sub-1",
+          familyId: family.id,
+          url: posted.url,
+          label: posted.label,
+          familyMemberId: posted.familyMemberId ?? null,
+          lastFetchedAt: null,
+          lastFetchStatus: null,
+          createdAt: new Date().toISOString(),
+        },
+      ];
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ subscriptions }),
+      });
+      return;
+    }
+
+    await route.fallback();
+  });
+
+  await page.route("**/api/families/*/ics-subscriptions/*", async (route) => {
+    if (route.request().method() !== "DELETE") {
+      await route.fallback();
+      return;
+    }
+
+    subscriptions = [];
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ subscriptions }),
+    });
+  });
+
+  await page.goto("/settings");
+  await page.getByText("Delte kalendere (ICS)").click();
+  await expect(page.getByRole("dialog", { name: "Delte kalendere" })).toBeVisible();
+
+  await page.getByLabel("Navn").fill("Skolekalender 3A");
+  await page.getByLabel("ICS-link").fill("https://calendar.skole.dk/klasse-3a.ics");
+  await page.getByLabel("Tildel familiemedlem (valgfrit)").click();
+  await page.getByRole("option", { name: "Chris" }).click();
+  await page.getByRole("button", { name: "Tilføj kalender" }).click();
+
+  await expect(page.getByText("Skolekalender 3A")).toBeVisible();
+
+  await page.getByRole("button", { name: "Fjern Skolekalender 3A" }).click();
+  await expect(page.getByText("Skolekalender 3A")).not.toBeVisible();
+  await expect(page.getByText("Tilføj ny")).toBeVisible();
+});

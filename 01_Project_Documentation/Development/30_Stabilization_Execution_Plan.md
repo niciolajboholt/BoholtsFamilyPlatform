@@ -43,7 +43,7 @@ verifikation.
 | 6 | Refaktorering | Gennemført | — |
 | 7 | Release, drift og dokumentation | Delvist gennemført | Fjern dobbelt Cloudflare-deploy (ekstern) |
 | 8 | Offlineoplevelse | Gennemført | — |
-| 9 | ICS-abonnementskalendere | Delvist gennemført | SSRF-hærdet hentningsproxy + ICS-parser + RRULE |
+| 9 | ICS-abonnementskalendere | Delvist gennemført | Klient-provider, så tilføjede kalendere reelt vises |
 
 Appen er egnet til kontrolleret familiebrug og beta. Den er ikke vurderet som
 offentligt lanceringsklar, før privatliv pr. aftale, OAuth-verificering,
@@ -632,6 +632,17 @@ aldrig i en ICS-kilde.
   rolle-tjek og cross-family-isolation. Rent backend — ingen UI eksponerer
   endnu disse ruter, så ingen ændring i appens brug eller udseende;
   selv-merget.
+- [x] UI i Indstillinger (`IcsSubscriptionsSection.tsx`, samme sted som
+  Kalenderforbindelser): en dialog viser eksisterende abonnementer
+  (navn, tildelt medlem, sidst hentet-status) og en formular til at
+  tilføje et nyt (navn, ICS-link, valgfri medlemstildeling), med
+  fejlvisning og loft-besked fra API'et. Ny E2E-test dækker at tilføje og
+  fjerne et abonnement. Godkendt visuelt af Nicolaj ud fra rigtige
+  skærmbilleder, før koden blev committet. **Bemærk:** at tilføje en
+  kalender her viser den endnu IKKE i selve kalendervisningen —
+  `IcsCalendarProvider`/`CompositeCalendarProvider`-integrationen
+  (se "Ny arbejde" nedenfor) mangler stadig; denne PR er kun
+  administrations-UI'et.
 
 ### Beslutninger truffet (2026-08-28, Nicolaj)
 
@@ -687,9 +698,11 @@ aldrig i en ICS-kilde.
 - [ ] Ny kildetype: `CalendarEventSource`/`CalendarProviderType` skal have en
   ny værdi (fx `"ics"`) — "apple" er kun delvist forberedt og dækker et
   andet, CalDAV-baseret scenarie.
-- [ ] UI til at tilføje/redigere/fjerne ICS-abonnementer og tildele dem et
-  familiemedlem (nyt afsnit i Indstillinger, samme sted som Google/Outlook-
-  forbindelser i dag).
+- [ ] `IcsCalendarProvider` (klient) implementerer `CalendarProvider` og
+  kalder hentnings-ruten; registreres i `CompositeCalendarProvider`. Uden
+  denne vises et tilføjet ICS-abonnement ikke i selve kalenderen, kun i
+  Indstillinger-listen.
+- [ ] Offline-cache for ICS-hentninger, jf. Fase 8-mønsteret.
 
 ### Acceptkriterier
 
@@ -706,12 +719,12 @@ aldrig i en ICS-kilde.
   som private Google-/Outlook-aftaler, med en synlig forbeholdstekst om, at
   garantien afhænger af, om kildekalenderen rent faktisk sætter feltet.
 
-**Næste handling:** Byg den nye server-proxy-rute (SSRF-hærdet hentning af
-en vilkårlig ICS-URL), tilføj en ICS-parser + RRULE-udfoldning, og byg
-`IcsCalendarProvider`. Dette ændrer reel funktion (nye netværkskald,
-ny afhængighed) og skal derfor til gennemgang hos Nicolaj, ikke
-selv-merges. Selve UI'et til at tilføje/administrere abonnementer bliver
-en selvstændig, efterfølgende PR.
+**Næste handling:** Byg `IcsCalendarProvider` og forbind den til
+`CompositeCalendarProvider` samt Fase 8-cachemønsteret, så et tilføjet
+abonnement rent faktisk viser sine aftaler i kalenderen. Serverens
+hentnings-/parsings-rute (PR #139, endnu ikke merget) ændrer reel funktion
+(nye udgående netværkskald til en bruger-angivet URL, ny afhængighed) og
+er til gennemgang hos Nicolaj, ikke selv-merget.
 
 ## Prioriteret udførelsesrækkefølge
 
@@ -801,4 +814,5 @@ Efter hver fase eller material ændring skal den ansvarlige:
 | 2026-08-28 | Fase 8: Ryddet modstridende tekst om, at offline-skrivning/skrivekøen "endnu ikke er implementeret/påbegyndt" (forældet efter PR #125-#133); flyttet fremtidige udvidelser (offline redigering/sletning, Outlook-fallback) fra "Mangler" til et separat "Fremtidige forbedringer"-afsnit — ren dokumentation, selv-merget efter grøn CI | PR #135 |
 | 2026-08-28 | Fase 3/5: Reel Playwright-E2E for privat-aftale-redaktion (ejer/andet medlem + offentligt delelink), servertests for AI-ugeresumé-redaktion, manglende kalender-kortlægning og cross-family-isolation på familie-omdøbning/invitationsregenerering — ren test/dokumentation, ingen adfærdsændring | PR #137 |
 | 2026-08-28 | Fase 9 oprettet: ICS-abonnementskalendere. Omfang undersøgt (genanvendelige mønstre vs. reelt nyt arbejde) og tre produktbeslutninger truffet af Nicolaj (ingen URL-kryptering i v1, tildeles et familiemedlem, loft på 5 abonnementer pr. familie) — ren planlægning/dokumentation, ingen kode endnu | PR #138 |
-| 2026-08-28 | Fase 9: D1-migration + server-CRUD for ICS-abonnementer (opret/list/redigér/slet, rolle-tjek, cross-family-isolation, 5-loft) — rent backend, ingen UI endnu, ingen ændring i appens brug/udseende, selv-merget | PR #139 |
+| 2026-08-28 | Fase 9: D1-migration + server-CRUD for ICS-abonnementer (opret/list/redigér/slet, rolle-tjek, cross-family-isolation, 5-loft) — rent backend, ingen UI endnu, ingen ændring i appens brug/udseende, selv-merget sammen med scope-dokumentationen | PR #138 |
+| 2026-08-28 | Fase 9: UI i Indstillinger til at tilføje/fjerne delte ICS-kalendere og tildele dem et familiemedlem — synlig ny funktion, godkendt visuelt af Nicolaj ud fra skærmbilleder før commit. Viser endnu ikke aftalerne i selve kalenderen (kræver klient-provider-integrationen, se Fase 9 "Ny arbejde") | PR #141 |
