@@ -5,6 +5,7 @@ import { CompositeCalendarProvider } from "./CompositeCalendarProvider";
 import type { ExternalCalendarProvider } from "./CompositeCalendarProvider";
 import { GoogleCalendarProvider } from "./google/GoogleCalendarProvider";
 import { decodeGoogleCalendarSourceId } from "./google/googleCalendarIds";
+import { IcsCalendarProvider } from "./ics/IcsCalendarProvider";
 import { OutlookCalendarProvider } from "./outlook/OutlookCalendarProvider";
 import { decodeOutlookCalendarSourceId } from "./outlook/outlookCalendarIds";
 import { getOutlookCalendarConfig } from "./outlook/outlookCalendarConfig";
@@ -34,6 +35,12 @@ const outlookCalendarProvider =
     ? new OutlookCalendarProvider(outlookCalendarSession)
     : null;
 
+// Fase 9: ingen konto at forbinde, så — i modsætning til Google/Outlook —
+// altid til stede, uafhængigt af nogen konfiguration; en familie uden
+// abonnementer får blot en tom kalenderliste fra den, ligesom Google gør for
+// en bruger uden delte kalendere.
+const icsCalendarProvider = new IcsCalendarProvider();
+
 const externalProviders: ExternalCalendarProvider[] = [
   {
     providerId: "google" as const,
@@ -47,6 +54,11 @@ const externalProviders: ExternalCalendarProvider[] = [
         sourceIdPrefix: "outlook:",
       }]
     : []),
+  {
+    providerId: "ics" as const,
+    provider: icsCalendarProvider,
+    sourceIdPrefix: "ics:",
+  },
 ];
 
 /**

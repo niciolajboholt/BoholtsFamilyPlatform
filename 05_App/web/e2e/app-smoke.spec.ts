@@ -965,18 +965,20 @@ test("a family member can add and remove an ICS calendar subscription in Setting
   });
 
   await page.goto("/settings");
-  await page.getByText("Delte kalendere (ICS)").click();
-  await expect(page.getByRole("dialog", { name: "Delte kalendere" })).toBeVisible();
+  await page.getByRole("button", { name: /Kalenderforbindelser/ }).click();
+  const connectionsDialog = page.getByRole("dialog", { name: "Kalenderforbindelser" });
+  await expect(connectionsDialog).toBeVisible();
+  await expect(connectionsDialog.getByText("Delte kalendere (ICS)")).toBeVisible();
 
-  await page.getByLabel("Navn").fill("Skolekalender 3A");
-  await page.getByLabel("ICS-link").fill("https://calendar.skole.dk/klasse-3a.ics");
-  await page.getByLabel("Tildel familiemedlem (valgfrit)").click();
+  await connectionsDialog.getByLabel("Navn").fill("Skolekalender 3A");
+  await connectionsDialog.getByLabel("ICS-link").fill("https://calendar.skole.dk/klasse-3a.ics");
+  await connectionsDialog.getByLabel("Tildel familiemedlem (valgfrit)").click();
   await page.getByRole("option", { name: "Chris" }).click();
-  await page.getByRole("button", { name: "Tilføj kalender" }).click();
+  await connectionsDialog.getByRole("button", { name: "Tilføj kalender" }).click();
 
-  await expect(page.getByText("Skolekalender 3A")).toBeVisible();
+  await expect(connectionsDialog.getByText("Skolekalender 3A")).toBeVisible();
 
-  await page.getByRole("button", { name: "Fjern Skolekalender 3A" }).click();
-  await expect(page.getByText("Skolekalender 3A")).not.toBeVisible();
-  await expect(page.getByText("Tilføj ny")).toBeVisible();
+  await connectionsDialog.getByRole("button", { name: "Fjern Skolekalender 3A" }).click();
+  await expect(connectionsDialog.getByText("Skolekalender 3A")).not.toBeVisible();
+  await expect(connectionsDialog.getByText("Tilføj ny")).toBeVisible();
 });
