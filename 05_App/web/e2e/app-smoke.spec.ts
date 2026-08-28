@@ -407,6 +407,115 @@ test("primary pages have no WCAG 2.0/2.1 A/AA accessibility violations", async (
   }
 });
 
+// Fase 2: axe-core (ovenfor) tjekker statisk ARIA-opmærkning, men fanger
+// hverken en reel tastaturfælde i en dialog eller om et fokuseret element
+// rent faktisk er synligt — begge kræver at man faktisk tabber sig igennem.
+const sidebarNavLabels = ["Overblik", "Kalender", "Indkøb", "Opgaver", "Indstillinger"];
+
+test("desktop sidebar navigation is reachable by keyboard, and no focused element becomes invisible", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  test.setTimeout(60_000);
+  await mockAuthenticatedApi(page);
+
+  for (const path of ["/", "/calendar", "/shopping-list", "/tasks", "/settings"]) {
+    await page.goto(path);
+    await expect(page.locator("main")).toBeVisible();
+
+    const seenNavLabels = new Set<string>();
+    const maxTabs = 80;
+
+    for (let tabIndex = 0; tabIndex < maxTabs; tabIndex += 1) {
+      await page.keyboard.press("Tab");
+
+      const focusInfo = await page.evaluate(() => {
+        const element = document.activeElement;
+        if (!element || element === document.body) return null;
+
+        // getClientRects() (unlike offsetParent) correctly reports an empty
+        // list for display:none/detached elements while still recognising
+        // position:fixed elements (e.g. the mobile bottom nav) as visible.
+        return {
+          isVisible: element.getClientRects().length > 0,
+          text: element.textContent?.trim() ?? "",
+        };
+      });
+
+      if (!focusInfo) {
+        // Fokus forlod siden (fx tilbage til browserens eget UI ved den
+        // sidste fokuserbare kontrol) — ikke en fejl i appen selv.
+        continue;
+      }
+
+      expect(
+        focusInfo.isVisible,
+        `Tab-tryk ${tabIndex + 1} på ${path} flyttede fokus til et element uden nogen synlig boks`,
+      ).toBe(true);
+
+      const matchedLabel = sidebarNavLabels.find((label) => focusInfo.text === label);
+      if (matchedLabel) {
+        seenNavLabels.add(matchedLabel);
+      }
+
+      if (seenNavLabels.size === sidebarNavLabels.length) break;
+    }
+
+    for (const label of sidebarNavLabels) {
+      expect(
+        seenNavLabels.has(label),
+        `"${label}" i venstremenuen blev aldrig nået med Tab på ${path}`,
+      ).toBe(true);
+    }
+  }
+});
+
+test("a Settings dialog traps keyboard focus while open and restores it to the trigger on Escape", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  await mockAuthenticatedApi(page);
+  await page.goto("/settings");
+
+  const trigger = page.getByRole("button", { name: /Kalenderforbindelser/ });
+  await trigger.focus();
+  await page.keyboard.press("Enter");
+
+  const dialog = page.getByRole("dialog", { name: "Kalenderforbindelser" });
+  await expect(dialog).toBeVisible();
+
+  // MUI's Dialog flytter automatisk fokus ind i dialogen ved åbning — enten
+  // til selve dialog-elementet (tabindex="-1") eller et element i den, så
+  // tjekket dækker begge ("contains" inkluderer elementet selv).
+  async function isFocusInsideDialog(): Promise<boolean> {
+    return page.evaluate(() => {
+      const dialogElement = document.querySelector('[role="dialog"]');
+      return Boolean(
+        dialogElement && document.activeElement && dialogElement.contains(document.activeElement),
+      );
+    });
+  }
+
+  expect(await isFocusInsideDialog(), "Fokus blev ikke flyttet ind i dialogen ved åbning").toBe(
+    true,
+  );
+
+  // Tab langt ud over antallet af fokuserbare elementer i dialogen — fokus
+  // må aldrig sive ud til siden bagved, uanset hvor mange gange der tabbes.
+  for (let tabIndex = 0; tabIndex < 40; tabIndex += 1) {
+    await page.keyboard.press("Tab");
+
+    expect(
+      await isFocusInsideDialog(),
+      `Tab-tryk ${tabIndex + 1} flyttede fokus uden for dialogen`,
+    ).toBe(true);
+  }
+
+  await page.keyboard.press("Escape");
+  await expect(dialog).not.toBeVisible();
+  await expect(trigger).toBeFocused();
+});
+
 test("offline shopping list add is queued locally and syncs on reconnect", async ({
   page,
 }, testInfo) => {
