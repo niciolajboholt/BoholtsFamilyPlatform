@@ -54,6 +54,14 @@ describe("offlineShoppingQueueStorage", () => {
     });
   });
 
+  it("enqueues a clear-checked operation", () => {
+    enqueueShoppingOperation({ type: "clear-checked", familyId: "family-1", listId: "list-1" });
+
+    const queue = listQueuedShoppingOperations();
+    expect(queue).toHaveLength(1);
+    expect(queue[0]).toMatchObject({ type: "clear-checked", familyId: "family-1", listId: "list-1" });
+  });
+
   it("preserves FIFO order across multiple enqueues", () => {
     enqueueShoppingOperation({ type: "add-item", familyId: "f", listId: "l", name: "Først" });
     enqueueShoppingOperation({ type: "add-item", familyId: "f", listId: "l", name: "Sidst" });

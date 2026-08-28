@@ -421,6 +421,99 @@ test("offline shopping list add is queued locally and syncs on reconnect", async
   ).not.toBeVisible();
 });
 
+test("offline shopping list clear-checked is queued locally and syncs on reconnect", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  await mockAuthenticatedApi(page);
+
+  const list = {
+    id: "list-e2e",
+    familyId: family.id,
+    name: "Indkøbsliste",
+    type: "dagligvarer",
+    createdAt: "2026-08-20T00:00:00.000Z",
+  };
+  let items: Array<Record<string, unknown>> = [
+    {
+      id: "item-1",
+      listId: list.id,
+      name: "Mælk",
+      category: "Mejeri",
+      isChecked: 1,
+      addedByUserId: "user-e2e",
+      createdAt: "2026-08-27T00:00:00.000Z",
+      checkedAt: "2026-08-27T00:01:00.000Z",
+    },
+  ];
+  // Kun selve ryd-afkrydsede-POST'et fejler i det kontrollerede vindue —
+  // samme afgrænsede tilgang som de to andre offline-tests ovenfor/nedenfor,
+  // for at undgå at ramme et helt andet, samtidigt familiedata-kald.
+  let shouldFailClear = false;
+
+  await page.route("**/api/families/*/shopping-lists", async (route) => {
+    if (route.request().method() !== "GET") {
+      await route.fallback();
+      return;
+    }
+
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ lists: [list] }),
+    });
+  });
+
+  await page.route("**/api/families/*/shopping-lists/*/clear-checked", async (route) => {
+    if (shouldFailClear) {
+      await route.abort("internetdisconnected");
+      return;
+    }
+
+    items = items.filter((item) => !item.isChecked);
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ items }),
+    });
+  });
+
+  await page.route("**/api/families/*/shopping-lists/*/items", async (route) => {
+    if (route.request().method() !== "GET") {
+      await route.fallback();
+      return;
+    }
+
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ items }),
+    });
+  });
+
+  await page.goto("/shopping-list");
+  const clearButton = page.getByRole("button", { name: "Ryd afkrydsede" });
+  await expect(clearButton).toBeVisible();
+  await expect(page.getByText("Mælk", { exact: true })).toBeVisible();
+
+  shouldFailClear = true;
+  await clearButton.click();
+
+  // Optimistisk: den afkrydsede vare forsvinder med det samme, selvom
+  // POST'et fejler.
+  await expect(page.getByText("Mælk", { exact: true })).not.toBeVisible();
+  await expect(
+    page.getByText("1 ændring er gemt lokalt og synkroniseres, når du er online igen."),
+  ).toBeVisible();
+
+  shouldFailClear = false;
+  await page.evaluate(() => window.dispatchEvent(new Event("online")));
+
+  await expect(
+    page.getByText("1 ændring er gemt lokalt og synkroniseres, når du er online igen."),
+  ).not.toBeVisible();
+});
+
 test("offline task toggle is queued locally and syncs on reconnect", async ({
   page,
 }, testInfo) => {
