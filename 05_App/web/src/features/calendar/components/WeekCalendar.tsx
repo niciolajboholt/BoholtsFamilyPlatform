@@ -138,6 +138,7 @@ function EventCard({
     >
       {showTime && (
         <Typography
+          data-testid="week-event-time"
           variant="body2"
           noWrap
           sx={{
@@ -150,6 +151,7 @@ function EventCard({
       )}
 
       <Typography
+        data-testid="week-event-title"
         variant="body2"
         noWrap
         sx={{
@@ -178,18 +180,32 @@ function EventCard({
         <ConflictBadge isConflict={isConflict} />
 
         {ownerNames.length > 0 && (
-          <Typography
-            variant="caption"
-            noWrap
-            color="text.secondary"
+          <Box
+            data-testid="week-event-owners"
             sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 0.5,
               minWidth: 0,
-              fontWeight: 700,
-              fontSize: "0.7rem",
+              overflow: "hidden",
             }}
           >
-            {ownerNames.join(", ")}
-          </Typography>
+            {ownerNames.map((ownerName) => (
+              <Typography
+                key={ownerName}
+                variant="caption"
+                noWrap
+                color="text.secondary"
+                sx={{
+                  minWidth: 0,
+                  fontWeight: 700,
+                  fontSize: "0.7rem",
+                }}
+              >
+                {ownerName}
+              </Typography>
+            ))}
+          </Box>
         )}
       </Box>
     </ButtonBase>
