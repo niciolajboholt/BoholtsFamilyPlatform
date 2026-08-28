@@ -110,6 +110,20 @@ export function deleteFamilyMember(familyId: string, memberId: string) {
   );
 }
 
+export interface FamilyMembershipDto {
+  userId: string;
+  email: string;
+  name: string;
+  role: FamilyRole;
+  joinedAt: string;
+}
+
+export function getFamilyMemberships(familyId: string) {
+  return request<{ memberships?: FamilyMembershipDto[]; error?: string }>(
+    `/api/families/${familyId}/memberships`,
+  );
+}
+
 export function changeMemberRole(
   familyId: string,
   userId: string,

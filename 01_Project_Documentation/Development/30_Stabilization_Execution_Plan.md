@@ -39,7 +39,7 @@ verifikation.
 | 2 | Tilgængelighed og visuelt polish | Delvist gennemført | Fysisk VoiceOver-test (ekstern) |
 | 3 | Privatliv og AI | Delvist gennemført | Kalenderniveau-privatlivsvalg og sikre standardværdier (produktbeslutning) |
 | 4 | Login, branding og OAuth | Delvist gennemført | Google-verificering og scope-gennemgang |
-| 5 | Browserbaserede brugerflowtests | Delvist gennemført | Fuldt invitations-/rolle-UI-flow |
+| 5 | Browserbaserede brugerflowtests | Delvist gennemført | Indkøb/opgaver/rutiner: opret/redigér/slet gennem UI'et |
 | 6 | Refaktorering | Gennemført | — |
 | 7 | Release, drift og dokumentation | Delvist gennemført | Fjern dobbelt Cloudflare-deploy (ekstern) |
 | 8 | Offlineoplevelse | Gennemført | — |
@@ -343,12 +343,32 @@ produktionsdata eller private kalenderkonti.
   "Mangler" nedenfor, ikke løst med en test — der er intet UI-flow at
   teste, før/hvis appen får en rigtig gentagelses-understøttet kilde
   igen.
+- [x] Fuldt invitations-/rolle-UI-flow. To dele: (1) en helt ny bruger uden
+  familie/localStorage taster en invitationskode ind i
+  `FamilySetupOnboarding` og kommer ind i appen — reel Playwright-E2E med
+  sin egen mock (`/api/families/mine` starter som `family: null`, så
+  onboarding rent faktisk vises, ligesom en ægte ny bruger ville opleve
+  det). (2) Rolleadministration havde INGEN UI overhovedet før denne
+  ændring — kun serverruter (`POST .../memberships/:userId/role`,
+  `DELETE .../memberships/:userId`) uden nogen kaldende komponent.
+  Bygget: ny `GET /:id/memberships`-rute (`familyMembers.ts`, læsbar for
+  ethvert medlem, samme mønster som kalender-mappings) der joiner
+  `family_memberships` med `users` for navn/e-mail/rolle, en ny
+  `FamilyMembershipsDialog.tsx` (åbnet fra en ny "Medlemmer og
+  roller"-række i `FamilySection.tsx`) der viser familiens KONTI (ikke at
+  forveksle med `family_members`-profilerne, som kan være børn uden egen
+  konto) med en rolle-dropdown (kun ejeren må ændre, aldrig på egen eller
+  ejerens række) og en fjern-knap (ejer/admin, samme begrænsning). Genbruger
+  eksisterende, allerede testede serverruter — ingen ny skrivelogik, kun
+  den manglende læserute og selve UI'et. 2 nye servertests
+  (`families.test.ts`) for den nye liste-rute (synlig for ethvert medlem,
+  404 for udenforstående) og 2 nye reelle Playwright-E2E-tests (accept-flow
+  gennem `FamilySetupOnboarding`; rolleskift + fjernelse gennem den nye
+  dialog). Synlig ny funktion (ny UI-flade) — til gennemgang, ikke
+  selv-merget.
 
 ### Mangler
 
-- [ ] Fuldt invitations-/rolleflow gennem UI'et (acceptér kode, skift rolle,
-  fjern medlem) — isolation mellem to familier har nu delvis
-  servertestdækning (se ovenfor), men selve UI-flowet er udækket.
 - [ ] Indkøbsliste, opgaver og rutiner (opret/redigér/slet gennem UI'et).
 - [ ] Logout og fuldstændig lokal oprydning.
 - [ ] Generelle API-fejl uden for de allerede dækkede offline-scenarier.
@@ -360,8 +380,8 @@ produktionsdata eller private kalenderkonti.
 - Fejl giver læsbare traces/screenshots, og flaky tests blokerer ikke uden en
   dokumenteret årsag.
 
-**Næste handling:** Byg et fuldt invitations-/rolle-UI-flow (acceptér kode,
-skift rolle, fjern medlem).
+**Næste handling:** Indkøbsliste, opgaver og rutiner mangler stadig reel
+Playwright-E2E-dækning af opret/redigér/slet gennem UI'et.
 
 ## Fase 6 – Refaktorering
 
@@ -894,3 +914,4 @@ Efter hver fase eller material ændring skal den ansvarlige:
 | 2026-08-28 | Fase 9: "Delte kalendere (ICS)" fik sin egen række + dedikeret dialog i "Kalenderforbindelser" (samme niveau som Google/Outlook, efter ønske fra Nicolaj), og hvert abonnements navn/medlemstildeling kan nu redigeres (ikke selve ICS-linket) — genbruger eksisterende PATCH-rute/klientfunktion, ingen ny backend. Godkendt visuelt af Nicolaj ud fra skærmbilleder. Synlig ny funktion — til gennemgang, ikke selv-merget | PR #144 |
 | 2026-08-28 | Fase 5: Reel Playwright-E2E for kalenderaftale-CRUD gennem den rigtige UI (opret/redigér/slet), plus en arkitektonisk afklaring: "gentagen aftale/enkeltforekomst" kan ikke testes gennem noget UI i dag, da kun en "internal"-kilde (ikke længere i produktionskoden) understøtter det — fjernet fra "Mangler" i stedet for markeret som en manglende test. Ren test/dokumentation, ingen adfærdsændring, selv-merget efter grøn CI | PR #145 |
 | 2026-08-28 | Fase 9: Valgfri farve pr. ICS-abonnement, efter ønske fra Nicolaj — ny nullable `color`-kolonne (migration 0019), genbruger familiemedlemmers faste 8-farve-swatch-vælger, vist kun når intet medlem er tildelt. Godkendt visuelt af Nicolaj ud fra skærmbilleder. Synlig ny funktion — til gennemgang, ikke selv-merget | PR #146 |
+| 2026-08-28 | Fase 5: Fuldt invitations-/rolle-UI-flow. Ny bruger kan taste en invitationskode ind og komme ind i appen (reel E2E). Rolleadministration havde slet ingen UI før — ny `GET /:id/memberships`-rute + ny "Medlemmer og roller"-dialog (rolleskift kun ejer, fjernelse ejer/admin, aldrig på egen/ejerens række), genbruger allerede testede serverruter. 2 nye servertests + 2 nye reelle Playwright-E2E-tests. Synlig ny funktion — til gennemgang, ikke selv-merget | PR #147 |

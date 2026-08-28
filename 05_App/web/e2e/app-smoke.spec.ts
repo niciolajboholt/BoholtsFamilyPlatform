@@ -1396,3 +1396,147 @@ test("a family member can create, edit, and delete a calendar event through the 
 
   await expect(renamedEventButton).not.toBeVisible();
 });
+
+// Fase 5: "Fuldt invitations-/rolleflow gennem UI'et" — del 1: en helt ny
+// bruger (ingen familie, ingen localStorage) taster en invitationskode ind
+// og kommer ind i appen. Egen mock (ikke mockAuthenticatedApi ovenfor), da
+// denne bruger starter UDEN familie — /api/families/mine skal returnere
+// family: null, indtil accept-kaldet er sket, for at FamilySetupOnboarding
+// overhovedet vises (se AppLayout.tsx's isFirstLaunch-logik).
+test("a brand new user can join a family with an invite code through the real UI", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+
+  const joinedFamily = {
+    id: "family-invite-e2e",
+    name: "Nabofamilien",
+    ownerUserId: "user-owner-2",
+    createdAt: "2026-08-20T00:00:00.000Z",
+    aiWeeklySummaryEnabled: 1,
+  };
+  let hasJoined = false;
+
+  await page.route("**/api/**", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    const method = route.request().method();
+    let body: object = {};
+
+    if (path === "/api/me") {
+      body = {
+        user: { id: "user-newcomer", email: "ny@example.com", name: "Ny Bruger", pictureUrl: null },
+      };
+    } else if (path === "/api/families/mine") {
+      body = hasJoined
+        ? { family: joinedFamily, role: "member", members: [], inviteCode: null }
+        : { family: null };
+    } else if (path.endsWith("/accept") && method === "POST") {
+      hasJoined = true;
+      body = { family: joinedFamily, role: "member", members: [] };
+    } else if (path.endsWith("/calendar-mappings")) {
+      body = { mappings: [] };
+    } else if (path.endsWith("/routines")) {
+      body = { routines: [] };
+    } else if (path.endsWith("/tasks")) {
+      body = { tasks: [] };
+    } else if (path.endsWith("/shopping-lists")) {
+      body = { lists: [] };
+    } else if (path === "/api/calendar/status") {
+      body = { connected: false };
+    } else if (path === "/api/calendar/calendars") {
+      body = { items: [] };
+    } else if (path === "/api/health") {
+      body = { status: "ok", version: { id: "e2e-version-123456" } };
+    } else if (path === "/api/feedback") {
+      body = { feedback: [] };
+    } else if (path === "/api/push/public-key") {
+      body = { publicKey: "" };
+    } else if (path.endsWith("/weekly-summary")) {
+      body = { summary: null };
+    }
+
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
+  });
+
+  await page.goto("/");
+
+  await expect(page.getByRole("heading", { name: "Velkommen!" })).toBeVisible();
+  await page.getByRole("button", { name: "Jeg har en invitationskode" }).click();
+  await page.getByLabel("Invitationskode").fill("ABCD1234");
+  await page.getByRole("button", { name: "Tilslut familie" }).click();
+
+  // Onboarding er afsluttet — appens normale skal (med hjemmesidens
+  // dynamiske hilsen) vises i stedet.
+  await expect(page.getByRole("heading", { name: /Godmorgen|God eftermiddag|God aften/ })).toBeVisible();
+});
+
+// Fase 5: "Fuldt invitations-/rolleflow gennem UI'et" — del 2: ejeren
+// administrerer familiens konti (ikke at forveksle med family_members-
+// profilerne, som allerede er dækket af andre tests) — skifter en anden
+// kontos rolle og fjerner den igen, begge gennem den rigtige
+// "Medlemmer og roller"-dialog i Indstillinger.
+test("an owner can change a member's role and remove a member's access in Settings", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  await mockAuthenticatedApi(page);
+
+  let memberships: Array<{ userId: string; email: string; name: string; role: string; joinedAt: string }> = [
+    { userId: "user-e2e", email: "familie@example.com", name: "Testbruger", role: "owner", joinedAt: "2026-08-01T00:00:00.000Z" },
+    { userId: "user-chris", email: "chris@example.com", name: "Chris", role: "member", joinedAt: "2026-08-02T00:00:00.000Z" },
+  ];
+  let lastRoleChange: { userId: string; role: string } | null = null;
+
+  await page.route("**/api/families/*/memberships", async (route) => {
+    if (route.request().method() !== "GET") {
+      await route.fallback();
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ memberships }),
+    });
+  });
+
+  await page.route("**/api/families/*/memberships/*/role", async (route) => {
+    if (route.request().method() !== "POST") {
+      await route.fallback();
+      return;
+    }
+    const targetUserId = new URL(route.request().url()).pathname.split("/")[5];
+    const posted = route.request().postDataJSON() as { role: string };
+    lastRoleChange = { userId: targetUserId, role: posted.role };
+    memberships = memberships.map((membership) =>
+      membership.userId === targetUserId ? { ...membership, role: posted.role } : membership,
+    );
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true }) });
+  });
+
+  await page.route("**/api/families/*/memberships/*", async (route) => {
+    if (route.request().method() !== "DELETE") {
+      await route.fallback();
+      return;
+    }
+    const targetUserId = new URL(route.request().url()).pathname.split("/")[5];
+    memberships = memberships.filter((membership) => membership.userId !== targetUserId);
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true }) });
+  });
+
+  await page.goto("/settings");
+  await page.getByRole("button", { name: "Medlemmer og roller" }).click();
+  const dialog = page.getByRole("dialog", { name: "Medlemmer og roller" });
+  await expect(dialog).toBeVisible();
+
+  // Ejerens egen række har ingen kontroller — kun tekst.
+  await expect(dialog.getByText("Testbruger (dig)")).toBeVisible();
+  await expect(dialog.getByText("Ejer", { exact: true })).toBeVisible();
+  await expect(dialog.getByText("Chris", { exact: true })).toBeVisible();
+
+  await dialog.getByLabel("Rolle for Chris").click();
+  await page.getByRole("option", { name: "Admin" }).click();
+  await expect.poll(() => lastRoleChange).toEqual({ userId: "user-chris", role: "admin" });
+
+  await dialog.getByRole("button", { name: "Fjern Chris" }).click();
+  await expect(dialog.getByText("Chris", { exact: true })).not.toBeVisible();
+});
