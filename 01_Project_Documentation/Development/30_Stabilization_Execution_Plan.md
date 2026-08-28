@@ -39,7 +39,7 @@ verifikation.
 | 2 | Tilgængelighed og visuelt polish | Delvist gennemført | Fysisk VoiceOver-test (ekstern) |
 | 3 | Privatliv og AI | Delvist gennemført | Kalenderniveau-privatlivsvalg og sikre standardværdier (produktbeslutning) |
 | 4 | Login, branding og OAuth | Delvist gennemført | Google-verificering og scope-gennemgang |
-| 5 | Browserbaserede brugerflowtests | Delvist gennemført | Kalenderaftale-CRUD + fuldt invitations-/rolle-UI-flow |
+| 5 | Browserbaserede brugerflowtests | Delvist gennemført | Fuldt invitations-/rolle-UI-flow |
 | 6 | Refaktorering | Gennemført | — |
 | 7 | Release, drift og dokumentation | Delvist gennemført | Fjern dobbelt Cloudflare-deploy (ekstern) |
 | 8 | Offlineoplevelse | Gennemført | — |
@@ -329,11 +329,23 @@ produktionsdata eller private kalenderkonti.
   regenerere dens invitationskode (`families.test.ts`, PATCH /:id og
   POST /:id/invites/regenerate) — supplerer den eksisterende
   cross-family-dækning på indkøbslister, opgaver og skabeloner.
+- [x] Opret, redigér og slet kalenderaftale med mock/testkonto: reel
+  Playwright-E2E gennem den rigtige UI (opret via "Ny aftale", redigér
+  titlen og gem, bekræft-slet-flowet). **Vigtig arkitektonisk afklaring
+  ved samme lejlighed:** "Gentagen aftale samt redigering af
+  enkeltforekomst" kan IKKE testes gennem UI'et i denne app i dag — hverken
+  "Ny aftale"-dialogens gentagelsesvalg eller redigér-dialogens "Kun denne
+  forekomst/Hele rækken"-valg vises for nogen ekstern kalenderkilde
+  (Google/Outlook/ICS); begge er kun kodet til en `source: "internal"`,
+  som ikke længere findes i produktionskoden siden Fase 5's fjernelse af
+  det lokale aftale-lag (ADR-011/012/017,
+  `CompositeCalendarProvider.ts`). Punktet er derfor fjernet fra
+  "Mangler" nedenfor, ikke løst med en test — der er intet UI-flow at
+  teste, før/hvis appen får en rigtig gentagelses-understøttet kilde
+  igen.
 
 ### Mangler
 
-- [ ] Opret, redigér og slet kalenderaftale med mock/testkonto.
-- [ ] Gentagen aftale samt redigering af enkeltforekomst.
 - [ ] Fuldt invitations-/rolleflow gennem UI'et (acceptér kode, skift rolle,
   fjern medlem) — isolation mellem to familier har nu delvis
   servertestdækning (se ovenfor), men selve UI-flowet er udækket.
@@ -348,8 +360,8 @@ produktionsdata eller private kalenderkonti.
 - Fejl giver læsbare traces/screenshots, og flaky tests blokerer ikke uden en
   dokumenteret årsag.
 
-**Næste handling:** Udbyg den eksisterende mock-backend med event-CRUD
-(opret/redigér/slet) og et fuldt invitations-/rolle-UI-flow.
+**Næste handling:** Byg et fuldt invitations-/rolle-UI-flow (acceptér kode,
+skift rolle, fjern medlem).
 
 ## Fase 6 – Refaktorering
 
@@ -880,4 +892,5 @@ Efter hver fase eller material ændring skal den ansvarlige:
 | 2026-08-28 | Fase 2: Automatiseret tastatur-/fokusgennemgang som faste Playwright-tests (venstremenuens fulde Tab-rækkefølge på alle fem hovedsider + en Indstillinger-dialogs fokusfælde/Escape-genoprettelse) — ingen fejl fundet, ren test, ingen adfærdsændring, selv-merget efter grøn CI | PR #142 |
 | 2026-08-28 | Fase 3: Reel Playwright-E2E for selve redigerings-flowet af en privat aftale (feltskift bevarer `visibility: "private"`; at slå privatliv fra sender rent faktisk `visibility: "default"`) + `32_Workers_AI_Data_Policy.md` (kodeverificeret gennemgang af alle tre AI-brugssteder, felter sendt/aldrig sendt, fejlhåndtering logger ikke prompten) — ren test/dokumentation, ingen adfærdsændring, selv-merget efter grøn CI | PR #143 |
 | 2026-08-28 | Fase 9: "Delte kalendere (ICS)" fik sin egen række + dedikeret dialog i "Kalenderforbindelser" (samme niveau som Google/Outlook, efter ønske fra Nicolaj), og hvert abonnements navn/medlemstildeling kan nu redigeres (ikke selve ICS-linket) — genbruger eksisterende PATCH-rute/klientfunktion, ingen ny backend. Godkendt visuelt af Nicolaj ud fra skærmbilleder. Synlig ny funktion — til gennemgang, ikke selv-merget | PR #144 |
+| 2026-08-28 | Fase 5: Reel Playwright-E2E for kalenderaftale-CRUD gennem den rigtige UI (opret/redigér/slet), plus en arkitektonisk afklaring: "gentagen aftale/enkeltforekomst" kan ikke testes gennem noget UI i dag, da kun en "internal"-kilde (ikke længere i produktionskoden) understøtter det — fjernet fra "Mangler" i stedet for markeret som en manglende test. Ren test/dokumentation, ingen adfærdsændring, selv-merget efter grøn CI | PR #145 |
 | 2026-08-28 | Fase 9: Valgfri farve pr. ICS-abonnement, efter ønske fra Nicolaj — ny nullable `color`-kolonne (migration 0019), genbruger familiemedlemmers faste 8-farve-swatch-vælger, vist kun når intet medlem er tildelt. Godkendt visuelt af Nicolaj ud fra skærmbilleder. Synlig ny funktion — til gennemgang, ikke selv-merget | PR #146 |

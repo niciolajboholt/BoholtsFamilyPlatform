@@ -1270,3 +1270,129 @@ test("a family member can add and remove an ICS calendar subscription in Setting
   await expect(icsDialog.getByText("Skolekalender 3B")).not.toBeVisible();
   await expect(icsDialog.getByText("Tilføj ny")).toBeVisible();
 });
+
+// Fase 5: "Opret, redigér og slet kalenderaftale med mock/testkonto" — hele
+// flowet gennem den rigtige UI, ikke kun det isolerede opret-kald (allerede
+// dækket af "creating a private event..." ovenfor) eller det isolerede
+// redigér-kald (allerede dækket af "editing an existing private event...").
+// Bemærk: gentagne aftaler kan IKKE testes gennem UI'et her — hverken
+// "Ny aftale"-dialogens gentagelsesvalg eller redigér-dialogens "Kun denne
+// forekomst/Hele rækken"-valg vises for en Google-kalenderkilde (kun for en
+// "internal" kilde, som ikke længere findes i produktionskoden, jf.
+// ADR-017/CompositeCalendarProvider.ts) — se Fase 5's "Mangler".
+test("a family member can create, edit, and delete a calendar event through the real UI", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  await mockAuthenticatedApi(page);
+  await page.route("**/api/calendar/status", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ connected: true }),
+    }),
+  );
+
+  const originalTitle = "Tandlægebesøg";
+  const renamedTitle = "Synskontrol";
+  let currentEvent: Record<string, unknown> | null = null;
+
+  await page.route("**/api/calendar/calendars/*/events*", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    const calendarId = decodeURIComponent(path.split("/")[4] ?? "");
+
+    if (calendarId !== "alex-calendar") {
+      await route.fallback();
+      return;
+    }
+
+    if (route.request().method() === "GET") {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          items: currentEvent ? [currentEvent] : [],
+          nextSyncToken: "alex-calendar-sync-token",
+        }),
+      });
+      return;
+    }
+
+    if (route.request().method() === "POST") {
+      const posted = route.request().postDataJSON() as Record<string, unknown>;
+      currentEvent = {
+        id: "crud-test-event",
+        summary: posted.summary,
+        start: posted.start,
+        end: posted.end,
+        status: "confirmed",
+      };
+      await route.fulfill({
+        status: 201,
+        contentType: "application/json",
+        body: JSON.stringify(currentEvent),
+      });
+      return;
+    }
+
+    await route.fallback();
+  });
+
+  await page.route("**/api/calendar/calendars/*/events/*", async (route) => {
+    const method = route.request().method();
+
+    if (method === "PATCH") {
+      const patched = route.request().postDataJSON() as Record<string, unknown>;
+      currentEvent = { ...currentEvent, ...patched };
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(currentEvent),
+      });
+      return;
+    }
+
+    if (method === "DELETE") {
+      currentEvent = null;
+      await route.fulfill({ status: 200, contentType: "application/json", body: "{}" });
+      return;
+    }
+
+    await route.fallback();
+  });
+
+  await page.goto("/calendar");
+
+  // Opret.
+  await page.getByRole("button", { name: "Ny aftale" }).click();
+  await page.getByLabel("Hvem gælder aftalen for?").click();
+  await page.locator('[role="option"][data-value="google:alex-calendar"]').click();
+  await page.getByLabel("Titel").fill(originalTitle);
+  await page.getByRole("button", { name: "Opret aftale" }).click();
+
+  // Ankret til komma efter titlen — "Tandlægebesøg" er ellers en delstreng
+  // af den omdøbte titel "Tandlægebesøg, flyttet" og ville matche begge.
+  const createdEventButton = page.getByRole("button", {
+    name: new RegExp(`^Rediger aftale: ${originalTitle},`),
+  });
+  await expect(createdEventButton).toBeVisible();
+
+  // Redigér.
+  await createdEventButton.click();
+  await expect(page.getByLabel("Titel")).toHaveValue(originalTitle);
+  await page.getByLabel("Titel").fill(renamedTitle);
+  await page.getByRole("button", { name: "Gem ændringer" }).click();
+
+  const renamedEventButton = page.getByRole("button", {
+    name: new RegExp(`^Rediger aftale: ${renamedTitle},`),
+  });
+  await expect(renamedEventButton).toBeVisible();
+  await expect(createdEventButton).not.toBeVisible();
+
+  // Slet.
+  await renamedEventButton.click();
+  await page.getByRole("button", { name: "Slet" }).click();
+  await page.getByRole("button", { name: "Bekræft sletning" }).click();
+
+  await expect(renamedEventButton).not.toBeVisible();
+});
