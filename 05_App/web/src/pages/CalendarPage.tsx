@@ -220,6 +220,8 @@ function CalendarPage() {
           <CalendarSourceFilter
             calendarSources={calendarSources}
             visibleCalendarSourceIds={visibleCalendarSourceIds}
+            events={viewerEvents}
+            members={members}
             isLoading={isLoadingCalendarSources}
             error={calendarSourcesError}
             onToggle={toggleCalendarSource}
