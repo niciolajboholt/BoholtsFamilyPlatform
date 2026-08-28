@@ -42,7 +42,7 @@ verifikation.
 | 5 | Browserbaserede brugerflowtests | Delvist gennemført | CRUD-, rettigheds- og offline-scenarier |
 | 6 | Refaktorering | Gennemført | — |
 | 7 | Release, drift og dokumentation | Delvist gennemført | Fjern dobbelt Cloudflare-deploy (ekstern) |
-| 8 | Offlineoplevelse | Delvist gennemført | "Ryd afkrydsede" til skrivekøen på indkøbslisten |
+| 8 | Offlineoplevelse | Delvist gennemført | Playwright-offline-test for kalendervisnings-fallbacket |
 
 Appen er egnet til kontrolleret familiebrug og beta. Den er ikke vurderet som
 offentligt lanceringsklar, før privatliv pr. aftale, OAuth-verificering,
@@ -517,13 +517,27 @@ håndtere udvalgte læse- og skriveflows uden at cache følsomme credentials.
   indkøbsliste-testen flaky. Ændrer appens faktiske funktion/oplevelse
   offline — derfor bevidst ikke selv-merget; godkendt og merget af Nicolaj
   (PR #129).
+- [x] Skrivekø udvidet til "ryd afkrydsede" på indkøbslisten — samme
+  mønster som de øvrige operationer: `offlineShoppingQueueStorage.ts` fik
+  en tredje operationstype (`clear-checked`), `clearChecked` i
+  `useShoppingList.ts` er optimistisk og køer ved en netværksfejl, samme
+  FIFO-afspilning/404-konfliktregel. Med denne er alle operationer nævnt i
+  `31_Offline_Data_Policy.md`'s skriveliste nu understøttet (indkøb:
+  tilføj/af-tilkryds/ryd afkrydsede; opgaver: af-tilkryds). Verificeret med
+  endnu en reel Playwright-test
+  (`offline shopping list clear-checked is queued locally and syncs on
+  reconnect`), samme afgrænsede fejlsimulering som de to øvrige
+  offline-tests.
 
 ### Mangler
 
-- [ ] Udvid skrivekøen til "ryd afkrydsede" på indkøbslisten (nævnt i
-  politikken, udskudt i PR #127).
-- [ ] Yderligere automatiske offline-/reconnect-tests, efterhånden som
-  skrivekøen udvides.
+- [ ] En dedikeret Playwright-offline-test for kalendervisnings-fallbacket
+  (PR #125) — den blev kun verificeret med provider-/lagringsenhedstests,
+  ikke en fuld browsertest af selve offline/reconnect-forløbet, i
+  modsætning til de tre skrivekø-flows, som nu hver har sin egen.
+- [ ] Eventuel fremtidig udvidelse af skrivekøen ud over politikkens
+  nuværende liste (fx redigering/sletning af varer/opgaver) — kræver en ny
+  politikbeslutning først, ikke kun kode.
 
 ### Acceptkriterier
 
@@ -533,11 +547,11 @@ håndtere udvalgte læse- og skriveflows uden at cache følsomme credentials.
 - Køede ændringer synkroniseres deterministisk eller giver en forståelig
   konfliktbesked.
 
-**Næste handling:** Tilføj "ryd afkrydsede" på indkøbslisten til skrivekøen,
-samme politik og mønster som ovenfor. Ligesom de tre foregående
-skrivekø-/kalendercache-PR'er ændrer dette appens faktiske
-funktion/oplevelse offline, så den bør ikke selv-merges uden Nicolajs
-gennemgang.
+**Næste handling:** Tilføj en Playwright-offline-test for
+kalendervisnings-fallbacket (PR #125), så alle fire Fase 8-flows har samme
+niveau af browserverificeret dækning. Dette er en test-only opgave uden
+selvstændig UX-beslutning, så den kan selv-merges, hvis den ikke ændrer
+nogen synlig adfærd.
 
 ## Prioriteret udførelsesrækkefølge
 
