@@ -672,6 +672,21 @@ aldrig i en ICS-kilde.
   loft-besked fra API'et. E2E-testen for at tilføje/fjerne et abonnement er
   opdateret til den nye placering. Godkendt visuelt af Nicolaj ud fra
   rigtige skærmbilleder, før koden blev committet.
+- [x] Placeringen justeret endnu en gang, efter yderligere ønske fra
+  Nicolaj: "Delte kalendere (ICS)" er nu sin EGEN række i
+  "Kalenderforbindelser"-dialogen — genbruger `ProviderConnectionRow`,
+  samme visuelle niveau som Google/Outlook-rækkerne (ny `actionAriaLabel`-
+  prop på komponenten, da rækken åbner en administrationsdialog, ikke en
+  konto-forbind/afbryd-handling) — i stedet for at være indlejret direkte
+  i selve Kalenderforbindelser-dialogens indhold. Klik åbner en ny,
+  dedikeret `IcsSubscriptionsDialog.tsx` med samme `IcsSubscriptionsPanel`-
+  indhold som før. Samtidig tilføjet: redigering af et eksisterende
+  abonnements navn og medlemstildeling (blyant-ikon pr. række, inline
+  redigeringsformular; ikke selve ICS-linket, jf. Nicolajs afgrænsning),
+  via den allerede eksisterende PATCH-rute og `updateIcsSubscription`-
+  klientfunktion (begge fra PR #138/#141, ingen ny backend-kode). E2E-
+  testen udvidet til at dække redigér-flowet. Godkendt visuelt af Nicolaj
+  ud fra rigtige skærmbilleder.
 - [x] Klient-integration: `IcsCalendarProvider` (`providers/ics/
   IcsCalendarProvider.ts`) implementerer `CalendarProvider` og kalder
   `/events`-ruten (PR #139); registreret i `CompositeCalendarProvider` med
@@ -840,3 +855,4 @@ Efter hver fase eller material ændring skal den ansvarlige:
 | 2026-08-28 | Fase 9: UI i Indstillinger til at tilføje/fjerne delte ICS-kalendere og tildele dem et familiemedlem — synlig ny funktion, godkendt visuelt af Nicolaj ud fra skærmbilleder før commit. Viser endnu ikke aftalerne i selve kalenderen (kræver klient-provider-integrationen, se Fase 9 "Ny arbejde") | PR #140 |
 | 2026-08-28 | Fase 9: Klient-integration (`IcsCalendarProvider` registreret i `CompositeCalendarProvider`, ny `"ics"`-kildetype, primær friskheds-cache) — tilføjede delte kalendere vises nu i selve kalenderen. ICS-panelet flyttet ind i den eksisterende "Kalenderforbindelser"-dialog i stedet for sin egen, efter ønske fra Nicolaj. Fase 9 gennemført. Synlig ny funktion — til gennemgang, ikke selv-merget | PR #141 |
 | 2026-08-28 | Fase 2: Automatiseret tastatur-/fokusgennemgang som faste Playwright-tests (venstremenuens fulde Tab-rækkefølge på alle fem hovedsider + en Indstillinger-dialogs fokusfælde/Escape-genoprettelse) — ingen fejl fundet, ren test, ingen adfærdsændring, selv-merget efter grøn CI | PR #142 |
+| 2026-08-28 | Fase 9: "Delte kalendere (ICS)" fik sin egen række + dedikeret dialog i "Kalenderforbindelser" (samme niveau som Google/Outlook, efter ønske fra Nicolaj), og hvert abonnements navn/medlemstildeling kan nu redigeres (ikke selve ICS-linket) — genbruger eksisterende PATCH-rute/klientfunktion, ingen ny backend. Godkendt visuelt af Nicolaj ud fra skærmbilleder. Synlig ny funktion — til gennemgang, ikke selv-merget | PR #144 |

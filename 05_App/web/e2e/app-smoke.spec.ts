@@ -1060,7 +1060,29 @@ test("a family member can add and remove an ICS calendar subscription in Setting
   });
 
   await page.route("**/api/families/*/ics-subscriptions/*", async (route) => {
-    if (route.request().method() !== "DELETE") {
+    const method = route.request().method();
+
+    if (method === "PATCH") {
+      const patched = route.request().postDataJSON() as {
+        label?: string;
+        familyMemberId?: string | null;
+      };
+      subscriptions = subscriptions.map((subscription) => ({
+        ...subscription,
+        ...(patched.label !== undefined ? { label: patched.label } : {}),
+        ...(patched.familyMemberId !== undefined
+          ? { familyMemberId: patched.familyMemberId }
+          : {}),
+      }));
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ subscriptions }),
+      });
+      return;
+    }
+
+    if (method !== "DELETE") {
       await route.fallback();
       return;
     }
@@ -1077,17 +1099,38 @@ test("a family member can add and remove an ICS calendar subscription in Setting
   await page.getByRole("button", { name: /Kalenderforbindelser/ }).click();
   const connectionsDialog = page.getByRole("dialog", { name: "Kalenderforbindelser" });
   await expect(connectionsDialog).toBeVisible();
-  await expect(connectionsDialog.getByText("Delte kalendere (ICS)")).toBeVisible();
+  await expect(connectionsDialog.getByText("Delt kalender (ICS)")).toBeVisible();
 
-  await connectionsDialog.getByLabel("Navn").fill("Skolekalender 3A");
-  await connectionsDialog.getByLabel("ICS-link").fill("https://calendar.skole.dk/klasse-3a.ics");
-  await connectionsDialog.getByLabel("Tildel familiemedlem (valgfrit)").click();
+  // Delte kalendere (ICS) har sin egen dialog, åbnet fra en række i
+  // "Kalenderforbindelser" — samme niveau som Google/Outlook — i stedet for
+  // at være indlejret direkte i den dialog, efter ønske fra Nicolaj.
+  await connectionsDialog
+    .getByRole("button", { name: "Administrér delte kalendere (ICS)" })
+    .click();
+  const icsDialog = page.getByRole("dialog", { name: "Delte kalendere" });
+  await expect(icsDialog).toBeVisible();
+
+  await icsDialog.getByLabel("Navn").fill("Skolekalender 3A");
+  await icsDialog.getByLabel("ICS-link").fill("https://calendar.skole.dk/klasse-3a.ics");
+  await icsDialog.getByLabel("Tildel familiemedlem (valgfrit)").click();
   await page.getByRole("option", { name: "Chris" }).click();
-  await connectionsDialog.getByRole("button", { name: "Tilføj kalender" }).click();
+  await icsDialog.getByRole("button", { name: "Tilføj kalender" }).click();
 
-  await expect(connectionsDialog.getByText("Skolekalender 3A")).toBeVisible();
+  await expect(icsDialog.getByText("Skolekalender 3A")).toBeVisible();
 
-  await connectionsDialog.getByRole("button", { name: "Fjern Skolekalender 3A" }).click();
-  await expect(connectionsDialog.getByText("Skolekalender 3A")).not.toBeVisible();
-  await expect(connectionsDialog.getByText("Tilføj ny")).toBeVisible();
+  // Redigér navn og medlemstildeling på det netop tilføjede abonnement —
+  // ikke selve ICS-linket, jf. Nicolajs afgrænsning af ønsket.
+  await icsDialog.getByRole("button", { name: "Redigér Skolekalender 3A" }).click();
+  await icsDialog.getByLabel("Navn").fill("Skolekalender 3B");
+  await icsDialog.getByLabel("Tildel familiemedlem (valgfrit)").click();
+  await page.getByRole("option", { name: "Ikke tildelt" }).click();
+  await icsDialog.getByRole("button", { name: "Gem" }).click();
+
+  await expect(icsDialog.getByText("Skolekalender 3B")).toBeVisible();
+  await expect(icsDialog.getByText("Skolekalender 3A")).not.toBeVisible();
+  await expect(icsDialog.getByText("Ikke tildelt")).toBeVisible();
+
+  await icsDialog.getByRole("button", { name: "Fjern Skolekalender 3B" }).click();
+  await expect(icsDialog.getByText("Skolekalender 3B")).not.toBeVisible();
+  await expect(icsDialog.getByText("Tilføj ny")).toBeVisible();
 });

@@ -9,12 +9,13 @@ import { useOutlookCalendarConnection } from "../../calendar/hooks/useOutlookCal
 import { clearCalendarMemberMappings } from "../../calendar/preferences/calendarMemberMappingStorage";
 import { clearExcludedOutlookCalendars } from "../../calendar/providers/outlook/outlookCalendarExclusionStorage";
 import { getProviderConnectionStatusText } from "../utils/getProviderConnectionStatusText";
-import { IcsSubscriptionsPanel } from "./IcsSubscriptionsPanel";
+import { IcsSubscriptionsDialog } from "./IcsSubscriptionsDialog";
 import { SettingsLinkRow, SettingsSectionHeader } from "./SettingsPrimitives";
 
 export function CalendarConnectionsSection() {
   const [isCalendarDialogOpen, setIsCalendarDialogOpen] = useState(false);
   const [isOutlookCalendarBusy, setIsOutlookCalendarBusy] = useState(false);
+  const [isIcsDialogOpen, setIsIcsDialogOpen] = useState(false);
 
   const { isConnected: isGoogleCalendarConnected, reconnect: reconnectGoogleCalendar } =
     useGoogleCalendarConnection();
@@ -135,13 +136,26 @@ export function CalendarConnectionsSection() {
             </Alert>
           )}
 
-          <IcsSubscriptionsPanel isOpen={isCalendarDialogOpen} />
+          <Divider sx={{ my: 1.5 }} />
+
+          <ProviderConnectionRow
+            label="Delt kalender (ICS)"
+            statusText="Skole-, idræts- eller andre delte kalendere via link"
+            isConnected={false}
+            isConfigured
+            isBusy={false}
+            isAttemptingSilentReconnect={false}
+            onToggleConnection={() => setIsIcsDialogOpen(true)}
+            actionAriaLabel="Administrér delte kalendere (ICS)"
+          />
         </DialogContent>
 
         <DialogActions sx={{ px: 3, pb: 2.5 }}>
           <Button onClick={() => setIsCalendarDialogOpen(false)}>Luk</Button>
         </DialogActions>
       </Dialog>
+
+      <IcsSubscriptionsDialog open={isIcsDialogOpen} onClose={() => setIsIcsDialogOpen(false)} />
     </>
   );
 }

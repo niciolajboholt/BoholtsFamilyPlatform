@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import DeleteOutlineRounded from "@mui/icons-material/DeleteOutlineRounded";
+import EditOutlined from "@mui/icons-material/EditOutlined";
 import {
   Alert,
   Avatar,
@@ -21,6 +22,7 @@ import {
   deleteIcsSubscription,
   getIcsSubscriptions,
   getMyFamily,
+  updateIcsSubscription,
   type FamilyMemberDto,
   type IcsCalendarSubscriptionDto,
 } from "../../family/familyApi";
@@ -46,17 +48,17 @@ function fetchStatusText(subscription: IcsCalendarSubscriptionDto): string | nul
 }
 
 interface IcsSubscriptionsPanelProps {
-  // Genbruger CalendarConnectionsSection's dialogtilstand — panelet henter
-  // (gen)sin liste, hver gang den fælles "Kalenderforbindelser"-dialog åbnes,
-  // samme mønster som dialogen selv tidligere brugte for sit eget indhold.
+  // Styret af IcsSubscriptionsDialog's egen open-tilstand — panelet henter
+  // (gen)sin liste, hver gang dialogen åbnes, samme mønster som
+  // useCalendarEvents.ts.
   isOpen: boolean;
 }
 
 // Fase 9: delte kalendere tilføjet via et ICS-link (Googles "hemmelige
 // iCal-adresse", Outlooks offentlige kalenderlink, en skole-/
-// idrætskalender osv.) — skrivebeskyttet. Vises som en sektion i den
-// eksisterende "Kalenderforbindelser"-dialog (samme sted som Google/Outlook),
-// i stedet for sin egen selvstændige dialog, efter ønske fra Nicolaj.
+// idrætskalender osv.) — skrivebeskyttet. Selve indholdet af
+// IcsSubscriptionsDialog, som åbnes fra sin egen række i
+// "Kalenderforbindelser"-dialogen, samme niveau som Google/Outlook.
 export function IcsSubscriptionsPanel({ isOpen }: IcsSubscriptionsPanelProps) {
   const [familyId, setFamilyId] = useState<string | null>(null);
   const [members, setMembers] = useState<FamilyMemberDto[]>([]);
@@ -68,6 +70,16 @@ export function IcsSubscriptionsPanel({ isOpen }: IcsSubscriptionsPanelProps) {
   const [memberId, setMemberId] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Redigering af et eksisterende abonnements navn/medlemstildeling — kun
+  // disse to felter, ikke selve ICS-linket, jf. Nicolajs ønske. Adskilt fra
+  // "Tilføj ny"-formularens felter ovenfor, så et igangværende redigering
+  // ikke rammes af den formulars egen reset efter et vellykket opret.
+  const [editingSubscriptionId, setEditingSubscriptionId] = useState<string | null>(null);
+  const [editLabel, setEditLabel] = useState("");
+  const [editMemberId, setEditMemberId] = useState("");
+  const [isEditSaving, setIsEditSaving] = useState(false);
+  const [editErrorMessage, setEditErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isOpen) {
@@ -144,14 +156,43 @@ export function IcsSubscriptionsPanel({ isOpen }: IcsSubscriptionsPanelProps) {
     }
   }
 
+  function startEditing(subscription: IcsCalendarSubscriptionDto) {
+    setEditingSubscriptionId(subscription.id);
+    setEditLabel(subscription.label);
+    setEditMemberId(subscription.familyMemberId ?? "");
+    setEditErrorMessage(null);
+  }
+
+  function cancelEditing() {
+    setEditingSubscriptionId(null);
+    setEditErrorMessage(null);
+  }
+
+  async function handleSaveEdit() {
+    if (!familyId || !editingSubscriptionId || !editLabel.trim()) {
+      return;
+    }
+
+    setIsEditSaving(true);
+    setEditErrorMessage(null);
+    const result = await updateIcsSubscription(familyId, editingSubscriptionId, {
+      label: editLabel.trim(),
+      familyMemberId: editMemberId || null,
+    });
+    setIsEditSaving(false);
+
+    if (result.ok && result.data.subscriptions) {
+      setSubscriptions(result.data.subscriptions);
+      setEditingSubscriptionId(null);
+    } else {
+      setEditErrorMessage(result.data.error ?? "Kunne ikke gemme ændringen.");
+    }
+  }
+
   const atCap = subscriptions.length >= maxSubscriptions;
 
   return (
-    <Box sx={{ mt: 1.5 }}>
-      <Divider sx={{ mb: 1.5 }} />
-
-      <Typography sx={{ fontWeight: 600, mb: 0.5 }}>Delte kalendere (ICS)</Typography>
-
+    <Box>
       {isLoading ? (
         <Box sx={{ display: "flex", justifyContent: "center", py: 2 }}>
           <CircularProgress size={24} />
@@ -168,37 +209,88 @@ export function IcsSubscriptionsPanel({ isOpen }: IcsSubscriptionsPanelProps) {
               <Box sx={{ display: "flex", flexDirection: "column", mb: 1.5 }}>
                 {subscriptions.map((subscription, index) => (
                   <Box key={subscription.id}>
-                    <Box sx={{ display: "flex", alignItems: "center", py: 1 }}>
-                      <Avatar
-                        sx={{
-                          width: 32,
-                          height: 32,
-                          fontSize: 14,
-                          fontWeight: 700,
-                          bgcolor: "secondary.main",
-                          mr: 1.5,
-                        }}
-                      >
-                        {getInitials(subscription.label)}
-                      </Avatar>
+                    {editingSubscriptionId === subscription.id ? (
+                      <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5, py: 1.5 }}>
+                        <TextField
+                          label="Navn"
+                          value={editLabel}
+                          onChange={(event) => setEditLabel(event.target.value)}
+                          fullWidth
+                          size="small"
+                        />
 
-                      <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-                        <Typography sx={{ fontWeight: 600 }} noWrap>
-                          {subscription.label}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary" noWrap component="div">
-                          {memberName(subscription.familyMemberId) ?? "Ikke tildelt"}
-                          {fetchStatusText(subscription) ? ` · ${fetchStatusText(subscription)}` : ""}
-                        </Typography>
+                        <TextField
+                          select
+                          label="Tildel familiemedlem (valgfrit)"
+                          value={editMemberId}
+                          onChange={(event) => setEditMemberId(event.target.value)}
+                          fullWidth
+                          size="small"
+                        >
+                          <MenuItem value="">Ikke tildelt</MenuItem>
+                          {members.map((member) => (
+                            <MenuItem key={member.id} value={member.id}>
+                              {member.name}
+                            </MenuItem>
+                          ))}
+                        </TextField>
+
+                        {editErrorMessage && <Alert severity="error">{editErrorMessage}</Alert>}
+
+                        <Box sx={{ display: "flex", gap: 1 }}>
+                          <Button
+                            variant="contained"
+                            onClick={() => void handleSaveEdit()}
+                            disabled={isEditSaving || !editLabel.trim()}
+                            startIcon={isEditSaving ? <CircularProgress size={16} /> : undefined}
+                          >
+                            Gem
+                          </Button>
+                          <Button onClick={cancelEditing} disabled={isEditSaving}>
+                            Annuller
+                          </Button>
+                        </Box>
                       </Box>
+                    ) : (
+                      <Box sx={{ display: "flex", alignItems: "center", py: 1 }}>
+                        <Avatar
+                          sx={{
+                            width: 32,
+                            height: 32,
+                            fontSize: 14,
+                            fontWeight: 700,
+                            bgcolor: "secondary.main",
+                            mr: 1.5,
+                          }}
+                        >
+                          {getInitials(subscription.label)}
+                        </Avatar>
 
-                      <IconButton
-                        aria-label={`Fjern ${subscription.label}`}
-                        onClick={() => void handleDelete(subscription.id)}
-                      >
-                        <DeleteOutlineRounded fontSize="small" />
-                      </IconButton>
-                    </Box>
+                        <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                          <Typography sx={{ fontWeight: 600 }} noWrap>
+                            {subscription.label}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary" noWrap component="div">
+                            {memberName(subscription.familyMemberId) ?? "Ikke tildelt"}
+                            {fetchStatusText(subscription) ? ` · ${fetchStatusText(subscription)}` : ""}
+                          </Typography>
+                        </Box>
+
+                        <IconButton
+                          aria-label={`Redigér ${subscription.label}`}
+                          onClick={() => startEditing(subscription)}
+                        >
+                          <EditOutlined fontSize="small" />
+                        </IconButton>
+
+                        <IconButton
+                          aria-label={`Fjern ${subscription.label}`}
+                          onClick={() => void handleDelete(subscription.id)}
+                        >
+                          <DeleteOutlineRounded fontSize="small" />
+                        </IconButton>
+                      </Box>
+                    )}
                     {index < subscriptions.length - 1 && <Divider />}
                   </Box>
                 ))}
@@ -207,7 +299,7 @@ export function IcsSubscriptionsPanel({ isOpen }: IcsSubscriptionsPanelProps) {
             </>
           )}
 
-          {atCap ? (
+          {editingSubscriptionId ? null : atCap ? (
             <Alert severity="info">
               Højst {maxSubscriptions} delte kalendere ad gangen. Fjern en for
               at tilføje en ny.
