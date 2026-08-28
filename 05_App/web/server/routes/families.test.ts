@@ -793,6 +793,37 @@ describe("families routes", () => {
       return { familyId: created.family.id, owner, member };
     }
 
+    it("lists memberships with role and account info, visible to any member", async () => {
+      const { familyId, owner, member } = await createFamilyWithMember();
+
+      const response = await families.request(
+        `/${familyId}/memberships`,
+        { headers: { Cookie: member.cookieHeader } },
+        env,
+      );
+
+      expect(response.status).toBe(200);
+      const body = (await response.json()) as { memberships: { userId: string; email: string; role: string }[] };
+      expect(body.memberships).toHaveLength(2);
+      const ownerRow = body.memberships.find((m) => m.userId === owner.userId);
+      const memberRow = body.memberships.find((m) => m.userId === member.userId);
+      expect(ownerRow).toMatchObject({ userId: owner.userId, email: "owner@example.com", role: "owner" });
+      expect(memberRow).toMatchObject({ userId: member.userId, email: "member@example.com", role: "member" });
+    });
+
+    it("refuses to list memberships for a non-member", async () => {
+      const { familyId } = await createFamilyWithMember();
+      const outsider = await seedLoggedInUser(env.DB as never, { id: "outsider" });
+
+      const response = await families.request(
+        `/${familyId}/memberships`,
+        { headers: { Cookie: outsider.cookieHeader } },
+        env,
+      );
+
+      expect(response.status).toBe(404);
+    });
+
     it("only lets the owner change roles", async () => {
       const { familyId, member } = await createFamilyWithMember();
 

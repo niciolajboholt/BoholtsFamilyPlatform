@@ -64,6 +64,30 @@ export function parseIncludedMemberIds(csv: string): string[] {
   return csv.split(",").filter((id) => id.length > 0);
 }
 
+export interface FamilyMembershipRow {
+  userId: string;
+  email: string;
+  name: string;
+  role: string;
+  joinedAt: string;
+}
+
+export async function listFamilyMemberships(db: D1Database, familyId: string): Promise<FamilyMembershipRow[]> {
+  const result = await db
+    .prepare(
+      `SELECT users.id AS userId, users.email AS email, users.name AS name,
+              family_memberships.role AS role, family_memberships.joined_at AS joinedAt
+       FROM family_memberships
+       JOIN users ON users.id = family_memberships.user_id
+       WHERE family_memberships.family_id = ?
+       ORDER BY family_memberships.joined_at ASC`,
+    )
+    .bind(familyId)
+    .all<FamilyMembershipRow>();
+
+  return result.results;
+}
+
 export interface CalendarMemberMappingRow {
   googleCalendarId: string;
   familyMemberId: string;
