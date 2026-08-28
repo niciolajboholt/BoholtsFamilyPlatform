@@ -455,7 +455,7 @@ function FamilyPlannerCalendar({
                                         p: 1,
                                         borderRadius: 1.75,
                                         ...getEventOwnerBorderSx(ownerColors, 4),
-                                        backgroundColor: `${ownerColor}12`,
+                                        backgroundColor: `${ownerColor}14`,
                                         textAlign: "left",
                                         "&:focus-visible": {
                                           outline: "2px solid",
