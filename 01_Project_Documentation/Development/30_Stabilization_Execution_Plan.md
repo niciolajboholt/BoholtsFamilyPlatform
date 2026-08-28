@@ -4,7 +4,7 @@
 |---|---|
 | Status | Aktiv |
 | Version | 1.0 |
-| Senest opdateret | 2026-08-27 |
+| Senest opdateret | 2026-08-28 |
 | Ejer | Nicolaj Boholts |
 | Arbejdsgren | `develop` |
 | Produktionsgren | `main` |
@@ -443,7 +443,9 @@ håndtere udvalgte læse- og skriveflows uden at cache følsomme credentials.
 ### Gennemført
 
 - [x] Appen viser offline- og genforbindelsesstatus.
-- [x] Teksten lover ikke offline-skrivning, som endnu ikke er implementeret.
+- [x] Teksten i appen kommunikerer offline-tilstanden korrekt: der caches
+  read-only kalenderdata, og udvalgte indkøbs-/opgaveændringer køes lokalt
+  og synkroniseres ved genforbindelse (se skrivekø-punkterne nedenfor).
 - [x] PWA-appskallen caches.
 - [x] Auth, tokens og følsomme API-svar er ikke tilføjet til service-worker-
   cache.
@@ -457,9 +459,8 @@ håndtere udvalgte læse- og skriveflows uden at cache følsomme credentials.
   (indkøbsvare tilføj/af-tilkryds, opgave af-tilkryds — bevidst afgrænset
   til lavrisiko append/toggle-handlinger) og et simpelt konfliktprincip for
   dem (drop den enkelte køede ændring med en synlig besked, hvis dens mål er
-  slettet i mellemtiden). Selve IndexedDB/kø-implementeringen er ikke
-  påbegyndt endnu — det er den efterfølgende opgave, nu med en skrevet
-  ramme at bygge inden for.
+  slettet i mellemtiden). Selve skrivekø-implementeringen er nu gennemført
+  for hele politikkens skriveliste, jf. de følgende punkter.
 - [x] Read-only offline-kalendervisning implementeret efter politikken:
   `googleCalendarSyncCacheStorage.ts` stempler nu hver cache-post med
   `updatedAt`; `GoogleCalendarProvider.getEvents()` falder tilbage til den
@@ -541,13 +542,19 @@ Alle tre skrivekø-flows og kalendervisnings-fallbacket har nu hver sin
 egen reelle Playwright-verifikation, og fasens acceptkriterier nedenfor er
 opfyldt.
 
-### Mangler
+### Fremtidige forbedringer (ikke en del af fasens acceptkriterier)
 
-- [ ] Eventuel fremtidig udvidelse af skrivekøen ud over politikkens
-  nuværende liste (fx redigering/sletning af varer/opgaver, eller et
-  Outlook-offline-fallback) — kræver en ny politikbeslutning først, ikke
-  kun kode. Åbentstående forbedring, ikke en blokering for fasens
-  nuværende acceptkriterier.
+Fasens acceptkriterier er alle opfyldt — ingen af nedenstående er en
+mangel i Fase 8. De er mulige, ikke-blokerende udvidelser til en senere
+sprint, hvis der opstår behov:
+
+- Offline redigering/sletning af kalenderaftaler, indkøbsvarer eller
+  opgaver ud over den nuværende append/toggle-skriveliste.
+- Et Outlook-offline-fallback svarende til Googles (kun Google har i dag en
+  lokal cache at falde tilbage på).
+
+Begge kræver en ny politikbeslutning i
+`31_Offline_Data_Policy.md` først, ikke kun kode.
 
 ### Acceptkriterier
 
@@ -558,8 +565,8 @@ opfyldt.
   konfliktbesked.
 
 **Næste handling:** Ingen resterende punkter inden for fasens nuværende
-acceptkriterier. En fremtidig udvidelse af skrivekøen (se "Mangler"
-ovenfor) kræver en ny politikbeslutning, før den påbegyndes.
+acceptkriterier. En fremtidig udvidelse af skrivekøen (se "Fremtidige
+forbedringer" ovenfor) kræver en ny politikbeslutning, før den påbegyndes.
 
 ## Prioriteret udførelsesrækkefølge
 
@@ -572,7 +579,8 @@ afgrænset PR:
 4. Udbyg fase 5 med kritiske CRUD-, rettigheds- og privatlivsflows.
 5. Opdel de største filer i rene refaktor-PR'er (fase 6).
 6. Færdiggør drift/runbooks og eliminér dobbelt deploy (fase 7).
-7. Implementér den aftalte offline-datapolitik og tests (fase 8).
+7. ~~Implementér den aftalte offline-datapolitik og tests (fase 8).~~
+   Gennemført — se fase 8 ovenfor.
 8. Afslut Google OAuth-verificering og fysisk enhedstest, og frigiv derefter
    kontrolleret fra `develop` til `main`.
 
@@ -642,3 +650,4 @@ Efter hver fase eller material ændring skal den ansvarlige:
 | 2026-08-27 | Fase 8: Skrivekø til opgavers af-/tilkrydsning, med reel Playwright-offline-test — godkendt og merget af Nicolaj efter gennemgang | PR #129 |
 | 2026-08-28 | Fase 8: Skrivekø til indkøbslistens "ryd afkrydsede" (sidste punkt fra politikkens skriveliste), med reel Playwright-offline-test — godkendt og merget af Nicolaj efter gennemgang | PR #132 |
 | 2026-08-28 | Fase 8: Playwright-offline-test for kalendervisnings-fallbacket (PR #125) — ren test, ingen adfærdsændring, selv-merget. Fase 8 gennemført | PR #133 |
+| 2026-08-28 | Fase 8: Ryddet modstridende tekst om, at offline-skrivning/skrivekøen "endnu ikke er implementeret/påbegyndt" (forældet efter PR #125-#133); flyttet fremtidige udvidelser (offline redigering/sletning, Outlook-fallback) fra "Mangler" til et separat "Fremtidige forbedringer"-afsnit — ren dokumentation, selv-merget efter grøn CI | PR #135 |
