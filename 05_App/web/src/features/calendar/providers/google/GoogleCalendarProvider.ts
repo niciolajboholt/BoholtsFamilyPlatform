@@ -1,3 +1,4 @@
+import type { CalendarOwner } from "../../data/calendarOwners";
 import type { CalendarEvent, CalendarOwnerId } from "../../models/calendarEvent";
 import type { CreateCalendarEventInput } from "../../models/calendarEventInput";
 import type { CalendarEventRange, CalendarSource } from "../../models/calendarProvider";
@@ -87,11 +88,12 @@ export class GoogleCalendarProvider implements CalendarProvider {
       const calendars = await this.api.listCalendars();
       const excludedIds = new Set(getExcludedGoogleCalendarIds());
       const mappings = getCalendarMemberMappings();
+      const members = getFamilyMembers();
       const eventsByCalendar = await Promise.all(
         calendars
           .filter((calendar) => Boolean(calendar.id) && !excludedIds.has(calendar.id!))
           .map((calendar) =>
-            this.fetchCalendarEvents(calendar.id!, range, mappings[calendar.id!]),
+            this.fetchCalendarEvents(calendar.id!, range, mappings[calendar.id!], members),
           ),
       );
 
@@ -144,13 +146,14 @@ export class GoogleCalendarProvider implements CalendarProvider {
     calendarId: string,
     range: CalendarEventRange,
     mappedOwnerId: CalendarOwnerId | undefined,
+    members: readonly CalendarOwner[],
   ): Promise<CalendarEvent[]> {
     const cached = getCachedCalendarSyncState(calendarId);
 
     if (cached) {
       try {
         const page = await this.api.listEvents(calendarId, { syncToken: cached.syncToken });
-        const merged = mergeGoogleEventDelta(cached.events, page.events, calendarId, mappedOwnerId);
+        const merged = mergeGoogleEventDelta(cached.events, page.events, calendarId, mappedOwnerId, members);
 
         if (page.nextSyncToken) {
           setCachedCalendarSyncState(calendarId, { events: merged, syncToken: page.nextSyncToken });
@@ -170,7 +173,7 @@ export class GoogleCalendarProvider implements CalendarProvider {
 
     const page = await this.api.listEvents(calendarId, { range });
     const mapped = page.events
-      .map((event) => mapGoogleCalendarEvent(calendarId, event, mappedOwnerId))
+      .map((event) => mapGoogleCalendarEvent(calendarId, event, mappedOwnerId, members))
       .filter((event): event is CalendarEvent => event !== null);
 
     if (page.nextSyncToken) {
@@ -236,7 +239,7 @@ export class GoogleCalendarProvider implements CalendarProvider {
     // for et skriv-kald (assertWritableSource kalder getCalendars(), hvis
     // den ikke allerede er kaldt) — intet ekstra serverkald nødvendigt her.
     const mappedOwnerId: CalendarOwnerId | undefined = getCalendarMemberMappings()[calendarId];
-    const mapped = mapGoogleCalendarEvent(calendarId, event, mappedOwnerId);
+    const mapped = mapGoogleCalendarEvent(calendarId, event, mappedOwnerId, getFamilyMembers());
     if (!mapped) throw new CalendarProviderError("unknown", "Google Kalender sendte en ugyldig aftale.");
     return mapped;
   }
@@ -252,6 +255,7 @@ function mergeGoogleEventDelta(
   deltaEvents: GoogleCalendarEvent[],
   calendarId: string,
   mappedOwnerId: CalendarOwnerId | undefined,
+  members: readonly CalendarOwner[],
 ): CalendarEvent[] {
   const eventsById = new Map(cachedEvents.map((event) => [event.id, event]));
 
@@ -259,7 +263,7 @@ function mergeGoogleEventDelta(
     if (!rawEvent.id) continue;
 
     const id = encodeGoogleEventId(calendarId, rawEvent.id);
-    const mapped = mapGoogleCalendarEvent(calendarId, rawEvent, mappedOwnerId);
+    const mapped = mapGoogleCalendarEvent(calendarId, rawEvent, mappedOwnerId, members);
 
     if (mapped) {
       eventsById.set(id, mapped);

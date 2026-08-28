@@ -27,6 +27,7 @@ export function mapMembersToCalendarOwners(
         ? undefined
         : (member.relation as CalendarOwner["relation"]),
     isPlaceholderName: member.isPlaceholderName === 1,
+    email: member.linkedUserEmail ?? undefined,
   }));
 }
 

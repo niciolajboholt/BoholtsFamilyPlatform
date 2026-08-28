@@ -11,6 +11,7 @@ interface FamilyMemberJson {
   relation: string | null;
   isPlaceholderName: number;
   linkedUserId: string | null;
+  linkedUserEmail: string | null;
 }
 
 interface CreateFamilyResponse {
@@ -602,6 +603,13 @@ describe("families routes", () => {
 
       expect(response.status).toBe(200);
       expect(body.members.find((m) => m.id === member.id)?.linkedUserId).toBe("owner");
+      // Fase 1-følgeret: den koblede kontos e-mail følger med listen (bruges
+      // client-side til at matche Google-aftalers deltagerliste mod
+      // medlemmet, se matchAttendeesToOwnerIds.ts) — seedLoggedInUser giver
+      // "owner" standard-e-mailen "owner@example.com" (fakeD1.ts).
+      expect(body.members.find((m) => m.id === member.id)?.linkedUserEmail).toBe("owner@example.com");
+      // Et ikke-koblet medlem har fortsat linkedUserEmail: null.
+      expect(body.members.find((m) => m.id !== member.id && m.relation !== null)?.linkedUserEmail).toBeNull();
     });
 
     it("moves the link when the user picks a different member afterwards", async () => {

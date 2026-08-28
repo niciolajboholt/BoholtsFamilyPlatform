@@ -105,6 +105,26 @@ utilsigtede dubletter eller unødigt vandret scroll.
   tabletbredde og bevarer den fulde titel som tilgængelig handling/tooltip.
 - [x] Ugevisningen bruger en responsiv agenda med højst tre kolonner i stedet
   for syv smalle desktopkolonner og har en Playwright-layouttest.
+- [x] Fejlrapport fra Nicolaj (skærmbillede): en aftale med flere navngivne
+  personer i titlen (fx "Christine og Jens KBH") viste sig som den generiske
+  lilla "Familien"-farve/mærkat, selvom aftalen reelt var for to specifikke
+  medlemmer. Reprodukeret præcist med en Playwright-testopsætning, der
+  matchede skærmbilledet. **Rodårsag:** aftalens farve/ejerskab kom
+  udelukkende fra hvilken Google-KALENDER aftalen lå på (kalender-til-
+  medlem-tildelingen i Indstillinger) — appen læste aldrig aftalens egen
+  Google-deltagerliste og gættede heller ikke ud fra titlen. Løst efter
+  aftale med Nicolaj (valgte "Læs deltagere fra Google" af tre foreslåede
+  retninger): `matchAttendeesToOwnerIds.ts` matcher nu en Google-aftales
+  `attendees`-e-mails mod familiemedlemmernes koblede konto-e-mail (ny
+  `linkedUserEmail`, tilføjet server-side via `LEFT JOIN users` i
+  `listFamilyMembers()` og ført igennem klientens `CalendarOwner`/
+  `FamilyMemberDto`) — matcher det, går forud for kalender-tildelingen;
+  matcher intet (fx ingen deltagere, eller kun eksterne e-mails), falder
+  tilbage til den hidtidige kalender-baserede adfærd uændret. Et medlem uden
+  koblet konto (fx et barn) kan ikke matches denne vej. Verificeret med nye
+  enhedstests (`matchAttendeesToOwnerIds.test.ts`,
+  `googleCalendarMapper.test.ts`) og en visuel Playwright-reproduktion
+  før/efter, sendt til Nicolaj som skærmbilleder.
 
 ### Mangler
 
@@ -915,3 +935,4 @@ Efter hver fase eller material ændring skal den ansvarlige:
 | 2026-08-28 | Fase 5: Reel Playwright-E2E for kalenderaftale-CRUD gennem den rigtige UI (opret/redigér/slet), plus en arkitektonisk afklaring: "gentagen aftale/enkeltforekomst" kan ikke testes gennem noget UI i dag, da kun en "internal"-kilde (ikke længere i produktionskoden) understøtter det — fjernet fra "Mangler" i stedet for markeret som en manglende test. Ren test/dokumentation, ingen adfærdsændring, selv-merget efter grøn CI | PR #145 |
 | 2026-08-28 | Fase 9: Valgfri farve pr. ICS-abonnement, efter ønske fra Nicolaj — ny nullable `color`-kolonne (migration 0019), genbruger familiemedlemmers faste 8-farve-swatch-vælger, vist kun når intet medlem er tildelt. Godkendt visuelt af Nicolaj ud fra skærmbilleder. Synlig ny funktion — til gennemgang, ikke selv-merget | PR #146 |
 | 2026-08-28 | Fase 5: Fuldt invitations-/rolle-UI-flow. Ny bruger kan taste en invitationskode ind og komme ind i appen (reel E2E). Rolleadministration havde slet ingen UI før — ny `GET /:id/memberships`-rute + ny "Medlemmer og roller"-dialog (rolleskift kun ejer, fjernelse ejer/admin, aldrig på egen/ejerens række), genbruger allerede testede serverruter. 2 nye servertests + 2 nye reelle Playwright-E2E-tests. Synlig ny funktion — til gennemgang, ikke selv-merget | PR #147 |
+| 2026-08-28 | Fase 1: Rettet farve-/ejerskabsfejl fra Nicolajs fejlrapport — en aftale med navngivne medlemmer i titlen viste generisk "Familien"-lilla i stedet for deres egne farver, da kun kalender-tildelingen (ikke aftalens egne Google-deltagere) bestemte farven. Ny `matchAttendeesToOwnerIds.ts` matcher deltager-e-mails mod medlemmers koblede konto-e-mail (ny `linkedUserEmail`-felt end-to-end); matcher intet, uændret gammel adfærd. Nye enhedstests + visuel før/efter-reproduktion. Synlig funktionsændring — til gennemgang, ikke selv-merget | PR #148 |

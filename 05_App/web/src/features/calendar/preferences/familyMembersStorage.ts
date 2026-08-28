@@ -40,7 +40,8 @@ function isValidMember(value: unknown): value is CalendarOwner {
     typeof candidate.color === "string" &&
     (candidate.relation === undefined || isValidRelation(candidate.relation)) &&
     (candidate.isPlaceholderName === undefined ||
-      typeof candidate.isPlaceholderName === "boolean")
+      typeof candidate.isPlaceholderName === "boolean") &&
+    (candidate.email === undefined || typeof candidate.email === "string")
   );
 }
 

@@ -10,6 +10,7 @@ import {
   encodeGoogleCalendarSourceId,
   encodeGoogleEventId,
 } from "./googleCalendarIds";
+import { matchAttendeesToOwnerIds } from "../../utils/matchAttendeesToOwnerIds";
 
 const fallbackColor = "#607d8b";
 
@@ -53,6 +54,7 @@ export function mapGoogleCalendarEvent(
   calendarId: string,
   event: GoogleCalendarEvent,
   mappedOwnerId?: CalendarOwnerId,
+  members?: readonly CalendarOwner[],
 ): CalendarEvent | null {
   if (!event.id || event.status === "cancelled") return null;
   const allDay = Boolean(event.start?.date && !event.start?.dateTime);
@@ -63,11 +65,17 @@ export function mapGoogleCalendarEvent(
     ? toLocalMidnightIso(event.end?.date)
     : event.end?.dateTime;
   if (!start || !end) return null;
+  // Deltager-match (hvem aftalen reelt er FOR) går forud for kalender-
+  // tildelingen (hvilken kalender aftalen ligger på) — mere præcist, se
+  // matchAttendeesToOwnerIds.ts. Falder tilbage til kalender-tildelingen,
+  // når aftalen ikke har nogen deltagere, der matcher et koblet medlem.
+  const attendeeOwnerIds = matchAttendeesToOwnerIds(event.attendees, members ?? []);
+  const ownerIds = attendeeOwnerIds.length > 0 ? attendeeOwnerIds : mappedOwnerId ? [mappedOwnerId] : [];
   // event.recurringEventId er sat på hver enkelt forekomst af en Google-
   // gentagelse (Google udfolder selv serien pga. singleEvents: "true" i
   // GoogleCalendarApi.listEvents) — mappes til recurrenceMasterId, samme
   // felt som lokale udfoldede forekomster bruger (expandRecurringEvents).
-  return { id: encodeGoogleEventId(calendarId, event.id), source: "google", sourceId: encodeGoogleCalendarSourceId(calendarId), title: event.summary || "Google-aftale", start, end, allDay, ownerIds: mappedOwnerId ? [mappedOwnerId] : [], description: event.description, location: event.location, recurrenceMasterId: event.recurringEventId, privacy: event.visibility === "private" || event.visibility === "confidential" ? "busy" : undefined };
+  return { id: encodeGoogleEventId(calendarId, event.id), source: "google", sourceId: encodeGoogleCalendarSourceId(calendarId), title: event.summary || "Google-aftale", start, end, allDay, ownerIds, description: event.description, location: event.location, recurrenceMasterId: event.recurringEventId, privacy: event.visibility === "private" || event.visibility === "confidential" ? "busy" : undefined };
 }
 
 export function toLocalMidnightIso(dateOnly: string | undefined): string | undefined {
