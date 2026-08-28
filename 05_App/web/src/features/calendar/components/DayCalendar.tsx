@@ -177,6 +177,7 @@ function DayCalendar({
                     aria-label={getEventActionLabel(event)}
                     onClick={() => onSelectEvent(event)}
                     sx={{
+                      position: "relative",
                       justifyContent: "flex-start",
                       minWidth: 0,
                       p: 0.75,
