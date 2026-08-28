@@ -32,7 +32,15 @@ async function mockAuthenticatedApi(page: Page): Promise<void> {
             id: "member-e2e",
             name: "Alex",
             color: "#2F6B4F",
-            relation: "Voksen",
+            // "Andet", ikke "Voksen": familyMemberRelations.ts's tilladte
+            // værdier er kun Far/Mor/Barn/Andet — en ugyldig relation gør
+            // hele medlemmet ugyldigt for isValidMember() i
+            // familyMembersStorage.ts, hvilket stille lader getFamilyMembers()
+            // falde tilbage til de generiske seed-medlemmer i stedet for
+            // denne mock (fandt dette ved fejlsøgning af redaktionstesten
+            // nedenfor, som afhænger af currentMember rent faktisk matcher
+            // et virkeligt familiemedlem-id).
+            relation: "Andet",
             isPlaceholderName: 0,
             linkedUserId: "user-e2e",
           },
@@ -40,7 +48,15 @@ async function mockAuthenticatedApi(page: Page): Promise<void> {
             id: "member-chris",
             name: "Chris",
             color: "#C97653",
-            relation: "Voksen",
+            // "Andet", ikke "Voksen": familyMemberRelations.ts's tilladte
+            // værdier er kun Far/Mor/Barn/Andet — en ugyldig relation gør
+            // hele medlemmet ugyldigt for isValidMember() i
+            // familyMembersStorage.ts, hvilket stille lader getFamilyMembers()
+            // falde tilbage til de generiske seed-medlemmer i stedet for
+            // denne mock (fandt dette ved fejlsøgning af redaktionstesten
+            // nedenfor, som afhænger af currentMember rent faktisk matcher
+            // et virkeligt familiemedlem-id).
+            relation: "Andet",
             isPlaceholderName: 0,
             linkedUserId: null,
           },
@@ -702,4 +718,184 @@ test("primary pages fit the complete supported mobile width matrix", async ({
       expect(overflow, `${path} ved ${width}px`).toBeLessThanOrEqual(1);
     }
   }
+});
+
+test("a private calendar event is fully visible to its owner and redacted to 'Optaget' for another family member", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  await mockAuthenticatedApi(page);
+  await page.route("**/api/calendar/status", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ connected: true }),
+    }),
+  );
+
+  const realTitle = "Fortrolig lægesamtale";
+  const realDescription = "Følsomme noter om behandlingsforløbet";
+  const realLocation = "Sundhedshuset, lokale 4";
+
+  // alex-calendar er kortlagt til member-e2e (Alex) i mockAuthenticatedApi's
+  // calendar-mappings-mock — kun overskriver selve alex-calendar-events-
+  // kaldet, alt andet falder tilbage til den generelle mock.
+  await page.route("**/api/calendar/calendars/*/events*", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    const calendarId = decodeURIComponent(path.split("/")[4] ?? "");
+
+    if (route.request().method() !== "GET" || calendarId !== "alex-calendar") {
+      await route.fallback();
+      return;
+    }
+
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        items: [
+          {
+            id: "alex-calendar-event",
+            summary: realTitle,
+            description: realDescription,
+            location: realLocation,
+            visibility: "private",
+            status: "confirmed",
+            start: { dateTime: "2026-08-27T08:15:00+02:00" },
+            end: { dateTime: "2026-08-27T09:15:00+02:00" },
+          },
+        ],
+        nextSyncToken: "alex-calendar-sync-token",
+      }),
+    });
+  });
+
+  // Fase 3/5: hvem "er mig" på denne enhed afgør redigeringen
+  // (redactCalendarEventForViewer, nøglet på currentMember.id) — sat direkte
+  // i localStorage, samme mønster som appens øvrige enheds-indstillinger,
+  // efterfulgt af en fuld genindlæsning (useCurrentMember læser kun værdien
+  // ved mount).
+  // Bruger bevidst standard-månedsvisningen, ikke "Familie"-planner-
+  // visningen: den sidste viser kun familie-/flerpersonsaftaler i sin egen
+  // kolonne (getPlannerEventsForColumn) og ville derfor slet ikke vise en
+  // enkeltpersons-aftale som denne. Månedsvisningen viser alle synlige
+  // kalendres aftaler uafhængigt af den fordeling.
+  await page.goto("/calendar");
+  // useFamilyMembers() læser kun localStorage ÉN gang, ved sin egen mount —
+  // den opdaterer sig aldrig af sig selv, hvis AppLayout's baggrunds-synk
+  // (familyMembersSync.ts) skriver en frisk medlemsliste EFTER dette
+  // komponent allerede er monteret. Uden dette wait ville et reload lige
+  // efter risikere at ramme det vindue, og currentMember ville forblive
+  // null resten af testen (fundet ved fejlsøgning: se AppLayout.tsx's
+  // returnerende-bruger-synk, linje ~124-141).
+  await page.waitForFunction(() => localStorage.getItem("boholts-family-members") !== null);
+  await page.evaluate(() => localStorage.setItem("boholts-current-member-id", "member-e2e"));
+  await page.reload();
+
+  const ownerEventButton = page.getByRole("button", {
+    name: new RegExp(`Rediger aftale: ${realTitle}`),
+  });
+  await expect(ownerEventButton).toBeVisible();
+  await expect(page.getByText("Optaget")).not.toBeVisible();
+
+  await ownerEventButton.click();
+  await expect(page.getByLabel("Titel")).toHaveValue(realTitle);
+  await expect(page.getByLabel("Beskrivelse (valgfrit)")).toHaveValue(realDescription);
+  await expect(page.getByLabel("Sted (valgfrit)")).toHaveValue(realLocation);
+  await expect(
+    page.getByText("Dette er en privat aftale. Kun det tilknyttede familiemedlem"),
+  ).not.toBeVisible();
+  await page.getByRole("button", { name: "Annuller" }).click();
+
+  await page.evaluate(() => localStorage.setItem("boholts-current-member-id", "member-chris"));
+  await page.reload();
+
+  const redactedEventButton = page.getByRole("button", {
+    name: /Rediger aftale: Optaget,/,
+  });
+  await expect(redactedEventButton).toBeVisible();
+  await expect(page.getByText(realTitle)).not.toBeVisible();
+  await expect(page.getByText(realDescription)).not.toBeVisible();
+  await expect(page.getByText(realLocation)).not.toBeVisible();
+
+  await redactedEventButton.click();
+  await expect(
+    page.getByText("Dette er en privat aftale. Kun det tilknyttede familiemedlem"),
+  ).toBeVisible();
+  await expect(page.getByLabel("Titel")).toHaveValue("Optaget");
+  await expect(page.getByLabel("Beskrivelse (valgfrit)")).toHaveValue("");
+  await expect(page.getByLabel("Sted (valgfrit)")).toHaveValue("");
+});
+
+test("a public share link redacts a private event's title, description, and location", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+
+  // Denne side går bevidst ikke gennem AppLayout's login-gate (se
+  // PublicSharedCalendarPage.tsx) — henter direkte fra
+  // /api/public/family-calendar/:token uden nogen sessions-cookie, præcis
+  // som en reel modtager af et delt link ville opleve det. Ingen
+  // mockAuthenticatedApi nødvendig.
+  const publicToken = "e2e-share-token";
+
+  // Begge aftaler lægges på "i dag", så PublicSharedCalendarPage's
+  // standardvalgte dato (new Date()) allerede viser dem uden at skulle
+  // navigere måned/dag først.
+  const today = new Date();
+  const isoAt = (hour: number): string =>
+    new Date(today.getFullYear(), today.getMonth(), today.getDate(), hour, 0, 0).toISOString();
+
+  await page.route(`**/api/public/family-calendar/${publicToken}`, (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        familyName: "Testfamilien",
+        events: [
+          {
+            title: "Fælles bowling",
+            start: isoAt(17),
+            end: isoAt(18),
+            allDay: false,
+            description: "Alle er velkomne",
+            location: "Bowlinghallen",
+            memberName: "Familien",
+            memberColor: "#6D597A",
+          },
+          // Serveren har allerede redigeret dette (publicCalendar.ts +
+          // getSafeGoogleEventDetails) — title er "Optaget", uden
+          // description/location overhovedet i svaret. Testen bekræfter, at
+          // klienten ikke selv finder på at vise noget ekstra, ikke at den
+          // selv udfører redigeringen (det er server-sidens ansvar, allerede
+          // dækket af googleCalendarAggregation.test.ts og
+          // publicCalendar.test.ts).
+          {
+            title: "Optaget",
+            start: isoAt(20),
+            end: isoAt(21),
+            allDay: false,
+            memberName: "Alex",
+            memberColor: "#2F6B4F",
+          },
+        ],
+      }),
+    }),
+  );
+
+  await page.goto(`/share/${publicToken}`);
+  await expect(page.getByRole("heading", { name: "Testfamilien" })).toBeVisible();
+
+  await page.getByRole("button", { name: "Åbn aftalen Fælles bowling" }).click();
+  const detailsDialog = page.getByRole("dialog");
+  await expect(detailsDialog.getByRole("heading", { name: "Fælles bowling" })).toBeVisible();
+  await expect(detailsDialog.getByText("Bowlinghallen")).toBeVisible();
+  await expect(detailsDialog.getByText("Alle er velkomne")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(detailsDialog).not.toBeVisible();
+
+  await page.getByRole("button", { name: "Åbn aftalen Optaget" }).click();
+  await expect(detailsDialog.getByRole("heading", { name: "Optaget" })).toBeVisible();
+  await expect(detailsDialog.getByText("Bowlinghallen")).not.toBeVisible();
+  await expect(detailsDialog.getByText("Alle er velkomne")).not.toBeVisible();
 });
