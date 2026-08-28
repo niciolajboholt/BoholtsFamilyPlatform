@@ -302,6 +302,66 @@ test("creating a private event writes provider privacy without exposing extra fi
   await expect.poll(() => postedBody?.visibility).toBe("private");
 });
 
+test("offline calendar shows cached events with a visible staleness banner", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  await mockAuthenticatedApi(page);
+  await page.route("**/api/calendar/status", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ connected: true }),
+    }),
+  );
+
+  // Kun selve hentningen af aftaler fejler i det kontrollerede vindue — ikke
+  // en global offline-tilstand — samme afgrænsede tilgang som de øvrige
+  // offline-tests i denne fil (undgår at ramme et helt andet, samtidigt
+  // kald under den fejlagtige antagelse at "offline" betyder "intet
+  // netværkskald lykkes").
+  let shouldFailEvents = false;
+
+  await page.route("**/api/calendar/calendars/*/events*", async (route) => {
+    if (route.request().method() === "GET" && shouldFailEvents) {
+      await route.abort("internetdisconnected");
+      return;
+    }
+
+    await route.fallback();
+  });
+
+  await page.goto("/calendar");
+  await page.getByRole("button", { name: "Familie", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: /Fælles fødselsdag hos familien/ }),
+  ).toBeVisible();
+
+  // Genindlæser siden helt forfra — GoogleCalendarProvider har intet i
+  // hukommelsen, kun hvad der ligger i localStorage's sync-cache fra det
+  // første, vellykkede besøg ovenfor.
+  shouldFailEvents = true;
+  await page.reload();
+  await page.getByRole("button", { name: "Familie", exact: true }).click();
+
+  // Fase 8: GoogleCalendarProvider.getEvents() falder tilbage til den
+  // lokale cache ved en netværksfejl — aftalen skal stadig vises, med en
+  // synlig besked om at den er fra cachen, ikke tavst som live data.
+  await expect(
+    page.getByRole("button", { name: /Fælles fødselsdag hos familien/ }),
+  ).toBeVisible();
+  await expect(page.getByText(/viser gemte aftaler fra/)).toBeVisible();
+
+  shouldFailEvents = false;
+  await page.reload();
+  await page.getByRole("button", { name: "Familie", exact: true }).click();
+
+  await expect(
+    page.getByRole("button", { name: /Fælles fødselsdag hos familien/ }),
+  ).toBeVisible();
+  await expect(page.getByText(/viser gemte aftaler fra/)).not.toBeVisible();
+});
+
 test("primary pages have no visible unnamed controls", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop-chromium");
   test.setTimeout(60_000);

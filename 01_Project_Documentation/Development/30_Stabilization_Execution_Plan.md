@@ -42,7 +42,7 @@ verifikation.
 | 5 | Browserbaserede brugerflowtests | Delvist gennemført | CRUD-, rettigheds- og offline-scenarier |
 | 6 | Refaktorering | Gennemført | — |
 | 7 | Release, drift og dokumentation | Delvist gennemført | Fjern dobbelt Cloudflare-deploy (ekstern) |
-| 8 | Offlineoplevelse | Delvist gennemført | Playwright-offline-test for kalendervisnings-fallbacket |
+| 8 | Offlineoplevelse | Gennemført | — |
 
 Appen er egnet til kontrolleret familiebrug og beta. Den er ikke vurderet som
 offentligt lanceringsklar, før privatliv pr. aftale, OAuth-verificering,
@@ -68,7 +68,7 @@ Status pr. 2026-08-27:
   værdi i stedet for et fastfrosset tal her.
 - D1-migrationsregisteret er baselinet for migration 0002-0016, og migration
   0017 er anvendt på beta.
-- Lokal kvalitetsbaseline: lint, produktionsbuild og 463 Vitest-tests består.
+- Lokal kvalitetsbaseline: lint, produktionsbuild og 464 Vitest-tests består.
 - Playwright indeholder login/jura, autentificeret navigation, kalenderlayout,
   kontrolnavne og mobilbredde-matrix på desktop- og mobilprojekter.
 - Produktionsafhængigheder havde 0 kendte npm-sårbarheder ved sidste audit.
@@ -438,7 +438,7 @@ tilbage uden at være afhængig af tavs manuel viden.
 **Mål:** Appen skal kommunikere ærligt om offline-tilstand og senere kunne
 håndtere udvalgte læse- og skriveflows uden at cache følsomme credentials.
 
-**Status: Delvist gennemført**
+**Status: Gennemført**
 
 ### Gennemført
 
@@ -527,17 +527,27 @@ håndtere udvalgte læse- og skriveflows uden at cache følsomme credentials.
   endnu en reel Playwright-test
   (`offline shopping list clear-checked is queued locally and syncs on
   reconnect`), samme afgrænsede fejlsimulering som de to øvrige
-  offline-tests.
+  offline-tests. Godkendt og merget af Nicolaj (PR #132).
+- [x] Dedikeret Playwright-offline-test for kalendervisnings-fallbacket
+  (PR #125), som hidtil kun var verificeret med provider-/lagrings-
+  enhedstests: `offline calendar shows cached events with a visible
+  staleness banner` besøger `/calendar` online (fylder sync-cachen),
+  genindlæser siden med kun selve aftale-hentningen fejlende, og bekræfter
+  både at den cachede aftale stadig vises og at "viser gemte aftaler
+  fra..."-beskeden er synlig — samt at begge forsvinder igen, når
+  forbindelsen er tilbage. Ren test, ingen adfærdsændring — selv-merget.
+
+Alle tre skrivekø-flows og kalendervisnings-fallbacket har nu hver sin
+egen reelle Playwright-verifikation, og fasens acceptkriterier nedenfor er
+opfyldt.
 
 ### Mangler
 
-- [ ] En dedikeret Playwright-offline-test for kalendervisnings-fallbacket
-  (PR #125) — den blev kun verificeret med provider-/lagringsenhedstests,
-  ikke en fuld browsertest af selve offline/reconnect-forløbet, i
-  modsætning til de tre skrivekø-flows, som nu hver har sin egen.
 - [ ] Eventuel fremtidig udvidelse af skrivekøen ud over politikkens
-  nuværende liste (fx redigering/sletning af varer/opgaver) — kræver en ny
-  politikbeslutning først, ikke kun kode.
+  nuværende liste (fx redigering/sletning af varer/opgaver, eller et
+  Outlook-offline-fallback) — kræver en ny politikbeslutning først, ikke
+  kun kode. Åbentstående forbedring, ikke en blokering for fasens
+  nuværende acceptkriterier.
 
 ### Acceptkriterier
 
@@ -547,11 +557,9 @@ håndtere udvalgte læse- og skriveflows uden at cache følsomme credentials.
 - Køede ændringer synkroniseres deterministisk eller giver en forståelig
   konfliktbesked.
 
-**Næste handling:** Tilføj en Playwright-offline-test for
-kalendervisnings-fallbacket (PR #125), så alle fire Fase 8-flows har samme
-niveau af browserverificeret dækning. Dette er en test-only opgave uden
-selvstændig UX-beslutning, så den kan selv-merges, hvis den ikke ændrer
-nogen synlig adfærd.
+**Næste handling:** Ingen resterende punkter inden for fasens nuværende
+acceptkriterier. En fremtidig udvidelse af skrivekøen (se "Mangler"
+ovenfor) kræver en ny politikbeslutning, før den påbegyndes.
 
 ## Prioriteret udførelsesrækkefølge
 
@@ -632,4 +640,5 @@ Efter hver fase eller material ændring skal den ansvarlige:
 | 2026-08-27 | Fase 8: Read-only offline-kalendervisning (Google, 7-dages-TTL, synlig "sidst opdateret") — godkendt og merget af Nicolaj efter gennemgang | PR #125 |
 | 2026-08-27 | Fase 8: Skrivekø til indkøbslistens tilføj/af-tilkryds vare, med reel Playwright-offline-test — godkendt og merget af Nicolaj efter gennemgang | PR #127 |
 | 2026-08-27 | Fase 8: Skrivekø til opgavers af-/tilkrydsning, med reel Playwright-offline-test — godkendt og merget af Nicolaj efter gennemgang | PR #129 |
-| 2026-08-28 | Fase 8: Skrivekø til indkøbslistens "ryd afkrydsede" (sidste punkt fra politikkens skriveliste), med reel Playwright-offline-test — åben til Nicolajs gennemgang, ikke selv-merget | PR #132 (open) |
+| 2026-08-28 | Fase 8: Skrivekø til indkøbslistens "ryd afkrydsede" (sidste punkt fra politikkens skriveliste), med reel Playwright-offline-test — godkendt og merget af Nicolaj efter gennemgang | PR #132 |
+| 2026-08-28 | Fase 8: Playwright-offline-test for kalendervisnings-fallbacket (PR #125) — ren test, ingen adfærdsændring, selv-merget. Fase 8 gennemført | PR #133 |
