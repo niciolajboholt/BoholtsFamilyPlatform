@@ -43,7 +43,7 @@ verifikation.
 | 6 | Refaktorering | Gennemført | — |
 | 7 | Release, drift og dokumentation | Delvist gennemført | Fjern dobbelt Cloudflare-deploy (ekstern) |
 | 8 | Offlineoplevelse | Gennemført | — |
-| 9 | ICS-abonnementskalendere | Ikke startet | D1-migration + server-CRUD for abonnementer |
+| 9 | ICS-abonnementskalendere | Delvist gennemført | SSRF-hærdet hentningsproxy + ICS-parser + RRULE |
 
 Appen er egnet til kontrolleret familiebrug og beta. Den er ikke vurderet som
 offentligt lanceringsklar, før privatliv pr. aftale, OAuth-verificering,
@@ -69,7 +69,7 @@ Status pr. 2026-08-27:
   værdi i stedet for et fastfrosset tal her.
 - D1-migrationsregisteret er baselinet for migration 0002-0016, og migration
   0017 er anvendt på beta.
-- Lokal kvalitetsbaseline: lint, produktionsbuild og 468 Vitest-tests består.
+- Lokal kvalitetsbaseline: lint, produktionsbuild og 479 Vitest-tests består.
 - Playwright indeholder login/jura, autentificeret navigation, kalenderlayout,
   kontrolnavne, en automatisk WCAG 2.0/2.1 A/AA-audit (axe-core) af de fem
   hovedsider, offline-scenarier, privatlivs-redaktion (ejer/andet medlem +
@@ -613,7 +613,25 @@ skole- eller idrætskalender) og se dens aftaler i appen, uden at skulle logge
 ind på den konto, kalenderen tilhører. Skrivebeskyttet — appen redigerer
 aldrig i en ICS-kilde.
 
-**Status: Ikke startet**
+**Status: Delvist gennemført**
+
+### Gennemført
+
+- [x] D1-migration `0018_ics_calendar_subscriptions.sql`: ny tabel med
+  familyId, url (klartekst, jf. beslutning nedenfor), label,
+  familyMemberId (valgfri), createdByUserId, lastFetchedAt,
+  lastFetchStatus, createdAt.
+- [x] Server-CRUD for abonnementer (`server/routes/familyRoutes/
+  icsSubscriptions.ts`, mountet i `families.ts`): list (alle medlemmer),
+  opret/redigér/slet (kun ejer/admin), med samme cross-family-tjek af
+  `familyMemberId` som `calendarMappings.ts`. Validerer kun URL-skema
+  (http/https) — reel nåbarheds-/SSRF-kontrol hører til den kommende
+  hentnings-rute, hvor der rent faktisk sker et netværkskald.
+- [x] 5-abonnements-loftet håndhæves server-side (409 ved forsøg på et
+  sjette). 11 nye servertests dækker opret/list/redigér/slet, loftet,
+  rolle-tjek og cross-family-isolation. Rent backend — ingen UI eksponerer
+  endnu disse ruter, så ingen ændring i appens brug eller udseende;
+  selv-merget.
 
 ### Beslutninger truffet (2026-08-28, Nicolaj)
 
@@ -654,10 +672,6 @@ aldrig i en ICS-kilde.
 
 ### Ny arbejde (ingen eksisterende kode/mønster at læne sig op ad)
 
-- [ ] Ny D1-migration: en `ics_calendar_subscriptions`-tabel
-  (familyId, url, label, familyMemberId, createdByUserId, lastFetchedAt,
-  lastFetchStatus, createdAt) — `calendar_member_mappings` kan ikke bære
-  URL/label/status-metadata som den er i dag.
 - [ ] Ny server-rute, der proxyer hentningen af en vilkårlig, bruger-angivet
   URL — **ingen eksisterende kode i repoet gør dette i dag** (Google/Outlook
   går til faste, kendte endpoints). Kræver reel SSRF-hærdning: kun
@@ -676,7 +690,6 @@ aldrig i en ICS-kilde.
 - [ ] UI til at tilføje/redigere/fjerne ICS-abonnementer og tildele dem et
   familiemedlem (nyt afsnit i Indstillinger, samme sted som Google/Outlook-
   forbindelser i dag).
-- [ ] Håndhæv 5-abonnements-loftet server-side.
 
 ### Acceptkriterier
 
@@ -693,11 +706,12 @@ aldrig i en ICS-kilde.
   som private Google-/Outlook-aftaler, med en synlig forbeholdstekst om, at
   garantien afhænger af, om kildekalenderen rent faktisk sætter feltet.
 
-**Næste handling:** Skriv D1-migrationen og en første, afgrænset PR med kun
-server-siden: tabellen, CRUD-ruterne for abonnementer (uden selve
-ICS-hentningen endnu) og loft-håndhævelsen. ICS-proxy/parsing/RRULE-
-udfoldning og selve UI'et bliver efterfølgende, selvstændige PR'er — alle
-med reel funktionsændring og derfor til gennemgang, ikke selv-mergede.
+**Næste handling:** Byg den nye server-proxy-rute (SSRF-hærdet hentning af
+en vilkårlig ICS-URL), tilføj en ICS-parser + RRULE-udfoldning, og byg
+`IcsCalendarProvider`. Dette ændrer reel funktion (nye netværkskald,
+ny afhængighed) og skal derfor til gennemgang hos Nicolaj, ikke
+selv-merges. Selve UI'et til at tilføje/administrere abonnementer bliver
+en selvstændig, efterfølgende PR.
 
 ## Prioriteret udførelsesrækkefølge
 
@@ -787,3 +801,4 @@ Efter hver fase eller material ændring skal den ansvarlige:
 | 2026-08-28 | Fase 8: Ryddet modstridende tekst om, at offline-skrivning/skrivekøen "endnu ikke er implementeret/påbegyndt" (forældet efter PR #125-#133); flyttet fremtidige udvidelser (offline redigering/sletning, Outlook-fallback) fra "Mangler" til et separat "Fremtidige forbedringer"-afsnit — ren dokumentation, selv-merget efter grøn CI | PR #135 |
 | 2026-08-28 | Fase 3/5: Reel Playwright-E2E for privat-aftale-redaktion (ejer/andet medlem + offentligt delelink), servertests for AI-ugeresumé-redaktion, manglende kalender-kortlægning og cross-family-isolation på familie-omdøbning/invitationsregenerering — ren test/dokumentation, ingen adfærdsændring | PR #137 |
 | 2026-08-28 | Fase 9 oprettet: ICS-abonnementskalendere. Omfang undersøgt (genanvendelige mønstre vs. reelt nyt arbejde) og tre produktbeslutninger truffet af Nicolaj (ingen URL-kryptering i v1, tildeles et familiemedlem, loft på 5 abonnementer pr. familie) — ren planlægning/dokumentation, ingen kode endnu | PR #138 |
+| 2026-08-28 | Fase 9: D1-migration + server-CRUD for ICS-abonnementer (opret/list/redigér/slet, rolle-tjek, cross-family-isolation, 5-loft) — rent backend, ingen UI endnu, ingen ændring i appens brug/udseende, selv-merget | PR #139 |
