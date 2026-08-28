@@ -9,6 +9,7 @@ import { useOutlookCalendarConnection } from "../../calendar/hooks/useOutlookCal
 import { clearCalendarMemberMappings } from "../../calendar/preferences/calendarMemberMappingStorage";
 import { clearExcludedOutlookCalendars } from "../../calendar/providers/outlook/outlookCalendarExclusionStorage";
 import { getProviderConnectionStatusText } from "../utils/getProviderConnectionStatusText";
+import { IcsSubscriptionsPanel } from "./IcsSubscriptionsPanel";
 import { SettingsLinkRow, SettingsSectionHeader } from "./SettingsPrimitives";
 
 export function CalendarConnectionsSection() {
@@ -133,6 +134,8 @@ export function CalendarConnectionsSection() {
               {outlookRedirectDiagnostic}
             </Alert>
           )}
+
+          <IcsSubscriptionsPanel isOpen={isCalendarDialogOpen} />
         </DialogContent>
 
         <DialogActions sx={{ px: 3, pb: 2.5 }}>

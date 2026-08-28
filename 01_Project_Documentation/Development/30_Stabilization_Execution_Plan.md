@@ -43,7 +43,7 @@ verifikation.
 | 6 | Refaktorering | Gennemført | — |
 | 7 | Release, drift og dokumentation | Delvist gennemført | Fjern dobbelt Cloudflare-deploy (ekstern) |
 | 8 | Offlineoplevelse | Gennemført | — |
-| 9 | ICS-abonnementskalendere | Delvist gennemført | Klient-provider, så tilføjede kalendere reelt vises |
+| 9 | ICS-abonnementskalendere | Gennemført | — |
 
 Appen er egnet til kontrolleret familiebrug og beta. Den er ikke vurderet som
 offentligt lanceringsklar, før privatliv pr. aftale, OAuth-verificering,
@@ -613,7 +613,7 @@ skole- eller idrætskalender) og se dens aftaler i appen, uden at skulle logge
 ind på den konto, kalenderen tilhører. Skrivebeskyttet — appen redigerer
 aldrig i en ICS-kilde.
 
-**Status: Delvist gennemført**
+**Status: Gennemført**
 
 ### Gennemført
 
@@ -651,17 +651,33 @@ aldrig i en ICS-kilde.
   en kilde svarer. 3 nye ruttests + 37 nye enhedstests af
   `icsCalendar.ts` (SSRF-blokering, parsing, privatliv, RRULE,
   omdirigering, størrelsesloft). Ingen UI kalder endnu denne rute.
-- [x] UI i Indstillinger (`IcsSubscriptionsSection.tsx`, samme sted som
-  Kalenderforbindelser): en dialog viser eksisterende abonnementer
-  (navn, tildelt medlem, sidst hentet-status) og en formular til at
-  tilføje et nyt (navn, ICS-link, valgfri medlemstildeling), med
-  fejlvisning og loft-besked fra API'et. Ny E2E-test dækker at tilføje og
-  fjerne et abonnement. Godkendt visuelt af Nicolaj ud fra rigtige
-  skærmbilleder, før koden blev committet. **Bemærk:** at tilføje en
-  kalender her viser den endnu IKKE i selve kalendervisningen —
-  `IcsCalendarProvider`/`CompositeCalendarProvider`-integrationen
-  (se "Ny arbejde" nedenfor) mangler stadig; denne UI-PR taler kun med
-  CRUD-API'et, ikke med den nye hentnings-/parsings-rute.
+- [x] UI i Indstillinger (`IcsSubscriptionsPanel.tsx`): oprindeligt sin egen
+  selvstændige dialog, siden flyttet ind i den eksisterende
+  "Kalenderforbindelser"-dialog (`CalendarConnectionsSection.tsx`), efter
+  ønske fra Nicolaj — samlet ét sted med Google/Outlook i stedet for en
+  ekstra række i Indstillinger. Viser eksisterende abonnementer (navn,
+  tildelt medlem, sidst hentet-status) og en formular til at tilføje et
+  nyt (navn, ICS-link, valgfri medlemstildeling), med fejlvisning og
+  loft-besked fra API'et. E2E-testen for at tilføje/fjerne et abonnement er
+  opdateret til den nye placering. Godkendt visuelt af Nicolaj ud fra
+  rigtige skærmbilleder, før koden blev committet.
+- [x] Klient-integration: `IcsCalendarProvider` (`providers/ics/
+  IcsCalendarProvider.ts`) implementerer `CalendarProvider` og kalder
+  `/events`-ruten (PR #139); registreret i `CompositeCalendarProvider` med
+  `sourceIdPrefix: "ics:"`. Skrivemetoder kaster ubetinget (`"Delte
+  ICS-kalendere er skrivebeskyttede."`), samme mønster som Google/Outlooks
+  `restoreEvent()`. Ny `CalendarProviderType`/`CalendarEventSource`-værdi
+  `"ics"` tilføjet. `icsCalendarSyncCacheStorage.ts` er den primære
+  friskhedsstrategi (15 min. opdateringsvindue, 7 dages offline-fallback,
+  jf. 31_Offline_Data_Policy.md) — springer selve netværkshentningen over,
+  når cachen er frisk nok, i stedet for at hamre eksterne ICS-servere ved
+  hver kalendervisning. Fejl isoleres pr. abonnement: én ubesvarende kilde
+  skjuler ikke familiens øvrige delte kalendere. Et tilføjet abonnement
+  vises nu med sine aftaler i selve kalenderen, tildelt medlemmets
+  farve/kolonne hvis tildelt. Verificeret med `npm run build` (typecheck),
+  519 grønne Vitest-tests og fuld grøn Playwright-suite (14 tests,
+  desktop-chromium, inkl. WCAG-audit). Synlig ny funktion (aftaler fra en
+  delt kalender vises nu i appen) — til gennemgang, ikke selv-merget.
 
 ### Beslutninger truffet (2026-08-28, Nicolaj)
 
@@ -700,21 +716,6 @@ aldrig i en ICS-kilde.
   feltet (og dermed reelt er offentlige) — skal kommunikeres tydeligt i
   UI'et, ikke stilles som en garanti appen ikke kan indfri.
 
-### Ny arbejde (ingen eksisterende kode/mønster at læne sig op ad)
-
-- [ ] Ny kildetype: `CalendarEventSource`/`CalendarProviderType` skal have en
-  ny værdi (fx `"ics"`) — "apple" er kun delvist forberedt og dækker et
-  andet, CalDAV-baseret scenarie.
-- [ ] `IcsCalendarProvider` (klient) implementerer `CalendarProvider` og
-  kalder den nye `/events`-rute (PR #139); registreres i
-  `CompositeCalendarProvider` med sin egen `sourceIdPrefix` (fx `"ics:"`),
-  med skrivemetoder der kaster (samme mønster som Google/Outlooks
-  skrivebeskyttede tilfælde). Uden denne vises et tilføjet ICS-abonnement
-  ikke i selve kalenderen, kun i Indstillinger-listen (UI'et fra PR #140).
-- [ ] Offline-cache for ICS-hentninger, jf. Fase 8-mønsteret
-  (`googleCalendarSyncCacheStorage.ts`s TTL/friskhed) — her den primære
-  friskhedsstrategi, ikke kun et fallback.
-
 ### Acceptkriterier
 
 - Et gyldigt ICS-link kan tilføjes, og dets aftaler (inkl. gentagne, via
@@ -730,12 +731,10 @@ aldrig i en ICS-kilde.
   som private Google-/Outlook-aftaler, med en synlig forbeholdstekst om, at
   garantien afhænger af, om kildekalenderen rent faktisk sætter feltet.
 
-**Næste handling:** Byg `IcsCalendarProvider` (klient) og forbind den til
-`CompositeCalendarProvider` samt Fase 8-cachemønsteret, så et tilføjet
-abonnement rent faktisk viser sine aftaler i kalenderen. Både
-hentnings-/parsings-ruten (PR #139) og administrations-UI'et i
-Indstillinger (PR #140) er nu merget efter gennemgang — det er kun denne
-klient-integration, der mangler, før funktionen er brugbar for familien.
+**Næste handling:** Ingen — fase 9 er gennemført. Klient-integrationen
+(`IcsCalendarProvider`) ændrer reel funktion (aftaler fra en delt kalender
+vises nu i selve kalenderen) og er til gennemgang hos Nicolaj, ikke
+selv-merget.
 
 ## Prioriteret udførelsesrækkefølge
 
@@ -828,3 +827,4 @@ Efter hver fase eller material ændring skal den ansvarlige:
 | 2026-08-28 | Fase 9: D1-migration + server-CRUD for ICS-abonnementer (opret/list/redigér/slet, rolle-tjek, cross-family-isolation, 5-loft) — rent backend, ingen UI endnu, ingen ændring i appens brug/udseende, selv-merget sammen med scope-dokumentationen | PR #138 |
 | 2026-08-28 | Fase 9: SSRF-hærdet ICS-hentning/-parsing + RRULE-udfoldning (`server/lib/icsCalendar.ts`, `ical.js`) og en ny hentnings-rute, med privatlivsredaktion for `CLASS:PRIVATE`/`CONFIDENTIAL`. 40 nye tests. Ændrer reel funktion (nye udgående netværkskald, ny afhængighed) — til gennemgang, ikke selv-merget | PR #139 |
 | 2026-08-28 | Fase 9: UI i Indstillinger til at tilføje/fjerne delte ICS-kalendere og tildele dem et familiemedlem — synlig ny funktion, godkendt visuelt af Nicolaj ud fra skærmbilleder før commit. Viser endnu ikke aftalerne i selve kalenderen (kræver klient-provider-integrationen, se Fase 9 "Ny arbejde") | PR #140 |
+| 2026-08-28 | Fase 9: Klient-integration (`IcsCalendarProvider` registreret i `CompositeCalendarProvider`, ny `"ics"`-kildetype, primær friskheds-cache) — tilføjede delte kalendere vises nu i selve kalenderen. ICS-panelet flyttet ind i den eksisterende "Kalenderforbindelser"-dialog i stedet for sin egen, efter ønske fra Nicolaj. Fase 9 gennemført. Synlig ny funktion — til gennemgang, ikke selv-merget | PR #141 |

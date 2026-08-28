@@ -275,3 +275,29 @@ export function deleteIcsSubscription(familyId: string, subscriptionId: string) 
     { method: "DELETE" },
   );
 }
+
+// Fase 9: aftaler for ét ICS-abonnement, allerede hentet/parset/redigeret
+// (privatliv, RRULE-udfoldning) server-side af server/lib/icsCalendar.ts.
+export interface IcsCalendarEventDto {
+  id: string;
+  title: string;
+  start: string;
+  end: string;
+  allDay: boolean;
+  description?: string;
+  location?: string;
+  isPrivate: boolean;
+}
+
+export function getIcsSubscriptionEvents(
+  familyId: string,
+  subscriptionId: string,
+  range?: { start: string; end: string },
+) {
+  const query = range
+    ? `?start=${encodeURIComponent(range.start)}&end=${encodeURIComponent(range.end)}`
+    : "";
+  return request<{ events?: IcsCalendarEventDto[]; error?: string }>(
+    `/api/families/${familyId}/ics-subscriptions/${subscriptionId}/events${query}`,
+  );
+}
