@@ -1,17 +1,30 @@
 import { Hono } from "hono";
 
 import type { Env } from "../../env";
+import { fetchAndParseIcsCalendar, IcsFetchError } from "../../lib/icsCalendar";
 import { getMembershipForFamily } from "../../lib/familyMembership";
 import { parseJsonBody, type Variables } from "./familyQueries";
 
 // Fase 9: en delt kalender tilføjet via et ICS-link (Googles "hemmelige
 // iCal-adresse", Outlooks offentlige kalenderlink, en skole-/
 // idrætskalender osv.) — skrivebeskyttet, ingen OAuth til kildens konto.
-// Denne fil dækker kun selve abonnements-administrationen (opret/list/
-// redigér/slet + loft). Selve hentningen/parsningen af feedet (en ny
-// server-proxy med SSRF-hærdning, ICS-parsing, RRULE-udfoldning) er en
-// selvstændig, efterfølgende PR — se 30_Stabilization_Execution_Plan.md's
-// Fase 9.
+// Dækker abonnements-administrationen (opret/list/redigér/slet + loft) samt
+// selve hentningen/parsningen af feedet (server/lib/icsCalendar.ts — SSRF-
+// hærdet hentning, ICS-parsing, RRULE-udfoldning). Selve UI'et til at
+// tilføje/administrere abonnementer er en selvstændig, efterfølgende PR —
+// se 30_Stabilization_Execution_Plan.md's Fase 9.
+
+function icsFetchErrorStatus(code: IcsFetchError["code"]): 400 | 502 | 504 {
+  switch (code) {
+    case "invalid-url":
+    case "blocked-host":
+      return 400;
+    case "timeout":
+      return 504;
+    default:
+      return 502;
+  }
+}
 
 const icsSubscriptions = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -231,6 +244,71 @@ icsSubscriptions.delete("/:id/ics-subscriptions/:subscriptionId", async (c) => {
   const subscriptions = await listIcsSubscriptions(c.env.DB, familyId);
 
   return c.json({ subscriptions });
+});
+
+function defaultIcsEventRange(): { start: string; end: string } {
+  const now = new Date();
+  const start = new Date(now);
+  start.setMonth(start.getMonth() - 1);
+  const end = new Date(now);
+  end.setMonth(end.getMonth() + 1);
+
+  return { start: start.toISOString(), end: end.toISOString() };
+}
+
+// Henter og fortolker abonnementets ICS-feed for det ønskede tidsrum — enhver
+// medlem må læse, ligesom selve abonnementslisten. Opdaterer altid
+// last_fetched_at/last_fetch_status, uanset om hentningen lykkedes, så
+// familien kan se hvornår og hvor godt en kilde sidst svarede.
+icsSubscriptions.get("/:id/ics-subscriptions/:subscriptionId/events", async (c) => {
+  const user = c.get("user");
+  const familyId = c.req.param("id");
+  const subscriptionId = c.req.param("subscriptionId");
+  const membership = await getMembershipForFamily(c.env.DB, familyId, user.id);
+
+  if (!membership) {
+    return c.json({ error: "Ikke fundet." }, 404);
+  }
+
+  const subscription = await c.env.DB.prepare(
+    "SELECT url FROM ics_calendar_subscriptions WHERE id = ? AND family_id = ?",
+  )
+    .bind(subscriptionId, familyId)
+    .first<{ url: string }>();
+
+  if (!subscription) {
+    return c.json({ error: "Abonnementet findes ikke i denne familie." }, 404);
+  }
+
+  const queryStart = c.req.query("start");
+  const queryEnd = c.req.query("end");
+  const range =
+    queryStart && queryEnd ? { start: queryStart, end: queryEnd } : defaultIcsEventRange();
+
+  const now = new Date().toISOString();
+
+  try {
+    const events = await fetchAndParseIcsCalendar(subscription.url, range);
+
+    await c.env.DB.prepare(
+      "UPDATE ics_calendar_subscriptions SET last_fetched_at = ?, last_fetch_status = 'ok' WHERE id = ?",
+    )
+      .bind(now, subscriptionId)
+      .run();
+
+    return c.json({ events });
+  } catch (error) {
+    const code = error instanceof IcsFetchError ? error.code : "network";
+    const message = error instanceof IcsFetchError ? error.message : "Kunne ikke hente kalenderen.";
+
+    await c.env.DB.prepare(
+      "UPDATE ics_calendar_subscriptions SET last_fetched_at = ?, last_fetch_status = ? WHERE id = ?",
+    )
+      .bind(now, code, subscriptionId)
+      .run();
+
+    return c.json({ error: message }, icsFetchErrorStatus(code));
+  }
 });
 
 export default icsSubscriptions;

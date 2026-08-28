@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createFakeEnv } from "../testing/fakeEnv";
 import { seedLoggedInUser } from "../testing/fakeD1";
@@ -1369,6 +1369,117 @@ describe("families routes", () => {
         env,
       );
       expect((await stillThere.json()).subscriptions).toHaveLength(1);
+    });
+
+    describe("GET /:id/ics-subscriptions/:subscriptionId/events", () => {
+      const fetchMock = vi.fn();
+
+      beforeEach(() => {
+        fetchMock.mockReset();
+        vi.stubGlobal("fetch", fetchMock);
+      });
+
+      afterEach(() => {
+        vi.unstubAllGlobals();
+      });
+
+      async function createSubscription(
+        cookieHeader: string,
+        familyId: string,
+        url = "https://calendar.example.com/x.ics",
+      ): Promise<string> {
+        const response = await families.request(
+          `/${familyId}/ics-subscriptions`,
+          {
+            method: "POST",
+            headers: { Cookie: cookieHeader, "Content-Type": "application/json" },
+            body: JSON.stringify({ url, label: "X" }),
+          },
+          env,
+        );
+        return (await response.json()).subscriptions[0].id;
+      }
+
+      it("fetches, parses, and returns the subscription's events", async () => {
+        const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+        const created = await createFamily(env, owner.cookieHeader);
+        const subscriptionId = await createSubscription(owner.cookieHeader, created.family.id);
+
+        const ics = [
+          "BEGIN:VCALENDAR",
+          "VERSION:2.0",
+          "BEGIN:VEVENT",
+          "UID:evt@example.com",
+          "DTSTAMP:20260101T000000Z",
+          "DTSTART:20260901T090000Z",
+          "DTEND:20260901T100000Z",
+          "SUMMARY:Bowling",
+          "END:VEVENT",
+          "END:VCALENDAR",
+        ].join("\r\n");
+        fetchMock.mockResolvedValue(new Response(ics, { status: 200 }));
+
+        const response = await families.request(
+          `/${created.family.id}/ics-subscriptions/${subscriptionId}/events?start=2026-08-01T00:00:00.000Z&end=2026-10-01T00:00:00.000Z`,
+          { headers: { Cookie: owner.cookieHeader } },
+          env,
+        );
+
+        expect(response.status).toBe(200);
+        const body = await response.json();
+        expect(body.events).toHaveLength(1);
+        expect(body.events[0]).toMatchObject({ title: "Bowling" });
+
+        const subscriptions = await families.request(
+          `/${created.family.id}/ics-subscriptions`,
+          { headers: { Cookie: owner.cookieHeader } },
+          env,
+        );
+        const subscriptionRow = (await subscriptions.json()).subscriptions[0];
+        expect(subscriptionRow.lastFetchStatus).toBe("ok");
+        expect(subscriptionRow.lastFetchedAt).toEqual(expect.any(String));
+      });
+
+      it("returns a readable error and records the failure status when the feed can't be fetched", async () => {
+        const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+        const created = await createFamily(env, owner.cookieHeader);
+        const subscriptionId = await createSubscription(owner.cookieHeader, created.family.id);
+
+        fetchMock.mockResolvedValue(new Response("nope", { status: 500 }));
+
+        const response = await families.request(
+          `/${created.family.id}/ics-subscriptions/${subscriptionId}/events`,
+          { headers: { Cookie: owner.cookieHeader } },
+          env,
+        );
+
+        expect(response.status).toBe(502);
+
+        const subscriptions = await families.request(
+          `/${created.family.id}/ics-subscriptions`,
+          { headers: { Cookie: owner.cookieHeader } },
+          env,
+        );
+        expect((await subscriptions.json()).subscriptions[0].lastFetchStatus).toBe("network");
+      });
+
+      it("returns 404 for a subscription belonging to a different family", async () => {
+        const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+        const created = await createFamily(env, owner.cookieHeader, "Boholt");
+        const subscriptionId = await createSubscription(owner.cookieHeader, created.family.id);
+
+        const otherOwner = await seedLoggedInUser(env.DB as never, { id: "other-owner" });
+        const otherFamily = await createFamily(env, otherOwner.cookieHeader, "Naboerne");
+
+        const response = await families.request(
+          `/${otherFamily.family.id}/ics-subscriptions/${subscriptionId}/events`,
+          { headers: { Cookie: otherOwner.cookieHeader } },
+          env,
+        );
+
+        expect(response.status).toBe(404);
+        expect(fetchMock).not.toHaveBeenCalled();
+      });
     });
   });
 });
