@@ -39,7 +39,7 @@ verifikation.
 | 2 | Tilgængelighed og visuelt polish | Delvist gennemført | Fysisk VoiceOver-test (ekstern) |
 | 3 | Privatliv og AI | Delvist gennemført | Kalenderniveau-privatlivsvalg og sikre standardværdier (produktbeslutning) |
 | 4 | Login, branding og OAuth | Delvist gennemført | Google-verificering og scope-gennemgang |
-| 5 | Browserbaserede brugerflowtests | Delvist gennemført | Indkøb/opgaver/rutiner: opret/redigér/slet gennem UI'et |
+| 5 | Browserbaserede brugerflowtests | Delvist gennemført | Logout/lokal oprydning + generelle API-fejl (E2E) |
 | 6 | Refaktorering | Gennemført | — |
 | 7 | Release, drift og dokumentation | Delvist gennemført | Fjern dobbelt Cloudflare-deploy (ekstern) |
 | 8 | Offlineoplevelse | Gennemført | — |
@@ -412,10 +412,17 @@ produktionsdata eller private kalenderkonti.
   gennem `FamilySetupOnboarding`; rolleskift + fjernelse gennem den nye
   dialog). Synlig ny funktion (ny UI-flade) — til gennemgang, ikke
   selv-merget.
+- [x] Indkøbsliste, opgaver og rutiner (opret/redigér/slet gennem UI'et) —
+  det sidste tilbageværende Fase 5-punkt. 3 nye reelle Playwright-E2E-tests:
+  (1) indkøbsliste — tilføj/redigér/slet en vare, samt opret/redigér/slet
+  en hel liste (inkl. skift mellem lister via faneblade); (2) opgaver —
+  tilføj/redigér/slet en opgave; (3) rutiner — opret og slet en rutine
+  (ingen redigér-UI findes for en eksisterende rutine, kun opret/slet —
+  arkitektonisk fakta, ikke en mangel). Ren test/dokumentation, ingen
+  adfærdsændring, selv-merget efter grøn CI.
 
 ### Mangler
 
-- [ ] Indkøbsliste, opgaver og rutiner (opret/redigér/slet gennem UI'et).
 - [ ] Logout og fuldstændig lokal oprydning.
 - [ ] Generelle API-fejl uden for de allerede dækkede offline-scenarier.
 
@@ -426,8 +433,8 @@ produktionsdata eller private kalenderkonti.
 - Fejl giver læsbare traces/screenshots, og flaky tests blokerer ikke uden en
   dokumenteret årsag.
 
-**Næste handling:** Indkøbsliste, opgaver og rutiner mangler stadig reel
-Playwright-E2E-dækning af opret/redigér/slet gennem UI'et.
+**Næste handling:** Logout/lokal oprydning og generelle API-fejl uden for de
+allerede dækkede offline-scenarier mangler stadig reel Playwright-E2E-dækning.
 
 ## Fase 6 – Refaktorering
 
@@ -963,3 +970,5 @@ Efter hver fase eller material ændring skal den ansvarlige:
 | 2026-08-28 | Fase 5: Fuldt invitations-/rolle-UI-flow. Ny bruger kan taste en invitationskode ind og komme ind i appen (reel E2E). Rolleadministration havde slet ingen UI før — ny `GET /:id/memberships`-rute + ny "Medlemmer og roller"-dialog (rolleskift kun ejer, fjernelse ejer/admin, aldrig på egen/ejerens række), genbruger allerede testede serverruter. 2 nye servertests + 2 nye reelle Playwright-E2E-tests. Synlig ny funktion — til gennemgang, ikke selv-merget | PR #147 |
 | 2026-08-28 | Fase 1: Rettet farve-/ejerskabsfejl fra Nicolajs fejlrapport — en aftale med navngivne medlemmer i titlen viste generisk "Familien"-lilla i stedet for deres egne farver, da kun kalender-tildelingen (ikke aftalens egne Google-deltagere) bestemte farven. Ny `matchAttendeesToOwnerIds.ts` matcher deltager-e-mails mod medlemmers koblede konto-e-mail (ny `linkedUserEmail`-felt end-to-end); matcher intet, uændret gammel adfærd. Nye enhedstests + visuel før/efter-reproduktion. Synlig funktionsændring — til gennemgang, ikke selv-merget | PR #148 |
 | 2026-08-28 | Fase 1: Opfølgning på PR #148 (allerede merget, ny PR) — `getEventOwnerColor()` gav stadig Familien-farven ved flere matchede ejere, og et ikke-tildelt ICS-abonnement fik intet ejerskab på selve aftalen. Én central regel (`getEventOwnerColors()` + `getEventOwnerBorderSx()`, opdelt venstrekant ved flere medlemmer) brugt identisk af måned/uge/dag/familie/liste-visningen. Nyt `CalendarEvent.color`-felt som ICS-kildens fald-tilbage. 15 nye/ændrede enhedstests + 2 nye Playwright-tests, der beviser den faktiske CSS-farve, ikke kun ownerIds. Synlig funktionsændring — til gennemgang, ikke selv-merget | PR #149 |
+| 2026-08-28 | Fase 1: Visuel opfølgning fra Nicolaj efter test på iPhone (egen, parallel session) — aftalefarver fremstod udvaskede pga. for kraftig gennemsigtig baggrund, og kalenderfilteret viste kildens egen farve i stedet for det faktisk matchede medlems. Skiftet fra `border-image`-venstrekant til en fuldt mættet accentstribe via et pseudo-element (undgår halvmåneform på afrundede kort), baggrundstoning reduceret ca. 19% → 8%, og en ny `getCalendarSourceDisplayColors()` lader "Vis kalendere"-filteret bruge samme farveopløsning som selve aftalekortene. Godkendt og merget af Nicolaj | PR #150 |
+| 2026-08-28 | Fase 5: Sidste "Mangler"-punkt lukket — reel Playwright-E2E for opret/redigér/slet gennem UI'et på indkøbsliste (vare + hel liste), opgaver og rutiner (kun opret/slet — ingen redigér-UI findes for en rutine, arkitektonisk fakta). 3 nye tests. Ren test/dokumentation, ingen adfærdsændring, selv-merget efter grøn CI | PR #151 |
