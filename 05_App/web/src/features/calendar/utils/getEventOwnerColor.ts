@@ -89,7 +89,6 @@ export function getEventOwnerBorderSx(
           .join(", ")})`;
 
   return {
-    position: "relative" as const,
     borderLeft: "none",
     "&::before": {
       content: '""',
