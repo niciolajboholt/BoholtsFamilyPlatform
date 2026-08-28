@@ -42,7 +42,7 @@ verifikation.
 | 5 | Browserbaserede brugerflowtests | Delvist gennemført | CRUD-, rettigheds- og offline-scenarier |
 | 6 | Refaktorering | Gennemført | — |
 | 7 | Release, drift og dokumentation | Delvist gennemført | Fjern dobbelt Cloudflare-deploy (ekstern) |
-| 8 | Offlineoplevelse | Delvist gennemført | "Ryd afkrydsede" til skrivekøen (afventer opgave-PR-gennemgang) |
+| 8 | Offlineoplevelse | Delvist gennemført | "Ryd afkrydsede" til skrivekøen på indkøbslisten |
 
 Appen er egnet til kontrolleret familiebrug og beta. Den er ikke vurderet som
 offentligt lanceringsklar, før privatliv pr. aftale, OAuth-verificering,
@@ -68,7 +68,7 @@ Status pr. 2026-08-27:
   værdi i stedet for et fastfrosset tal her.
 - D1-migrationsregisteret er baselinet for migration 0002-0016, og migration
   0017 er anvendt på beta.
-- Lokal kvalitetsbaseline: lint, produktionsbuild og 457 Vitest-tests består.
+- Lokal kvalitetsbaseline: lint, produktionsbuild og 463 Vitest-tests består.
 - Playwright indeholder login/jura, autentificeret navigation, kalenderlayout,
   kontrolnavne og mobilbredde-matrix på desktop- og mobilprojekter.
 - Produktionsafhængigheder havde 0 kendte npm-sårbarheder ved sidste audit.
@@ -515,7 +515,8 @@ håndtere udvalgte læse- og skriveflows uden at cache følsomme credentials.
   offline-tilstand) for at undgå den race mod andre samtidige
   familiedata-kald, som gjorde en tidligere version af
   indkøbsliste-testen flaky. Ændrer appens faktiske funktion/oplevelse
-  offline — derfor bevidst ikke selv-merget.
+  offline — derfor bevidst ikke selv-merget; godkendt og merget af Nicolaj
+  (PR #129).
 
 ### Mangler
 
@@ -532,9 +533,11 @@ håndtere udvalgte læse- og skriveflows uden at cache følsomme credentials.
 - Køede ændringer synkroniseres deterministisk eller giver en forståelig
   konfliktbesked.
 
-**Næste handling:** Afvent Nicolajs gennemgang af den åbne
-opgave-skrivekø-PR. Derefter: "ryd afkrydsede" på indkøbslisten, samme
-politik og mønster.
+**Næste handling:** Tilføj "ryd afkrydsede" på indkøbslisten til skrivekøen,
+samme politik og mønster som ovenfor. Ligesom de tre foregående
+skrivekø-/kalendercache-PR'er ændrer dette appens faktiske
+funktion/oplevelse offline, så den bør ikke selv-merges uden Nicolajs
+gennemgang.
 
 ## Prioriteret udførelsesrækkefølge
 
@@ -614,4 +617,4 @@ Efter hver fase eller material ændring skal den ansvarlige:
 | 2026-08-27 | Fase 8: Offline-datapolitik skrevet (`31_Offline_Data_Policy.md`) — hvad der aldrig/må caches, TTL, hvilke skrivninger må køes, konfliktprincip | PR #124 |
 | 2026-08-27 | Fase 8: Read-only offline-kalendervisning (Google, 7-dages-TTL, synlig "sidst opdateret") — godkendt og merget af Nicolaj efter gennemgang | PR #125 |
 | 2026-08-27 | Fase 8: Skrivekø til indkøbslistens tilføj/af-tilkryds vare, med reel Playwright-offline-test — godkendt og merget af Nicolaj efter gennemgang | PR #127 |
-| 2026-08-27 | Fase 8: Skrivekø til opgavers af-/tilkrydsning, med reel Playwright-offline-test — åben til Nicolajs gennemgang, ikke selv-merget | PR #129 (open) |
+| 2026-08-27 | Fase 8: Skrivekø til opgavers af-/tilkrydsning, med reel Playwright-offline-test — godkendt og merget af Nicolaj efter gennemgang | PR #129 |
