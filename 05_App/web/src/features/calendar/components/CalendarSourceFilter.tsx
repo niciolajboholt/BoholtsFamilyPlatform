@@ -102,7 +102,7 @@ export function CalendarSourceFilter({
                   <Typography component="span">{source.name}</Typography>
                   <Box
                     component="span"
-                    aria-label={`Aftalefarver: ${displayColors.join(", ")}`}
+                    aria-hidden="true"
                     sx={{ display: "inline-flex", gap: 0.35 }}
                   >
                     {displayColors.slice(0, 4).map((color) => (
