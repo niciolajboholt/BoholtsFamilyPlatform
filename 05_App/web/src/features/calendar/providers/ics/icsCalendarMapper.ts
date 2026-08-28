@@ -40,6 +40,12 @@ export function mapIcsCalendarEvent(
   subscriptionId: string,
   event: IcsCalendarEventDto,
   ownerId: CalendarOwnerId | undefined,
+  // Abonnementets egen valgte farve (IcsCalendarSubscriptionDto.color) —
+  // sat som aftalens color-fald-tilbage. getEventOwnerColor() bruger den
+  // KUN, når aftalen ikke har noget medlem-ejerskab (ownerIds er tom) — et
+  // tildelt medlems egen farve vinder altid, jf. mapIcsCalendarSource()
+  // ovenfor, så feltet kan sættes uafhængigt af ownerId her.
+  subscriptionColor: string | null | undefined,
 ): CalendarEvent {
   return {
     id: encodeIcsEventId(subscriptionId, event.id),
@@ -50,6 +56,7 @@ export function mapIcsCalendarEvent(
     end: event.end,
     allDay: event.allDay,
     ownerIds: ownerId ? [ownerId] : [],
+    color: subscriptionColor ?? undefined,
     description: event.description,
     location: event.location,
     privacy: event.isPrivate ? "busy" : undefined,

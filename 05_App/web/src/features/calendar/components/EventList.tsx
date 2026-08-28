@@ -8,7 +8,7 @@ import {
 } from "@mui/material";
 
 import type { CalendarOwner } from "../data/calendarOwners";
-import { getEventOwnerColor } from "../utils/getEventOwnerColor";
+import { getEventOwnerBorderSx, getEventOwnerColors } from "../utils/getEventOwnerColor";
 import type { CalendarEvent } from "../models/calendarEvent";
 import ConflictBadge from "./ConflictBadge";
 
@@ -131,13 +131,12 @@ function EventCard({
   isConflict,
   onSelectEvent,
 }: EventCardProps) {
-  const sourceColor = getEventOwnerColor(event, members);
+  const ownerColors = getEventOwnerColors(event, members);
+  const sourceColor = ownerColors[0];
 
   return (
     <Card
-      sx={{
-        borderLeft: `5px solid ${sourceColor}`,
-      }}
+      sx={getEventOwnerBorderSx(ownerColors, 5)}
     >
       <CardActionArea
         onClick={() => onSelectEvent(event)}

@@ -176,7 +176,7 @@ export class IcsCalendarProvider implements CalendarProvider {
     }
 
     const mapped = (result.data.events ?? []).map((event) =>
-      mapIcsCalendarEvent(subscription.id, event, ownerId),
+      mapIcsCalendarEvent(subscription.id, event, ownerId, subscription.color),
     );
     setCachedIcsEvents(subscription.id, mapped);
     return mapped;

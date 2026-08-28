@@ -7,7 +7,7 @@ import {
 import { alpha } from "@mui/material/styles";
 
 import type { CalendarOwner } from "../data/calendarOwners";
-import { getEventOwnerColor } from "../utils/getEventOwnerColor";
+import { getEventOwnerBorderSx, getEventOwnerColors } from "../utils/getEventOwnerColor";
 import { useLongPress } from "../hooks/useLongPress";
 import type {
   CalendarEvent,
@@ -385,10 +385,11 @@ function DayCell({
             {events
               .slice(0, 3)
               .map((event) => {
-                const ownerColor = getEventOwnerColor(
+                const ownerColors = getEventOwnerColors(
                   event,
                   members,
                 );
+                const ownerColor = ownerColors[0];
 
                 const multiDayStatus =
                   getMultiDayStatus(
@@ -418,8 +419,7 @@ function DayCell({
                       // skelne uden at skulle læse teksten først.
                       backgroundColor:
                         `${ownerColor}30`,
-                      borderLeft:
-                        `3px solid ${ownerColor}`,
+                      ...getEventOwnerBorderSx(ownerColors, 3),
                       overflow: "hidden",
                       cursor: "pointer",
 

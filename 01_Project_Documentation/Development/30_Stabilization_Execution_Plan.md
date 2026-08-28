@@ -125,6 +125,32 @@ utilsigtede dubletter eller unødigt vandret scroll.
   enhedstests (`matchAttendeesToOwnerIds.test.ts`,
   `googleCalendarMapper.test.ts`) og en visuel Playwright-reproduktion
   før/efter, sendt til Nicolaj som skærmbilleder.
+- [x] Opfølgning fra Nicolaj på ovenstående (PR #148 var da allerede merget —
+  ny PR, samme fejlkategori): `getEventOwnerColor()` faldt stadig tilbage
+  til Familien-farven, når en aftale havde MERE end én matchet ejer (den
+  netop tilføjede deltagermatchning ramte netop denne gren), og et
+  ikke-tildelt ICS-abonnement fik slet intet ejerskab på selve AFTALEN,
+  så dets egen valgte farve (allerede korrekt brugt på selve KILDEN, jf.
+  `mapIcsCalendarSource()`) aldrig nåede aftalekortet. Én central regel
+  rettet ét sted (`getEventOwnerColor.ts`, ny `getEventOwnerColors()` +
+  `getEventOwnerBorderSx()`), brugt identisk af alle fem visninger
+  (måned/`DayCell`, uge/`WeekCalendar`, dag/`DayCalendar`,
+  familie/`FamilyPlannerCalendar`, liste/`EventList`) i stedet for
+  specialregler pr. komponent:
+  1. Reel family-tilknytning → Familien-farven.
+  2. Ét eller flere matchede medlemmer → deres egne farver — en opdelt,
+     skarpt afgrænset venstrekant ved flere (`border-image`, ikke en blødt
+     overtonet gradient), ikke Familien-farven.
+  3. Intet medlem-ejerskab, men aftalen har sin egen kildefarve (nyt
+     `CalendarEvent.color`-felt, sat af `icsCalendarMapper.ts` fra
+     abonnementets `color`) → den farve.
+  4. Intet af ovenstående → neutral standardfarve.
+  15 nye/ændrede enhedstests (`getEventOwnerColor.test.ts`,
+  `icsCalendarMapper.test.ts` — ny fil, mapperen havde ingen tests før) +
+  2 nye Playwright-tests, der beviser den FAKTISKE gengivne CSS-farve
+  (`getComputedStyle().borderImageSource`/`.borderLeftColor`), ikke kun
+  `ownerIds`-værdien. Synlig funktionsændring — egen PR, til gennemgang,
+  ikke selv-merget.
 
 ### Mangler
 
@@ -936,3 +962,4 @@ Efter hver fase eller material ændring skal den ansvarlige:
 | 2026-08-28 | Fase 9: Valgfri farve pr. ICS-abonnement, efter ønske fra Nicolaj — ny nullable `color`-kolonne (migration 0019), genbruger familiemedlemmers faste 8-farve-swatch-vælger, vist kun når intet medlem er tildelt. Godkendt visuelt af Nicolaj ud fra skærmbilleder. Synlig ny funktion — til gennemgang, ikke selv-merget | PR #146 |
 | 2026-08-28 | Fase 5: Fuldt invitations-/rolle-UI-flow. Ny bruger kan taste en invitationskode ind og komme ind i appen (reel E2E). Rolleadministration havde slet ingen UI før — ny `GET /:id/memberships`-rute + ny "Medlemmer og roller"-dialog (rolleskift kun ejer, fjernelse ejer/admin, aldrig på egen/ejerens række), genbruger allerede testede serverruter. 2 nye servertests + 2 nye reelle Playwright-E2E-tests. Synlig ny funktion — til gennemgang, ikke selv-merget | PR #147 |
 | 2026-08-28 | Fase 1: Rettet farve-/ejerskabsfejl fra Nicolajs fejlrapport — en aftale med navngivne medlemmer i titlen viste generisk "Familien"-lilla i stedet for deres egne farver, da kun kalender-tildelingen (ikke aftalens egne Google-deltagere) bestemte farven. Ny `matchAttendeesToOwnerIds.ts` matcher deltager-e-mails mod medlemmers koblede konto-e-mail (ny `linkedUserEmail`-felt end-to-end); matcher intet, uændret gammel adfærd. Nye enhedstests + visuel før/efter-reproduktion. Synlig funktionsændring — til gennemgang, ikke selv-merget | PR #148 |
+| 2026-08-28 | Fase 1: Opfølgning på PR #148 (allerede merget, ny PR) — `getEventOwnerColor()` gav stadig Familien-farven ved flere matchede ejere, og et ikke-tildelt ICS-abonnement fik intet ejerskab på selve aftalen. Én central regel (`getEventOwnerColors()` + `getEventOwnerBorderSx()`, opdelt venstrekant ved flere medlemmer) brugt identisk af måned/uge/dag/familie/liste-visningen. Nyt `CalendarEvent.color`-felt som ICS-kildens fald-tilbage. 15 nye/ændrede enhedstests + 2 nye Playwright-tests, der beviser den faktiske CSS-farve, ikke kun ownerIds. Synlig funktionsændring — til gennemgang, ikke selv-merget | PR #149 |
