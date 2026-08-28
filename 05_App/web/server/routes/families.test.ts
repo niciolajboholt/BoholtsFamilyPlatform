@@ -1136,6 +1136,48 @@ describe("families routes", () => {
       });
     });
 
+    it("lets the owner create a subscription with a custom color", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader);
+
+      const response = await families.request(
+        `/${created.family.id}/ics-subscriptions`,
+        {
+          method: "POST",
+          headers: { Cookie: owner.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            url: "https://calendar.example.com/idraet.ics",
+            label: "Idrætskalender",
+            color: "#D32F2F",
+          }),
+        },
+        env,
+      );
+
+      expect(response.status).toBe(200);
+      const body = await response.json();
+      expect(body.subscriptions[0]).toMatchObject({ color: "#D32F2F" });
+    });
+
+    it("defaults a subscription's color to null when none is given", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader);
+
+      const response = await families.request(
+        `/${created.family.id}/ics-subscriptions`,
+        {
+          method: "POST",
+          headers: { Cookie: owner.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({ url: "https://calendar.example.com/x.ics", label: "X" }),
+        },
+        env,
+      );
+
+      expect(response.status).toBe(200);
+      const body = await response.json();
+      expect(body.subscriptions[0].color).toBeNull();
+    });
+
     it("rejects a plain member trying to create a subscription", async () => {
       const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
       const created = await createFamily(env, owner.cookieHeader);
@@ -1278,6 +1320,35 @@ describe("families routes", () => {
       const updated = (await updateResponse.json()).subscriptions[0];
       expect(updated.label).toBe("Nyt navn");
       expect(updated.familyMemberId).toBe(memberId);
+    });
+
+    it("lets the owner change a subscription's color", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader);
+
+      const createResponse = await families.request(
+        `/${created.family.id}/ics-subscriptions`,
+        {
+          method: "POST",
+          headers: { Cookie: owner.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({ url: "https://calendar.example.com/x.ics", label: "X" }),
+        },
+        env,
+      );
+      const subscriptionId = (await createResponse.json()).subscriptions[0].id;
+
+      const updateResponse = await families.request(
+        `/${created.family.id}/ics-subscriptions/${subscriptionId}`,
+        {
+          method: "PATCH",
+          headers: { Cookie: owner.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({ color: "#4D7EA8" }),
+        },
+        env,
+      );
+
+      expect(updateResponse.status).toBe(200);
+      expect((await updateResponse.json()).subscriptions[0].color).toBe("#4D7EA8");
     });
 
     it("returns 404 when updating a subscription that belongs to a different family", async () => {

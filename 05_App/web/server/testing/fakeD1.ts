@@ -27,6 +27,7 @@ const migrationFiles = [
   "0016_event_reminders.sql",
   "0017_family_ai_preferences.sql",
   "0018_ics_calendar_subscriptions.sql",
+  "0019_ics_calendar_subscriptions_color.sql",
 ];
 
 function loadMigrations(db: DatabaseSync): void {
