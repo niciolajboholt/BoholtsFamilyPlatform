@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  getCalendarSourceDisplayColors,
   getEventOwnerBorderSx,
   getEventOwnerColor,
   getEventOwnerColors,
@@ -71,30 +72,70 @@ describe("getEventOwnerColor", () => {
   });
 });
 
+describe("getCalendarSourceDisplayColors", () => {
+  it("uses the same current member color as the source's events", () => {
+    expect(
+      getCalendarSourceDisplayColors(
+        "google:work",
+        "#D32F2F",
+        [{ sourceId: "google:work", ownerIds: ["jens"] }],
+        members,
+      ),
+    ).toEqual(["#00838F"]);
+  });
+
+  it("shows every distinct member color represented by a source", () => {
+    expect(
+      getCalendarSourceDisplayColors(
+        "google:work",
+        "#D32F2F",
+        [
+          { sourceId: "google:work", ownerIds: ["jens"] },
+          { sourceId: "google:work", ownerIds: ["christine", "jens"] },
+        ],
+        members,
+      ),
+    ).toEqual(["#00838F", "#C06C84"]);
+  });
+
+  it("keeps the source color when no loaded event can resolve a member color", () => {
+    expect(getCalendarSourceDisplayColors("ics:work", "#D32F2F", [], members)).toEqual([
+      "#D32F2F",
+    ]);
+  });
+});
+
 describe("getEventOwnerBorderSx", () => {
-  it("returns a plain solid border for a single color", () => {
-    expect(getEventOwnerBorderSx(["#2E7D32"], 4)).toEqual({
-      borderLeft: "4px solid #2E7D32",
+  it("returns a full-strength inset accent for a single color", () => {
+    const sx = getEventOwnerBorderSx(["#2E7D32"], 4);
+
+    expect(sx.borderLeft).toBe("none");
+    expect(sx.position).toBe("relative");
+    expect(sx["&::before"]).toMatchObject({
+      left: 0,
+      top: 0,
+      bottom: 0,
+      width: "4px",
+      background: "#2E7D32",
     });
   });
 
-  it("returns a hard-stop split border-image for multiple colors, in order", () => {
+  it("returns a hard-stop split accent for multiple colors, in order", () => {
     const sx = getEventOwnerBorderSx(["#C06C84", "#00838F"], 4);
 
-    expect(sx.borderLeft).toBe("4px solid");
-    expect(sx.borderImage).toBe(
-      "linear-gradient(to bottom, #C06C84 0%, #C06C84 50%, #00838F 50%, #00838F 100%) 1",
+    expect(sx["&::before"].background).toBe(
+      "linear-gradient(to bottom, #C06C84 0%, #C06C84 50%, #00838F 50%, #00838F 100%)",
     );
   });
 
   it("divides three colors into three equal, hard-stop bands", () => {
     const sx = getEventOwnerBorderSx(["#111111", "#222222", "#333333"], 3);
 
-    expect(sx.borderImage).toBe(
+    expect(sx["&::before"].background).toBe(
       "linear-gradient(to bottom, " +
         "#111111 0%, #111111 33.33333333333333%, " +
         "#222222 33.33333333333333%, #222222 66.66666666666666%, " +
-        "#333333 66.66666666666666%, #333333 100%) 1",
+        "#333333 66.66666666666666%, #333333 100%)",
     );
   });
 });
