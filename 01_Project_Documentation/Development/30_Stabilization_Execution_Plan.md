@@ -36,7 +36,7 @@ verifikation.
 | Fase | Område | Status | Næste vigtigste restpunkt |
 |---:|---|---|---|
 | 1 | Kalenderens UI og dubletter | Delvist gennemført | Manuel iPhone-verifikation og eventuel kildespecifik dubletanalyse |
-| 2 | Tilgængelighed og visuelt polish | Delvist gennemført | App-dækkende audit og fysisk VoiceOver-test |
+| 2 | Tilgængelighed og visuelt polish | Delvist gennemført | Tastatur-/fokusgennemgang og fysisk VoiceOver-test |
 | 3 | Privatliv og AI | Delvist gennemført | E2E for ejer/andet medlem + offentligt delelink |
 | 4 | Login, branding og OAuth | Delvist gennemført | Google-verificering og scope-gennemgang |
 | 5 | Browserbaserede brugerflowtests | Delvist gennemført | CRUD-, rettigheds- og offline-scenarier |
@@ -70,7 +70,8 @@ Status pr. 2026-08-27:
   0017 er anvendt på beta.
 - Lokal kvalitetsbaseline: lint, produktionsbuild og 464 Vitest-tests består.
 - Playwright indeholder login/jura, autentificeret navigation, kalenderlayout,
-  kontrolnavne og mobilbredde-matrix på desktop- og mobilprojekter.
+  kontrolnavne, en automatisk WCAG 2.0/2.1 A/AA-audit (axe-core) af de fem
+  hovedsider og mobilbredde-matrix på desktop- og mobilprojekter.
 - Produktionsafhængigheder havde 0 kendte npm-sårbarheder ved sidste audit.
 - `main` og `develop` er nu beskyttede branches: PR med mindst 1 godkendelse
   og en grøn `Lint, build and test`-statuscheck er påkrævet, branchen skal
@@ -144,12 +145,17 @@ skærmlæser og smalle mobilskærme uden at ændre appens varme grønne design.
   automatisk for et tilgængeligt navn.
 - [x] Pushnotifikationskontakten i Indstillinger har fået et eksplicit
   tilgængeligt navn efter den automatiske audit.
+- [x] Automatisk WCAG 2.0/2.1 A/AA-audit (axe-core) af alle fem hovedsider
+  indført som fast Playwright-test.
+- [x] Navigationsmenuens liste i `AppLayout.tsx` bruger nu gyldig
+  `<ul>`/`<li>`-semantik (hver `ListItemButton` pakket i `ListItem`).
+- [x] Tre marginale WCAG AA-kontrastbrud rettet: kalenderens nedtonede
+  datotal for dage uden for måneden, ikke-valgte faneblade og
+  "Log ud"-knappens røde tekst.
 
 ### Mangler
 
 - [ ] Gennemfør tastatur- og fokusgennemgang af alle primære sider og dialoger.
-- [ ] Gennemfør systematisk WCAG-kontrastkontrol af tekst, ikoner, personfarver
-  og tilstande.
 - [ ] Test fysisk med iPhone Safari, installeret PWA og VoiceOver.
 - [ ] Ret eventuelle resterende felter uden label, fejlbesked eller tydelig
   fokusmarkering.
@@ -161,8 +167,8 @@ skærmlæser og smalle mobilskærme uden at ændre appens varme grønne design.
 - Alle primære handlinger kan nås og aktiveres med tastatur.
 - Kritiske farvekombinationer opfylder relevante WCAG-kontrastkrav.
 
-**Næste handling:** Udvid den automatiske audit med tastatur-rækkefølge og
-kontrastkontrol. Afslut derefter fasen med fysisk iPhone/PWA/VoiceOver-test.
+**Næste handling:** Gennemfør en tastatur- og fokusgennemgang af alle primære
+sider og dialoger. Afslut derefter fasen med fysisk iPhone/PWA/VoiceOver-test.
 
 ## Fase 3 – Privatliv og AI
 
