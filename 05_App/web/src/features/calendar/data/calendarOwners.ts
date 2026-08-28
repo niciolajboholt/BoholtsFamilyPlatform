@@ -11,6 +11,10 @@ export interface CalendarOwner {
   // Google calendar to this member) offer to replace it with a real name
   // instead of silently overwriting something the user already picked.
   isPlaceholderName?: boolean;
+  // Den koblede kontos e-mail ("Min profil" i Indstillinger), hvis nogen —
+  // bruges til at matche Google-aftalers deltagerliste mod dette medlem
+  // (matchAttendeesToOwnerIds.ts). Ikke sat for et medlem uden egen konto.
+  email?: string;
 }
 
 // Seed/default data only — the runtime source of truth is the dynamic,

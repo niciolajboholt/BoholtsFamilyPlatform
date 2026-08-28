@@ -9,6 +9,7 @@ export interface FamilyMemberDto {
   relation: string | null;
   isPlaceholderName: number;
   linkedUserId: string | null;
+  linkedUserEmail: string | null;
 }
 
 export interface FamilyDto {

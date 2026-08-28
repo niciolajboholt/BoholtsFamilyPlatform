@@ -22,6 +22,10 @@ export interface GoogleEventDateTime {
   timeZone?: string;
 }
 
+export interface GoogleCalendarEventAttendee {
+  email?: string;
+}
+
 export interface GoogleCalendarEvent {
   id?: string;
   summary?: string;
@@ -32,6 +36,11 @@ export interface GoogleCalendarEvent {
   end?: GoogleEventDateTime;
   recurringEventId?: string;
   visibility?: string;
+  // Bruges til at genkende, hvilke familiemedlemmer aftalen reelt er FOR —
+  // mere præcist end kalender-tildelingen, som kun ved hvilken kalender
+  // aftalen ligger på (se matchAttendeesToOwnerIds.ts). Kun til stede, hvis
+  // Google-aftalen faktisk har inviterede deltagere.
+  attendees?: GoogleCalendarEventAttendee[];
 }
 
 // Kun til skrivning (create/update) — "date"/"dateTime"/"timeZone" skal
