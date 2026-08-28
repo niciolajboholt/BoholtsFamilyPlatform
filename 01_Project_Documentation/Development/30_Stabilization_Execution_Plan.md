@@ -69,7 +69,7 @@ Status pr. 2026-08-27:
   værdi i stedet for et fastfrosset tal her.
 - D1-migrationsregisteret er baselinet for migration 0002-0016, og migration
   0017 er anvendt på beta.
-- Lokal kvalitetsbaseline: lint, produktionsbuild og 479 Vitest-tests består.
+- Lokal kvalitetsbaseline: lint, produktionsbuild og 519 Vitest-tests består.
 - Playwright indeholder login/jura, autentificeret navigation, kalenderlayout,
   kontrolnavne, en automatisk WCAG 2.0/2.1 A/AA-audit (axe-core) af de fem
   hovedsider, offline-scenarier, privatlivs-redaktion (ejer/andet medlem +
@@ -632,6 +632,25 @@ aldrig i en ICS-kilde.
   rolle-tjek og cross-family-isolation. Rent backend — ingen UI eksponerer
   endnu disse ruter, så ingen ændring i appens brug eller udseende;
   selv-merget.
+- [x] `server/lib/icsCalendar.ts`: SSRF-hærdet hentning (kun http/https,
+  blokerer literal private/loopback/link-local IPv4/IPv6-adresser inkl.
+  cloud-metadata-IP'en 169.254.169.254, `localhost`/`.local`, 10s timeout,
+  2 MB svarloft via streaming-læsning i stedet for at stole på
+  Content-Length, op til 3 omdirigeringer hvor HVER ny URL genvalideres —
+  ikke kun den oprindelige). Bruger `ical.js` (ingen afhængigheder, ren
+  ESM, ingen Node-specifikke API'er — bekræftet ved en `wrangler
+  versions upload --dry-run`, som bundlede Workeren uden fejl) til både
+  ICS-parsing og RRULE-udfoldning i ét bibliotek, med samme
+  forekomstsloft-filosofi (500) som `expandRecurringEvents.ts`s eget
+  730-loft. `server/lib/icsCalendarPrivacy.ts` redigerer `CLASS:PRIVATE`/
+  `CONFIDENTIAL`-aftaler til "Optaget", samme princip som
+  `googleCalendarPrivacy.ts`.
+- [x] Ny rute `GET /:id/ics-subscriptions/:subscriptionId/events` henter og
+  parser abonnementets feed for et givent tidsrum og opdaterer altid
+  `lastFetchedAt`/`lastFetchStatus` (også ved fejl), så familien kan se om
+  en kilde svarer. 3 nye ruttests + 37 nye enhedstests af
+  `icsCalendar.ts` (SSRF-blokering, parsing, privatliv, RRULE,
+  omdirigering, størrelsesloft). Ingen UI kalder endnu denne rute.
 - [x] UI i Indstillinger (`IcsSubscriptionsSection.tsx`, samme sted som
   Kalenderforbindelser): en dialog viser eksisterende abonnementer
   (navn, tildelt medlem, sidst hentet-status) og en formular til at
@@ -641,8 +660,8 @@ aldrig i en ICS-kilde.
   skærmbilleder, før koden blev committet. **Bemærk:** at tilføje en
   kalender her viser den endnu IKKE i selve kalendervisningen —
   `IcsCalendarProvider`/`CompositeCalendarProvider`-integrationen
-  (se "Ny arbejde" nedenfor) mangler stadig; denne PR er kun
-  administrations-UI'et.
+  (se "Ny arbejde" nedenfor) mangler stadig; denne UI-PR taler kun med
+  CRUD-API'et, ikke med den nye hentnings-/parsings-rute.
 
 ### Beslutninger truffet (2026-08-28, Nicolaj)
 
@@ -683,26 +702,18 @@ aldrig i en ICS-kilde.
 
 ### Ny arbejde (ingen eksisterende kode/mønster at læne sig op ad)
 
-- [ ] Ny server-rute, der proxyer hentningen af en vilkårlig, bruger-angivet
-  URL — **ingen eksisterende kode i repoet gør dette i dag** (Google/Outlook
-  går til faste, kendte endpoints). Kræver reel SSRF-hærdning: kun
-  `https:`, blokér private/loopback/link-local IP-adresser, grænse for
-  svarstørrelse og timeout, begrænset redirect-håndtering.
-- [ ] ICS-tekstparsing — ingen parser i repoet i dag; ny npm-afhængighed
-  (skal være Workers-runtime-kompatibel, dvs. ingen Node-specifikke API'er).
-- [ ] RRULE-udfoldning — appens eget `expandRecurringEvents.ts` har aldrig
-  skullet parse en rå RRULE-streng (Google/Outlook udfolder allerede
-  gentagelser, før data når appen). Sandsynligvis løst via `rrule`-pakken
-  direkte snarere end at udvide den eksisterende motor, da RRULEs
-  funktionsflade er bredere end appens nuværende `RecurrenceRule`-model.
 - [ ] Ny kildetype: `CalendarEventSource`/`CalendarProviderType` skal have en
   ny værdi (fx `"ics"`) — "apple" er kun delvist forberedt og dækker et
   andet, CalDAV-baseret scenarie.
 - [ ] `IcsCalendarProvider` (klient) implementerer `CalendarProvider` og
-  kalder hentnings-ruten; registreres i `CompositeCalendarProvider`. Uden
-  denne vises et tilføjet ICS-abonnement ikke i selve kalenderen, kun i
-  Indstillinger-listen.
-- [ ] Offline-cache for ICS-hentninger, jf. Fase 8-mønsteret.
+  kalder den nye `/events`-rute (PR #139); registreres i
+  `CompositeCalendarProvider` med sin egen `sourceIdPrefix` (fx `"ics:"`),
+  med skrivemetoder der kaster (samme mønster som Google/Outlooks
+  skrivebeskyttede tilfælde). Uden denne vises et tilføjet ICS-abonnement
+  ikke i selve kalenderen, kun i Indstillinger-listen (UI'et fra PR #140).
+- [ ] Offline-cache for ICS-hentninger, jf. Fase 8-mønsteret
+  (`googleCalendarSyncCacheStorage.ts`s TTL/friskhed) — her den primære
+  friskhedsstrategi, ikke kun et fallback.
 
 ### Acceptkriterier
 
@@ -719,12 +730,12 @@ aldrig i en ICS-kilde.
   som private Google-/Outlook-aftaler, med en synlig forbeholdstekst om, at
   garantien afhænger af, om kildekalenderen rent faktisk sætter feltet.
 
-**Næste handling:** Byg `IcsCalendarProvider` og forbind den til
+**Næste handling:** Byg `IcsCalendarProvider` (klient) og forbind den til
 `CompositeCalendarProvider` samt Fase 8-cachemønsteret, så et tilføjet
-abonnement rent faktisk viser sine aftaler i kalenderen. Serverens
-hentnings-/parsings-rute (PR #139, endnu ikke merget) ændrer reel funktion
-(nye udgående netværkskald til en bruger-angivet URL, ny afhængighed) og
-er til gennemgang hos Nicolaj, ikke selv-merget.
+abonnement rent faktisk viser sine aftaler i kalenderen. Både
+hentnings-/parsings-ruten (PR #139) og administrations-UI'et i
+Indstillinger (PR #140) er nu merget efter gennemgang — det er kun denne
+klient-integration, der mangler, før funktionen er brugbar for familien.
 
 ## Prioriteret udførelsesrækkefølge
 
@@ -815,4 +826,5 @@ Efter hver fase eller material ændring skal den ansvarlige:
 | 2026-08-28 | Fase 3/5: Reel Playwright-E2E for privat-aftale-redaktion (ejer/andet medlem + offentligt delelink), servertests for AI-ugeresumé-redaktion, manglende kalender-kortlægning og cross-family-isolation på familie-omdøbning/invitationsregenerering — ren test/dokumentation, ingen adfærdsændring | PR #137 |
 | 2026-08-28 | Fase 9 oprettet: ICS-abonnementskalendere. Omfang undersøgt (genanvendelige mønstre vs. reelt nyt arbejde) og tre produktbeslutninger truffet af Nicolaj (ingen URL-kryptering i v1, tildeles et familiemedlem, loft på 5 abonnementer pr. familie) — ren planlægning/dokumentation, ingen kode endnu | PR #138 |
 | 2026-08-28 | Fase 9: D1-migration + server-CRUD for ICS-abonnementer (opret/list/redigér/slet, rolle-tjek, cross-family-isolation, 5-loft) — rent backend, ingen UI endnu, ingen ændring i appens brug/udseende, selv-merget sammen med scope-dokumentationen | PR #138 |
+| 2026-08-28 | Fase 9: SSRF-hærdet ICS-hentning/-parsing + RRULE-udfoldning (`server/lib/icsCalendar.ts`, `ical.js`) og en ny hentnings-rute, med privatlivsredaktion for `CLASS:PRIVATE`/`CONFIDENTIAL`. 40 nye tests. Ændrer reel funktion (nye udgående netværkskald, ny afhængighed) — til gennemgang, ikke selv-merget | PR #139 |
 | 2026-08-28 | Fase 9: UI i Indstillinger til at tilføje/fjerne delte ICS-kalendere og tildele dem et familiemedlem — synlig ny funktion, godkendt visuelt af Nicolaj ud fra skærmbilleder før commit. Viser endnu ikke aftalerne i selve kalenderen (kræver klient-provider-integrationen, se Fase 9 "Ny arbejde") | PR #140 |
