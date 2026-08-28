@@ -31,12 +31,19 @@ const lightPalette = {
   },
 
   error: {
-    main: "#E53935",
+    // Sprint 30 stabilisering: #E53935 gav kun 4.22:1 kontrast mod hvid
+    // baggrund (kræver 4.5:1) for tekstknapper som "Log ud" — #D32F2F
+    // (Material Design red 700) er stadig tydeligt "rød/fejl", men når
+    // ~4.98:1.
+    main: "#D32F2F",
   },
 
   text: {
     primary: "#1F2937",
-    secondary: "#6B7280",
+    // Sprint 30 stabilisering: #6B7280 gav kun 4.42:1 kontrast mod
+    // baggrunden (kræver 4.5:1) for fx ikke-valgte faneblade — mørknet en
+    // anelse for at bestå WCAG AA.
+    secondary: "#5E6B78",
   },
 };
 

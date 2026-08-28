@@ -267,7 +267,10 @@ function DayCell({
                 : isCurrentMonth
                   ? theme.palette.background.paper
                   : theme.palette.action.hover,
-          opacity: isCurrentMonth ? 1 : 0.55,
+          // Sprint 30 stabilisering: 0.55 gjorde datotallet for dage uden for
+          // måneden for lyst (3.44:1 kontrast, kræver 4.5:1) — 0.7 bevarer
+          // det nedtonede udtryk og består WCAG AA.
+          opacity: isCurrentMonth ? 1 : 0.7,
           transition:
             "background-color 150ms, border-color 150ms",
 
