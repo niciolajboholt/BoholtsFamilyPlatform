@@ -136,7 +136,10 @@ function EventCard({
 
   return (
     <Card
-      sx={getEventOwnerBorderSx(ownerColors, 5)}
+      sx={{
+        position: "relative",
+        ...getEventOwnerBorderSx(ownerColors, 5),
+      }}
     >
       <CardActionArea
         onClick={() => onSelectEvent(event)}
