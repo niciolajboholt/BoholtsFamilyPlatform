@@ -5,6 +5,7 @@ import { AppNotificationsSection } from "../features/settings/components/AppNoti
 import { CalendarConnectionsSection } from "../features/settings/components/CalendarConnectionsSection";
 import { FamilySection } from "../features/settings/components/FamilySection";
 import { HelpFeedbackSection } from "../features/settings/components/HelpFeedbackSection";
+import { IcsSubscriptionsSection } from "../features/settings/components/IcsSubscriptionsSection";
 
 function SettingsPage() {
   return (
@@ -20,6 +21,7 @@ function SettingsPage() {
       <Box sx={{ display: "grid", gap: 2.5 }}>
         <FamilySection />
         <CalendarConnectionsSection />
+        <IcsSubscriptionsSection />
         <AppNotificationsSection />
         <AccountDataSection />
         <HelpFeedbackSection />
