@@ -253,11 +253,11 @@ test("mobile week rows keep time, title and member in separate columns", async (
   );
   await expect(eventCard).toBeVisible();
 
-  const time = eventCard.getByText("08.15", { exact: true });
-  const title = eventCard.getByText("Tandlæge og efterfølgende kontrol", {
-    exact: true,
-  });
-  const owner = eventCard.getByText("Alex", { exact: true });
+  const time = eventCard.getByTestId("week-event-time");
+  const title = eventCard.getByTestId("week-event-title");
+  const owner = eventCard
+    .getByTestId("week-event-owners")
+    .getByText("Alex", { exact: true });
 
   const [timeBox, titleBox, ownerBox] = await Promise.all([
     time.boundingBox(),
