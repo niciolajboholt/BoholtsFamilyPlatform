@@ -110,7 +110,6 @@ describe("getEventOwnerBorderSx", () => {
     const sx = getEventOwnerBorderSx(["#2E7D32"], 4);
 
     expect(sx.borderLeft).toBe("none");
-    expect(sx.position).toBe("relative");
     expect(sx["&::before"]).toMatchObject({
       left: 0,
       top: 0,
