@@ -41,7 +41,7 @@ verifikation.
 | 4 | Login, branding og OAuth | Delvist gennemført | Google-verificering, consent-branding og domænevalg (alle eksterne, Google Cloud Console) |
 | 5 | Browserbaserede brugerflowtests | Gennemført | — |
 | 6 | Refaktorering | Gennemført | — |
-| 7 | Release, drift og dokumentation | Delvist gennemført | Fjern dobbelt Cloudflare-deploy (ekstern) |
+| 7 | Release, drift og dokumentation | Delvist gennemført | D1-gendannelsesøvelse og kontrolleret release til `main` (begge kræver aftalt tidspunkt med Nicolaj) |
 | 8 | Offlineoplevelse | Gennemført | — |
 | 9 | ICS-abonnementskalendere | Gennemført | — |
 
@@ -588,11 +588,13 @@ tilbage uden at være afhængig af tavs manuel viden.
   `restore` og bekræfte resultatet) er bevidst ikke udført autonomt — det
   er en skarp handling på en database med rigtige brugeres data, og afventer
   et aftalt tidspunkt med Nicolaj.
+- [x] Cloudflares gamle native Git-deploy er slået fra af Nicolaj i
+  dashboardet (2026-08-29). Kun den kvalitetssikrede GitHub Actions-pipeline
+  deployer nu beta og produktion — de to tidligere, konstant fejlende
+  "Workers Builds"-tjek på hver PR bortfalder herefter.
 
 ### Mangler
 
-- [ ] Deaktivér Cloudflares gamle native Git-deploy, så kun den
-  kvalitetssikrede GitHub Actions-pipeline deployer beta.
 - [ ] Udfør selve D1-gendannelsesøvelsen (kør `time-travel restore` og
   bekræft resultatet) — kræver et aftalt tidspunkt med Nicolaj, se ovenfor.
 - [ ] Definér og udfør kontrolleret release fra `develop` til `main`, når de
@@ -605,8 +607,9 @@ tilbage uden at være afhængig af tavs manuel viden.
 - Releasechecklisten dækker deploy, migration, health, smoke-test og rollback.
 - `main` kan ikke ændres direkte uden den aftalte kontrol.
 
-**Ekstern handling:** Cloudflare Git-integration skal slås fra i dashboardet
-(kræver dashboard-adgang).
+**Ekstern handling:** Ingen tilbage for selve deploy-pipelinen — Cloudflare
+Git-integration er slået fra. D1-gendannelsesøvelsen og release til `main`
+kræver stadig et aftalt tidspunkt med Nicolaj.
 
 ## Fase 8 – Offlineoplevelse
 
@@ -924,7 +927,7 @@ arbejde; de samles i afsnittet nedenfor og tages til sidst.
 
 | Punkt | Hvorfor det ikke løses alene i kode | Midlertidig håndtering |
 |---|---|---|
-| Slå Cloudflare native Git-deploy fra | Kræver dashboard-adgang | GitHub Actions er den dokumenterede kvalitetspipeline |
+| ~~Slå Cloudflare native Git-deploy fra~~ | Gjort af Nicolaj 2026-08-29 | — |
 | Google OAuth-verificering | Kræver Google Cloud-ejergodkendelse | Login/jura og branding er kodeklargjort |
 | Eget produktionsdomæne | Domæne- og produktbeslutning | Beta fortsætter på `workers.dev` |
 | Fysisk iPhone/VoiceOver | Kræver rigtig enhed og brugerhandling | Automatiske mobiltests køres i CI |
@@ -1003,3 +1006,4 @@ Efter hver fase eller material ændring skal den ansvarlige:
 | 2026-08-28 | Fase 5: Sidste "Mangler"-punkt lukket — reel Playwright-E2E for opret/redigér/slet gennem UI'et på indkøbsliste (vare + hel liste), opgaver og rutiner (kun opret/slet — ingen redigér-UI findes for en rutine, arkitektonisk fakta). 3 nye tests. Ren test/dokumentation, ingen adfærdsændring, selv-merget efter grøn CI | PR #152 |
 | 2026-08-29 | Fase 5: Sidste to punkter lukket — logout/lokal oprydning og en generel online-API-fejl (E2E). Fandt undervejs en ægte funktionsfejl: `useSession()`'s manglende delte context lod logout kun opdatere Indstillinger-siden lokalt, mens resten af app-skallen forblev synligt logget ind uden en manuel genindlæsning. Rettet med `window.location.reload()` efter logout (samme mønster som backup-import). Synlig funktionsændring — godkendt af Nicolaj før implementering, til gennemgang, ikke selv-merget | PR #153 |
 | 2026-08-29 | Fase 4: Kodeverificeret gennemgang af alle fem Google OAuth-scopes (ingen overflødige) og redirect-URI-håndtering (allerede domæneuagtig kode, intet at rette). Fandt og rettede to helt forældede README'er, som stadig beskrev det fjernede klient-popup-flow fra Sprint 11.1 (`VITE_GOOGLE_CLIENT_ID` i `.env.local`) i stedet for det faktiske server-side authorization-code+PKCE-flow — kunne have vildledt Google Cloud Console-opsætningen. Indsnævrer Fase 4's resterende punkter til rene eksterne handlinger i Google Cloud Console. Ren dokumentationsrettelse, ingen kodeændring, selv-merget efter grøn CI | PR #154 |
+| 2026-08-29 | Fase 7: Nicolaj slog Cloudflares native Git-deploy fra i dashboardet — kun GitHub Actions-pipelinen deployer nu beta/produktion. Fasens sidste eksterne "ekstern handling"-blokering for selve deploy-pipelinen er dermed fjernet; kun D1-gendannelsesøvelsen og release til `main` mangler, begge afventer et aftalt tidspunkt med Nicolaj. Ren dokumentationsopdatering, ingen kodeændring, selv-merget efter grøn CI | PR #155 |
