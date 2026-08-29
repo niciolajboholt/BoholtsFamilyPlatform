@@ -39,7 +39,7 @@ verifikation.
 | 2 | Tilgængelighed og visuelt polish | Delvist gennemført | Fysisk VoiceOver-test (ekstern) |
 | 3 | Privatliv og AI | Delvist gennemført | Kalenderniveau-privatlivsvalg og sikre standardværdier (produktbeslutning) |
 | 4 | Login, branding og OAuth | Delvist gennemført | Google-verificering og scope-gennemgang |
-| 5 | Browserbaserede brugerflowtests | Delvist gennemført | Logout/lokal oprydning + generelle API-fejl (E2E) |
+| 5 | Browserbaserede brugerflowtests | Gennemført | — |
 | 6 | Refaktorering | Gennemført | — |
 | 7 | Release, drift og dokumentation | Delvist gennemført | Fjern dobbelt Cloudflare-deploy (ekstern) |
 | 8 | Offlineoplevelse | Gennemført | — |
@@ -354,7 +354,7 @@ godkendes i Google Cloud Console af Nicolaj.
 **Mål:** De vigtigste brugerrejser skal testes i en rigtig browser uden
 produktionsdata eller private kalenderkonti.
 
-**Status: Delvist gennemført**
+**Status: Gennemført**
 
 ### Gennemført
 
@@ -420,11 +420,22 @@ produktionsdata eller private kalenderkonti.
   (ingen redigér-UI findes for en eksisterende rutine, kun opret/slet —
   arkitektonisk fakta, ikke en mangel). Ren test/dokumentation, ingen
   adfærdsændring, selv-merget efter grøn CI.
-
-### Mangler
-
-- [ ] Logout og fuldstændig lokal oprydning.
-- [ ] Generelle API-fejl uden for de allerede dækkede offline-scenarier.
+- [x] Logout og fuldstændig lokal oprydning, samt en generel API-fejl uden
+  for de allerede dækkede offline-scenarier — Fase 5's sidste to punkter.
+  Reel Playwright-E2E for logout gennem den rigtige "Log ud"-knap fandt en
+  ægte funktionsfejl undervejs: `useSession()` gemmer login-status lokalt i
+  hver komponent uden delt context, så logout kun ryddede AccountDataSection's
+  egen visning — resten af app-skallen (topmenu, sider) forblev synligt
+  logget ind, indtil brugeren selv genindlæste siden. Rettet med et
+  `window.location.reload()` efter logout (samme mønster som backup-import
+  allerede bruger), godkendt af Nicolaj som en synlig adfærdsændring. Testen
+  bekræfter nu: `POST /auth/logout` kaldes, al `localStorage` prefixet
+  `boholts-family-` ryddes, og login-siden vises reelt uden manuel
+  genindlæsning. Den anden nye test simulerer en ægte 500-fejl fra serveren,
+  mens appen ER online (til forskel fra de tre eksisterende
+  offline-køet-tests, som dækker manglende netværk) — bekræfter en synlig
+  fejlmeddelelse ("Handlingen kunne ikke gennemføres. Prøv igen.") i stedet
+  for en tavs fejl eller crash.
 
 ### Acceptkriterier
 
@@ -433,8 +444,7 @@ produktionsdata eller private kalenderkonti.
 - Fejl giver læsbare traces/screenshots, og flaky tests blokerer ikke uden en
   dokumenteret årsag.
 
-**Næste handling:** Logout/lokal oprydning og generelle API-fejl uden for de
-allerede dækkede offline-scenarier mangler stadig reel Playwright-E2E-dækning.
+**Næste handling:** Ingen — fasen er gennemført.
 
 ## Fase 6 – Refaktorering
 
@@ -972,3 +982,4 @@ Efter hver fase eller material ændring skal den ansvarlige:
 | 2026-08-28 | Fase 1: Opfølgning på PR #148 (allerede merget, ny PR) — `getEventOwnerColor()` gav stadig Familien-farven ved flere matchede ejere, og et ikke-tildelt ICS-abonnement fik intet ejerskab på selve aftalen. Én central regel (`getEventOwnerColors()` + `getEventOwnerBorderSx()`, opdelt venstrekant ved flere medlemmer) brugt identisk af måned/uge/dag/familie/liste-visningen. Nyt `CalendarEvent.color`-felt som ICS-kildens fald-tilbage. 15 nye/ændrede enhedstests + 2 nye Playwright-tests, der beviser den faktiske CSS-farve, ikke kun ownerIds. Synlig funktionsændring — til gennemgang, ikke selv-merget | PR #149 |
 | 2026-08-28 | Fase 1: Visuel opfølgning fra Nicolaj efter test på iPhone (egen, parallel session) — aftalefarver fremstod udvaskede pga. for kraftig gennemsigtig baggrund, og kalenderfilteret viste kildens egen farve i stedet for det faktisk matchede medlems. Skiftet fra `border-image`-venstrekant til en fuldt mættet accentstribe via et pseudo-element (undgår halvmåneform på afrundede kort), baggrundstoning reduceret ca. 19% → 8%, og en ny `getCalendarSourceDisplayColors()` lader "Vis kalendere"-filteret bruge samme farveopløsning som selve aftalekortene. Godkendt og merget af Nicolaj | PR #150 |
 | 2026-08-28 | Fase 5: Sidste "Mangler"-punkt lukket — reel Playwright-E2E for opret/redigér/slet gennem UI'et på indkøbsliste (vare + hel liste), opgaver og rutiner (kun opret/slet — ingen redigér-UI findes for en rutine, arkitektonisk fakta). 3 nye tests. Ren test/dokumentation, ingen adfærdsændring, selv-merget efter grøn CI | PR #152 |
+| 2026-08-29 | Fase 5: Sidste to punkter lukket — logout/lokal oprydning og en generel online-API-fejl (E2E). Fandt undervejs en ægte funktionsfejl: `useSession()`'s manglende delte context lod logout kun opdatere Indstillinger-siden lokalt, mens resten af app-skallen forblev synligt logget ind uden en manuel genindlæsning. Rettet med `window.location.reload()` efter logout (samme mønster som backup-import). Synlig funktionsændring — godkendt af Nicolaj før implementering, til gennemgang, ikke selv-merget | PR #153 |

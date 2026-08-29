@@ -86,6 +86,14 @@ export function useSession(): UseSessionResult {
     await outlookCalendarSession.disconnect();
 
     setUser(null);
+
+    // useSession() gemmer sin egen user-tilstand lokalt pr. komponent (ingen
+    // delt context) — uden en genindlæsning ville kun DENNE komponents
+    // instans opdage logout, mens fx AppLayout's egen useSession()-kald
+    // fortsat viser den fulde, loggede-ind app-skal. Samme "reload er den
+    // simple, pålidelige måde at få al state til at læse den nye tilstand
+    // igen"-tilgang som backup-importen bruger (AccountDataSection.tsx).
+    window.location.reload();
   }
 
   return { user, isLoading, logout };

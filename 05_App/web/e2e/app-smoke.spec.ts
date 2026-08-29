@@ -2093,3 +2093,140 @@ test("a family member can create and delete a routine through the real UI", asyn
   await expect(page.getByText("Morgenrutine", { exact: true })).not.toBeVisible();
   await expect(page.getByText("Ingen rutiner endnu.")).toBeVisible();
 });
+
+// Fase 5: logout og fuldstændig lokal oprydning. useSession().logout() (se
+// features/auth/hooks/useSession.ts) kalder POST /auth/logout, rydder al
+// localStorage prefixet "boholts-family-" (clearAllFamilyStorage(), bruges
+// også af backup-eksport/-import), rydder det gemte medlems-id, og forsøger
+// til sidst at afmelde en eventuel push-abonnement via
+// navigator.serviceWorker.ready — som ALDRIG bliver "ready" i denne e2e-
+// opsætnings dev-server (ingen service worker registreres uden for et rigtigt
+// build, se vite.config.ts's manglende devOptions), og derfor ville blokere
+// logout() for evigt uden dette init-script.
+test("logging out through the real UI clears the session and every locally cached family key", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+
+  await page.addInitScript(() => {
+    Object.defineProperty(window.navigator, "serviceWorker", {
+      configurable: true,
+      value: {
+        ready: Promise.resolve({
+          pushManager: { getSubscription: () => Promise.resolve(null) },
+        }),
+      },
+    });
+  });
+
+  await mockAuthenticatedApi(page);
+
+  let logoutCallCount = 0;
+  let isLoggedOut = false;
+
+  await page.route("**/auth/logout", async (route) => {
+    logoutCallCount += 1;
+    isLoggedOut = true;
+    await route.fulfill({ status: 200, contentType: "application/json", body: "{}" });
+  });
+
+  // Overstyrer mockAuthenticatedApi's blanket "/api/**"-handler (sidst
+  // registreret vinder) — den svarer altid med den loggede-ind bruger,
+  // uanset logout, hvilket ellers ville skjule en genindlæsning, der ikke
+  // reelt genopfrisker sessionsstatus.
+  await page.route("**/api/me", async (route) => {
+    if (isLoggedOut) {
+      await route.fulfill({ status: 401, contentType: "application/json", body: "{}" });
+      return;
+    }
+    await route.fallback();
+  });
+
+  await page.goto("/settings");
+
+  await page.evaluate(() => {
+    window.localStorage.setItem("boholts-family-members", "[]");
+    window.localStorage.setItem("boholts-family-current-member-id", "member-e2e");
+  });
+
+  await expect(page.getByText("familie@example.com")).toBeVisible();
+
+  await page.getByRole("button", { name: "Log ud" }).click();
+
+  // logout() slutter med window.location.reload() — nødvendigt, fordi
+  // useSession() gemmer sin tilstand lokalt pr. komponent uden delt context,
+  // se kommentaren i useSession.ts. Uden genindlæsningen ville AppLayout's
+  // egen, uafhængige useSession()-instans aldrig opdage logout'et.
+  await page.waitForURL("/settings");
+  // LoginPage's "Log ind med Google" er et <Button href="…">, som MUI/browseren
+  // gengiver med role "link", ikke "button".
+  await expect(page.getByRole("link", { name: "Log ind med Google" })).toBeVisible();
+  await expect.poll(() => logoutCallCount).toBe(1);
+
+  const remainingKeys = await page.evaluate(() =>
+    Object.keys(window.localStorage).filter((key) => key.startsWith("boholts-family-")),
+  );
+  expect(remainingKeys).toEqual([]);
+});
+
+// Fase 5: generiske API-fejl uden for de allerede dækkede offline-scenarier
+// (se de tre "offline ... is queued locally"-tests ovenfor, som dækker
+// manglende netværk). Her simuleres i stedet en rigtig 500-fejl fra serveren,
+// mens appen ER online — useShoppingList.ts's addItem() fanger fejlen og
+// sætter en synlig fejlmeddelelse, i stedet for at fejle stille eller crashe
+// siden.
+test("a genuine server error while online shows a visible error message instead of failing silently", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  await mockAuthenticatedApi(page);
+
+  const lists = [
+    {
+      id: "list-groceries",
+      familyId: family.id,
+      name: "Dagligvarer",
+      type: "dagligvarer",
+      createdAt: "2026-08-20T00:00:00.000Z",
+    },
+  ];
+
+  await page.route("**/api/families/*/shopping-lists", async (route) => {
+    if (route.request().method() !== "GET") {
+      await route.fallback();
+      return;
+    }
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ lists }) });
+  });
+
+  await page.route("**/api/families/*/shopping-lists/*/items", async (route) => {
+    const method = route.request().method();
+
+    if (method === "GET") {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ items: [] }) });
+      return;
+    }
+
+    if (method === "POST") {
+      await route.fulfill({
+        status: 500,
+        contentType: "application/json",
+        body: JSON.stringify({ error: "Internal Server Error" }),
+      });
+      return;
+    }
+
+    await route.fallback();
+  });
+
+  await page.goto("/shopping-list");
+
+  const addItemInput = page.getByPlaceholder("Tilføj en vare…");
+  await addItemInput.fill("Mælk");
+  await page.getByRole("button", { name: "Tilføj" }).click();
+
+  await expect(page.getByText("Handlingen kunne ikke gennemføres. Prøv igen.")).toBeVisible();
+  // Fejlen efterlader ikke varen tilføjet, og siden er stadig fuldt brugbar.
+  await expect(page.getByText("Mælk", { exact: true })).not.toBeVisible();
+  await expect(addItemInput).toBeEditable();
+});
