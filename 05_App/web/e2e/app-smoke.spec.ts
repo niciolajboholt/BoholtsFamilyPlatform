@@ -239,6 +239,44 @@ test("mobile family planner is a readable agenda without horizontal overflow", a
   expect(hasHorizontalOverflow).toBe(false);
 });
 
+test("mobile week rows keep time, title and member in separate columns", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "mobile-chromium");
+  await mockAuthenticatedApi(page);
+  await page.goto("/calendar");
+
+  await page.getByRole("button", { name: "Uge", exact: true }).click();
+
+  const eventCard = page.locator(
+    'button[title*="Tandlæge og efterfølgende kontrol"]',
+  );
+  await expect(eventCard).toBeVisible();
+
+  const time = eventCard.getByTestId("week-event-time");
+  const title = eventCard.getByTestId("week-event-title");
+  const owner = eventCard
+    .getByTestId("week-event-owners")
+    .getByText("Alex", { exact: true });
+
+  const [timeBox, titleBox, ownerBox] = await Promise.all([
+    time.boundingBox(),
+    title.boundingBox(),
+    owner.boundingBox(),
+  ]);
+
+  expect(timeBox).not.toBeNull();
+  expect(titleBox).not.toBeNull();
+  expect(ownerBox).not.toBeNull();
+  expect(timeBox!.x).toBeLessThan(titleBox!.x);
+  expect(titleBox!.x + titleBox!.width).toBeLessThanOrEqual(ownerBox!.x + 1);
+
+  const hasHorizontalOverflow = await page.evaluate(
+    () => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
+  );
+  expect(hasHorizontalOverflow).toBe(false);
+});
+
 test("desktop week view uses readable agenda columns instead of seven narrow cards", async ({
   page,
 }, testInfo) => {
