@@ -10,13 +10,18 @@ import {
 } from "@mui/material";
 
 import type { CalendarOwner } from "../data/calendarOwners";
-import { getEventOwnerBorderSx, getEventOwnerColors } from "../utils/getEventOwnerColor";
+import {
+  getEventOwnerBadges,
+  getEventOwnerBorderSx,
+  getEventOwnerColors,
+} from "../utils/getEventOwnerColor";
 import { useLongPress } from "../hooks/useLongPress";
 import type { CalendarEvent } from "../models/calendarEvent";
 import { getEventsForDate } from "../utils/getEventsForDate";
 import { layoutDayTimelineEvents } from "../utils/layoutDayTimelineEvents";
 import { getEventActionLabel } from "../utils/calendarAccessibility";
 import ConflictBadge from "./ConflictBadge";
+import EventOwnerBadges from "./EventOwnerBadges";
 
 interface DayCalendarProps {
   selectedDate: Date;
@@ -170,11 +175,12 @@ function DayCalendar({
               {allDayEvents.map((event) => {
                 const ownerColors = getEventOwnerColors(event, members);
                 const ownerColor = ownerColors[0];
+                const ownerBadges = getEventOwnerBadges(event, members);
 
                 return (
                   <ButtonBase
                     key={event.id}
-                    aria-label={getEventActionLabel(event)}
+                    aria-label={getEventActionLabel(event, members)}
                     onClick={() => onSelectEvent(event)}
                     sx={{
                       position: "relative",
@@ -204,6 +210,8 @@ function DayCalendar({
                       >
                         {event.title}
                       </Typography>
+
+                      <EventOwnerBadges owners={ownerBadges} sizePx={14} />
 
                       <ConflictBadge
                         isConflict={conflictEventIds?.has(event.id) ?? false}
@@ -306,12 +314,16 @@ function DayCalendar({
                   members,
                 );
                 const ownerColor = ownerColors[0];
+                const ownerBadges = getEventOwnerBadges(
+                  entry.event,
+                  members,
+                );
                 const gapPx = 1;
 
                 return (
                   <ButtonBase
                     key={entry.event.id}
-                    aria-label={getEventActionLabel(entry.event)}
+                    aria-label={getEventActionLabel(entry.event, members)}
                     onClick={() => onSelectEvent(entry.event)}
                     sx={{
                       position: "absolute",
@@ -362,6 +374,8 @@ function DayCalendar({
                       >
                         {entry.event.title}
                       </Typography>
+
+                      <EventOwnerBadges owners={ownerBadges} sizePx={14} />
 
                       <ConflictBadge
                         isConflict={conflictEventIds?.has(entry.event.id) ?? false}

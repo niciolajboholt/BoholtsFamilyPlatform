@@ -219,6 +219,21 @@ skærmlæser og smalle mobilskærme uden at ændre appens varme grønne design.
   indkøbsvare/opgave og åbning af en kalenderaftale blev alle gennemgået
   med VoiceOver aktiveret på beta. Ingen problemer fundet — alt annonceres
   forståeligt, og ingen fokus- eller labelproblemer observeret.
+- [x] Opfølgning på issue #20's sidste kriterie ("farve er ikke eneste
+  informationsbærer", WCAG 1.4.1): en målrettet gennemgang fandt, at
+  måned- og dagsvisningen (`DayCell.tsx`, `DayCalendar.tsx`) hidtil KUN
+  brugte aftalens kant-/baggrundsfarve til at vise, hvilket familiemedlem
+  aftalen tilhører — intet synligt navn eller ikon, i modsætning til
+  uge- og familievisningen, som allerede viste navnet som tekst. Rettet
+  med et nyt, lille synligt badge (`EventOwnerBadges.tsx`, forbogstav i
+  hvidt på medlemmets farve, op til 3 pr. aftale) på både aftalekortene og
+  dags-oversigtsprikkerne øverst i en måned-celle. Samtidig udvidet
+  `getEventActionLabel()` (`calendarAccessibility.ts`) til også at
+  inkludere ejernavnet i aria-labelen på alle fire kalendervisninger — den
+  indeholdt hidtil slet intet ejernavn, så skærmlæsere fik heller ingen
+  besked om, hvem aftalen tilhørte. Godkendt visuelt af Nicolaj ud fra
+  skærmbilleder af måned- og dagsvisningen. Synlig funktionsændring — til
+  gennemgang, ikke selv-merget.
 
 ### Acceptkriterier
 
@@ -1025,3 +1040,4 @@ Efter hver fase eller material ændring skal den ansvarlige:
 | 2026-08-29 | Fase 7: Nicolaj slog Cloudflares native Git-deploy fra i dashboardet — kun GitHub Actions-pipelinen deployer nu beta/produktion. Fasens sidste eksterne "ekstern handling"-blokering for selve deploy-pipelinen er dermed fjernet; kun D1-gendannelsesøvelsen og release til `main` mangler, begge afventer et aftalt tidspunkt med Nicolaj. Ren dokumentationsopdatering, ingen kodeændring, selv-merget efter grøn CI | PR #155 |
 | 2026-08-29 | Fase 4: Tilføjede Google Search Console-domæneverificeringsfil (`public/google1e28839311687158.html`) som led i Nicolajs igangværende OAuth-verificering. Ren, usynlig statisk fil, ingen adfærdsændring, selv-merget efter grøn CI | PR #156 |
 | 2026-08-29 | Fase 1 + Fase 2: Nicolaj gennemførte den fysiske iPhone-verifikation (Safari/PWA, mobilvisning uden overlap/dubletter) og VoiceOver-testen af de primære flows (navigation, indkøb, opgaver, kalenderaftale) — ingen problemer fundet. Fase 2 er dermed fuldt gennemført; Fase 1 mangler kun kildespecifik dubletanalyse, hvis en dublet observeres igen. Ren dokumentationsopdatering, ingen kodeændring, selv-merget efter grøn CI | PR #157 |
+| 2026-08-29 | Fase 2: Fandt og rettede issue #20's sidste kriterie — måned- og dagsvisningen viste ejerskab af en aftale UDELUKKENDE via farven, uden noget synligt navn/ikon som backup (uge-/familievisningen havde allerede navnet som tekst). Nyt synligt initial-badge (`EventOwnerBadges.tsx`) på aftalekort og dags-prikker, plus ejernavn tilføjet til `getEventActionLabel()`s aria-label på alle fire visninger (var slet ikke der før). Godkendt visuelt af Nicolaj ud fra skærmbilleder. Synlig funktionsændring — til gennemgang, ikke selv-merget | PR #158 |

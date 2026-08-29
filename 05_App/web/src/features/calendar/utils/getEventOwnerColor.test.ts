@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   getCalendarSourceDisplayColors,
+  getEventOwnerBadges,
   getEventOwnerBorderSx,
   getEventOwnerColor,
   getEventOwnerColors,
@@ -102,6 +103,53 @@ describe("getCalendarSourceDisplayColors", () => {
     expect(getCalendarSourceDisplayColors("ics:work", "#D32F2F", [], members)).toEqual([
       "#D32F2F",
     ]);
+  });
+});
+
+// Fase 2-opfølgning (WCAG 1.4.1 "Use of Color"): måned-/dagsvisningen viste
+// hidtil KUN farven som ejerskabs-signal på selve aftalekortet, uden noget
+// synligt tekst-/ikon-alternativ — denne funktion leverer de navngivne
+// ejere, EventOwnerBadges.tsx viser dem visuelt.
+describe("getEventOwnerBadges", () => {
+  it("returns the single member's id/name/color", () => {
+    expect(getEventOwnerBadges({ ownerIds: ["nicolaj"] }, members)).toEqual([
+      { id: "nicolaj", name: "Nicolaj", color: "#2E7D32" },
+    ]);
+  });
+
+  it("returns each matched member for multiple owners, in order, not the family badge", () => {
+    expect(getEventOwnerBadges({ ownerIds: ["christine", "jens"] }, members)).toEqual([
+      { id: "christine", name: "Christine", color: "#C06C84" },
+      { id: "jens", name: "Jens", color: "#00838F" },
+    ]);
+  });
+
+  it("returns only the family badge for a real family/shared event", () => {
+    expect(getEventOwnerBadges({ ownerIds: ["family"] }, members)).toEqual([
+      { id: "family", name: "Familien", color: "#6D597A" },
+    ]);
+  });
+
+  it("returns only the family badge even if 'family' is mixed with other owner ids", () => {
+    expect(getEventOwnerBadges({ ownerIds: ["family", "nicolaj"] }, members)).toEqual([
+      { id: "family", name: "Familien", color: "#6D597A" },
+    ]);
+  });
+
+  it("deduplicates a repeated owner id", () => {
+    expect(getEventOwnerBadges({ ownerIds: ["nicolaj", "nicolaj"] }, members)).toEqual([
+      { id: "nicolaj", name: "Nicolaj", color: "#2E7D32" },
+    ]);
+  });
+
+  it("skips an unresolvable owner id among otherwise-matched multiple owners", () => {
+    expect(getEventOwnerBadges({ ownerIds: ["christine", "unknown-id"] }, members)).toEqual([
+      { id: "christine", name: "Christine", color: "#C06C84" },
+    ]);
+  });
+
+  it("returns no badges when there is no member ownership at all (e.g. an ICS source color)", () => {
+    expect(getEventOwnerBadges({ ownerIds: [], color: "#5C6BC0" }, members)).toEqual([]);
   });
 });
 

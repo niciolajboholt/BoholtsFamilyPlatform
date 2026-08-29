@@ -444,7 +444,7 @@ function FamilyPlannerCalendar({
                                   return (
                                     <ButtonBase
                                       key={`${column.id}::${event.id}`}
-                                      aria-label={getEventActionLabel(event)}
+                                      aria-label={getEventActionLabel(event, members)}
                                       onClick={() => onSelectEvent(event)}
                                       sx={{
                                         position: "relative",
@@ -684,7 +684,7 @@ function FamilyPlannerCalendar({
                             return (
                               <ButtonBase
                                 key={`${column.id}::${event.id}`}
-                                aria-label={getEventActionLabel(event)}
+                                aria-label={getEventActionLabel(event, members)}
                                 title={`${formatEventTime(event)} · ${event.title}`}
                                 onClick={() => onSelectEvent(event)}
                                 sx={{
