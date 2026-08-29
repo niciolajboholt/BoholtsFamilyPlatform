@@ -37,7 +37,7 @@ verifikation.
 |---:|---|---|---|
 | 1 | Kalenderens UI og dubletter | Delvist gennemført | Ingen — kun kildespecifik dubletanalyse, hvis en dublet observeres igen |
 | 2 | Tilgængelighed og visuelt polish | Gennemført | — |
-| 3 | Privatliv og AI | Delvist gennemført | Kalenderniveau-privatlivsvalg og sikre standardværdier (produktbeslutning) |
+| 3 | Privatliv og AI | Gennemført | — |
 | 4 | Login, branding og OAuth | Delvist gennemført | Google-verificering, consent-branding og domænevalg (alle eksterne, Google Cloud Console) |
 | 5 | Browserbaserede brugerflowtests | Gennemført | — |
 | 6 | Refaktorering | Gennemført | — |
@@ -250,7 +250,7 @@ skærmlæser og smalle mobilskærme uden at ændre appens varme grønne design.
 følsomme titler, beskrivelser eller lokationer, og AI-behandling skal være et
 bevidst valg.
 
-**Status: Delvist gennemført**
+**Status: Gennemført**
 
 ### Gennemført
 
@@ -311,13 +311,22 @@ bevidst valg.
   Cloudflares infrastruktur-interne opbevaringsperiode kan ikke bekræftes
   med en autoritativ kilde herfra — flaget som ekstern verifikation, samme
   kategori som Fase 4's Google-gennemgang.
-
-### Mangler
-
-- [ ] Overvej et separat privatlivsvalg på kalenderniveau; aftaleniveau er nu
-  implementeret som “Privat / vis kun optaget”.
-- [ ] Definér privatlivssikre standardværdier for nye familier og nye
-  delinger.
+- [x] Privatlivssikre standardværdier for nye familier og nye delinger —
+  kodeverificeret (2026-08-29) og godkendt af Nicolaj: en ny aftale er som
+  udgangspunkt synlig for familien (`privacy: "details"`), hvilket er
+  tilsigtet og fornuftigt for en tillid-baseret familieapp — at skjule alt
+  for ens egen familie som standard ville kun give unødig friktion. Et nyt
+  offentligt delelink inkluderer derimod ALDRIG beskrivelse eller lokation,
+  medmindre det aktivt slås til ved oprettelsen
+  (`body.includeDescription === true`/`includeLocation === true` i
+  `shareLinks.ts`, ellers `false`). Begge standarder var allerede korrekte
+  i koden — punktet lukkes uden kodeændring.
+- [x] Separat privatlivsvalg på kalenderniveau bevidst fravalgt (Nicolaj,
+  2026-08-29): aftaleniveau-kontakten ("Privat aftale – familien ser kun
+  Optaget") dækker allerede det grundlæggende behov, og et
+  kalenderniveau-valg er en ren bekvemmeligheds-udvidelse, ikke en
+  sikkerhedsbrist. Tages kun op igen, hvis det opleves som en konkret gene
+  i hverdagen.
 
 ### Acceptkriterier
 
@@ -326,10 +335,9 @@ bevidst valg.
 - AI-resumé kan fravælges og modtager aldrig private felter.
 - Offentlige links viser mindst mulige data som standard.
 
-**Næste handling:** Overvej et separat privatlivsvalg på kalenderniveau og
-privatlivssikre standardværdier for nye familier/delinger — begge er
-produktbeslutninger, ikke rene implementeringsopgaver, og bør lægges frem
-for Nicolaj, når fasen tages op igen.
+**Næste handling:** Ingen — fasen er gennemført. Et kalenderniveau-
+privatlivsvalg kan tages op som en selvstændig, ny funktion senere, hvis
+behovet opstår.
 
 ## Fase 4 – Login, branding og OAuth-klargøring
 
@@ -1041,3 +1049,4 @@ Efter hver fase eller material ændring skal den ansvarlige:
 | 2026-08-29 | Fase 4: Tilføjede Google Search Console-domæneverificeringsfil (`public/google1e28839311687158.html`) som led i Nicolajs igangværende OAuth-verificering. Ren, usynlig statisk fil, ingen adfærdsændring, selv-merget efter grøn CI | PR #156 |
 | 2026-08-29 | Fase 1 + Fase 2: Nicolaj gennemførte den fysiske iPhone-verifikation (Safari/PWA, mobilvisning uden overlap/dubletter) og VoiceOver-testen af de primære flows (navigation, indkøb, opgaver, kalenderaftale) — ingen problemer fundet. Fase 2 er dermed fuldt gennemført; Fase 1 mangler kun kildespecifik dubletanalyse, hvis en dublet observeres igen. Ren dokumentationsopdatering, ingen kodeændring, selv-merget efter grøn CI | PR #157 |
 | 2026-08-29 | Fase 2: Fandt og rettede issue #20's sidste kriterie — måned- og dagsvisningen viste ejerskab af en aftale UDELUKKENDE via farven, uden noget synligt navn/ikon som backup (uge-/familievisningen havde allerede navnet som tekst). Nyt synligt initial-badge (`EventOwnerBadges.tsx`) på aftalekort og dags-prikker, plus ejernavn tilføjet til `getEventActionLabel()`s aria-label på alle fire visninger (var slet ikke der før). Godkendt visuelt af Nicolaj ud fra skærmbilleder. Synlig funktionsændring — til gennemgang, ikke selv-merget | PR #158 |
+| 2026-08-29 | Fase 3: Lukket to sidste punkter efter Nicolajs godkendelse. Privatlivssikre standardværdier for nye familier/delinger kodeverificeret som allerede korrekte (ny aftale synlig for familien som udgangspunkt; nyt delelink inkluderer aldrig beskrivelse/lokation uden aktivt tilvalg) — ingen kodeændring nødvendig. Kalenderniveau-privatlivsvalg bevidst fravalgt som unødvendig udvidelse ud over den eksisterende aftaleniveau-kontakt. Ren dokumentationsopdatering, selv-merget efter grøn CI | PR #159 |
