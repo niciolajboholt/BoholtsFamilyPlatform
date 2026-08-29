@@ -47,6 +47,45 @@ export function getEventOwnerColor(
   return getEventOwnerColors(event, members)[0];
 }
 
+export interface EventOwnerBadge {
+  id: string;
+  name: string;
+  color: string;
+}
+
+/**
+ * De navngivne ejere, en aftale skal vise et synligt initial-badge for —
+ * samme prioritetsregel som getEventOwnerColors() (familie-tilknytning
+ * går forud for navngivne medlemmer), men parret med navn i stedet for kun
+ * farven. Måned- og dagsvisningen viste hidtil KUN farven som ejerskabs-
+ * signal, uden noget synligt tekst-/ikon-alternativ (WCAG 1.4.1 "Use of
+ * Color") — uge- og familievisningen viste allerede navnet som tekst. En
+ * aftale uden medlem-ejerskab (fx en ICS-kilde med sin egen kildefarve) får
+ * bevidst intet badge, da der intet medlemsnavn er at vise.
+ */
+export function getEventOwnerBadges(
+  event: ColorableEvent,
+  members: readonly CalendarOwner[],
+): EventOwnerBadge[] {
+  if (event.ownerIds.includes(familyPseudoMemberId)) {
+    const family = members.find((member) => member.id === familyPseudoMemberId);
+    return family ? [{ id: family.id, name: family.name, color: family.color }] : [];
+  }
+
+  const seenIds = new Set<string>();
+
+  return event.ownerIds
+    .map((ownerId) => members.find((member) => member.id === ownerId))
+    .filter((member): member is CalendarOwner => {
+      if (!member || seenIds.has(member.id)) {
+        return false;
+      }
+      seenIds.add(member.id);
+      return true;
+    })
+    .map((member) => ({ id: member.id, name: member.name, color: member.color }));
+}
+
 /**
  * Farverne ved en kalenderkilde skal afspejle de aftaler, filteret styrer.
  * Derfor udledes de af samme centrale medlemsregel som aftalekortene.

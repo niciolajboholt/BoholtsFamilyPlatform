@@ -7,7 +7,11 @@ import {
 import { alpha } from "@mui/material/styles";
 
 import type { CalendarOwner } from "../data/calendarOwners";
-import { getEventOwnerBorderSx, getEventOwnerColors } from "../utils/getEventOwnerColor";
+import {
+  getEventOwnerBadges,
+  getEventOwnerBorderSx,
+  getEventOwnerColors,
+} from "../utils/getEventOwnerColor";
 import { useLongPress } from "../hooks/useLongPress";
 import type {
   CalendarEvent,
@@ -18,6 +22,7 @@ import {
   getEventActionLabel,
 } from "../utils/calendarAccessibility";
 import ConflictBadge from "./ConflictBadge";
+import EventOwnerBadges from "./EventOwnerBadges";
 
 interface DayCellProps {
   date: Date;
@@ -360,13 +365,22 @@ function DayCell({
                   key={ownerId}
                   title={owner.name}
                   sx={{
-                    width: 8,
-                    height: 8,
+                    width: 14,
+                    height: 14,
                     borderRadius: "50%",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
                     backgroundColor:
                       owner.color,
+                    color: "#ffffff",
+                    fontSize: "8px",
+                    fontWeight: 700,
+                    lineHeight: 1,
                   }}
-                />
+                >
+                  {owner.name.charAt(0).toUpperCase()}
+                </Box>
               );
             })}
         </Box>
@@ -390,6 +404,10 @@ function DayCell({
                   members,
                 );
                 const ownerColor = ownerColors[0];
+                const ownerBadges = getEventOwnerBadges(
+                  event,
+                  members,
+                );
 
                 const multiDayStatus =
                   getMultiDayStatus(
@@ -405,7 +423,7 @@ function DayCell({
                 return (
                   <ButtonBase
                     key={event.id}
-                    aria-label={getEventActionLabel(event)}
+                    aria-label={getEventActionLabel(event, members)}
                     title={`${event.allDay ? "Hele dagen" : formatEventTime(new Date(event.start))} · ${event.title}`}
                     onClick={() => onSelectEvent(event)}
                     sx={{
@@ -474,6 +492,8 @@ function DayCell({
                         )}
                         {event.title}
                       </Typography>
+
+                      <EventOwnerBadges owners={ownerBadges} sizePx={14} />
 
                       <ConflictBadge
                         isConflict={conflictEventIds?.has(event.id) ?? false}
