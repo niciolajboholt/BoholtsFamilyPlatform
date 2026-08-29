@@ -35,8 +35,8 @@ verifikation.
 
 | Fase | Område | Status | Næste vigtigste restpunkt |
 |---:|---|---|---|
-| 1 | Kalenderens UI og dubletter | Delvist gennemført | Manuel iPhone-verifikation og eventuel kildespecifik dubletanalyse |
-| 2 | Tilgængelighed og visuelt polish | Delvist gennemført | Fysisk VoiceOver-test (ekstern) |
+| 1 | Kalenderens UI og dubletter | Delvist gennemført | Ingen — kun kildespecifik dubletanalyse, hvis en dublet observeres igen |
+| 2 | Tilgængelighed og visuelt polish | Gennemført | — |
 | 3 | Privatliv og AI | Delvist gennemført | Kalenderniveau-privatlivsvalg og sikre standardværdier (produktbeslutning) |
 | 4 | Login, branding og OAuth | Delvist gennemført | Google-verificering, consent-branding og domænevalg (alle eksterne, Google Cloud Console) |
 | 5 | Browserbaserede brugerflowtests | Gennemført | — |
@@ -151,12 +151,16 @@ utilsigtede dubletter eller unødigt vandret scroll.
   (`getComputedStyle().borderImageSource`/`.borderLeftColor`), ikke kun
   `ownerIds`-værdien. Synlig funktionsændring — egen PR, til gennemgang,
   ikke selv-merget.
+- [x] Genverificeret manuelt af Nicolaj på fysisk iPhone (Safari/PWA,
+  2026-08-29): måned-, uge- og familieagenda-visningen samt de seneste
+  aftalefarve-rettelser blev gennemgået direkte på beta — ingen overlap,
+  ingen vandret scroll, ingen synlige dubletter observeret.
 
 ### Mangler
 
 - [ ] Spor synlige dubletter til kilden: flere kalenderkilder,
-  gentagelsesudfoldning eller medlemsmapping.
-- [ ] Genverificér den seneste mobilvisning manuelt på iPhone Safari/PWA.
+  gentagelsesudfoldning eller medlemsmapping. Ingen aktiv fejlrapport lige
+  nu — punktet aktiveres kun, hvis en dublet reelt observeres igen.
 
 ### Acceptkriterier
 
@@ -166,17 +170,15 @@ utilsigtede dubletter eller unødigt vandret scroll.
   bevares.
 - Måned, uge, dag og familievisning fungerer på desktop og mobil.
 
-**Næste handling:** Deploy den afgrænsede kalender-PR og genverificér måned,
-uge og familieagenda på iPhone. Hvis en dublet stadig ses, logges de stabile
-identitetsfelter lokalt i en sikker debugvisning for at afgøre, om Google
-returnerer samme aftale gennem to reelt forskellige kalendere.
+**Næste handling:** Ingen aktiv handling — mobilverifikationen er
+gennemført. Dublet-sporing tages kun op, hvis en dublet observeres igen.
 
 ## Fase 2 – Tilgængelighed og visuelt polish
 
 **Mål:** Alle primære flows skal kunne forstås og betjenes med tastatur,
 skærmlæser og smalle mobilskærme uden at ændre appens varme grønne design.
 
-**Status: Delvist gennemført**
+**Status: Gennemført**
 
 ### Gennemført
 
@@ -212,11 +214,11 @@ skærmlæser og smalle mobilskærme uden at ændre appens varme grønne design.
   indbyggede Dialog-fokusfælde og sidebar-menuens fokusrækkefølge virker
   allerede korrekt. Ren test, ingen adfærdsændring.
 
-### Mangler
-
-- [ ] Test fysisk med iPhone Safari, installeret PWA og VoiceOver.
-- [ ] Ret eventuelle resterende felter uden label, fejlbesked eller tydelig
-  fokusmarkering, som en fremtidig fysisk gennemgang måtte finde.
+- [x] Fysisk test med iPhone Safari, installeret PWA og VoiceOver udført af
+  Nicolaj (2026-08-29): bundmenuens navigation, tilføjelse af
+  indkøbsvare/opgave og åbning af en kalenderaftale blev alle gennemgået
+  med VoiceOver aktiveret på beta. Ingen problemer fundet — alt annonceres
+  forståeligt, og ingen fokus- eller labelproblemer observeret.
 
 ### Acceptkriterier
 
@@ -225,9 +227,7 @@ skærmlæser og smalle mobilskærme uden at ændre appens varme grønne design.
 - Alle primære handlinger kan nås og aktiveres med tastatur.
 - Kritiske farvekombinationer opfylder relevante WCAG-kontrastkrav.
 
-**Ekstern handling:** Fysisk test med iPhone Safari, installeret PWA og
-VoiceOver kræver en fysisk enhed og kan ikke automatiseres — resten af fasen
-er nu automatiseret og verificeret.
+**Næste handling:** Ingen — fasen er gennemført.
 
 ## Fase 3 – Privatliv og AI
 
@@ -356,6 +356,22 @@ rettigheder med offentligt dokumenteret formål.
 ### Mangler
 
 - [ ] Færdiggør Google OAuth-verificering og consent-screen-branding.
+  **Status pr. 2026-08-29 (Nicolaj i gang direkte i Google Cloud
+  Console):** App-navn rettet til "Boholts Familieapp" (var fejlagtigt
+  "Boholts Family Platform"), logo uploadet, scopes registreret og
+  justifikation for `calendar.events` udfyldt, appen sat til "In
+  production" (ude af Testing-tilstand). **Blokeret på:** Googles
+  OAuth-verificering kræver en domæne-niveau-verificering (DNS TXT-record)
+  af `nicolajbach12.workers.dev` i Google Search Console — det domæne ejer
+  Nicolaj ikke DNS-styringen af (det er Cloudflares delte
+  `workers.dev`-zone). En URL-præfiks-verificering af selve beta-adressen
+  blev forsøgt som alternativ (Search Console-verificeringen lykkedes,
+  `google1e28839311687158.html` tilføjet i `public/`), men Cloud
+  Console's "Prepare for verification"-knap forblev gråtonet efter dette —
+  tyder på, at kun domæne-niveau-verificering tæller. Kan skyldes
+  forsinket synkronisering mellem Google-tjenester (tjekkes igen senere) —
+  hvis ikke, er et rigtigt, selv-ejet domæne den reelle løsning, ikke kun
+  en teknisk omvej.
 - [ ] Sørg for, at Google viser produktnavnet frem for `workers.dev`-domænet.
 - [ ] Beslut og konfigurer eventuelt eget verificeret domæne.
 
@@ -929,8 +945,8 @@ arbejde; de samles i afsnittet nedenfor og tages til sidst.
 |---|---|---|
 | ~~Slå Cloudflare native Git-deploy fra~~ | Gjort af Nicolaj 2026-08-29 | — |
 | Google OAuth-verificering | Kræver Google Cloud-ejergodkendelse | Login/jura og branding er kodeklargjort |
-| Eget produktionsdomæne | Domæne- og produktbeslutning | Beta fortsætter på `workers.dev` |
-| Fysisk iPhone/VoiceOver | Kræver rigtig enhed og brugerhandling | Automatiske mobiltests køres i CI |
+| Eget produktionsdomæne | Domæne- og produktbeslutning | Beta fortsætter på `workers.dev`; kan også blive nødvendigt for at fuldføre Google-domæneverificeringen (se Fase 4) |
+| ~~Fysisk iPhone/VoiceOver~~ | Udført af Nicolaj 2026-08-29 | — |
 
 ## Definition of Done for offentlig lancering
 
@@ -1007,3 +1023,5 @@ Efter hver fase eller material ændring skal den ansvarlige:
 | 2026-08-29 | Fase 5: Sidste to punkter lukket — logout/lokal oprydning og en generel online-API-fejl (E2E). Fandt undervejs en ægte funktionsfejl: `useSession()`'s manglende delte context lod logout kun opdatere Indstillinger-siden lokalt, mens resten af app-skallen forblev synligt logget ind uden en manuel genindlæsning. Rettet med `window.location.reload()` efter logout (samme mønster som backup-import). Synlig funktionsændring — godkendt af Nicolaj før implementering, til gennemgang, ikke selv-merget | PR #153 |
 | 2026-08-29 | Fase 4: Kodeverificeret gennemgang af alle fem Google OAuth-scopes (ingen overflødige) og redirect-URI-håndtering (allerede domæneuagtig kode, intet at rette). Fandt og rettede to helt forældede README'er, som stadig beskrev det fjernede klient-popup-flow fra Sprint 11.1 (`VITE_GOOGLE_CLIENT_ID` i `.env.local`) i stedet for det faktiske server-side authorization-code+PKCE-flow — kunne have vildledt Google Cloud Console-opsætningen. Indsnævrer Fase 4's resterende punkter til rene eksterne handlinger i Google Cloud Console. Ren dokumentationsrettelse, ingen kodeændring, selv-merget efter grøn CI | PR #154 |
 | 2026-08-29 | Fase 7: Nicolaj slog Cloudflares native Git-deploy fra i dashboardet — kun GitHub Actions-pipelinen deployer nu beta/produktion. Fasens sidste eksterne "ekstern handling"-blokering for selve deploy-pipelinen er dermed fjernet; kun D1-gendannelsesøvelsen og release til `main` mangler, begge afventer et aftalt tidspunkt med Nicolaj. Ren dokumentationsopdatering, ingen kodeændring, selv-merget efter grøn CI | PR #155 |
+| 2026-08-29 | Fase 4: Tilføjede Google Search Console-domæneverificeringsfil (`public/google1e28839311687158.html`) som led i Nicolajs igangværende OAuth-verificering. Ren, usynlig statisk fil, ingen adfærdsændring, selv-merget efter grøn CI | PR #156 |
+| 2026-08-29 | Fase 1 + Fase 2: Nicolaj gennemførte den fysiske iPhone-verifikation (Safari/PWA, mobilvisning uden overlap/dubletter) og VoiceOver-testen af de primære flows (navigation, indkøb, opgaver, kalenderaftale) — ingen problemer fundet. Fase 2 er dermed fuldt gennemført; Fase 1 mangler kun kildespecifik dubletanalyse, hvis en dublet observeres igen. Ren dokumentationsopdatering, ingen kodeændring, selv-merget efter grøn CI | PR #157 |
