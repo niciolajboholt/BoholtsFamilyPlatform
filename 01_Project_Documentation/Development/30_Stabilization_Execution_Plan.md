@@ -4,7 +4,7 @@
 |---|---|
 | Status | Aktiv |
 | Version | 1.0 |
-| Senest opdateret | 2026-08-28 |
+| Senest opdateret | 2026-08-29 |
 | Ejer | Nicolaj Boholts |
 | Arbejdsgren | `develop` |
 | Produktionsgren | `main` |
@@ -952,6 +952,83 @@ aldrig i en ICS-kilde.
 vises nu i selve kalenderen) og er til gennemgang hos Nicolaj, ikke
 selv-merget.
 
+## Familiedata-import fra Familyplan (2026-08-29)
+
+Uden for de ni stabiliseringsfaser: Nicolaj uploadede fire CSV-filer
+eksporteret fra den nedlagte familie-planlægningsapp "Familyplan" (aftaler,
+gentagelser, familiemedlemmer, madplan) og bad om at få de relevante aftaler
+importeret til Google Kalender. Ren dataimport — ingen kodeændring i denne
+app.
+
+**Omfang, aftalt med Nicolaj undervejs:**
+
+- Kun aftaler med startdato 1. august 2026 eller senere (2857 rå linjer i
+  kildefilen indsnævret til 47).
+- Enhver aftale med "karate" i titlen udelukket bevidst, uanset store/små
+  bogstaver.
+- Kildens rådata krydstjekket mod den separate "reoccurring"-fil: kun 0 af de
+  47 relevante linjer var reelt en gentagelsesserie i kilden — resten var
+  allerede enkeltstående, forudberegnede linjer og krævede ingen
+  gentagelses-rekonstruktion.
+- "Jobsøgning" (2 linjer) og "Hejmdal" (2 linjer med identisk titel, øvrige
+  Hejmdal-linjer havde forskellige undertitler) bekræftet af Nicolaj som
+  reelt forskellige, enkeltstående aftaler — oprettet hver for sig.
+- Nicolajs fødselsdag (26. maj) og parrets bryllupsdag bekræftet af Nicolaj —
+  bryllupsdagen først opgivet som 8/7 af Nicolaj selv, men rettet til **9.
+  juli** efter at en tidszone-korrekt omregning af kildedataen (UTC →
+  Europe/Copenhagen) pegede på en anden dato end hukommelsen, og Nicolaj
+  bekræftede omregningen som korrekt. Begge oprettet som rigtige, åbne,
+  årligt tilbagevendende Google-kalenderaftaler (RRULE, ikke afgrænset til de
+  årstal kildedataen tilfældigvis stopper ved).
+- Kalenderfordeling godkendt af Nicolaj efter en fremlagt oversigt: aftaler
+  markeret "hele familien" i kilden går til den delte "Familien
+  Boholt"-kalender; aftaler ejet af Nicolaj til hans egen; aftaler der efter
+  gennemgang af titlen reelt kun vedrører Jens eller Alfred specifikt (fest,
+  fødselsdag, øreklinik for Jens; legeaftale for Alfred) til deres egne
+  børnekalendere i stedet for familiekalenderen.
+
+**Resultat:** 45 rigtige Google-kalenderbegivenheder oprettet (47 kildelinjer,
+da fødselsdag og bryllupsdag hver blev til én tilbagevendende aftale i
+stedet for én pr. år) — 32 i Familien Boholt, 8 hos Nicolaj, 4 hos Jens, 1
+hos Alfred.
+
+**Christines kalender (opdatering samme dag):** De 7 aftaler ejet af
+Christine (Jobsøgning ×2, Årskontrol læge, Pandasia, Zoneterapi, Kommunen
+tlf., Psykolog online) kunne først ikke oprettes på hendes egen kalender —
+forbindelsen havde kun læseadgang. De blev derfor midlertidigt oprettet i
+Familien Boholt i stedet. Senere samme dag gav Christine forbindelsen
+skriveadgang til sin kalender, og alle 7 blev derefter oprettet direkte på
+`christineboholt@gmail.com`, hvorefter de midlertidige kopier i Familien
+Boholt blev slettet.
+
+**Dublet-oprydning (opdaget efter selve importen):** En gennemgang af de
+faktiske kalendere efter oprettelsen viste, at flere af Familyplan-aftalerne
+allerede fandtes som rigtige, aktive aftaler på kalenderne (uafhængigt af
+denne import) — formentlig fordi Nicolaj og Christine længe har brugt Google
+Kalender parallelt med den nedlagte Familyplan-app. Ni nyoprettede dubletter
+blev identificeret og slettet igen: "Børne-banko 🏆" og "C&J til KBH" i
+Familien Boholt (dækket af allerede eksisterende "Børne banko" og "Christine
+og Jens KBH"), fem padel-aftaler på Nicolajs kalender ("N: Padel kl 19",
+"Padel – AVK (2)", "Padel – Symmetry (4)", "N: padel", "Padel – Sparekassen
+Kronjylland (1)", alle dækket af allerede eksisterende padel-bookinger på
+samme tidspunkt), samt to utilsigtede dobbeltoprettelser af Christines egne
+"Zoneterapi" og "Kommunen tlf." (opstået fordi skriveadgangen til hendes
+kalender virkede for nogle af de 7 aftaler allerede ved første forsøg, uden
+at det blev opdaget dengang). To afklaringsspørgsmål blev forelagt Nicolaj:
+"Fest for Jens 🎉" fandtes allerede i Familien Boholt med dato 25/9, mens
+Familyplan-dataen pegede på 26/9 — Nicolaj bekræftede at **26/9 er den
+korrekte dato**, så den ældre 25/9-aftale i Familien Boholt blev slettet.
+"N padel 13-18" (Familyplan, 22/8) og den allerede eksisterende
+"N: padel tunnering" (12-17 samme dag) blev bekræftet som samme turnering —
+Familyplan-dubletten blev slettet, den oprindelige bevaret. To reelt
+manglende aftaler blev desuden fundet og oprettet, som ved en fejl ikke var
+kommet med i den oprindelige oprettelsesrunde: "VMGS 🎪🎉" (28/8) og
+"Hejmdal (medicin)" (16/9), begge i Familien Boholt.
+
+**Evidens:** Ingen PR/commit — handlingen skete direkte i Nicolajs live
+Google Kalender via Google Calendar-forbindelsen, efter fuld gennemgang og
+eksplicit godkendelse af både aftaleliste og kalenderfordeling i chatten.
+
 ## Prioriteret udførelsesrækkefølge
 
 Arbejdet fortsætter autonomt i denne rækkefølge, med grøn CI efter hver
@@ -1062,3 +1139,5 @@ Efter hver fase eller material ændring skal den ansvarlige:
 | 2026-08-29 | Fase 2: Fandt og rettede issue #20's sidste kriterie — måned- og dagsvisningen viste ejerskab af en aftale UDELUKKENDE via farven, uden noget synligt navn/ikon som backup (uge-/familievisningen havde allerede navnet som tekst). Nyt synligt initial-badge (`EventOwnerBadges.tsx`) på aftalekort og dags-prikker, plus ejernavn tilføjet til `getEventActionLabel()`s aria-label på alle fire visninger (var slet ikke der før). Godkendt visuelt af Nicolaj ud fra skærmbilleder. Synlig funktionsændring — til gennemgang, ikke selv-merget | PR #158 |
 | 2026-08-29 | Fase 3: Lukket to sidste punkter efter Nicolajs godkendelse. Privatlivssikre standardværdier for nye familier/delinger kodeverificeret som allerede korrekte (ny aftale synlig for familien som udgangspunkt; nyt delelink inkluderer aldrig beskrivelse/lokation uden aktivt tilvalg) — ingen kodeændring nødvendig. Kalenderniveau-privatlivsvalg bevidst fravalgt som unødvendig udvidelse ud over den eksisterende aftaleniveau-kontakt. Ren dokumentationsopdatering, selv-merget efter grøn CI | PR #159 |
 | 2026-08-29 | Fase 4: Google OAuth-verificeringen blev blokeret af domæne-niveau-krav, som `workers.dev` ikke kan opfylde. I stedet for at haste en domænebeslutning igennem satte Nicolaj appen tilbage til "Testing"-status og tilføjede sig selv og Christine som test-brugere — ingen "ikke-verificeret app"-advarsel for nogen af dem, og alt allerede udfyldt arbejde (branding, scopes, redirect-URI'er) er gemt uændret til senere. Domænebeslutningen og selve verificeringen tages op i ro, uden tidspres. Ren dokumentationsopdatering, ingen kodeændring, selv-merget efter grøn CI | PR #160 |
+| 2026-08-29 | Uden for stabiliseringsfaserne: importerede 47 relevante aftaler fra den nedlagte Familyplan-app (CSV-eksport) til Google Kalender som 45 rigtige begivenheder — 32 i Familien Boholt, 8 hos Nicolaj (6 padel + fødselsdag 26/5 og bryllupsdag 9/7 som nye, ægte årligt tilbagevendende aftaler), 4 hos Jens, 1 hos Alfred. "Karate" udelukket, kun fra 1. august 2026. Fuld liste og kalenderfordeling godkendt af Nicolaj før oprettelse. Ren dataimport, ingen kodeændring — se dedikeret afsnit "Familiedata-import fra Familyplan" | Google Kalender (direkte, ingen PR) |
+| 2026-08-29 | Opfølgning på ovenstående import: Christine gav senere skriveadgang til sin egen kalender, så hendes 7 aftaler blev flyttet dertil fra den midlertidige placering i Familien Boholt. En gennemgang af de faktiske kalendere fandt derudover ni utilsigtede dubletter mod allerede eksisterende, ægte aftaler (padel-bookinger, "Børne banko", "Christine og Jens KBH", samt to egne dobbeltoprettelser) — alle slettet igen efter to afklaringsspørgsmål til Nicolaj (dato for "Fest for Jens" bekræftet til 26/9; "N padel 13-18" bekræftet som samme turnering som en eksisterende aftale). To reelt manglende aftaler ("VMGS 🎪🎉", "Hejmdal (medicin)") blev fundet og oprettet. Ren dataoprydning, ingen kodeændring | Google Kalender (direkte, ingen PR) |
