@@ -1753,3 +1753,381 @@ test("an unassigned ICS subscription's event uses the subscription's own color, 
   expect(accentColor).toBe(hexToRgb("#D99832"));
   expect(accentColor).not.toBe(hexToRgb("#6D597A")); // Familien-farven
 });
+
+// Fase 5: sidste åbne "Mangler"-punkt — reel Playwright-E2E for opret/
+// redigér/slet gennem UI'et på indkøbsliste, opgaver og rutiner (hidtil kun
+// dækket for offline-scenarier, se de tre "offline ... is queued locally"
+// tests ovenfor). Ren test/dokumentation, ingen adfærdsændring.
+test("a family member can add, rename, and delete a shopping list item, and create, edit, and delete a list, through the real UI", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  await mockAuthenticatedApi(page);
+
+  let lists: Array<Record<string, unknown>> = [
+    {
+      id: "list-groceries",
+      familyId: family.id,
+      name: "Dagligvarer",
+      type: "dagligvarer",
+      createdAt: "2026-08-20T00:00:00.000Z",
+    },
+  ];
+  const itemsByListId: Record<string, Array<Record<string, unknown>>> = {
+    "list-groceries": [],
+  };
+
+  await page.route("**/api/families/*/shopping-lists", async (route) => {
+    const method = route.request().method();
+
+    if (method === "GET") {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ lists }) });
+      return;
+    }
+
+    if (method === "POST") {
+      const posted = route.request().postDataJSON() as { name: string; type: string };
+      const newList = {
+        id: `list-${lists.length + 1}`,
+        familyId: family.id,
+        name: posted.name,
+        type: posted.type,
+        createdAt: new Date().toISOString(),
+      };
+      lists = [...lists, newList];
+      itemsByListId[newList.id as string] = [];
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ list: newList }) });
+      return;
+    }
+
+    await route.fallback();
+  });
+
+  await page.route("**/api/families/*/shopping-lists/*", async (route) => {
+    const url = new URL(route.request().url());
+    const listId = url.pathname.split("/")[5];
+    const method = route.request().method();
+
+    if (method === "PATCH") {
+      const patched = route.request().postDataJSON() as { name?: string; type?: string };
+      lists = lists.map((existingList) =>
+        existingList.id === listId ? { ...existingList, ...patched } : existingList,
+      );
+      const updatedList = lists.find((existingList) => existingList.id === listId);
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ list: updatedList }) });
+      return;
+    }
+
+    if (method === "DELETE") {
+      lists = lists.filter((existingList) => existingList.id !== listId);
+      delete itemsByListId[listId!];
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ lists }) });
+      return;
+    }
+
+    await route.fallback();
+  });
+
+  await page.route("**/api/families/*/shopping-lists/*/items", async (route) => {
+    const url = new URL(route.request().url());
+    const listId = url.pathname.split("/")[5];
+    const method = route.request().method();
+    const items = itemsByListId[listId!] ?? [];
+
+    if (method === "GET") {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ items }) });
+      return;
+    }
+
+    if (method === "POST") {
+      const posted = route.request().postDataJSON() as { name: string };
+      itemsByListId[listId!] = [
+        ...items,
+        {
+          id: `item-${items.length + 1}`,
+          listId,
+          name: posted.name,
+          category: "Andet",
+          isChecked: 0,
+          addedByUserId: "user-e2e",
+          createdAt: new Date().toISOString(),
+          checkedAt: null,
+        },
+      ];
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ items: itemsByListId[listId!] }),
+      });
+      return;
+    }
+
+    await route.fallback();
+  });
+
+  await page.route("**/api/families/*/shopping-lists/*/items/*", async (route) => {
+    const url = new URL(route.request().url());
+    const listId = url.pathname.split("/")[5];
+    const itemId = url.pathname.split("/")[7];
+    const method = route.request().method();
+    const items = itemsByListId[listId!] ?? [];
+
+    if (method === "PATCH") {
+      const patched = route.request().postDataJSON() as { name?: string };
+      itemsByListId[listId!] = items.map((item) => (item.id === itemId ? { ...item, ...patched } : item));
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ items: itemsByListId[listId!] }),
+      });
+      return;
+    }
+
+    if (method === "DELETE") {
+      itemsByListId[listId!] = items.filter((item) => item.id !== itemId);
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ items: itemsByListId[listId!] }),
+      });
+      return;
+    }
+
+    await route.fallback();
+  });
+
+  await page.goto("/shopping-list");
+
+  // Tilføj en vare.
+  const addItemInput = page.getByPlaceholder("Tilføj en vare…");
+  await addItemInput.fill("Mælk");
+  await page.getByRole("button", { name: "Tilføj" }).click();
+  await expect(page.getByText("Mælk", { exact: true })).toBeVisible();
+
+  // Redigér varen (klik på navnet åbner et redigeringsfelt, autofokuseret —
+  // "input[value=...]" matcher ikke pålideligt et React-kontrolleret felt,
+  // da value er en DOM-egenskab, ikke en HTML-attribut).
+  await page.getByText("Mælk", { exact: true }).click();
+  const itemNameField = page.locator("input:focus");
+  await itemNameField.fill("Sødmælk");
+  // Klik væk i stedet for Enter — udløser en rigtig blur pålideligt (feltets
+  // egen Enter-håndtering kalder blur() programmatisk, hvilket viste sig
+  // upålideligt i headless Chromium).
+  await page.getByRole("heading", { name: "Indkøbsliste" }).click();
+  await expect(page.getByText("Sødmælk", { exact: true })).toBeVisible();
+  await expect(page.getByText("Mælk", { exact: true })).not.toBeVisible();
+
+  // Slet varen.
+  await page.getByRole("button", { name: "Fjern Sødmælk" }).click();
+  await expect(page.getByText("Sødmælk", { exact: true })).not.toBeVisible();
+
+  // Opret en ny liste.
+  await page.getByRole("tab", { name: "Opret ny liste" }).click();
+  const createListDialog = page.getByRole("dialog", { name: "Opret ny liste" });
+  await createListDialog.getByLabel("Navn").fill("Byggemarked-tur");
+  await createListDialog.getByLabel("Byggemarked").click();
+  await createListDialog.getByRole("button", { name: "Opret" }).click();
+  await expect(page.getByRole("tab", { name: "Byggemarked-tur" })).toBeVisible();
+
+  // Redigér den nye liste (navn).
+  await page.getByRole("button", { name: "Flere handlinger" }).click();
+  await page.getByRole("menuitem", { name: "Rediger liste" }).click();
+  const editListDialog = page.getByRole("dialog", { name: "Rediger liste" });
+  await editListDialog.getByLabel("Navn").fill("Byggemarked (ombygget)");
+  await editListDialog.getByRole("button", { name: "Gem" }).click();
+  await expect(page.getByRole("tab", { name: "Byggemarked (ombygget)" })).toBeVisible();
+
+  // Slet den nye liste igen — den oprindelige "Dagligvarer"-liste er tilbage.
+  await page.getByRole("button", { name: "Flere handlinger" }).click();
+  await page.getByRole("menuitem", { name: "Rediger liste" }).click();
+  await page.getByRole("button", { name: "Slet liste" }).click();
+  await page.getByRole("button", { name: "Bekræft sletning" }).click();
+  await expect(page.getByRole("tab", { name: "Byggemarked (ombygget)" })).not.toBeVisible();
+  await expect(page.getByRole("tab", { name: "Dagligvarer" })).toBeVisible();
+});
+
+test("a family member can add, edit, and delete a task through the real UI", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  await mockAuthenticatedApi(page);
+
+  let tasks: Array<Record<string, unknown>> = [];
+
+  await page.route("**/api/families/*/tasks", async (route) => {
+    const method = route.request().method();
+
+    if (method === "GET") {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ tasks }) });
+      return;
+    }
+
+    if (method === "POST") {
+      const posted = route.request().postDataJSON() as {
+        name: string;
+        icon: string;
+        assignedMemberId?: string | null;
+        timeOfDay?: string | null;
+      };
+      tasks = [
+        ...tasks,
+        {
+          id: `task-${tasks.length + 1}`,
+          familyId: family.id,
+          name: posted.name,
+          icon: posted.icon,
+          assignedMemberId: posted.assignedMemberId ?? null,
+          timeOfDay: posted.timeOfDay ?? null,
+          isDone: 0,
+          routineItemId: null,
+          taskDate: "2026-08-28",
+          createdByUserId: "user-e2e",
+          createdAt: new Date().toISOString(),
+          doneAt: null,
+        },
+      ];
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ tasks }) });
+      return;
+    }
+
+    await route.fallback();
+  });
+
+  await page.route("**/api/families/*/tasks/*", async (route) => {
+    const url = new URL(route.request().url());
+    const taskId = url.pathname.split("/")[5];
+    const method = route.request().method();
+
+    if (method === "PATCH") {
+      const patched = route.request().postDataJSON() as { name?: string };
+      tasks = tasks.map((task) => (task.id === taskId ? { ...task, ...patched } : task));
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ tasks }) });
+      return;
+    }
+
+    if (method === "DELETE") {
+      tasks = tasks.filter((task) => task.id !== taskId);
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ tasks }) });
+      return;
+    }
+
+    await route.fallback();
+  });
+
+  await page.goto("/tasks");
+
+  // Opret en opgave.
+  await page.getByLabel("Opgave", { exact: true }).fill("Vande blomster");
+  await page.getByRole("button", { name: "Tilføj" }).click();
+  await expect(page.getByText("Vande blomster", { exact: true })).toBeVisible();
+
+  // Redigér opgavens navn (klik på teksten åbner et autofokuseret
+  // redigeringsfelt).
+  await page.getByText("Vande blomster", { exact: true }).click();
+  const taskNameField = page.locator("input:focus");
+  await taskNameField.fill("Vande alle blomster");
+  // Klik væk i stedet for Enter — samme begrundelse som indkøbslistetesten
+  // ovenfor.
+  await page.getByRole("heading", { name: "Opgaver" }).click();
+  await expect(page.getByText("Vande alle blomster", { exact: true })).toBeVisible();
+  await expect(page.getByText("Vande blomster", { exact: true })).not.toBeVisible();
+
+  // Slet opgaven.
+  await page.getByRole("button", { name: "Fjern Vande alle blomster" }).click();
+  await expect(page.getByText("Vande alle blomster", { exact: true })).not.toBeVisible();
+  await expect(page.getByText("Ingen opgaver endnu i dag.")).toBeVisible();
+});
+
+test("a family member can create and delete a routine through the real UI", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  await mockAuthenticatedApi(page);
+
+  let routines: Array<Record<string, unknown>> = [];
+  const tasks: Array<Record<string, unknown>> = [];
+
+  await page.route("**/api/families/*/tasks", async (route) => {
+    if (route.request().method() !== "GET") {
+      await route.fallback();
+      return;
+    }
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ tasks }) });
+  });
+
+  await page.route("**/api/families/*/task-routines", async (route) => {
+    const method = route.request().method();
+
+    if (method === "GET") {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ routines }) });
+      return;
+    }
+
+    if (method === "POST") {
+      const posted = route.request().postDataJSON() as {
+        name: string;
+        weekdays: number[];
+        assignedMemberId?: string | null;
+        items: Array<{ name: string; icon: string; timeOfDay: string | null }>;
+      };
+      const newRoutine = {
+        id: `routine-${routines.length + 1}`,
+        familyId: family.id,
+        name: posted.name,
+        assignedMemberId: posted.assignedMemberId ?? null,
+        weekdays: posted.weekdays,
+        createdAt: new Date().toISOString(),
+        items: posted.items.map((item, index) => ({
+          id: `routine-item-${index + 1}`,
+          routineId: `routine-${routines.length + 1}`,
+          name: item.name,
+          icon: item.icon,
+          timeOfDay: item.timeOfDay,
+          sortOrder: index,
+        })),
+      };
+      routines = [...routines, newRoutine];
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ routine: newRoutine }) });
+      return;
+    }
+
+    await route.fallback();
+  });
+
+  await page.route("**/api/families/*/task-routines/*", async (route) => {
+    if (route.request().method() !== "DELETE") {
+      await route.fallback();
+      return;
+    }
+
+    const url = new URL(route.request().url());
+    const routineId = url.pathname.split("/")[5];
+    routines = routines.filter((routine) => routine.id !== routineId);
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true }) });
+  });
+
+  await page.goto("/tasks");
+
+  await page.getByRole("button", { name: "Opret rutine" }).click();
+  const routineDialog = page.getByRole("dialog", { name: "Opret rutine" });
+  await routineDialog.getByLabel("Rutinens navn").fill("Morgenrutine");
+  await routineDialog.getByRole("button", { name: "Man" }).click();
+  await routineDialog.getByRole("button", { name: "Ons" }).click();
+  await routineDialog.getByLabel("Opgave 1", { exact: true }).fill("Børst tænder");
+  await routineDialog.getByRole("button", { name: "Opret", exact: true }).click();
+  // Dialogens egen "Man"/"Ons"-vejrdagsvælger overlapper tekstmæssigt med den
+  // netop oprettede rutines egne dag-mærkater — vent til dialogen er helt
+  // væk (inkl. lukke-animationen), før de tjekkes, ellers kan begge matches
+  // findes samtidig i en kort overgangsperiode.
+  await expect(routineDialog).not.toBeVisible();
+
+  const routineRow = page.getByText("Morgenrutine", { exact: true }).locator("..");
+  await expect(page.getByText("Morgenrutine", { exact: true })).toBeVisible();
+  await expect(routineRow.getByText("Man", { exact: true })).toBeVisible();
+  await expect(routineRow.getByText("Ons", { exact: true })).toBeVisible();
+
+  // Slet rutinen.
+  await page.getByRole("button", { name: "Slet Morgenrutine" }).click();
+  await expect(page.getByText("Morgenrutine", { exact: true })).not.toBeVisible();
+  await expect(page.getByText("Ingen rutiner endnu.")).toBeVisible();
+});
