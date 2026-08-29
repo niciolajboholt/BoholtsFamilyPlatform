@@ -26,15 +26,13 @@ npm run preview  # lokal visning af produktionsbuild
 
 ## Google Calendar-konfiguration
 
-Opret `.env.local` ud fra `.env.example`:
-
-```dotenv
-VITE_GOOGLE_CALENDAR_ENABLED=true
-VITE_GOOGLE_CLIENT_ID=your-google-web-client-id.apps.googleusercontent.com
-```
-
-`.env.local` må ikke committes. Google-tokenet opbevares kun i hukommelsen og
-forsvinder, når browsersessionen afsluttes.
+Google-login og -kalenderadgang er server-side (authorization-code+PKCE via
+`server/routes/auth.ts`/`server/lib/googleOAuth.ts`), ikke en klient-`VITE_*`-
+opsætning — der findes ikke længere nogen `.env.local`-variabel for Google.
+`GOOGLE_CLIENT_ID` er en almindelig `vars`-værdi i `wrangler.jsonc`;
+`GOOGLE_CLIENT_SECRET` er en Cloudflare Secrets Store-binding. Se
+`src/features/calendar/providers/google/README.md` for den fulde
+OAuth-arkitektur, scope-liste og opsætningsvejledning.
 
 ## Centrale kodeområder
 

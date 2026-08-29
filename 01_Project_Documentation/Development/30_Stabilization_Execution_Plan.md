@@ -38,7 +38,7 @@ verifikation.
 | 1 | Kalenderens UI og dubletter | Delvist gennemført | Manuel iPhone-verifikation og eventuel kildespecifik dubletanalyse |
 | 2 | Tilgængelighed og visuelt polish | Delvist gennemført | Fysisk VoiceOver-test (ekstern) |
 | 3 | Privatliv og AI | Delvist gennemført | Kalenderniveau-privatlivsvalg og sikre standardværdier (produktbeslutning) |
-| 4 | Login, branding og OAuth | Delvist gennemført | Google-verificering og scope-gennemgang |
+| 4 | Login, branding og OAuth | Delvist gennemført | Google-verificering, consent-branding og domænevalg (alle eksterne, Google Cloud Console) |
 | 5 | Browserbaserede brugerflowtests | Gennemført | — |
 | 6 | Refaktorering | Gennemført | — |
 | 7 | Release, drift og dokumentation | Delvist gennemført | Fjern dobbelt Cloudflare-deploy (ekstern) |
@@ -330,12 +330,31 @@ rettigheder med offentligt dokumenteret formål.
 - [x] Login-siden linker til offentlige sider for privatlivspolitik og vilkår.
 - [x] Appnavn og basisbranding er ensrettet i de kodeejede flader.
 - [x] De juridiske sider er tilgængelige uden login.
+- [x] Gennemgå og dokumentér hvert Google OAuth-scope og fjern eventuelle
+  overflødige scopes. Alle fem anmodede scopes
+  (`openid`/`email`/`profile`/`calendar.events`/
+  `calendar.calendarlist.readonly`) er verificeret mod faktisk kodebrug —
+  ingen overflødige fundet (fx bruges bevidst IKKE den bredere `calendar`-
+  scope, da appen aldrig opretter/sletter kalendere, kun aftaler). Fandt
+  samtidig, at `src/features/calendar/providers/google/README.md` og
+  `05_App/web/README.md` beskrev en helt forældet, fjernet arkitektur
+  (Sprint 11.1's klient-popup-flow med `VITE_GOOGLE_CLIENT_ID` i
+  `.env.local`) — reelt erstattet af det nuværende server-side
+  authorization-code+PKCE-flow siden Fase 3, men dokumentationen fulgte
+  aldrig med. Begge rettet til at beskrive det faktiske flow, med korrekt
+  scope-tabel og opsætningsvejledning. Ren dokumentationsrettelse, ingen
+  kodeændring — selv-merget.
+- [x] Kontrollér redirect-URI'er for beta og senere produktionsdomæne.
+  Verificeret i koden (`server/routes/auth.ts`): `redirect_uri` udregnes
+  dynamisk som den indkommende requests eget domæne + `/auth/google/callback`
+  — koden er allerede domæneuagtig og kræver INGEN ændring for et nyt
+  domæne. Det eneste resterende er en Google Cloud Console-konfiguration
+  (tilføj hvert faktisk brugt domæne under "Authorized redirect URIs"),
+  som kun Nicolaj kan udføre — se den opdaterede
+  `providers/google/README.md` for den præcise fremgangsmåde.
 
 ### Mangler
 
-- [ ] Gennemgå og dokumentér hvert Google OAuth-scope og fjern eventuelle
-  overflødige scopes.
-- [ ] Kontrollér redirect-URI'er for beta og senere produktionsdomæne.
 - [ ] Færdiggør Google OAuth-verificering og consent-screen-branding.
 - [ ] Sørg for, at Google viser produktnavnet frem for `workers.dev`-domænet.
 - [ ] Beslut og konfigurer eventuelt eget verificeret domæne.
@@ -983,3 +1002,4 @@ Efter hver fase eller material ændring skal den ansvarlige:
 | 2026-08-28 | Fase 1: Visuel opfølgning fra Nicolaj efter test på iPhone (egen, parallel session) — aftalefarver fremstod udvaskede pga. for kraftig gennemsigtig baggrund, og kalenderfilteret viste kildens egen farve i stedet for det faktisk matchede medlems. Skiftet fra `border-image`-venstrekant til en fuldt mættet accentstribe via et pseudo-element (undgår halvmåneform på afrundede kort), baggrundstoning reduceret ca. 19% → 8%, og en ny `getCalendarSourceDisplayColors()` lader "Vis kalendere"-filteret bruge samme farveopløsning som selve aftalekortene. Godkendt og merget af Nicolaj | PR #150 |
 | 2026-08-28 | Fase 5: Sidste "Mangler"-punkt lukket — reel Playwright-E2E for opret/redigér/slet gennem UI'et på indkøbsliste (vare + hel liste), opgaver og rutiner (kun opret/slet — ingen redigér-UI findes for en rutine, arkitektonisk fakta). 3 nye tests. Ren test/dokumentation, ingen adfærdsændring, selv-merget efter grøn CI | PR #152 |
 | 2026-08-29 | Fase 5: Sidste to punkter lukket — logout/lokal oprydning og en generel online-API-fejl (E2E). Fandt undervejs en ægte funktionsfejl: `useSession()`'s manglende delte context lod logout kun opdatere Indstillinger-siden lokalt, mens resten af app-skallen forblev synligt logget ind uden en manuel genindlæsning. Rettet med `window.location.reload()` efter logout (samme mønster som backup-import). Synlig funktionsændring — godkendt af Nicolaj før implementering, til gennemgang, ikke selv-merget | PR #153 |
+| 2026-08-29 | Fase 4: Kodeverificeret gennemgang af alle fem Google OAuth-scopes (ingen overflødige) og redirect-URI-håndtering (allerede domæneuagtig kode, intet at rette). Fandt og rettede to helt forældede README'er, som stadig beskrev det fjernede klient-popup-flow fra Sprint 11.1 (`VITE_GOOGLE_CLIENT_ID` i `.env.local`) i stedet for det faktiske server-side authorization-code+PKCE-flow — kunne have vildledt Google Cloud Console-opsætningen. Indsnævrer Fase 4's resterende punkter til rene eksterne handlinger i Google Cloud Console. Ren dokumentationsrettelse, ingen kodeændring, selv-merget efter grøn CI | PR #154 |
