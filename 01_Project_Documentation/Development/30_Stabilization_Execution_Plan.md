@@ -38,7 +38,7 @@ verifikation.
 | 1 | Kalenderens UI og dubletter | Delvist gennemført | Ingen — kun kildespecifik dubletanalyse, hvis en dublet observeres igen |
 | 2 | Tilgængelighed og visuelt polish | Gennemført | — |
 | 3 | Privatliv og AI | Gennemført | — |
-| 4 | Login, branding og OAuth | Delvist gennemført | Google-verificering, consent-branding og domænevalg (alle eksterne, Google Cloud Console) |
+| 4 | Login, branding og OAuth | Delvist gennemført | Appen kører i Testing (ingen advarsel) — afventer et selv-ejet domæne, uden tidspres |
 | 5 | Browserbaserede brugerflowtests | Gennemført | — |
 | 6 | Refaktorering | Gennemført | — |
 | 7 | Release, drift og dokumentation | Delvist gennemført | D1-gendannelsesøvelse og kontrolleret release til `main` (begge kræver aftalt tidspunkt med Nicolaj) |
@@ -382,19 +382,27 @@ rettigheder med offentligt dokumenteret formål.
   **Status pr. 2026-08-29 (Nicolaj i gang direkte i Google Cloud
   Console):** App-navn rettet til "Boholts Familieapp" (var fejlagtigt
   "Boholts Family Platform"), logo uploadet, scopes registreret og
-  justifikation for `calendar.events` udfyldt, appen sat til "In
-  production" (ude af Testing-tilstand). **Blokeret på:** Googles
-  OAuth-verificering kræver en domæne-niveau-verificering (DNS TXT-record)
-  af `nicolajbach12.workers.dev` i Google Search Console — det domæne ejer
-  Nicolaj ikke DNS-styringen af (det er Cloudflares delte
-  `workers.dev`-zone). En URL-præfiks-verificering af selve beta-adressen
-  blev forsøgt som alternativ (Search Console-verificeringen lykkedes,
-  `google1e28839311687158.html` tilføjet i `public/`), men Cloud
-  Console's "Prepare for verification"-knap forblev gråtonet efter dette —
-  tyder på, at kun domæne-niveau-verificering tæller. Kan skyldes
-  forsinket synkronisering mellem Google-tjenester (tjekkes igen senere) —
-  hvis ikke, er et rigtigt, selv-ejet domæne den reelle løsning, ikke kun
-  en teknisk omvej.
+  justifikation for `calendar.events` udfyldt. Appen blev midlertidigt sat
+  til "In production" for at starte selve verificeringen, men **blev
+  blokeret**: Googles OAuth-verificering kræver en domæne-niveau-
+  verificering (DNS TXT-record) af `nicolajbach12.workers.dev` i Google
+  Search Console — det domæne ejer Nicolaj ikke DNS-styringen af (det er
+  Cloudflares delte `workers.dev`-zone). En URL-præfiks-verificering af
+  selve beta-adressen blev forsøgt som alternativ (Search
+  Console-verificeringen lykkedes, `google1e28839311687158.html` tilføjet
+  i `public/`), men Cloud Console's "Prepare for verification"-knap forblev
+  gråtonet efter dette — tyder på, at kun domæne-niveau-verificering
+  tæller.
+
+  **Besluttet (Nicolaj, 2026-08-29):** i stedet for at vente under tidspres
+  er appen sat **tilbage til "Testing"**-status, og både Nicolaj og
+  Christine er tilføjet som test-brugere — ingen "ikke-verificeret
+  app"-advarsel for nogen af dem lige nu, og alt allerede udfyldt
+  (branding, scopes, redirect-URI'er, justifikation) forbliver gemt uændret.
+  Domænebeslutningen (skaf et eget, selv-ejet domæne — den eneste reelle
+  vej til domæne-niveau-verificering, da `workers.dev` aldrig kan
+  DNS-verificeres) tages op i ro, uden hastværk, og appen sættes tilbage
+  til "In production" og sendes til verificering, når det er klar.
 - [ ] Sørg for, at Google viser produktnavnet frem for `workers.dev`-domænet.
 - [ ] Beslut og konfigurer eventuelt eget verificeret domæne.
 
@@ -404,8 +412,11 @@ rettigheder med offentligt dokumenteret formål.
 - Ingen ubegrundede OAuth-scopes.
 - Login og callback virker på alle godkendte miljøer uden uverificeret-advarsel.
 
-**Ekstern handling:** Den endelige Google-verificering og domæneejerskab skal
-godkendes i Google Cloud Console af Nicolaj.
+**Ekstern handling:** Appen kører nu igen i "Testing"-status (Nicolaj og
+Christine som test-brugere, ingen advarsel) — uden tidspres. Den endelige
+Google-verificering afventer et selv-ejet domæne (`workers.dev` kan ikke
+domæneverificeres) og godkendes derefter i Google Cloud Console af
+Nicolaj.
 
 ## Fase 5 – Automatiske brugerflowtests
 
@@ -1050,3 +1061,4 @@ Efter hver fase eller material ændring skal den ansvarlige:
 | 2026-08-29 | Fase 1 + Fase 2: Nicolaj gennemførte den fysiske iPhone-verifikation (Safari/PWA, mobilvisning uden overlap/dubletter) og VoiceOver-testen af de primære flows (navigation, indkøb, opgaver, kalenderaftale) — ingen problemer fundet. Fase 2 er dermed fuldt gennemført; Fase 1 mangler kun kildespecifik dubletanalyse, hvis en dublet observeres igen. Ren dokumentationsopdatering, ingen kodeændring, selv-merget efter grøn CI | PR #157 |
 | 2026-08-29 | Fase 2: Fandt og rettede issue #20's sidste kriterie — måned- og dagsvisningen viste ejerskab af en aftale UDELUKKENDE via farven, uden noget synligt navn/ikon som backup (uge-/familievisningen havde allerede navnet som tekst). Nyt synligt initial-badge (`EventOwnerBadges.tsx`) på aftalekort og dags-prikker, plus ejernavn tilføjet til `getEventActionLabel()`s aria-label på alle fire visninger (var slet ikke der før). Godkendt visuelt af Nicolaj ud fra skærmbilleder. Synlig funktionsændring — til gennemgang, ikke selv-merget | PR #158 |
 | 2026-08-29 | Fase 3: Lukket to sidste punkter efter Nicolajs godkendelse. Privatlivssikre standardværdier for nye familier/delinger kodeverificeret som allerede korrekte (ny aftale synlig for familien som udgangspunkt; nyt delelink inkluderer aldrig beskrivelse/lokation uden aktivt tilvalg) — ingen kodeændring nødvendig. Kalenderniveau-privatlivsvalg bevidst fravalgt som unødvendig udvidelse ud over den eksisterende aftaleniveau-kontakt. Ren dokumentationsopdatering, selv-merget efter grøn CI | PR #159 |
+| 2026-08-29 | Fase 4: Google OAuth-verificeringen blev blokeret af domæne-niveau-krav, som `workers.dev` ikke kan opfylde. I stedet for at haste en domænebeslutning igennem satte Nicolaj appen tilbage til "Testing"-status og tilføjede sig selv og Christine som test-brugere — ingen "ikke-verificeret app"-advarsel for nogen af dem, og alt allerede udfyldt arbejde (branding, scopes, redirect-URI'er) er gemt uændret til senere. Domænebeslutningen og selve verificeringen tages op i ro, uden tidspres. Ren dokumentationsopdatering, ingen kodeændring, selv-merget efter grøn CI | PR #160 |
