@@ -992,14 +992,38 @@ da fødselsdag og bryllupsdag hver blev til én tilbagevendende aftale i
 stedet for én pr. år) — 32 i Familien Boholt, 8 hos Nicolaj, 4 hos Jens, 1
 hos Alfred.
 
-**Kendt begrænsning:** De 7 aftaler ejet af Christine (Jobsøgning ×2,
-Årskontrol læge, Pandasia, Zoneterapi, Kommunen tlf., Psykolog online) kunne
-ikke oprettes på hendes egen kalender — den forbundne Google-forbindelse har
-kun læseadgang dertil, ikke skriveadgang. Efter Nicolajs valg blandt tre
-foreslåede løsninger blev de i stedet oprettet i Familien Boholt. Hvis
-Christine senere giver forbindelsen skriveadgang til sin kalender, kan de 7
-aftaler flyttes derover og fjernes fra familiekalenderen, så de ikke står
-dobbelt.
+**Christines kalender (opdatering samme dag):** De 7 aftaler ejet af
+Christine (Jobsøgning ×2, Årskontrol læge, Pandasia, Zoneterapi, Kommunen
+tlf., Psykolog online) kunne først ikke oprettes på hendes egen kalender —
+forbindelsen havde kun læseadgang. De blev derfor midlertidigt oprettet i
+Familien Boholt i stedet. Senere samme dag gav Christine forbindelsen
+skriveadgang til sin kalender, og alle 7 blev derefter oprettet direkte på
+`christineboholt@gmail.com`, hvorefter de midlertidige kopier i Familien
+Boholt blev slettet.
+
+**Dublet-oprydning (opdaget efter selve importen):** En gennemgang af de
+faktiske kalendere efter oprettelsen viste, at flere af Familyplan-aftalerne
+allerede fandtes som rigtige, aktive aftaler på kalenderne (uafhængigt af
+denne import) — formentlig fordi Nicolaj og Christine længe har brugt Google
+Kalender parallelt med den nedlagte Familyplan-app. Ni nyoprettede dubletter
+blev identificeret og slettet igen: "Børne-banko 🏆" og "C&J til KBH" i
+Familien Boholt (dækket af allerede eksisterende "Børne banko" og "Christine
+og Jens KBH"), fem padel-aftaler på Nicolajs kalender ("N: Padel kl 19",
+"Padel – AVK (2)", "Padel – Symmetry (4)", "N: padel", "Padel – Sparekassen
+Kronjylland (1)", alle dækket af allerede eksisterende padel-bookinger på
+samme tidspunkt), samt to utilsigtede dobbeltoprettelser af Christines egne
+"Zoneterapi" og "Kommunen tlf." (opstået fordi skriveadgangen til hendes
+kalender virkede for nogle af de 7 aftaler allerede ved første forsøg, uden
+at det blev opdaget dengang). To afklaringsspørgsmål blev forelagt Nicolaj:
+"Fest for Jens 🎉" fandtes allerede i Familien Boholt med dato 25/9, mens
+Familyplan-dataen pegede på 26/9 — Nicolaj bekræftede at **26/9 er den
+korrekte dato**, så den ældre 25/9-aftale i Familien Boholt blev slettet.
+"N padel 13-18" (Familyplan, 22/8) og den allerede eksisterende
+"N: padel tunnering" (12-17 samme dag) blev bekræftet som samme turnering —
+Familyplan-dubletten blev slettet, den oprindelige bevaret. To reelt
+manglende aftaler blev desuden fundet og oprettet, som ved en fejl ikke var
+kommet med i den oprindelige oprettelsesrunde: "VMGS 🎪🎉" (28/8) og
+"Hejmdal (medicin)" (16/9), begge i Familien Boholt.
 
 **Evidens:** Ingen PR/commit — handlingen skete direkte i Nicolajs live
 Google Kalender via Google Calendar-forbindelsen, efter fuld gennemgang og
@@ -1115,4 +1139,5 @@ Efter hver fase eller material ændring skal den ansvarlige:
 | 2026-08-29 | Fase 2: Fandt og rettede issue #20's sidste kriterie — måned- og dagsvisningen viste ejerskab af en aftale UDELUKKENDE via farven, uden noget synligt navn/ikon som backup (uge-/familievisningen havde allerede navnet som tekst). Nyt synligt initial-badge (`EventOwnerBadges.tsx`) på aftalekort og dags-prikker, plus ejernavn tilføjet til `getEventActionLabel()`s aria-label på alle fire visninger (var slet ikke der før). Godkendt visuelt af Nicolaj ud fra skærmbilleder. Synlig funktionsændring — til gennemgang, ikke selv-merget | PR #158 |
 | 2026-08-29 | Fase 3: Lukket to sidste punkter efter Nicolajs godkendelse. Privatlivssikre standardværdier for nye familier/delinger kodeverificeret som allerede korrekte (ny aftale synlig for familien som udgangspunkt; nyt delelink inkluderer aldrig beskrivelse/lokation uden aktivt tilvalg) — ingen kodeændring nødvendig. Kalenderniveau-privatlivsvalg bevidst fravalgt som unødvendig udvidelse ud over den eksisterende aftaleniveau-kontakt. Ren dokumentationsopdatering, selv-merget efter grøn CI | PR #159 |
 | 2026-08-29 | Fase 4: Google OAuth-verificeringen blev blokeret af domæne-niveau-krav, som `workers.dev` ikke kan opfylde. I stedet for at haste en domænebeslutning igennem satte Nicolaj appen tilbage til "Testing"-status og tilføjede sig selv og Christine som test-brugere — ingen "ikke-verificeret app"-advarsel for nogen af dem, og alt allerede udfyldt arbejde (branding, scopes, redirect-URI'er) er gemt uændret til senere. Domænebeslutningen og selve verificeringen tages op i ro, uden tidspres. Ren dokumentationsopdatering, ingen kodeændring, selv-merget efter grøn CI | PR #160 |
-| 2026-08-29 | Uden for stabiliseringsfaserne: importerede 47 relevante aftaler fra den nedlagte Familyplan-app (CSV-eksport) til Google Kalender som 45 rigtige begivenheder — 32 i Familien Boholt (inkl. 7 Christine-aftaler, da forbindelsen mangler skriveadgang til hendes kalender), 8 hos Nicolaj (6 padel + fødselsdag 26/5 og bryllupsdag 9/7 som nye, ægte årligt tilbagevendende aftaler), 4 hos Jens, 1 hos Alfred. "Karate" udelukket, kun fra 1. august 2026. Fuld liste og kalenderfordeling godkendt af Nicolaj før oprettelse. Ren dataimport, ingen kodeændring — se dedikeret afsnit "Familiedata-import fra Familyplan" | Google Kalender (direkte, ingen PR) |
+| 2026-08-29 | Uden for stabiliseringsfaserne: importerede 47 relevante aftaler fra den nedlagte Familyplan-app (CSV-eksport) til Google Kalender som 45 rigtige begivenheder — 32 i Familien Boholt, 8 hos Nicolaj (6 padel + fødselsdag 26/5 og bryllupsdag 9/7 som nye, ægte årligt tilbagevendende aftaler), 4 hos Jens, 1 hos Alfred. "Karate" udelukket, kun fra 1. august 2026. Fuld liste og kalenderfordeling godkendt af Nicolaj før oprettelse. Ren dataimport, ingen kodeændring — se dedikeret afsnit "Familiedata-import fra Familyplan" | Google Kalender (direkte, ingen PR) |
+| 2026-08-29 | Opfølgning på ovenstående import: Christine gav senere skriveadgang til sin egen kalender, så hendes 7 aftaler blev flyttet dertil fra den midlertidige placering i Familien Boholt. En gennemgang af de faktiske kalendere fandt derudover ni utilsigtede dubletter mod allerede eksisterende, ægte aftaler (padel-bookinger, "Børne banko", "Christine og Jens KBH", samt to egne dobbeltoprettelser) — alle slettet igen efter to afklaringsspørgsmål til Nicolaj (dato for "Fest for Jens" bekræftet til 26/9; "N padel 13-18" bekræftet som samme turnering som en eksisterende aftale). To reelt manglende aftaler ("VMGS 🎪🎉", "Hejmdal (medicin)") blev fundet og oprettet. Ren dataoprydning, ingen kodeændring | Google Kalender (direkte, ingen PR) |
