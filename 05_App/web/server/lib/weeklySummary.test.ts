@@ -47,7 +47,7 @@ async function seedFamily(env: ReturnType<typeof createFakeEnv>, familyId = "fam
 describe("sendWeeklySummaries", () => {
   beforeEach(() => {
     sendPushNotificationToFamilyMock.mockReset().mockResolvedValue(undefined);
-    generateWeeklySummaryMock.mockReset().mockResolvedValue("Et roligt resumé af ugen.");
+    generateWeeklySummaryMock.mockReset().mockResolvedValue([{ name: "Fælles", text: "Et roligt resumé af ugen." }]);
     fetchPublicFamilyCalendarEventsMock.mockReset().mockResolvedValue([]);
   });
 
@@ -102,7 +102,7 @@ describe("sendWeeklySummaries", () => {
       env,
       "family-1",
       "",
-      expect.objectContaining({ title: "Ugens resumé" }),
+      expect.objectContaining({ title: "Ugens resumé", body: "Fælles: Et roligt resumé af ugen." }),
     );
 
     const saved = await env.DB.prepare("SELECT family_id AS familyId, week_start AS weekStart, content FROM family_weekly_summaries").all<{
@@ -111,7 +111,11 @@ describe("sendWeeklySummaries", () => {
       content: string;
     }>();
     expect(saved.results).toEqual([
-      { familyId: "family-1", weekStart: expectedWeekStart, content: "Et roligt resumé af ugen." },
+      {
+        familyId: "family-1",
+        weekStart: expectedWeekStart,
+        content: JSON.stringify([{ name: "Fælles", text: "Et roligt resumé af ugen." }]),
+      },
     ]);
   });
 
@@ -319,7 +323,7 @@ describe("computeCurrentWeekStart", () => {
 
 describe("generateWeeklySummaryForFamily", () => {
   beforeEach(() => {
-    generateWeeklySummaryMock.mockReset().mockResolvedValue("Et frisk resumé.");
+    generateWeeklySummaryMock.mockReset().mockResolvedValue([{ name: "Fælles", text: "Et frisk resumé." }]);
     fetchPublicFamilyCalendarEventsMock.mockReset().mockResolvedValue([]);
   });
 
@@ -352,10 +356,10 @@ describe("generateWeeklySummaryForFamily", () => {
 
     const outcome = await generateWeeklySummaryForFamily(env, family, "2026-08-17", "2026-08-23");
 
-    expect(outcome).toEqual({ status: "generated", content: "Et frisk resumé." });
+    expect(outcome).toEqual({ status: "generated", content: [{ name: "Fælles", text: "Et frisk resumé." }] });
     const rows = await env.DB.prepare(
       "SELECT content FROM family_weekly_summaries WHERE family_id = ? AND week_start = ?",
     ).bind("family-1", "2026-08-17").all<{ content: string }>();
-    expect(rows.results).toEqual([{ content: "Et frisk resumé." }]);
+    expect(rows.results).toEqual([{ content: JSON.stringify([{ name: "Fælles", text: "Et frisk resumé." }]) }]);
   });
 });

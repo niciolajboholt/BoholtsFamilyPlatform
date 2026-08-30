@@ -117,10 +117,21 @@ export function WeeklySummaryCard() {
         )}
 
         {summary ? (
-          // Resuméet er nu skrevet med ét linjeskift pr. familiemedlem
-          // (server/lib/aiAssistant.ts) — "pre-line" bevarer de linjeskift i
-          // stedet for at presse dem sammen til én løbende linje.
-          <Typography sx={{ whiteSpace: "pre-line" }}>{summary.content}</Typography>
+          // Sektionerne (server/lib/aiAssistant.ts) sikrer navn + linjeskift
+          // deterministisk her i UI'et — fremhævningen af navnet afhænger
+          // ikke af, at AI-modellen selv formaterer teksten korrekt.
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+            {summary.sections.map((section, index) => (
+              <Typography key={`${section.name}-${index}`}>
+                {section.name && (
+                  <Box component="span" sx={{ fontWeight: 700 }}>
+                    {section.name}:{" "}
+                  </Box>
+                )}
+                {section.text}
+              </Typography>
+            ))}
+          </Box>
         ) : (
           <Button
             variant="outlined"

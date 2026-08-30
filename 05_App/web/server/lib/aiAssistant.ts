@@ -201,24 +201,29 @@ function formatEventLine(event: WeeklySummaryInput["events"][number]): string {
 
 // "Fælles" samler alt uden en navngiven ejer: familie-brede aftaler/opgaver
 // (intet family_members-id) og hele indkøbslisten (som slet ikke har et
-// medlemsfelt i skemaet — se shopping_list_items). Holdt som streng-nøgle,
-// ikke `undefined`, så den kan stå i Map'en og samtidig altid ende sidst
-// (se `order`-opbygningen nedenfor).
-const FAELLES_GROUP = "Fælles (ingen bestemt person)";
+// medlemsfelt i skemaet — se shopping_list_items).
+const FAELLES_GROUP = "Fælles";
 
-function formatWeeklySummaryPrompt(input: WeeklySummaryInput): string {
-  const groupedLines = new Map<string, string[]>();
+interface GroupedWeeklySummaryInput {
+  // Navngivne personer, i den rækkefølge de først optræder — den rækkefølge
+  // det endelige resumé også skal vises i.
+  orderedNames: string[];
+  linesByGroup: Map<string, string[]>;
+}
+
+function groupWeeklySummaryInput(input: WeeklySummaryInput): GroupedWeeklySummaryInput {
+  const linesByGroup = new Map<string, string[]>();
   const orderedNames: string[] = [];
 
   function addLine(memberName: string | undefined, line: string): void {
     const key = memberName ?? FAELLES_GROUP;
-    if (!groupedLines.has(key)) {
-      groupedLines.set(key, []);
+    if (!linesByGroup.has(key)) {
+      linesByGroup.set(key, []);
       if (key !== FAELLES_GROUP) {
         orderedNames.push(key);
       }
     }
-    groupedLines.get(key)!.push(line);
+    linesByGroup.get(key)!.push(line);
   }
 
   for (const event of input.events) {
@@ -231,51 +236,146 @@ function formatWeeklySummaryPrompt(input: WeeklySummaryInput): string {
     addLine(undefined, `- Indkøb: ${item}`);
   }
 
+  return { orderedNames, linesByGroup };
+}
+
+function formatWeeklySummaryPrompt(grouped: GroupedWeeklySummaryInput): string {
+  const { orderedNames, linesByGroup } = grouped;
   const lines: string[] = ["Ugens aftaler, opgaver og indkøb, grupperet pr. person (i denne rækkefølge):"];
 
-  if (orderedNames.length === 0 && !groupedLines.has(FAELLES_GROUP)) {
+  if (orderedNames.length === 0 && !linesByGroup.has(FAELLES_GROUP)) {
     lines.push("(ingen)");
     return lines.join("\n");
   }
 
   for (const name of orderedNames) {
-    lines.push(`${name}:`, ...groupedLines.get(name)!);
+    lines.push(`${name}:`, ...linesByGroup.get(name)!);
   }
-  if (groupedLines.has(FAELLES_GROUP)) {
-    lines.push(`${FAELLES_GROUP}:`, ...groupedLines.get(FAELLES_GROUP)!);
+  if (linesByGroup.has(FAELLES_GROUP)) {
+    lines.push(`${FAELLES_GROUP}:`, ...linesByGroup.get(FAELLES_GROUP)!);
   }
 
   return lines.join("\n");
 }
 
-// I modsætning til rutine-/ingrediensforslagene ovenfor beder denne funktion
-// bevidst IKKE om JSON — et ugeresumé er ren læsetekst til familien, ikke
-// data der skal parses ind i konkrete felter (Sprint 28, beslutning 3).
+export interface WeeklySummarySection {
+  name: string;
+  text: string;
+}
+
+function parseWeeklySummarySectionsJson(content: string): { name: string; text: string }[] | null {
+  const parsed = extractJsonObject(content);
+
+  if (!parsed || typeof parsed !== "object") {
+    return null;
+  }
+
+  const candidate = parsed as { sections?: unknown };
+
+  if (!Array.isArray(candidate.sections)) {
+    return null;
+  }
+
+  const sections: { name: string; text: string }[] = [];
+
+  for (const raw of candidate.sections) {
+    if (!raw || typeof raw !== "object") {
+      continue;
+    }
+
+    const section = raw as { name?: unknown; text?: unknown };
+
+    if (typeof section.name === "string" && section.name.trim() && typeof section.text === "string" && section.text.trim()) {
+      sections.push({ name: section.name.trim(), text: section.text.trim() });
+    }
+  }
+
+  return sections.length > 0 ? sections : null;
+}
+
+// Slår modellens egne (navn, tekst)-par sammen med den kendte, korrekte
+// rækkefølge/liste af personer — i stedet for blot at stole på JSON-
+// arrayets egen rækkefølge og de navne, modellen selv har skrevet. Den
+// lille model har vist sig upålidelig nok til begge dele (se Fase-
+// stabiliseringsplanens "Ugens resumé"-afsnit): den kan finde på en ekstra,
+// uventet gruppe (fx "Familien" ved siden af "Fælles") eller returnere
+// sektionerne i en anden rækkefølge, end de blev givet i. Et navn, der ikke
+// matcher en kendt person eller selve "Fælles"-nøglen, lægges derfor ind i
+// den fælles tekst i stedet for at blive vist som en overraskende, ekstra
+// overskrift.
+function reconcileWeeklySummarySections(
+  rawSections: { name: string; text: string }[],
+  grouped: GroupedWeeklySummaryInput,
+): WeeklySummarySection[] {
+  const textsByName = new Map<string, string[]>();
+  const faellesTexts: string[] = [];
+
+  for (const section of rawSections) {
+    const matchedName = grouped.orderedNames.find(
+      (name) => name.toLowerCase() === section.name.toLowerCase(),
+    );
+
+    if (matchedName) {
+      const texts = textsByName.get(matchedName) ?? [];
+      texts.push(section.text);
+      textsByName.set(matchedName, texts);
+    } else {
+      faellesTexts.push(section.text);
+    }
+  }
+
+  const result: WeeklySummarySection[] = [];
+
+  for (const name of grouped.orderedNames) {
+    const texts = textsByName.get(name);
+    if (texts && texts.length > 0) {
+      result.push({ name, text: texts.join(" ") });
+    }
+  }
+
+  if (faellesTexts.length > 0) {
+    result.push({ name: FAELLES_GROUP, text: faellesTexts.join(" ") });
+  }
+
+  return result;
+}
+
 export async function generateWeeklySummary(
   env: Env,
   input: WeeklySummaryInput,
-): Promise<string | null> {
+): Promise<WeeklySummarySection[] | null> {
+  const grouped = groupWeeklySummaryInput(input);
+
   const systemPrompt =
-    `Du skriver et kort, venligt ugeresumé på dansk til en familie, ud fra deres kommende ` +
-    `kalenderaftaler og opgaver, der herunder er grupperet pr. familiemedlem, samt en fælles ` +
-    `indkøbsliste. Skriv resuméet som ÉN kort sætning (højst to) PR. NAVNGIVET PERSON, hver på ` +
-    `sin egen linje — brug et almindeligt linjeskift mellem hver person, i nøjagtig den ` +
-    `rækkefølge, personerne er listet nedenfor. Start hver linje med personens navn efterfulgt af ` +
-    `kolon, fx "Nicolaj: ...". Spring en person helt over, hvis vedkommende slet ikke er nævnt ` +
-    `nedenfor. Er der noget under "${FAELLES_GROUP}", så afslut med præcis én linje, der starter ` +
-    `med "Fælles: ", om det (inkl. indkøb, hvis der er noget) — ellers udelad linjen helt. ` +
-    `Ingen overskrifter og ingen punktopstillingstegn ("-" eller "•") i selve svaret — kun ` +
-    `almindelige sætninger på hver sin linje, i et naturligt, varmt hverdagssprog, som når man ` +
-    `kort fortæller familien, hvad ugen byder på. Ingen indledende "Her er" eller "Denne uge ` +
-    `byder på". ` +
-    `Aftalerne/opgaverne under hver person står allerede i den rigtige rækkefølge med ugedag (og ` +
-    `evt. klokkeslæt) angivet præcist — nævn dem i samme rækkefølge, og brug UDELUKKENDE de ` +
-    `ugedage/tidspunkter, der er givet. Regn, gæt eller antag aldrig selv en dato eller et ` +
-    `klokkeslæt. Nævn kun det, der reelt er givet: opfind aldrig en kategori, et sted, en ` +
-    `anledning eller et ord som "stævne"/"begivenhed", der ikke selv står i aftalens eller ` +
-    `opgavens egen titel.`;
+    `Du skriver et kort ugeresumé på dansk til en familie, ud fra deres kommende kalenderaftaler ` +
+    `og opgaver, der herunder er grupperet pr. familiemedlem, samt en fælles indkøbsliste. ` +
+    `Svar UDELUKKENDE med et JSON-objekt i formen {"sections": [{"name": string, "text": string}]}. ` +
+    `Opret præcis én sektion pr. gruppe, der rent faktisk er nævnt nedenfor — spring en gruppe ` +
+    `helt over, hvis den slet ikke er nævnt. "name" skal være PRÆCIS det navn, gruppen har ` +
+    `nedenfor (fx "Nicolaj" eller "${FAELLES_GROUP}") — opfind aldrig et andet navn eller en ` +
+    `anden gruppe. "text" er én kort sætning (højst to) i et naturligt, varmt hverdagssprog om ` +
+    `det, personen/gruppen skal — uden at gentage navnet i selve teksten (det vises i forvejen ` +
+    `sammen med sektionen). ` +
+    `Aftalerne/opgaverne under hver gruppe står allerede i den rigtige rækkefølge med ugedag (og ` +
+    `evt. klokkeslæt) angivet præcist — nævn dem i samme rækkefølge i teksten, og brug ` +
+    `UDELUKKENDE de ugedage/tidspunkter, der er givet. Regn, gæt eller antag aldrig selv en dato ` +
+    `eller et klokkeslæt. Nævn kun det, der reelt er givet: opfind aldrig en kategori, et sted, ` +
+    `en anledning eller et ord som "stævne"/"begivenhed", der ikke selv står i aftalens eller ` +
+    `opgavens egen titel. Svar udelukkende med JSON, ingen forklarende tekst.`;
 
-  const content = await runChatCompletion(env, systemPrompt, formatWeeklySummaryPrompt(input));
+  const content = await runChatCompletion(env, systemPrompt, formatWeeklySummaryPrompt(grouped));
 
-  return content?.trim() || null;
+  if (!content) {
+    return null;
+  }
+
+  const rawSections = parseWeeklySummarySectionsJson(content);
+
+  if (!rawSections) {
+    return null;
+  }
+
+  const sections = reconcileWeeklySummarySections(rawSections, grouped);
+
+  return sections.length > 0 ? sections : null;
 }

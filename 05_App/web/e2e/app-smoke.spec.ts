@@ -222,7 +222,7 @@ test("authenticated family can open every primary area", async ({ page }) => {
 test("a family owner can generate and refresh the weekly summary from the home page", async ({ page }) => {
   await mockAuthenticatedApi(page);
 
-  let summary: { weekStart: string; content: string; createdAt: string } | null = null;
+  let summary: { weekStart: string; sections: { name: string; text: string }[]; createdAt: string } | null = null;
   let refreshCallCount = 0;
 
   await page.route("**/api/families/*/weekly-summary", async (route) => {
@@ -241,7 +241,7 @@ test("a family owner can generate and refresh the weekly summary from the home p
     refreshCallCount += 1;
     summary = {
       weekStart: "2026-08-31",
-      content: `Resumé nummer ${refreshCallCount}.`,
+      sections: [{ name: "Alex", text: `Resumé nummer ${refreshCallCount}.` }],
       createdAt: new Date().toISOString(),
     };
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ summary }) });
@@ -252,6 +252,7 @@ test("a family owner can generate and refresh the weekly summary from the home p
   await expect(page.getByText("Intet resumé endnu")).toBeVisible();
   await page.getByRole("button", { name: "Generér ugens resumé nu" }).click();
   await expect(page.getByText("Resumé nummer 1.")).toBeVisible();
+  await expect(page.getByText("Alex:", { exact: false })).toBeVisible();
 
   await page.getByRole("button", { name: "Opdater ugens resumé" }).click();
   await expect(page.getByText("Resumé nummer 2.")).toBeVisible();
