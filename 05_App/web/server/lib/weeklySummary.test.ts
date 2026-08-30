@@ -230,9 +230,9 @@ describe("sendWeeklySummaries", () => {
     // detaljer før delelink og AI modtager eventet". Denne test antager
     // BEVIDST det modsatte (som om den redigering fejlede opstrøms) for at
     // bevise, at collectUpcomingEvents() har sit eget, uafhængige lag:
-    // typen den returnerer ({title, start}) gør det umuligt at lække
-    // description/location videre til AI-prompten, uanset hvad opstrøms
-    // funktionen leverer.
+    // typen den returnerer ({title, start, allDay, memberName}) gør det
+    // umuligt at lække description/location videre til AI-prompten, uanset
+    // hvad opstrøms funktionen leverer.
     fetchPublicFamilyCalendarEventsMock.mockResolvedValue([
       {
         title: "Optaget",
@@ -251,7 +251,9 @@ describe("sendWeeklySummaries", () => {
     expect(generateWeeklySummaryMock).toHaveBeenCalledWith(
       env,
       expect.objectContaining({
-        events: [{ title: "Optaget", start: "2026-08-18T10:00:00.000Z" }],
+        events: [
+          { title: "Optaget", start: "2026-08-18T10:00:00.000Z", allDay: false, memberName: "Nicolaj" },
+        ],
       }),
     );
 

@@ -4,7 +4,7 @@
 // beslutning 1).
 
 import type { Env } from "../env";
-import { generateWeeklySummary } from "./aiAssistant";
+import { generateWeeklySummary, type WeeklySummaryInput } from "./aiAssistant";
 import { fetchPublicFamilyCalendarEvents } from "./googleCalendarAggregation";
 import { GoogleNotConnectedError } from "./googleConnection";
 import { sendPushNotificationToFamily } from "./pushNotifications";
@@ -116,7 +116,7 @@ async function collectUpcomingEvents(
   ownerUserId: string,
   weekStart: string,
   weekEnd: string,
-): Promise<{ title: string; start: string }[]> {
+): Promise<WeeklySummaryInput["events"]> {
   const { results: mappings } = await env.DB.prepare(
     "SELECT DISTINCT family_member_id AS familyMemberId FROM calendar_member_mappings WHERE family_id = ?",
   )
@@ -136,7 +136,19 @@ async function collectUpcomingEvents(
       { start: `${weekStart}T00:00:00.000Z`, end: `${addDays(weekEnd, 1)}T00:00:00.000Z` },
     );
 
-    return events.map((event) => ({ title: event.title, start: event.start }));
+    // Flere kalendere hentes hver for sig (Google returnerer kun sin egen
+    // kalender kronologisk) — samlet på tværs af medlemmer skal listen
+    // sorteres eksplicit, ellers får AI'en aftalerne i en tilfældig,
+    // forvirrende rækkefølge (fx torsdag før tirsdag).
+    return events
+      .slice()
+      .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
+      .map((event) => ({
+        title: event.title,
+        start: event.start,
+        allDay: event.allDay,
+        memberName: event.memberName,
+      }));
   } catch (error) {
     if (error instanceof GoogleNotConnectedError) {
       return [];

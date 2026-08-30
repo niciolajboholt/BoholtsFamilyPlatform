@@ -1062,6 +1062,44 @@ dækket af 6 nye servertests (rolle-tjek, deaktiveret AI, tom uge, timelås,
 opdatering af eksisterende resumé) og en ny reel Playwright-E2E for hele
 flowet gennem den rigtige UI.
 
+## Ugens resumé: sprogkvalitet (2026-08-30)
+
+Uden for de ni stabiliseringsfaser: Nicolaj testede den nye opdater-knap
+(se ovenfor) og fandt, at selve AI-teksten var af meget dårlig kvalitet —
+et konkret eksempel viste opfundne detaljer ("Pandasia-stævner", et ord der
+ikke stod i den underliggende aftale), forkert kronologisk rækkefølge
+(torsdagens aftale nævnt før tirsdagens), og en upræcis "vi skal..."-tone på
+aftaler, der reelt kun gjaldt én person (fx Nicolajs egne padelkampe).
+
+**Rodårsag fundet ved kodegennemgang:** Kalenderaftalerne blev sendt til
+AI-modellen som rå ISO 8601 UTC-tidsstempler (fx
+"2026-08-31T10:00:00.000Z"), og modellen — en bevidst lille, hurtig,
+gratis-tilgængelig model (`@cf/zai-org/glm-4.7-flash`, se Sprint 23) — skulle
+selv regne tidszone, ugedag og rækkefølge ud. Det er præcis den slags
+opgave, en lille model er upålidelig til, hvilket forklarer både de
+opfundne detaljer og den forkerte rækkefølge. Aftaler fra flere
+familiemedlemmers kalendere blev desuden samlet uden en global sortering
+(hver kalender kommer sorteret for sig fra Google, men ikke på tværs), og
+selve ejerskabet af en aftale (hvem den gælder for) blev slet ikke sendt
+med, så modellen gættede en blanket "vi" for alt.
+
+**Rettelse:** Ugedag/klokkeslæt formateres nu deterministisk i kode
+(`Intl.DateTimeFormat`, Europe/Copenhagen) FØR aftalerne sendes til
+modellen, aftalerne sorteres kronologisk på tværs af alle medlemmers
+kalendere, og det medlem, aftalen tilhører, sendes med og bruges til at
+skrive "Nicolajs padelkamp" i stedet for "vi skal til padel". Selve
+systemprompten er samtidig strammet: eksplicit forbud mod at opfinde
+kategorier/ord, der ikke står i aftalens egen titel, og et krav om at følge
+den allerede givne kronologiske rækkefølge. Ingen ny type følsomme data
+sendes til modellen — kun aftalens titel, tidspunkt og medlemsnavn, samme
+redaktionsprincip som hidtil (beskrivelse/lokation når aldrig med).
+
+Ren kvalitetsrettelse af AI-outputtets sprog — ingen ændring i hvilke data
+der indsamles, hvornår resuméet genereres, eller UI'et omkring det. Til
+gennemgang, ikke selv-merget, da det ændrer selve den tekst, familien ser,
+se [PR #163](https://github.com/niciolajboholt/BoholtsFamilyPlatform/pull/163).
+7 nye/ændrede tests dækker den nye datoformatering og medlems-tilskrivning.
+
 ## Prioriteret udførelsesrækkefølge
 
 Arbejdet fortsætter autonomt i denne rækkefølge, med grøn CI efter hver
@@ -1175,3 +1213,4 @@ Efter hver fase eller material ændring skal den ansvarlige:
 | 2026-08-29 | Uden for stabiliseringsfaserne: importerede 47 relevante aftaler fra den nedlagte Familyplan-app (CSV-eksport) til Google Kalender som 45 rigtige begivenheder — 32 i Familien Boholt, 8 hos Nicolaj (6 padel + fødselsdag 26/5 og bryllupsdag 9/7 som nye, ægte årligt tilbagevendende aftaler), 4 hos Jens, 1 hos Alfred. "Karate" udelukket, kun fra 1. august 2026. Fuld liste og kalenderfordeling godkendt af Nicolaj før oprettelse. Ren dataimport, ingen kodeændring — se dedikeret afsnit "Familiedata-import fra Familyplan" | Google Kalender (direkte, ingen PR) |
 | 2026-08-29 | Opfølgning på ovenstående import: Christine gav senere skriveadgang til sin egen kalender, så hendes 7 aftaler blev flyttet dertil fra den midlertidige placering i Familien Boholt. En gennemgang af de faktiske kalendere fandt derudover ni utilsigtede dubletter mod allerede eksisterende, ægte aftaler (padel-bookinger, "Børne banko", "Christine og Jens KBH", samt to egne dobbeltoprettelser) — alle slettet igen efter to afklaringsspørgsmål til Nicolaj (dato for "Fest for Jens" bekræftet til 26/9; "N padel 13-18" bekræftet som samme turnering som en eksisterende aftale). To reelt manglende aftaler ("VMGS 🎪🎉", "Hejmdal (medicin)") blev fundet og oprettet. Ren dataoprydning, ingen kodeændring | Google Kalender (direkte, ingen PR) |
 | 2026-08-30 | Uden for stabiliseringsfaserne: tilføjet en manuel opdater-knap til "Ugens resumé", udløst af Nicolajs spørgsmål om hvorfor resuméet ikke var kommet (undersøgt og bekræftet som forventet — cron'en kører kun søndag aften). Ejer eller admin kan nu selv generere/opdatere resuméet for den uge, man er i nu, med et loft på én gang i timen; kortet viser en tom-tilstand med en "Generér nu"-knap i stedet for at være usynligt indtil første cron-kørsel. 6 nye servertests + 1 ny Playwright-E2E. Synlig ny funktion — til gennemgang, ikke selv-merget | PR #162 |
+| 2026-08-30 | Ugens resumé: rettet dårlig AI-sprogkvalitet fundet af Nicolaj efter test af opdater-knappen (opfundne detaljer, forkert kronologisk rækkefølge, upræcis "vi"-tone på personlige aftaler). Rodårsag: rå ISO-tidsstempler overladt til den lille AI-model at regne ugedag/tidszone ud, ingen global sortering på tværs af medlemmers kalendere, intet medlemsnavn sendt med. Rettet ved at formatere ugedag/klokkeslæt deterministisk i kode og sende medlemsnavn med, plus strammet systemprompt mod at opfinde kategorier. Ren tekstkvalitetsrettelse, ingen ændring i dataindsamling/UI. 7 nye/ændrede tests. Til gennemgang, ikke selv-merget | PR #163 |
