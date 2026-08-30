@@ -2,7 +2,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createFakeEnv } from "../testing/fakeEnv";
 import { seedLoggedInUser } from "../testing/fakeD1";
+import { computeCurrentWeekStart, getCopenhagenDateString } from "../lib/weeklySummary";
 import families from "./families";
+
+// Kun brugt af "POST /:id/weekly-summary/refresh"-blokken nedenfor — resten
+// af filens tests rammer aldrig AI-stien (ingen data at opsummere).
+vi.mock("../lib/aiAssistant", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../lib/aiAssistant")>();
+  return { ...actual, generateWeeklySummary: vi.fn() };
+});
+const { generateWeeklySummary } = await import("../lib/aiAssistant");
+const generateWeeklySummaryMock = vi.mocked(generateWeeklySummary);
 
 interface FamilyMemberJson {
   id: string;
@@ -43,6 +53,7 @@ describe("families routes", () => {
 
   beforeEach(() => {
     env = createFakeEnv();
+    generateWeeklySummaryMock.mockReset().mockResolvedValue("Ugens resumé (test).");
   });
 
   it("rejects any request without a session cookie", async () => {
@@ -730,6 +741,141 @@ describe("families routes", () => {
       );
 
       expect(response.status).toBe(403);
+    });
+  });
+
+  describe("POST /:id/weekly-summary/refresh", () => {
+    async function seedShoppingItem(familyId: string): Promise<void> {
+      await env.DB.prepare(
+        "INSERT INTO shopping_lists (id, family_id, name, created_at) VALUES (?, ?, ?, ?)",
+      )
+        .bind("refresh-list", familyId, "Dagligvarer", new Date().toISOString())
+        .run();
+      await env.DB.prepare(
+        `INSERT INTO shopping_list_items (id, list_id, name, category, is_checked, added_by_user_id, created_at)
+         VALUES (?, ?, ?, 'andet', 0, 'owner', ?)`,
+      )
+        .bind("refresh-item", "refresh-list", "Mælk", new Date().toISOString())
+        .run();
+    }
+
+    it("lets the owner generate a fresh summary for the current week", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader);
+      await seedShoppingItem(created.family.id);
+
+      const response = await families.request(
+        `/${created.family.id}/weekly-summary/refresh`,
+        { method: "POST", headers: { Cookie: owner.cookieHeader } },
+        env,
+      );
+      const body: { summary?: { weekStart: string; content: string } } = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(body.summary?.content).toBe("Ugens resumé (test).");
+      expect(body.summary?.weekStart).toBe(computeCurrentWeekStart(getCopenhagenDateString(new Date())));
+
+      const saved = await env.DB.prepare(
+        "SELECT content FROM family_weekly_summaries WHERE family_id = ?",
+      ).bind(created.family.id).first<{ content: string }>();
+      expect(saved?.content).toBe("Ugens resumé (test).");
+    });
+
+    it("lets an admin refresh, not just the owner", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader);
+      await seedShoppingItem(created.family.id);
+      const admin = await seedLoggedInUser(env.DB as never, { id: "admin-user" });
+      await families.request(
+        `/invites/${created.inviteCode}/accept`,
+        { method: "POST", headers: { Cookie: admin.cookieHeader } },
+        env,
+      );
+      await env.DB.prepare(
+        "UPDATE family_memberships SET role = 'admin' WHERE family_id = ? AND user_id = ?",
+      ).bind(created.family.id, "admin-user").run();
+
+      const response = await families.request(
+        `/${created.family.id}/weekly-summary/refresh`,
+        { method: "POST", headers: { Cookie: admin.cookieHeader } },
+        env,
+      );
+
+      expect(response.status).toBe(200);
+    });
+
+    it("rejects a plain member", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader);
+      await seedShoppingItem(created.family.id);
+      const member = await seedLoggedInUser(env.DB as never, { id: "member-user" });
+      await families.request(
+        `/invites/${created.inviteCode}/accept`,
+        { method: "POST", headers: { Cookie: member.cookieHeader } },
+        env,
+      );
+
+      const response = await families.request(
+        `/${created.family.id}/weekly-summary/refresh`,
+        { method: "POST", headers: { Cookie: member.cookieHeader } },
+        env,
+      );
+
+      expect(response.status).toBe(403);
+      expect(generateWeeklySummaryMock).not.toHaveBeenCalled();
+    });
+
+    it("rejects when the family has turned off AI weekly summaries", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader);
+      await seedShoppingItem(created.family.id);
+      await env.DB.prepare(
+        "UPDATE families SET ai_weekly_summary_enabled = 0 WHERE id = ?",
+      ).bind(created.family.id).run();
+
+      const response = await families.request(
+        `/${created.family.id}/weekly-summary/refresh`,
+        { method: "POST", headers: { Cookie: owner.cookieHeader } },
+        env,
+      );
+
+      expect(response.status).toBe(400);
+      expect(generateWeeklySummaryMock).not.toHaveBeenCalled();
+    });
+
+    it("returns 400 when there are no tasks, shopping items, or events to summarize", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader);
+
+      const response = await families.request(
+        `/${created.family.id}/weekly-summary/refresh`,
+        { method: "POST", headers: { Cookie: owner.cookieHeader } },
+        env,
+      );
+
+      expect(response.status).toBe(400);
+      expect(generateWeeklySummaryMock).not.toHaveBeenCalled();
+    });
+
+    it("rejects a second refresh within the one-hour cooldown", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader);
+      await seedShoppingItem(created.family.id);
+
+      const first = await families.request(
+        `/${created.family.id}/weekly-summary/refresh`,
+        { method: "POST", headers: { Cookie: owner.cookieHeader } },
+        env,
+      );
+      const second = await families.request(
+        `/${created.family.id}/weekly-summary/refresh`,
+        { method: "POST", headers: { Cookie: owner.cookieHeader } },
+        env,
+      );
+
+      expect(first.status).toBe(200);
+      expect(second.status).toBe(429);
+      expect(generateWeeklySummaryMock).toHaveBeenCalledTimes(1);
     });
   });
 

@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 
 import AutoAwesomeOutlined from "@mui/icons-material/AutoAwesomeOutlined";
-import { Avatar, Box, Card, CardContent, Typography } from "@mui/material";
+import RefreshRounded from "@mui/icons-material/RefreshRounded";
+import { Alert, Avatar, Box, Button, Card, CardContent, CircularProgress, IconButton, Typography } from "@mui/material";
 
-import { getMyFamily, getWeeklySummary, type WeeklySummaryDto } from "./familyApi";
+import { getMyFamily, getWeeklySummary, refreshWeeklySummary, type WeeklySummaryDto } from "./familyApi";
 
 function formatWeekStart(weekStart: string): string {
   return new Intl.DateTimeFormat("da-DK", { day: "numeric", month: "long" }).format(
@@ -12,13 +13,21 @@ function formatWeekStart(weekStart: string): string {
 }
 
 // Sprint 28: viser det nyeste AI-genererede ugeresumé, hvis et findes —
-// genereres ugentligt af server/lib/weeklySummary.ts's Cron Trigger, ikke
-// on-demand herfra. Vises slet ikke, før det første er genereret (samme
-// "bundet til rigtige data"-princip som resten af forsiden), i stedet for
-// en permanent tom-tilstand indtil første søndag.
+// genereres normalt ugentligt af server/lib/weeklySummary.ts's Cron
+// Trigger, søndag aften for ugen der starter dagen efter. Ejer/admin kan
+// derudover selv udløse et frisk resumé af DEN UGE, MAN ER I NU via
+// opdater-knappen (POST .../weekly-summary/refresh) — nyttigt både hvis man
+// ikke vil vente til søndag, og hvis ugens indhold har ændret sig undervejs.
+// Et almindeligt medlem uden den rolle ser kortet slet ikke, før cron'en har
+// lavet det første resumé (samme "bundet til rigtige data"-princip som
+// resten af forsiden) — der er intet for dem at trykke på alligevel.
 export function WeeklySummaryCard() {
+  const [familyId, setFamilyId] = useState<string | null>(null);
+  const [canRefresh, setCanRefresh] = useState(false);
   const [summary, setSummary] = useState<WeeklySummaryDto | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
 
   useEffect(() => {
     let isCancelled = false;
@@ -33,6 +42,9 @@ export function WeeklySummaryCard() {
         setIsLoading(false);
         return;
       }
+
+      setFamilyId(familyResult.data.family.id);
+      setCanRefresh(familyResult.data.role === "owner" || familyResult.data.role === "admin");
 
       const result = await getWeeklySummary(familyResult.data.family.id);
 
@@ -49,7 +61,24 @@ export function WeeklySummaryCard() {
     };
   }, []);
 
-  if (isLoading || !summary) {
+  async function handleRefresh(): Promise<void> {
+    if (!familyId) return;
+
+    setIsRefreshing(true);
+    setRefreshError(null);
+
+    const result = await refreshWeeklySummary(familyId);
+
+    if (result.ok && result.data.summary) {
+      setSummary(result.data.summary);
+    } else {
+      setRefreshError(result.data.error ?? "Kunne ikke opdatere resuméet.");
+    }
+
+    setIsRefreshing(false);
+  }
+
+  if (isLoading || (!summary && !canRefresh)) {
     return null;
   }
 
@@ -61,15 +90,45 @@ export function WeeklySummaryCard() {
             <AutoAwesomeOutlined />
           </Avatar>
 
-          <Box>
+          <Box sx={{ flexGrow: 1, minWidth: 0 }}>
             <Typography variant="h6">Ugens resumé</Typography>
             <Typography variant="body2" color="text.secondary">
-              Ugen fra {formatWeekStart(summary.weekStart)} · AI-genereret, kan indeholde fejl
+              {summary
+                ? `Ugen fra ${formatWeekStart(summary.weekStart)} · AI-genereret, kan indeholde fejl`
+                : "Intet resumé endnu"}
             </Typography>
           </Box>
+
+          {canRefresh && summary && (
+            <IconButton
+              aria-label="Opdater ugens resumé"
+              onClick={() => void handleRefresh()}
+              disabled={isRefreshing}
+            >
+              {isRefreshing ? <CircularProgress size={20} /> : <RefreshRounded />}
+            </IconButton>
+          )}
         </Box>
 
-        <Typography>{summary.content}</Typography>
+        {refreshError && (
+          <Alert severity="error" sx={{ mb: 1.5 }}>
+            {refreshError}
+          </Alert>
+        )}
+
+        {summary ? (
+          <Typography>{summary.content}</Typography>
+        ) : (
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={() => void handleRefresh()}
+            disabled={isRefreshing}
+            startIcon={isRefreshing ? <CircularProgress size={16} /> : <RefreshRounded />}
+          >
+            Generér ugens resumé nu
+          </Button>
+        )}
       </CardContent>
     </Card>
   );

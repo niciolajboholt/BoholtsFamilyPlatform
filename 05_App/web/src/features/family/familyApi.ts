@@ -199,6 +199,13 @@ export function getWeeklySummary(familyId: string) {
   );
 }
 
+export function refreshWeeklySummary(familyId: string) {
+  return request<{ summary?: WeeklySummaryDto; error?: string }>(
+    `/api/families/${familyId}/weekly-summary/refresh`,
+    { method: "POST" },
+  );
+}
+
 export function updateFamilyPrivacySettings(
   familyId: string,
   aiWeeklySummaryEnabled: boolean,
