@@ -18,7 +18,7 @@ describe("generateWeeklySummary", () => {
 
     const summary = await generateWeeklySummary(env, {
       events: [{ title: "Fødselsdag", start: "2026-08-24T10:00:00.000Z", allDay: false }],
-      openTasks: ["Køb gave"],
+      openTasks: [{ name: "Køb gave" }],
       shoppingItems: ["Mælk"],
     });
 
@@ -60,7 +60,7 @@ describe("generateWeeklySummary", () => {
 
     await generateWeeklySummary(env, {
       events: [{ title: "Lægebesøg", start: "2026-08-25T09:00:00.000Z", allDay: false }],
-      openTasks: ["Vask tøj"],
+      openTasks: [{ name: "Vask tøj" }],
       shoppingItems: ["Æg"],
     });
 
@@ -96,7 +96,7 @@ describe("generateWeeklySummary", () => {
     expect(userPrompt).not.toContain("2026-09-01T17:00:00.000Z");
   });
 
-  it("marks empty data sources instead of inventing content", async () => {
+  it("marks a fully empty week as (ingen) instead of inventing content", async () => {
     const env = createFakeEnv();
     const runMock = vi.fn().mockResolvedValue({
       choices: [{ message: { content: "Resumé." } }],
@@ -107,6 +107,43 @@ describe("generateWeeklySummary", () => {
 
     const userPrompt = runMock.mock.calls[0][1].messages[1].content as string;
 
-    expect(userPrompt.match(/\(ingen\)/g)).toHaveLength(3);
+    expect(userPrompt).toContain("(ingen)");
+  });
+
+  it("groups events, tasks, and shopping items per family member, with a shared 'Fælles' bucket for the rest", async () => {
+    const env = createFakeEnv();
+    const runMock = vi.fn().mockResolvedValue({
+      choices: [{ message: { content: "Resumé." } }],
+    });
+    env.AI.run = runMock as never;
+
+    await generateWeeklySummary(env, {
+      events: [
+        { title: "Padelkamp", start: "2026-09-01T17:00:00.000Z", allDay: false, memberName: "Nicolaj" },
+        { title: "Skolestart", start: "2026-08-31T00:00:00.000Z", allDay: true },
+      ],
+      openTasks: [
+        { name: "Bestil frisør", memberName: "Christine" },
+        { name: "Ryd op i garagen" },
+      ],
+      shoppingItems: ["Mælk"],
+    });
+
+    const userPrompt = runMock.mock.calls[0][1].messages[1].content as string;
+    const nicolajIndex = userPrompt.indexOf("Nicolaj:");
+    const christineIndex = userPrompt.indexOf("Christine:");
+    const faellesIndex = userPrompt.indexOf("Fælles (ingen bestemt person):");
+
+    // Rækkefølgen skal matche den, personerne først optræder i (Nicolaj før
+    // Christine, begge før den fælles bunke) — ikke en tilfældig orden.
+    expect(nicolajIndex).toBeGreaterThan(-1);
+    expect(christineIndex).toBeGreaterThan(nicolajIndex);
+    expect(faellesIndex).toBeGreaterThan(christineIndex);
+
+    expect(userPrompt).toContain("tirsdag kl. 19.00: Padelkamp (Nicolaj)");
+    expect(userPrompt).toContain("Opgave: Bestil frisør");
+    expect(userPrompt).toContain("mandag: Skolestart");
+    expect(userPrompt).toContain("Opgave: Ryd op i garagen");
+    expect(userPrompt).toContain("Indkøb: Mælk");
   });
 });

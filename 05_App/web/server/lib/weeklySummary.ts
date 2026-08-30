@@ -74,21 +74,23 @@ async function collectOpenTaskNames(
   familyId: string,
   weekStart: string,
   weekEnd: string,
-): Promise<string[]> {
+): Promise<WeeklySummaryInput["openTasks"]> {
   for (let offset = 0; offset < 7; offset += 1) {
     await materializeTasksForDate(db, familyId, addDays(weekStart, offset));
   }
 
   const { results } = await db
     .prepare(
-      `SELECT name FROM tasks
-       WHERE family_id = ? AND task_date BETWEEN ? AND ? AND is_done = 0
-       ORDER BY task_date ASC, time_of_day ASC`,
+      `SELECT tasks.name AS name, family_members.name AS memberName
+       FROM tasks
+       LEFT JOIN family_members ON family_members.id = tasks.assigned_member_id
+       WHERE tasks.family_id = ? AND tasks.task_date BETWEEN ? AND ? AND tasks.is_done = 0
+       ORDER BY tasks.task_date ASC, tasks.time_of_day ASC`,
     )
     .bind(familyId, weekStart, weekEnd)
-    .all<{ name: string }>();
+    .all<{ name: string; memberName: string | null }>();
 
-  return results.map((row) => row.name);
+  return results.map((row) => ({ name: row.name, memberName: row.memberName ?? undefined }));
 }
 
 async function collectOpenShoppingItemNames(db: D1Database, familyId: string): Promise<string[]> {

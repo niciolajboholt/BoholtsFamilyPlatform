@@ -96,7 +96,7 @@ describe("sendWeeklySummaries", () => {
 
     expect(generateWeeklySummaryMock).toHaveBeenCalledWith(
       env,
-      expect.objectContaining({ openTasks: ["Køb gave"] }),
+      expect.objectContaining({ openTasks: [{ name: "Køb gave" }] }),
     );
     expect(sendPushNotificationToFamilyMock).toHaveBeenCalledWith(
       env,
@@ -205,7 +205,42 @@ describe("sendWeeklySummaries", () => {
 
     expect(generateWeeklySummaryMock).toHaveBeenCalledWith(
       env,
-      expect.objectContaining({ openTasks: ["Storrengøring"] }),
+      expect.objectContaining({ openTasks: [{ name: "Storrengøring" }] }),
+    );
+  });
+
+  it("attributes an open task to its assigned family member, for the per-person breakdown", async () => {
+    const env = createFakeEnv();
+    await seedFamily(env);
+    await env.DB.prepare(
+      `INSERT INTO family_members (id, family_id, name, color, is_placeholder_name, created_at)
+       VALUES (?, ?, ?, ?, 0, ?)`,
+    )
+      .bind("member-chris", "family-1", "Christine", "#C97653", new Date().toISOString())
+      .run();
+    await env.DB.prepare(
+      `INSERT INTO tasks (id, family_id, name, icon, is_done, task_date, assigned_member_id, created_by_user_id, created_at)
+       VALUES (?, ?, ?, 'fritid', 0, ?, ?, 'owner', ?)`,
+    )
+      .bind("task-assigned", "family-1", "Bestil frisør", expectedWeekStart, "member-chris", new Date().toISOString())
+      .run();
+    await env.DB.prepare(
+      `INSERT INTO tasks (id, family_id, name, icon, is_done, task_date, created_by_user_id, created_at)
+       VALUES (?, ?, ?, 'fritid', 0, ?, 'owner', ?)`,
+    )
+      .bind("task-unassigned", "family-1", "Ryd op i garagen", expectedWeekStart, new Date().toISOString())
+      .run();
+
+    await sendWeeklySummaries(env, aSunday);
+
+    expect(generateWeeklySummaryMock).toHaveBeenCalledWith(
+      env,
+      expect.objectContaining({
+        openTasks: expect.arrayContaining([
+          { name: "Bestil frisør", memberName: "Christine" },
+          { name: "Ryd op i garagen" },
+        ]),
+      }),
     );
   });
 
