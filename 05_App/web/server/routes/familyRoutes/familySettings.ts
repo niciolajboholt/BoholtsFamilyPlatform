@@ -12,6 +12,35 @@ import { parseJsonBody, type Variables } from "./familyQueries";
 
 const familySettings = new Hono<{ Bindings: Env; Variables: Variables }>();
 
+interface WeeklySummarySectionDto {
+  name: string;
+  text: string;
+}
+
+// `content`-kolonnen holder sektionerne som en JSON-streng (se
+// weeklySummary.ts's generateWeeklySummaryForFamily). Et resumé fra før
+// denne ændring er ren tekst, ikke JSON — vises i så fald som én
+// unavngivet sektion i stedet for at fejle.
+function parseStoredSections(raw: string): WeeklySummarySectionDto[] {
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (
+      Array.isArray(parsed) &&
+      parsed.every(
+        (item): item is WeeklySummarySectionDto =>
+          Boolean(item) && typeof item === "object" && typeof (item as { name?: unknown }).name === "string" &&
+          typeof (item as { text?: unknown }).text === "string",
+      )
+    ) {
+      return parsed;
+    }
+  } catch {
+    // Ikke gyldig JSON — behandl som ældre, ren tekst.
+  }
+
+  return raw ? [{ name: "", text: raw }] : [];
+}
+
 // Nyeste gemte AI-ugeresumé (Sprint 28) — genereret ugentligt af
 // server/lib/weeklySummary.ts's Cron Trigger, ikke on-demand her.
 familySettings.get("/:id/weekly-summary", async (c) => {
@@ -30,7 +59,17 @@ familySettings.get("/:id/weekly-summary", async (c) => {
     .bind(familyId)
     .first<{ weekStart: string; content: string; createdAt: string }>();
 
-  return c.json({ summary: summary ?? null });
+  if (!summary) {
+    return c.json({ summary: null });
+  }
+
+  return c.json({
+    summary: {
+      weekStart: summary.weekStart,
+      sections: parseStoredSections(summary.content),
+      createdAt: summary.createdAt,
+    },
+  });
 });
 
 const WEEKLY_SUMMARY_REFRESH_COOLDOWN_MS = 60 * 60 * 1000;
@@ -87,7 +126,7 @@ familySettings.post("/:id/weekly-summary/refresh", async (c) => {
     return c.json({ error: "Kunne ikke generere resuméet. Prøv igen om lidt." }, 502);
   }
 
-  return c.json({ summary: { weekStart, content: outcome.content, createdAt: new Date().toISOString() } });
+  return c.json({ summary: { weekStart, sections: outcome.content, createdAt: new Date().toISOString() } });
 });
 
 // Privatlivsvalg for automatisk AI-behandling — ejer/admin, da indstillingen

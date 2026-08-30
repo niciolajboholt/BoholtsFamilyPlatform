@@ -186,10 +186,18 @@ export function clearAllCalendarMappings(familyId: string) {
   );
 }
 
-// Sprint 28: nyeste gemte AI-ugeresumé.
+// Sprint 28: nyeste gemte AI-ugeresumé. Opdelt pr. familiemedlem (samt en
+// "Fælles"-sektion for resten) i stedet for én sammenhængende tekst, så
+// klienten kan vise hvert navn fremhævet uden selv at skulle gætte på
+// tekstens formatering.
+export interface WeeklySummarySectionDto {
+  name: string;
+  text: string;
+}
+
 export interface WeeklySummaryDto {
   weekStart: string;
-  content: string;
+  sections: WeeklySummarySectionDto[];
   createdAt: string;
 }
 

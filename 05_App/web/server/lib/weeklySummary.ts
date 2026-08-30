@@ -4,7 +4,7 @@
 // beslutning 1).
 
 import type { Env } from "../env";
-import { generateWeeklySummary, type WeeklySummaryInput } from "./aiAssistant";
+import { generateWeeklySummary, type WeeklySummaryInput, type WeeklySummarySection } from "./aiAssistant";
 import { fetchPublicFamilyCalendarEvents } from "./googleCalendarAggregation";
 import { GoogleNotConnectedError } from "./googleConnection";
 import { sendPushNotificationToFamily } from "./pushNotifications";
@@ -182,7 +182,7 @@ async function hasExistingSummary(db: D1Database, familyId: string, weekStart: s
 }
 
 export type WeeklySummaryOutcome =
-  | { status: "generated"; content: string }
+  | { status: "generated"; content: WeeklySummarySection[] }
   | { status: "no-data" }
   | { status: "generation-failed" };
 
@@ -217,13 +217,16 @@ export async function generateWeeklySummaryForFamily(
     return { status: "generation-failed" };
   }
 
+  // `content`-kolonnen gemmer sektionerne som en JSON-streng — familySettings.ts's
+  // GET-rute parser den tilbage til strukturerede sektioner, med en fallback for
+  // ældre rækker fra før denne ændring (ren tekst, ikke JSON).
   await env.DB.prepare(
     `INSERT INTO family_weekly_summaries (id, family_id, week_start, content, created_at)
      VALUES (?, ?, ?, ?, ?)
      ON CONFLICT(family_id, week_start)
      DO UPDATE SET content = excluded.content, created_at = excluded.created_at`,
   )
-    .bind(crypto.randomUUID(), family.id, weekStart, content, new Date().toISOString())
+    .bind(crypto.randomUUID(), family.id, weekStart, JSON.stringify(content), new Date().toISOString())
     .run();
 
   return { status: "generated", content };
@@ -272,9 +275,10 @@ export async function sendWeeklySummaries(env: Env, now: Date = new Date()): Pro
 
       // Ingen handlende bruger at undtage for et system-udløst resumé —
       // samme mønster/begrundelse som Sprint 27's task-påmindelser.
+      const previewText = outcome.content.map((section) => `${section.name}: ${section.text}`).join(" ");
       await sendPushNotificationToFamily(env, family.id, "", {
         title: "Ugens resumé",
-        body: outcome.content.length > 120 ? `${outcome.content.slice(0, 119)}…` : outcome.content,
+        body: previewText.length > 120 ? `${previewText.slice(0, 119)}…` : previewText,
         url: "/",
       });
     } catch (error: unknown) {

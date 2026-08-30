@@ -53,7 +53,7 @@ describe("families routes", () => {
 
   beforeEach(() => {
     env = createFakeEnv();
-    generateWeeklySummaryMock.mockReset().mockResolvedValue("Ugens resumé (test).");
+    generateWeeklySummaryMock.mockReset().mockResolvedValue([{ name: "Fælles", text: "Ugens resumé (test)." }]);
   });
 
   it("rejects any request without a session cookie", async () => {
@@ -697,7 +697,8 @@ describe("families routes", () => {
         { headers: { Cookie: owner.cookieHeader } },
         env,
       );
-      const body: { summary: { weekStart: string; content: string } | null } = await response.json();
+      const body: { summary: { weekStart: string; sections: { name: string; text: string }[] } | null } =
+        await response.json();
 
       expect(response.status).toBe(200);
       expect(body.summary).toBeNull();
@@ -723,9 +724,13 @@ describe("families routes", () => {
         { headers: { Cookie: owner.cookieHeader } },
         env,
       );
-      const body: { summary: { weekStart: string; content: string } | null } = await response.json();
+      const body: { summary: { weekStart: string; sections: { name: string; text: string }[] } | null } =
+        await response.json();
 
-      expect(body.summary?.content).toBe("Nyt resumé.");
+      // Direkte indsat via SQL som ren tekst (ikke JSON) — simulerer et
+      // resumé fra før sektionerings-ændringen. GET-ruten skal falde
+      // tilbage til én unavngiven sektion i stedet for at fejle.
+      expect(body.summary?.sections).toEqual([{ name: "", text: "Nyt resumé." }]);
       expect(body.summary?.weekStart).toBe("2026-08-17");
     });
 
@@ -769,16 +774,17 @@ describe("families routes", () => {
         { method: "POST", headers: { Cookie: owner.cookieHeader } },
         env,
       );
-      const body: { summary?: { weekStart: string; content: string } } = await response.json();
+      const body: { summary?: { weekStart: string; sections: { name: string; text: string }[] } } =
+        await response.json();
 
       expect(response.status).toBe(200);
-      expect(body.summary?.content).toBe("Ugens resumé (test).");
+      expect(body.summary?.sections).toEqual([{ name: "Fælles", text: "Ugens resumé (test)." }]);
       expect(body.summary?.weekStart).toBe(computeCurrentWeekStart(getCopenhagenDateString(new Date())));
 
       const saved = await env.DB.prepare(
         "SELECT content FROM family_weekly_summaries WHERE family_id = ?",
       ).bind(created.family.id).first<{ content: string }>();
-      expect(saved?.content).toBe("Ugens resumé (test).");
+      expect(saved?.content).toBe(JSON.stringify([{ name: "Fælles", text: "Ugens resumé (test)." }]));
     });
 
     it("lets an admin refresh, not just the owner", async () => {

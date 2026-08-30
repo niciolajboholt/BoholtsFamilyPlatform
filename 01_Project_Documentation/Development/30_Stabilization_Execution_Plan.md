@@ -1145,6 +1145,46 @@ kommende-uge-logik og dermed det, kortet allerede viser. Tilføjet direkte
 som endnu en commit på PR #164 (samme kodeområde, ikke en ny PR), da den
 er kritisk og bør med i samme review/merge.
 
+## Ugens resumé: navn med fed skrift og pålidelige linjeskift (2026-08-30)
+
+Uden for de ni stabiliseringsfaser: Nicolaj testede den nye person-
+opdeling (foregående afsnit) og fandt, at teksten i praksis kørte sammen
+i ét afsnit uden linjeskift mellem personerne, selvom modellen var bedt
+om at indsætte et linjeskift pr. person. Han bad om, at navnet vises med
+fed skrift, og at der er et pålideligt linjeskift, hver gang der kommer
+et nyt navn.
+
+**Rodårsag:** Fri tekst med en instruks om "sæt et linjeskift/kolon her"
+er upålideligt for den lille model — den fulgte ikke altid formateringen,
+præcis som med de tidligere sprog- og rækkefølgeproblemer.
+
+**Rettelse — samme princip igen (lad koden styre struktur, modellen kun
+ordlyden):** `generateWeeklySummary()` beder nu modellen om struktureret
+JSON (`{"sections": [{"name": ..., "text": ...}]}`) i stedet for fri
+tekst, samme mønster som rutine-/ingrediensforslagene (Sprint 23). En ny
+sammenligningsfunktion (`reconcileWeeklySummarySections`) lægger
+modellens svar sammen med den kendte, korrekte personrækkefølge —
+uafhængigt af hvilken rækkefølge modellens JSON-array selv kom i — og
+lægger et navn, modellen selv har fundet på (fx et separat "Familien" ved
+siden af "Fælles", som blev observeret i test), ind i den fælles tekst i
+stedet for at vise det som en uventet ekstra overskrift. UI'et
+(`WeeklySummaryCard.tsx`) viser nu hver sektion som sit eget afsnit med
+navnet i fed skrift, garanteret af koden — ikke af, om modellen kom til
+at indsætte et linjeskift.
+
+Den lagrede `content`-kolonne indeholder nu sektionerne som en
+JSON-streng i stedet for ren tekst; et ældre resumé (fra før denne
+ændring) vises fortsat korrekt som én unavngiven sektion i stedet for at
+fejle.
+
+Ren tekststruktur- og visningsrettelse — ingen ændring i hvilke data der
+indsamles eller hvornår resuméet genereres. Til gennemgang, ikke
+selv-merget, da det ændrer selve den tekst og det udseende, familien ser,
+se [PR #165](https://github.com/niciolajboholt/BoholtsFamilyPlatform/pull/165).
+9 nye/ændrede tests dækker den strukturerede JSON-parsing, sammenligning
+mod kendte navne (inkl. regression for det opfundne "Familien"-navn), og
+den ældre-resumé-fallback.
+
 ## Prioriteret udførelsesrækkefølge
 
 Arbejdet fortsætter autonomt i denne rækkefølge, med grøn CI efter hver
@@ -1261,3 +1301,4 @@ Efter hver fase eller material ændring skal den ansvarlige:
 | 2026-08-30 | Ugens resumé: rettet dårlig AI-sprogkvalitet fundet af Nicolaj efter test af opdater-knappen (opfundne detaljer, forkert kronologisk rækkefølge, upræcis "vi"-tone på personlige aftaler). Rodårsag: rå ISO-tidsstempler overladt til den lille AI-model at regne ugedag/tidszone ud, ingen global sortering på tværs af medlemmers kalendere, intet medlemsnavn sendt med. Rettet ved at formatere ugedag/klokkeslæt deterministisk i kode og sende medlemsnavn med, plus strammet systemprompt mod at opfinde kategorier. Ren tekstkvalitetsrettelse, ingen ændring i dataindsamling/UI. 7 nye/ændrede tests. Til gennemgang, ikke selv-merget | PR #163 |
 | 2026-08-30 | Ugens resumé: opdelt pr. familiemedlem efter Nicolajs ønske — aftaler og opgaver grupperes nu pr. person (opgaver fik et medlemsnavn via LEFT JOIN på assigned_member_id, samme princip som forrige rettelses deterministiske datoformatering), modellen skriver én linje pr. navngiven person plus én fælles linje for resten/indkøb, og kortet fik `white-space: pre-line` så linjeskiftene rent faktisk vises. 6 nye/ændrede tests. Synlig tekst- og layoutændring — til gennemgang, ikke selv-merget | PR #164 |
 | 2026-08-30 | Kritisk følgefejl på opdater-knappen (PR #162) fundet af Nicolaj samme aften: `computeCurrentWeekStart()` beregnede fejlagtigt den UDGÅENDE uge på en søndag (sidste dag i sin egen uge) i stedet for den kommende uge, kortet viser — knappen opdaterede derfor et usynligt resumé, mens det synlige forblev uændret, og udløste samtidig familiens timelås unødigt. Rettet ved at behandle søndag som "i morgen", så beregningen matcher cron'ens egen logik. Tilføjet til den allerede åbne PR #164 (samme kodeområde). 1 ny regressionstest | PR #164 |
+| 2026-08-30 | Ugens resumé: navn i fed skrift og pålidelige linjeskift efter Nicolajs test af person-opdelingen (fri tekst med "sæt linjeskift her"-instruks var upålidelig for den lille model, samme mønster som tidligere problemer). Erstattet med struktureret JSON-svar ({"sections":[{"name","text"}]}), en ny sammenligningsfunktion der retter modellens rækkefølge mod den kendte, korrekte rækkefølge og lægger et opfundet navn (fx "Familien" ved siden af "Fælles") ind i den fælles tekst i stedet for en uventet ekstra overskrift, og en UI-rettelse der viser hver sektion med navnet i fed skrift, garanteret af koden. 9 nye/ændrede tests. Synlig tekst- og layoutændring — til gennemgang, ikke selv-merget | PR #165 |
