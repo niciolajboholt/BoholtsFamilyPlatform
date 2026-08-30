@@ -214,6 +214,49 @@ test("authenticated family can open every primary area", async ({ page }) => {
   await expect(page.getByText("Version e2e-version-")).toBeVisible();
 });
 
+// Refresh-knappen på "Ugens resumé" (svar på Nicolajs spørgsmål om, hvorfor
+// resuméet ikke var kommet endnu — cron'en kører kun søndag aften, så en
+// ejer/admin kan nu selv udløse et frisk resumé i stedet for at vente).
+// Dækker begge tilstande: tomt-kort med "Generér nu", og opdatering af et
+// allerede eksisterende resumé.
+test("a family owner can generate and refresh the weekly summary from the home page", async ({ page }) => {
+  await mockAuthenticatedApi(page);
+
+  let summary: { weekStart: string; content: string; createdAt: string } | null = null;
+  let refreshCallCount = 0;
+
+  await page.route("**/api/families/*/weekly-summary", async (route) => {
+    if (route.request().method() !== "GET") {
+      await route.fallback();
+      return;
+    }
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ summary }) });
+  });
+
+  await page.route("**/api/families/*/weekly-summary/refresh", async (route) => {
+    if (route.request().method() !== "POST") {
+      await route.fallback();
+      return;
+    }
+    refreshCallCount += 1;
+    summary = {
+      weekStart: "2026-08-31",
+      content: `Resumé nummer ${refreshCallCount}.`,
+      createdAt: new Date().toISOString(),
+    };
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ summary }) });
+  });
+
+  await page.goto("/");
+
+  await expect(page.getByText("Intet resumé endnu")).toBeVisible();
+  await page.getByRole("button", { name: "Generér ugens resumé nu" }).click();
+  await expect(page.getByText("Resumé nummer 1.")).toBeVisible();
+
+  await page.getByRole("button", { name: "Opdater ugens resumé" }).click();
+  await expect(page.getByText("Resumé nummer 2.")).toBeVisible();
+});
+
 test("mobile family planner is a readable agenda without horizontal overflow", async ({
   page,
 }, testInfo) => {

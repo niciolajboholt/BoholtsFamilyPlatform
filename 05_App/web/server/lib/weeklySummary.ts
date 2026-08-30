@@ -10,7 +10,7 @@ import { GoogleNotConnectedError } from "./googleConnection";
 import { sendPushNotificationToFamily } from "./pushNotifications";
 import { materializeTasksForDate } from "../routes/tasks";
 
-function getCopenhagenDateString(now: Date): string {
+export function getCopenhagenDateString(now: Date): string {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Europe/Copenhagen",
     year: "numeric",
@@ -48,7 +48,23 @@ function computeUpcomingWeekStart(today: string): string {
   return candidate;
 }
 
-interface FamilyRow {
+// Mandag i den uge, "i dag" falder i (i dag selv, hvis i dag er mandag).
+// Bruges af den manuelle opdater-knap, som — i modsætning til cron'en, der
+// altid kigger fremad mod næste uge — skal vise et frisk resumé af den uge,
+// man rent faktisk befinder sig i lige nu.
+export function computeCurrentWeekStart(today: string): string {
+  let candidate = today;
+
+  while (getUtcWeekday(candidate) !== 1) {
+    candidate = addDays(candidate, -1);
+  }
+
+  return candidate;
+}
+
+export { addDays };
+
+export interface FamilyRow {
   id: string;
   ownerUserId: string;
 }
@@ -139,6 +155,54 @@ async function hasExistingSummary(db: D1Database, familyId: string, weekStart: s
   return existing !== null;
 }
 
+export type WeeklySummaryOutcome =
+  | { status: "generated"; content: string }
+  | { status: "no-data" }
+  | { status: "generation-failed" };
+
+/**
+ * Samler kalender/opgaver/indkøbsliste for én familie og én uge, beder AI'en
+ * om et resumé, og gemmer det (opdaterer et eksisterende resumé for samme
+ * uge, hvis der allerede er ét — modsat cron-jobbets egen indsættelse, som
+ * aldrig overskriver, se `sendWeeklySummaries`). Ingen push her: kaldes
+ * både af cron'en (som selv sender push efter et vellykket kald) og af den
+ * brugerudløste opdater-knap (hvor personen allerede sidder og kigger på
+ * resultatet, og resten af familien ikke behøver en notifikation for det).
+ */
+export async function generateWeeklySummaryForFamily(
+  env: Env,
+  family: FamilyRow,
+  weekStart: string,
+  weekEnd: string,
+): Promise<WeeklySummaryOutcome> {
+  const [openTasks, shoppingItems, events] = await Promise.all([
+    collectOpenTaskNames(env.DB, family.id, weekStart, weekEnd),
+    collectOpenShoppingItemNames(env.DB, family.id),
+    collectUpcomingEvents(env, family.id, family.ownerUserId, weekStart, weekEnd),
+  ]);
+
+  if (openTasks.length === 0 && shoppingItems.length === 0 && events.length === 0) {
+    return { status: "no-data" };
+  }
+
+  const content = await generateWeeklySummary(env, { events, openTasks, shoppingItems });
+
+  if (!content) {
+    return { status: "generation-failed" };
+  }
+
+  await env.DB.prepare(
+    `INSERT INTO family_weekly_summaries (id, family_id, week_start, content, created_at)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(family_id, week_start)
+     DO UPDATE SET content = excluded.content, created_at = excluded.created_at`,
+  )
+    .bind(crypto.randomUUID(), family.id, weekStart, content, new Date().toISOString())
+    .run();
+
+  return { status: "generated", content };
+}
+
 /**
  * Kaldes ved det ugentlige cron-tick. For hver familie: springer over hvis
  * et resumé for den kommende uge allerede er genereret (undgår dobbelt
@@ -166,19 +230,13 @@ export async function sendWeeklySummaries(env: Env, now: Date = new Date()): Pro
         continue;
       }
 
-      const [openTasks, shoppingItems, events] = await Promise.all([
-        collectOpenTaskNames(env.DB, family.id, weekStart, weekEnd),
-        collectOpenShoppingItemNames(env.DB, family.id),
-        collectUpcomingEvents(env, family.id, family.ownerUserId, weekStart, weekEnd),
-      ]);
+      const outcome = await generateWeeklySummaryForFamily(env, family, weekStart, weekEnd);
 
-      if (openTasks.length === 0 && shoppingItems.length === 0 && events.length === 0) {
+      if (outcome.status === "no-data") {
         continue;
       }
 
-      const content = await generateWeeklySummary(env, { events, openTasks, shoppingItems });
-
-      if (!content) {
+      if (outcome.status === "generation-failed") {
         console.error(JSON.stringify({
           message: "Kunne ikke generere ugeresumé",
           familyId: family.id,
@@ -186,17 +244,11 @@ export async function sendWeeklySummaries(env: Env, now: Date = new Date()): Pro
         continue;
       }
 
-      await env.DB.prepare(
-        "INSERT INTO family_weekly_summaries (id, family_id, week_start, content, created_at) VALUES (?, ?, ?, ?, ?)",
-      )
-        .bind(crypto.randomUUID(), family.id, weekStart, content, new Date().toISOString())
-        .run();
-
       // Ingen handlende bruger at undtage for et system-udløst resumé —
       // samme mønster/begrundelse som Sprint 27's task-påmindelser.
       await sendPushNotificationToFamily(env, family.id, "", {
         title: "Ugens resumé",
-        body: content.length > 120 ? `${content.slice(0, 119)}…` : content,
+        body: outcome.content.length > 120 ? `${outcome.content.slice(0, 119)}…` : outcome.content,
         url: "/",
       });
     } catch (error: unknown) {

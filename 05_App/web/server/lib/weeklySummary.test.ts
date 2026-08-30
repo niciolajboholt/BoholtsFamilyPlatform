@@ -22,7 +22,9 @@ const { sendPushNotificationToFamily } = await import("../lib/pushNotifications"
 const { generateWeeklySummary } = await import("./aiAssistant");
 const { fetchPublicFamilyCalendarEvents } = await import("./googleCalendarAggregation");
 const { GoogleNotConnectedError } = await import("./googleConnection");
-const { sendWeeklySummaries } = await import("./weeklySummary");
+const { sendWeeklySummaries, generateWeeklySummaryForFamily, computeCurrentWeekStart } = await import(
+  "./weeklySummary"
+);
 
 const sendPushNotificationToFamilyMock = vi.mocked(sendPushNotificationToFamily);
 const generateWeeklySummaryMock = vi.mocked(generateWeeklySummary);
@@ -256,5 +258,59 @@ describe("sendWeeklySummaries", () => {
     const [, payload] = generateWeeklySummaryMock.mock.calls[0]!;
     expect(JSON.stringify(payload)).not.toContain("lægenoter");
     expect(JSON.stringify(payload)).not.toContain("Klinik 4");
+  });
+});
+
+describe("computeCurrentWeekStart", () => {
+  it("returns this week's Monday, not next week's, unlike computeUpcomingWeekStart", () => {
+    // 2026-08-16 er en søndag — sidste dag i ugen der startede 2026-08-10.
+    expect(computeCurrentWeekStart("2026-08-16")).toBe("2026-08-10");
+  });
+
+  it("returns the same date when today already is a Monday", () => {
+    expect(computeCurrentWeekStart("2026-08-17")).toBe("2026-08-17");
+  });
+});
+
+describe("generateWeeklySummaryForFamily", () => {
+  beforeEach(() => {
+    generateWeeklySummaryMock.mockReset().mockResolvedValue("Et frisk resumé.");
+    fetchPublicFamilyCalendarEventsMock.mockReset().mockResolvedValue([]);
+  });
+
+  it("reports no-data without calling the AI when nothing is open", async () => {
+    const env = createFakeEnv();
+    await seedFamily(env);
+    const family = { id: "family-1", ownerUserId: "owner" };
+
+    const outcome = await generateWeeklySummaryForFamily(env, family, "2026-08-17", "2026-08-23");
+
+    expect(outcome).toEqual({ status: "no-data" });
+    expect(generateWeeklySummaryMock).not.toHaveBeenCalled();
+  });
+
+  it("updates, rather than duplicates, an existing summary for the same week", async () => {
+    const env = createFakeEnv();
+    await seedFamily(env);
+    const family = { id: "family-1", ownerUserId: "owner" };
+    await env.DB.prepare(
+      `INSERT INTO tasks (id, family_id, name, icon, is_done, task_date, created_by_user_id, created_at)
+       VALUES (?, ?, ?, 'fritid', 0, ?, 'owner', ?)`,
+    )
+      .bind("task-1", "family-1", "Køb gave", "2026-08-17", new Date().toISOString())
+      .run();
+    await env.DB.prepare(
+      "INSERT INTO family_weekly_summaries (id, family_id, week_start, content, created_at) VALUES (?, ?, ?, ?, ?)",
+    )
+      .bind("summary-existing", "family-1", "2026-08-17", "Gammelt resumé.", "2026-08-17T09:00:00.000Z")
+      .run();
+
+    const outcome = await generateWeeklySummaryForFamily(env, family, "2026-08-17", "2026-08-23");
+
+    expect(outcome).toEqual({ status: "generated", content: "Et frisk resumé." });
+    const rows = await env.DB.prepare(
+      "SELECT content FROM family_weekly_summaries WHERE family_id = ? AND week_start = ?",
+    ).bind("family-1", "2026-08-17").all<{ content: string }>();
+    expect(rows.results).toEqual([{ content: "Et frisk resumé." }]);
   });
 });
