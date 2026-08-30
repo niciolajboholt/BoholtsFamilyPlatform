@@ -1055,11 +1055,12 @@ endnu — kortet var før usynligt indtil første cron-kørsel, hvilket var
 selve kilden til Nicolajs spørgsmål.
 
 Synlig ny funktion (nyt kort-indhold og en ny knap på forsiden for ejer/
-admin) — til gennemgang, ikke selv-merget. Ny server-rute
-`POST /:id/weekly-summary/refresh` (`familySettings.ts`), dækket af 6 nye
-servertests (rolle-tjek, deaktiveret AI, tom uge, timelås, opdatering af
-eksisterende resumé) og en ny reel Playwright-E2E for hele flowet gennem
-den rigtige UI.
+admin) — til gennemgang, ikke selv-merget, se
+[PR #162](https://github.com/niciolajboholt/BoholtsFamilyPlatform/pull/162).
+Ny server-rute `POST /:id/weekly-summary/refresh` (`familySettings.ts`),
+dækket af 6 nye servertests (rolle-tjek, deaktiveret AI, tom uge, timelås,
+opdatering af eksisterende resumé) og en ny reel Playwright-E2E for hele
+flowet gennem den rigtige UI.
 
 ## Prioriteret udførelsesrækkefølge
 
@@ -1173,4 +1174,4 @@ Efter hver fase eller material ændring skal den ansvarlige:
 | 2026-08-29 | Fase 4: Google OAuth-verificeringen blev blokeret af domæne-niveau-krav, som `workers.dev` ikke kan opfylde. I stedet for at haste en domænebeslutning igennem satte Nicolaj appen tilbage til "Testing"-status og tilføjede sig selv og Christine som test-brugere — ingen "ikke-verificeret app"-advarsel for nogen af dem, og alt allerede udfyldt arbejde (branding, scopes, redirect-URI'er) er gemt uændret til senere. Domænebeslutningen og selve verificeringen tages op i ro, uden tidspres. Ren dokumentationsopdatering, ingen kodeændring, selv-merget efter grøn CI | PR #160 |
 | 2026-08-29 | Uden for stabiliseringsfaserne: importerede 47 relevante aftaler fra den nedlagte Familyplan-app (CSV-eksport) til Google Kalender som 45 rigtige begivenheder — 32 i Familien Boholt, 8 hos Nicolaj (6 padel + fødselsdag 26/5 og bryllupsdag 9/7 som nye, ægte årligt tilbagevendende aftaler), 4 hos Jens, 1 hos Alfred. "Karate" udelukket, kun fra 1. august 2026. Fuld liste og kalenderfordeling godkendt af Nicolaj før oprettelse. Ren dataimport, ingen kodeændring — se dedikeret afsnit "Familiedata-import fra Familyplan" | Google Kalender (direkte, ingen PR) |
 | 2026-08-29 | Opfølgning på ovenstående import: Christine gav senere skriveadgang til sin egen kalender, så hendes 7 aftaler blev flyttet dertil fra den midlertidige placering i Familien Boholt. En gennemgang af de faktiske kalendere fandt derudover ni utilsigtede dubletter mod allerede eksisterende, ægte aftaler (padel-bookinger, "Børne banko", "Christine og Jens KBH", samt to egne dobbeltoprettelser) — alle slettet igen efter to afklaringsspørgsmål til Nicolaj (dato for "Fest for Jens" bekræftet til 26/9; "N padel 13-18" bekræftet som samme turnering som en eksisterende aftale). To reelt manglende aftaler ("VMGS 🎪🎉", "Hejmdal (medicin)") blev fundet og oprettet. Ren dataoprydning, ingen kodeændring | Google Kalender (direkte, ingen PR) |
-| 2026-08-30 | Uden for stabiliseringsfaserne: tilføjet en manuel opdater-knap til "Ugens resumé", udløst af Nicolajs spørgsmål om hvorfor resuméet ikke var kommet (undersøgt og bekræftet som forventet — cron'en kører kun søndag aften). Ejer eller admin kan nu selv generere/opdatere resuméet for den uge, man er i nu, med et loft på én gang i timen; kortet viser en tom-tilstand med en "Generér nu"-knap i stedet for at være usynligt indtil første cron-kørsel. 6 nye servertests + 1 ny Playwright-E2E. Synlig ny funktion — til gennemgang, ikke selv-merget | PR (afventer oprettelse) |
+| 2026-08-30 | Uden for stabiliseringsfaserne: tilføjet en manuel opdater-knap til "Ugens resumé", udløst af Nicolajs spørgsmål om hvorfor resuméet ikke var kommet (undersøgt og bekræftet som forventet — cron'en kører kun søndag aften). Ejer eller admin kan nu selv generere/opdatere resuméet for den uge, man er i nu, med et loft på én gang i timen; kortet viser en tom-tilstand med en "Generér nu"-knap i stedet for at være usynligt indtil første cron-kørsel. 6 nye servertests + 1 ny Playwright-E2E. Synlig ny funktion — til gennemgang, ikke selv-merget | PR #162 |
