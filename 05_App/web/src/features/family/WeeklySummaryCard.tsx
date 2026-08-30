@@ -117,7 +117,10 @@ export function WeeklySummaryCard() {
         )}
 
         {summary ? (
-          <Typography>{summary.content}</Typography>
+          // Resuméet er nu skrevet med ét linjeskift pr. familiemedlem
+          // (server/lib/aiAssistant.ts) — "pre-line" bevarer de linjeskift i
+          // stedet for at presse dem sammen til én løbende linje.
+          <Typography sx={{ whiteSpace: "pre-line" }}>{summary.content}</Typography>
         ) : (
           <Button
             variant="outlined"

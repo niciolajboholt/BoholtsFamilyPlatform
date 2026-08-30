@@ -96,7 +96,7 @@ describe("sendWeeklySummaries", () => {
 
     expect(generateWeeklySummaryMock).toHaveBeenCalledWith(
       env,
-      expect.objectContaining({ openTasks: ["Køb gave"] }),
+      expect.objectContaining({ openTasks: [{ name: "Køb gave" }] }),
     );
     expect(sendPushNotificationToFamilyMock).toHaveBeenCalledWith(
       env,
@@ -205,7 +205,42 @@ describe("sendWeeklySummaries", () => {
 
     expect(generateWeeklySummaryMock).toHaveBeenCalledWith(
       env,
-      expect.objectContaining({ openTasks: ["Storrengøring"] }),
+      expect.objectContaining({ openTasks: [{ name: "Storrengøring" }] }),
+    );
+  });
+
+  it("attributes an open task to its assigned family member, for the per-person breakdown", async () => {
+    const env = createFakeEnv();
+    await seedFamily(env);
+    await env.DB.prepare(
+      `INSERT INTO family_members (id, family_id, name, color, is_placeholder_name, created_at)
+       VALUES (?, ?, ?, ?, 0, ?)`,
+    )
+      .bind("member-chris", "family-1", "Christine", "#C97653", new Date().toISOString())
+      .run();
+    await env.DB.prepare(
+      `INSERT INTO tasks (id, family_id, name, icon, is_done, task_date, assigned_member_id, created_by_user_id, created_at)
+       VALUES (?, ?, ?, 'fritid', 0, ?, ?, 'owner', ?)`,
+    )
+      .bind("task-assigned", "family-1", "Bestil frisør", expectedWeekStart, "member-chris", new Date().toISOString())
+      .run();
+    await env.DB.prepare(
+      `INSERT INTO tasks (id, family_id, name, icon, is_done, task_date, created_by_user_id, created_at)
+       VALUES (?, ?, ?, 'fritid', 0, ?, 'owner', ?)`,
+    )
+      .bind("task-unassigned", "family-1", "Ryd op i garagen", expectedWeekStart, new Date().toISOString())
+      .run();
+
+    await sendWeeklySummaries(env, aSunday);
+
+    expect(generateWeeklySummaryMock).toHaveBeenCalledWith(
+      env,
+      expect.objectContaining({
+        openTasks: expect.arrayContaining([
+          { name: "Bestil frisør", memberName: "Christine" },
+          { name: "Ryd op i garagen" },
+        ]),
+      }),
     );
   });
 
@@ -264,13 +299,21 @@ describe("sendWeeklySummaries", () => {
 });
 
 describe("computeCurrentWeekStart", () => {
-  it("returns this week's Monday, not next week's, unlike computeUpcomingWeekStart", () => {
-    // 2026-08-16 er en søndag — sidste dag i ugen der startede 2026-08-10.
-    expect(computeCurrentWeekStart("2026-08-16")).toBe("2026-08-10");
+  it("returns this week's Monday when today is midweek", () => {
+    expect(computeCurrentWeekStart("2026-08-19")).toBe("2026-08-17");
   });
 
   it("returns the same date when today already is a Monday", () => {
     expect(computeCurrentWeekStart("2026-08-17")).toBe("2026-08-17");
+  });
+
+  // Regression (Nicolaj, 2026-08-30): søndag er sidste dag i sin egen uge,
+  // så en naiv "gå baglæns til mandag" gav ugen der er ved at slutte — et
+  // helt andet resumé end det, kortet allerede viser (som altid er den
+  // kommende uge, sat af cron'en). Et tryk på "opdater" søndag aften
+  // opdaterede derfor et usynligt resumé, mens det synlige stod uændret.
+  it("treats Sunday as tomorrow's week, matching computeUpcomingWeekStart and what the card already shows", () => {
+    expect(computeCurrentWeekStart("2026-08-16")).toBe("2026-08-17");
   });
 });
 

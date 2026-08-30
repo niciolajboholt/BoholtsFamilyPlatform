@@ -50,10 +50,22 @@ function computeUpcomingWeekStart(today: string): string {
 
 // Mandag i den uge, "i dag" falder i (i dag selv, hvis i dag er mandag).
 // Bruges af den manuelle opdater-knap, som — i modsætning til cron'en, der
-// altid kigger fremad mod næste uge — skal vise et frisk resumé af den uge,
-// man rent faktisk befinder sig i lige nu.
+// altid kigger fremad mod næste uge — som udgangspunkt skal vise et frisk
+// resumé af den uge, man rent faktisk befinder sig i lige nu.
+//
+// Særtilfælde søndag: søndag er den SIDSTE dag i sin egen uge (mandag-
+// søndag), så "ugen man er i" ville ellers blive den uge, der er ved at
+// slutte om få timer — ikke den uge, kortet allerede viser, og som cron'en
+// selv sigter efter, når den kører søndag aften. Uden dette særtilfælde
+// opdaterede/overskrev en søndags-tryk et helt andet (og usynligt) resumé
+// end det, brugeren rent faktisk ser på skærmen, mens selve det synlige
+// resumé forblev uændret — præcis den fejl, der opstod i produktion
+// (Nicolaj, 2026-08-30): "opdater"-knappen virkede tilsyneladende slet
+// ikke. Søndag behandles derfor som "i morgen" her, så resultatet matcher
+// computeUpcomingWeekStart() og dermed det, brugeren allerede ser.
 export function computeCurrentWeekStart(today: string): string {
-  let candidate = today;
+  const base = getUtcWeekday(today) === 0 ? addDays(today, 1) : today;
+  let candidate = base;
 
   while (getUtcWeekday(candidate) !== 1) {
     candidate = addDays(candidate, -1);
@@ -74,21 +86,23 @@ async function collectOpenTaskNames(
   familyId: string,
   weekStart: string,
   weekEnd: string,
-): Promise<string[]> {
+): Promise<WeeklySummaryInput["openTasks"]> {
   for (let offset = 0; offset < 7; offset += 1) {
     await materializeTasksForDate(db, familyId, addDays(weekStart, offset));
   }
 
   const { results } = await db
     .prepare(
-      `SELECT name FROM tasks
-       WHERE family_id = ? AND task_date BETWEEN ? AND ? AND is_done = 0
-       ORDER BY task_date ASC, time_of_day ASC`,
+      `SELECT tasks.name AS name, family_members.name AS memberName
+       FROM tasks
+       LEFT JOIN family_members ON family_members.id = tasks.assigned_member_id
+       WHERE tasks.family_id = ? AND tasks.task_date BETWEEN ? AND ? AND tasks.is_done = 0
+       ORDER BY tasks.task_date ASC, tasks.time_of_day ASC`,
     )
     .bind(familyId, weekStart, weekEnd)
-    .all<{ name: string }>();
+    .all<{ name: string; memberName: string | null }>();
 
-  return results.map((row) => row.name);
+  return results.map((row) => ({ name: row.name, memberName: row.memberName ?? undefined }));
 }
 
 async function collectOpenShoppingItemNames(db: D1Database, familyId: string): Promise<string[]> {

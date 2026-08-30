@@ -1100,6 +1100,51 @@ gennemgang, ikke selv-merget, da det ændrer selve den tekst, familien ser,
 se [PR #163](https://github.com/niciolajboholt/BoholtsFamilyPlatform/pull/163).
 7 nye/ændrede tests dækker den nye datoformatering og medlems-tilskrivning.
 
+## Ugens resumé: opdelt pr. familiemedlem (2026-08-30)
+
+Uden for de ni stabiliseringsfaser: Nicolaj bad om, at ugens resumé bliver
+opdelt, så det tydeligt beskriver, hvad hver enkelt i familien selv skal
+den kommende uge, i stedet for én sammenhængende tekst om det hele.
+
+**Ændring:** Aftaler og opgaver grupperes nu pr. familiemedlem, FØR de
+sendes til AI-modellen (samme princip som datoformateringen ovenfor —
+gruppér/sortér deterministisk i kode, lad kun modellen skrive den
+naturlige sætning pr. gruppe). Kalenderaftaler havde allerede et
+medlemsnavn (fra forrige rettelse); opgaver har nu det samme via et
+`LEFT JOIN` til `family_members` på opgavens `assigned_member_id`.
+Indkøbslisten har intet medlemsfelt i skemaet (den er og bliver fælles) og
+lægges sammen med ikke-tildelte opgaver/aftaler i én samlet
+"Fælles"-gruppe. Modellen bedes om ét linjeskift pr. navngiven person, i
+den rækkefølge personerne først optræder, plus højst én afsluttende linje
+for det fælles — ikke længere ét langt afsnit uden struktur.
+
+Kortet i UI'et (`WeeklySummaryCard.tsx`) fik samtidig `white-space:
+pre-line`, så de nye linjeskift rent faktisk vises adskilt i stedet for at
+blive presset sammen til én løbende linje, som almindelig HTML/MUI
+`Typography` ellers ville gøre.
+
+Ren tekststruktur-ændring af AI-outputtet og en lille visningsrettelse —
+ingen ændring i hvilke data der indsamles (ud over det nye medlemsnavn på
+opgaver) eller hvornår resuméet genereres. Til gennemgang, ikke
+selv-merget, da det ændrer selve den tekst og det udseende, familien ser,
+se [PR #164](https://github.com/niciolajboholt/BoholtsFamilyPlatform/pull/164).
+6 nye/ændrede tests dækker gruppering, rækkefølge og medlemstilskrivning
+på opgaver.
+
+**Kritisk følgefejl fundet og rettet samme aften (Nicolaj testede knappen
+efter deploy af PR #163):** `computeCurrentWeekStart()` (introduceret i
+PR #162) gik naivt baglæns til nærmeste mandag — men søndag er den SIDSTE
+dag i sin egen uge, så på en søndag aften (netop hvor Nicolaj testede)
+opdaterede knappen fejlagtigt et resumé for den uge, der er ved at slutte,
+i stedet for den kommende uge, som kortet rent faktisk viser. Resultatet:
+knappen så ud til slet ikke at virke (det synlige resumé forblev
+uændret), og samtidig blev familiens fælles timelås udløst, så et
+gentaget forsøg blot gav "prøv igen om lidt". Rettet ved at behandle
+søndag som "i morgen" i beregningen, så den matcher cron'ens egen
+kommende-uge-logik og dermed det, kortet allerede viser. Tilføjet direkte
+som endnu en commit på PR #164 (samme kodeområde, ikke en ny PR), da den
+er kritisk og bør med i samme review/merge.
+
 ## Prioriteret udførelsesrækkefølge
 
 Arbejdet fortsætter autonomt i denne rækkefølge, med grøn CI efter hver
@@ -1214,3 +1259,5 @@ Efter hver fase eller material ændring skal den ansvarlige:
 | 2026-08-29 | Opfølgning på ovenstående import: Christine gav senere skriveadgang til sin egen kalender, så hendes 7 aftaler blev flyttet dertil fra den midlertidige placering i Familien Boholt. En gennemgang af de faktiske kalendere fandt derudover ni utilsigtede dubletter mod allerede eksisterende, ægte aftaler (padel-bookinger, "Børne banko", "Christine og Jens KBH", samt to egne dobbeltoprettelser) — alle slettet igen efter to afklaringsspørgsmål til Nicolaj (dato for "Fest for Jens" bekræftet til 26/9; "N padel 13-18" bekræftet som samme turnering som en eksisterende aftale). To reelt manglende aftaler ("VMGS 🎪🎉", "Hejmdal (medicin)") blev fundet og oprettet. Ren dataoprydning, ingen kodeændring | Google Kalender (direkte, ingen PR) |
 | 2026-08-30 | Uden for stabiliseringsfaserne: tilføjet en manuel opdater-knap til "Ugens resumé", udløst af Nicolajs spørgsmål om hvorfor resuméet ikke var kommet (undersøgt og bekræftet som forventet — cron'en kører kun søndag aften). Ejer eller admin kan nu selv generere/opdatere resuméet for den uge, man er i nu, med et loft på én gang i timen; kortet viser en tom-tilstand med en "Generér nu"-knap i stedet for at være usynligt indtil første cron-kørsel. 6 nye servertests + 1 ny Playwright-E2E. Synlig ny funktion — til gennemgang, ikke selv-merget | PR #162 |
 | 2026-08-30 | Ugens resumé: rettet dårlig AI-sprogkvalitet fundet af Nicolaj efter test af opdater-knappen (opfundne detaljer, forkert kronologisk rækkefølge, upræcis "vi"-tone på personlige aftaler). Rodårsag: rå ISO-tidsstempler overladt til den lille AI-model at regne ugedag/tidszone ud, ingen global sortering på tværs af medlemmers kalendere, intet medlemsnavn sendt med. Rettet ved at formatere ugedag/klokkeslæt deterministisk i kode og sende medlemsnavn med, plus strammet systemprompt mod at opfinde kategorier. Ren tekstkvalitetsrettelse, ingen ændring i dataindsamling/UI. 7 nye/ændrede tests. Til gennemgang, ikke selv-merget | PR #163 |
+| 2026-08-30 | Ugens resumé: opdelt pr. familiemedlem efter Nicolajs ønske — aftaler og opgaver grupperes nu pr. person (opgaver fik et medlemsnavn via LEFT JOIN på assigned_member_id, samme princip som forrige rettelses deterministiske datoformatering), modellen skriver én linje pr. navngiven person plus én fælles linje for resten/indkøb, og kortet fik `white-space: pre-line` så linjeskiftene rent faktisk vises. 6 nye/ændrede tests. Synlig tekst- og layoutændring — til gennemgang, ikke selv-merget | PR #164 |
+| 2026-08-30 | Kritisk følgefejl på opdater-knappen (PR #162) fundet af Nicolaj samme aften: `computeCurrentWeekStart()` beregnede fejlagtigt den UDGÅENDE uge på en søndag (sidste dag i sin egen uge) i stedet for den kommende uge, kortet viser — knappen opdaterede derfor et usynligt resumé, mens det synlige forblev uændret, og udløste samtidig familiens timelås unødigt. Rettet ved at behandle søndag som "i morgen", så beregningen matcher cron'ens egen logik. Tilføjet til den allerede åbne PR #164 (samme kodeområde). 1 ny regressionstest | PR #164 |

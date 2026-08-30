@@ -27,7 +27,7 @@ export interface IngredientDraftItem {
 
 export interface WeeklySummaryInput {
   events: { title: string; start: string; allDay: boolean; memberName?: string }[];
-  openTasks: string[];
+  openTasks: { name: string; memberName?: string }[];
   shoppingItems: string[];
 }
 
@@ -199,34 +199,50 @@ function formatEventLine(event: WeeklySummaryInput["events"][number]): string {
   return `- ${weekday} kl. ${time}: ${event.title}${who}`;
 }
 
+// "Fælles" samler alt uden en navngiven ejer: familie-brede aftaler/opgaver
+// (intet family_members-id) og hele indkøbslisten (som slet ikke har et
+// medlemsfelt i skemaet — se shopping_list_items). Holdt som streng-nøgle,
+// ikke `undefined`, så den kan stå i Map'en og samtidig altid ende sidst
+// (se `order`-opbygningen nedenfor).
+const FAELLES_GROUP = "Fælles (ingen bestemt person)";
+
 function formatWeeklySummaryPrompt(input: WeeklySummaryInput): string {
-  const lines: string[] = [];
+  const groupedLines = new Map<string, string[]>();
+  const orderedNames: string[] = [];
 
-  lines.push("Kommende kalenderaftaler denne uge, i kronologisk rækkefølge:");
-  if (input.events.length > 0) {
-    for (const event of input.events) {
-      lines.push(formatEventLine(event));
+  function addLine(memberName: string | undefined, line: string): void {
+    const key = memberName ?? FAELLES_GROUP;
+    if (!groupedLines.has(key)) {
+      groupedLines.set(key, []);
+      if (key !== FAELLES_GROUP) {
+        orderedNames.push(key);
+      }
     }
-  } else {
-    lines.push("(ingen)");
+    groupedLines.get(key)!.push(line);
   }
 
-  lines.push("", "Åbne opgaver denne uge:");
-  if (input.openTasks.length > 0) {
-    for (const task of input.openTasks) {
-      lines.push(`- ${task}`);
-    }
-  } else {
-    lines.push("(ingen)");
+  for (const event of input.events) {
+    addLine(event.memberName, formatEventLine(event));
+  }
+  for (const task of input.openTasks) {
+    addLine(task.memberName, `- Opgave: ${task.name}`);
+  }
+  for (const item of input.shoppingItems) {
+    addLine(undefined, `- Indkøb: ${item}`);
   }
 
-  lines.push("", "Varer på indkøbslisten:");
-  if (input.shoppingItems.length > 0) {
-    for (const item of input.shoppingItems) {
-      lines.push(`- ${item}`);
-    }
-  } else {
+  const lines: string[] = ["Ugens aftaler, opgaver og indkøb, grupperet pr. person (i denne rækkefølge):"];
+
+  if (orderedNames.length === 0 && !groupedLines.has(FAELLES_GROUP)) {
     lines.push("(ingen)");
+    return lines.join("\n");
+  }
+
+  for (const name of orderedNames) {
+    lines.push(`${name}:`, ...groupedLines.get(name)!);
+  }
+  if (groupedLines.has(FAELLES_GROUP)) {
+    lines.push(`${FAELLES_GROUP}:`, ...groupedLines.get(FAELLES_GROUP)!);
   }
 
   return lines.join("\n");
@@ -241,18 +257,23 @@ export async function generateWeeklySummary(
 ): Promise<string | null> {
   const systemPrompt =
     `Du skriver et kort, venligt ugeresumé på dansk til en familie, ud fra deres kommende ` +
-    `kalenderaftaler, åbne opgaver og indkøbsliste. Skriv 2-4 korte sætninger i et naturligt, ` +
-    `flydende hverdagssprog, som når man kort fortæller familien, hvad ugen byder på — ikke en ` +
-    `stiv, formel meddelelse. Ingen overskrifter, ingen punktopstilling, ingen indledende ` +
-    `"Her er" eller "Denne uge byder på". ` +
-    `Aftalerne herunder står allerede i kronologisk rækkefølge med ugedag (og evt. klokkeslæt) ` +
-    `angivet præcist — nævn dem i samme rækkefølge, og brug UDELUKKENDE de ugedage/tidspunkter, ` +
-    `der er givet. Regn, gæt eller antag aldrig selv en dato eller et klokkeslæt. ` +
-    `Er en aftale mærket med et navn i parentes, er det den person, aftalen gælder for — skriv ` +
-    `fx "Nicolajs padelkamp", ikke "vi skal til padel", medmindre flere navne optræder for samme ` +
-    `uge og det giver mening at samle dem. Nævn kun det, der reelt er givet: opfind aldrig en ` +
-    `kategori, et sted, en anledning eller et ord som "stævne"/"begivenhed", der ikke selv står i ` +
-    `aftalens titel.`;
+    `kalenderaftaler og opgaver, der herunder er grupperet pr. familiemedlem, samt en fælles ` +
+    `indkøbsliste. Skriv resuméet som ÉN kort sætning (højst to) PR. NAVNGIVET PERSON, hver på ` +
+    `sin egen linje — brug et almindeligt linjeskift mellem hver person, i nøjagtig den ` +
+    `rækkefølge, personerne er listet nedenfor. Start hver linje med personens navn efterfulgt af ` +
+    `kolon, fx "Nicolaj: ...". Spring en person helt over, hvis vedkommende slet ikke er nævnt ` +
+    `nedenfor. Er der noget under "${FAELLES_GROUP}", så afslut med præcis én linje, der starter ` +
+    `med "Fælles: ", om det (inkl. indkøb, hvis der er noget) — ellers udelad linjen helt. ` +
+    `Ingen overskrifter og ingen punktopstillingstegn ("-" eller "•") i selve svaret — kun ` +
+    `almindelige sætninger på hver sin linje, i et naturligt, varmt hverdagssprog, som når man ` +
+    `kort fortæller familien, hvad ugen byder på. Ingen indledende "Her er" eller "Denne uge ` +
+    `byder på". ` +
+    `Aftalerne/opgaverne under hver person står allerede i den rigtige rækkefølge med ugedag (og ` +
+    `evt. klokkeslæt) angivet præcist — nævn dem i samme rækkefølge, og brug UDELUKKENDE de ` +
+    `ugedage/tidspunkter, der er givet. Regn, gæt eller antag aldrig selv en dato eller et ` +
+    `klokkeslæt. Nævn kun det, der reelt er givet: opfind aldrig en kategori, et sted, en ` +
+    `anledning eller et ord som "stævne"/"begivenhed", der ikke selv står i aftalens eller ` +
+    `opgavens egen titel.`;
 
   const content = await runChatCompletion(env, systemPrompt, formatWeeklySummaryPrompt(input));
 
