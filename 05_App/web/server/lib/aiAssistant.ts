@@ -26,7 +26,7 @@ export interface IngredientDraftItem {
 }
 
 export interface WeeklySummaryInput {
-  events: { title: string; start: string }[];
+  events: { title: string; start: string; allDay: boolean; memberName?: string }[];
   openTasks: string[];
   shoppingItems: string[];
 }
@@ -172,13 +172,40 @@ export async function generateIngredientsDraft(
   return items.length > 0 ? items : null;
 }
 
+// Formaterer ugedag (og, hvis relevant, klokkeslæt) på dansk her i koden —
+// deterministisk og altid korrekt — i stedet for at give modellen en rå
+// ISO 8601 UTC-streng og forvente, at den selv regner tidszone og ugedag
+// ud. En lille, hurtig model (se model-konstanten øverst) er upålidelig til
+// den slags datoregning, hvilket var en væsentlig kilde til forvirrede,
+// usammenhængende resuméer (forkert ugedagsrækkefølge, opfundne detaljer).
+function formatEventLine(event: WeeklySummaryInput["events"][number]): string {
+  const date = new Date(event.start);
+  const weekday = new Intl.DateTimeFormat("da-DK", {
+    weekday: "long",
+    timeZone: "Europe/Copenhagen",
+  }).format(date);
+  const who = event.memberName ? ` (${event.memberName})` : "";
+
+  if (event.allDay) {
+    return `- ${weekday}: ${event.title}${who}`;
+  }
+
+  const time = new Intl.DateTimeFormat("da-DK", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Europe/Copenhagen",
+  }).format(date);
+
+  return `- ${weekday} kl. ${time}: ${event.title}${who}`;
+}
+
 function formatWeeklySummaryPrompt(input: WeeklySummaryInput): string {
   const lines: string[] = [];
 
-  lines.push("Kommende kalenderaftaler denne uge:");
+  lines.push("Kommende kalenderaftaler denne uge, i kronologisk rækkefølge:");
   if (input.events.length > 0) {
     for (const event of input.events) {
-      lines.push(`- ${event.start}: ${event.title}`);
+      lines.push(formatEventLine(event));
     }
   } else {
     lines.push("(ingen)");
@@ -214,9 +241,18 @@ export async function generateWeeklySummary(
 ): Promise<string | null> {
   const systemPrompt =
     `Du skriver et kort, venligt ugeresumé på dansk til en familie, ud fra deres kommende ` +
-    `kalenderaftaler, åbne opgaver og indkøbsliste. Skriv 2-4 korte sætninger i en varm, ` +
-    `hverdagsagtig tone — ingen overskrifter, ingen punktopstilling, ingen indledende "Her er". ` +
-    `Nævn kun det, der reelt er givet, opfind intet.`;
+    `kalenderaftaler, åbne opgaver og indkøbsliste. Skriv 2-4 korte sætninger i et naturligt, ` +
+    `flydende hverdagssprog, som når man kort fortæller familien, hvad ugen byder på — ikke en ` +
+    `stiv, formel meddelelse. Ingen overskrifter, ingen punktopstilling, ingen indledende ` +
+    `"Her er" eller "Denne uge byder på". ` +
+    `Aftalerne herunder står allerede i kronologisk rækkefølge med ugedag (og evt. klokkeslæt) ` +
+    `angivet præcist — nævn dem i samme rækkefølge, og brug UDELUKKENDE de ugedage/tidspunkter, ` +
+    `der er givet. Regn, gæt eller antag aldrig selv en dato eller et klokkeslæt. ` +
+    `Er en aftale mærket med et navn i parentes, er det den person, aftalen gælder for — skriv ` +
+    `fx "Nicolajs padelkamp", ikke "vi skal til padel", medmindre flere navne optræder for samme ` +
+    `uge og det giver mening at samle dem. Nævn kun det, der reelt er givet: opfind aldrig en ` +
+    `kategori, et sted, en anledning eller et ord som "stævne"/"begivenhed", der ikke selv står i ` +
+    `aftalens titel.`;
 
   const content = await runChatCompletion(env, systemPrompt, formatWeeklySummaryPrompt(input));
 

@@ -17,7 +17,7 @@ describe("generateWeeklySummary", () => {
     }) as never;
 
     const summary = await generateWeeklySummary(env, {
-      events: [{ title: "Fødselsdag", start: "2026-08-24 10:00" }],
+      events: [{ title: "Fødselsdag", start: "2026-08-24T10:00:00.000Z", allDay: false }],
       openTasks: ["Køb gave"],
       shoppingItems: ["Mælk"],
     });
@@ -59,7 +59,7 @@ describe("generateWeeklySummary", () => {
     env.AI.run = runMock as never;
 
     await generateWeeklySummary(env, {
-      events: [{ title: "Lægebesøg", start: "2026-08-25 09:00" }],
+      events: [{ title: "Lægebesøg", start: "2026-08-25T09:00:00.000Z", allDay: false }],
       openTasks: ["Vask tøj"],
       shoppingItems: ["Æg"],
     });
@@ -69,6 +69,31 @@ describe("generateWeeklySummary", () => {
     expect(userPrompt).toContain("Lægebesøg");
     expect(userPrompt).toContain("Vask tøj");
     expect(userPrompt).toContain("Æg");
+  });
+
+  it("formats each event with its Danish weekday, time, and member name — not a raw ISO timestamp", async () => {
+    const env = createFakeEnv();
+    const runMock = vi.fn().mockResolvedValue({
+      choices: [{ message: { content: "Resumé." } }],
+    });
+    env.AI.run = runMock as never;
+
+    await generateWeeklySummary(env, {
+      events: [
+        { title: "Padelkamp", start: "2026-09-01T17:00:00.000Z", allDay: false, memberName: "Nicolaj" },
+        { title: "Skolestart", start: "2026-08-31T00:00:00.000Z", allDay: true },
+      ],
+      openTasks: [],
+      shoppingItems: [],
+    });
+
+    const userPrompt = runMock.mock.calls[0][1].messages[1].content as string;
+
+    // 17:00 UTC = 19:00 dansk sommertid; "kl. 19:00" beviser konverteringen
+    // sker deterministisk i koden, ikke overladt til modellen selv at regne.
+    expect(userPrompt).toContain("tirsdag kl. 19.00: Padelkamp (Nicolaj)");
+    expect(userPrompt).toContain("mandag: Skolestart");
+    expect(userPrompt).not.toContain("2026-09-01T17:00:00.000Z");
   });
 
   it("marks empty data sources instead of inventing content", async () => {
