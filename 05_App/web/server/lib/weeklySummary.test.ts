@@ -299,13 +299,21 @@ describe("sendWeeklySummaries", () => {
 });
 
 describe("computeCurrentWeekStart", () => {
-  it("returns this week's Monday, not next week's, unlike computeUpcomingWeekStart", () => {
-    // 2026-08-16 er en søndag — sidste dag i ugen der startede 2026-08-10.
-    expect(computeCurrentWeekStart("2026-08-16")).toBe("2026-08-10");
+  it("returns this week's Monday when today is midweek", () => {
+    expect(computeCurrentWeekStart("2026-08-19")).toBe("2026-08-17");
   });
 
   it("returns the same date when today already is a Monday", () => {
     expect(computeCurrentWeekStart("2026-08-17")).toBe("2026-08-17");
+  });
+
+  // Regression (Nicolaj, 2026-08-30): søndag er sidste dag i sin egen uge,
+  // så en naiv "gå baglæns til mandag" gav ugen der er ved at slutte — et
+  // helt andet resumé end det, kortet allerede viser (som altid er den
+  // kommende uge, sat af cron'en). Et tryk på "opdater" søndag aften
+  // opdaterede derfor et usynligt resumé, mens det synlige stod uændret.
+  it("treats Sunday as tomorrow's week, matching computeUpcomingWeekStart and what the card already shows", () => {
+    expect(computeCurrentWeekStart("2026-08-16")).toBe("2026-08-17");
   });
 });
 

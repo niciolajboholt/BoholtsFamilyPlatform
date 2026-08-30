@@ -1131,6 +1131,20 @@ se [PR #164](https://github.com/niciolajboholt/BoholtsFamilyPlatform/pull/164).
 6 nye/ændrede tests dækker gruppering, rækkefølge og medlemstilskrivning
 på opgaver.
 
+**Kritisk følgefejl fundet og rettet samme aften (Nicolaj testede knappen
+efter deploy af PR #163):** `computeCurrentWeekStart()` (introduceret i
+PR #162) gik naivt baglæns til nærmeste mandag — men søndag er den SIDSTE
+dag i sin egen uge, så på en søndag aften (netop hvor Nicolaj testede)
+opdaterede knappen fejlagtigt et resumé for den uge, der er ved at slutte,
+i stedet for den kommende uge, som kortet rent faktisk viser. Resultatet:
+knappen så ud til slet ikke at virke (det synlige resumé forblev
+uændret), og samtidig blev familiens fælles timelås udløst, så et
+gentaget forsøg blot gav "prøv igen om lidt". Rettet ved at behandle
+søndag som "i morgen" i beregningen, så den matcher cron'ens egen
+kommende-uge-logik og dermed det, kortet allerede viser. Tilføjet direkte
+som endnu en commit på PR #164 (samme kodeområde, ikke en ny PR), da den
+er kritisk og bør med i samme review/merge.
+
 ## Prioriteret udførelsesrækkefølge
 
 Arbejdet fortsætter autonomt i denne rækkefølge, med grøn CI efter hver
@@ -1246,3 +1260,4 @@ Efter hver fase eller material ændring skal den ansvarlige:
 | 2026-08-30 | Uden for stabiliseringsfaserne: tilføjet en manuel opdater-knap til "Ugens resumé", udløst af Nicolajs spørgsmål om hvorfor resuméet ikke var kommet (undersøgt og bekræftet som forventet — cron'en kører kun søndag aften). Ejer eller admin kan nu selv generere/opdatere resuméet for den uge, man er i nu, med et loft på én gang i timen; kortet viser en tom-tilstand med en "Generér nu"-knap i stedet for at være usynligt indtil første cron-kørsel. 6 nye servertests + 1 ny Playwright-E2E. Synlig ny funktion — til gennemgang, ikke selv-merget | PR #162 |
 | 2026-08-30 | Ugens resumé: rettet dårlig AI-sprogkvalitet fundet af Nicolaj efter test af opdater-knappen (opfundne detaljer, forkert kronologisk rækkefølge, upræcis "vi"-tone på personlige aftaler). Rodårsag: rå ISO-tidsstempler overladt til den lille AI-model at regne ugedag/tidszone ud, ingen global sortering på tværs af medlemmers kalendere, intet medlemsnavn sendt med. Rettet ved at formatere ugedag/klokkeslæt deterministisk i kode og sende medlemsnavn med, plus strammet systemprompt mod at opfinde kategorier. Ren tekstkvalitetsrettelse, ingen ændring i dataindsamling/UI. 7 nye/ændrede tests. Til gennemgang, ikke selv-merget | PR #163 |
 | 2026-08-30 | Ugens resumé: opdelt pr. familiemedlem efter Nicolajs ønske — aftaler og opgaver grupperes nu pr. person (opgaver fik et medlemsnavn via LEFT JOIN på assigned_member_id, samme princip som forrige rettelses deterministiske datoformatering), modellen skriver én linje pr. navngiven person plus én fælles linje for resten/indkøb, og kortet fik `white-space: pre-line` så linjeskiftene rent faktisk vises. 6 nye/ændrede tests. Synlig tekst- og layoutændring — til gennemgang, ikke selv-merget | PR #164 |
+| 2026-08-30 | Kritisk følgefejl på opdater-knappen (PR #162) fundet af Nicolaj samme aften: `computeCurrentWeekStart()` beregnede fejlagtigt den UDGÅENDE uge på en søndag (sidste dag i sin egen uge) i stedet for den kommende uge, kortet viser — knappen opdaterede derfor et usynligt resumé, mens det synlige forblev uændret, og udløste samtidig familiens timelås unødigt. Rettet ved at behandle søndag som "i morgen", så beregningen matcher cron'ens egen logik. Tilføjet til den allerede åbne PR #164 (samme kodeområde). 1 ny regressionstest | PR #164 |
