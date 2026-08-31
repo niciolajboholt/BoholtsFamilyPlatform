@@ -79,7 +79,8 @@ den tekniske implementering.
 
 ## Teknisk tilgang
 
-- **Migration 0018** (tre nye tabeller):
+- **Migration 0020** (tre nye tabeller — `develop` har allerede 0018/0019 til
+  ICS-kalenderabonnementer):
   - `calendar_sync_state (google_calendar_id TEXT PRIMARY KEY, family_id
     TEXT NOT NULL, sync_token TEXT NOT NULL, updated_at TEXT NOT NULL)`
   - `calendar_event_snapshots (google_calendar_id TEXT NOT NULL, event_id
@@ -132,7 +133,7 @@ den tekniske implementering.
 
 ## Rækkefølge
 
-1. [ ] Migration 0018 (tre nye tabeller) + `schemaCheck.ts` opdateret.
+1. [ ] Migration 0020 (tre nye tabeller) + `schemaCheck.ts` opdateret.
 2. [ ] `server/lib/calendarActivitySync.ts` + tests: `created`/`moved`/
    `cancelled`-klassificering, 410-håndtering (rydder state, fuld
    resynk), redaction af private aftaler.
