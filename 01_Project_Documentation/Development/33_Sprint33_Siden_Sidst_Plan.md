@@ -1,6 +1,6 @@
-# 31_Sprint31_Siden_Sidst_Plan
+# 33_Sprint33_Siden_Sidst_Plan
 
-> Status: Afventer godkendelse
+> Status: Godkendt, kode gennemført — afventer manuel beta-test og merge
 
 Version: 2.0
 
@@ -207,28 +207,36 @@ relevant beslutning.
 
 ## Rækkefølge
 
-1. [ ] Migration 0020 (fire tabeller) + `schemaCheck.ts` opdateret.
-2. [ ] `server/lib/calendarActivitySync.ts` + tests: bootstrap- vs.
+1. ~~Migration 0020 (fire tabeller) + `schemaCheck.ts` opdateret.~~ ✅
+   **Gennemført.**
+2. ~~`server/lib/calendarActivitySync.ts` + tests: bootstrap- vs.
    delta-tilstand, `created`/`moved`/`cancelled`-klassificering,
    410-håndtering (genopbygger snapshot uden falske aktivitetsrækker),
-   `getSafeGoogleEventDetails()`-redaction i både snapshot og log.
-3. [ ] `calendarActivitySync.ts` koblet ind i `index.ts`s eksisterende
+   `getSafeGoogleEventDetails()`-redaction i både snapshot og log.~~ ✅
+   **Gennemført**: 8 tests.
+3. ~~`calendarActivitySync.ts` koblet ind i `index.ts`s eksisterende
    `*/5 * * * *`-cron-gren, grupperet pr. familie via `owner_user_id`
-   (ingen ændring i `wrangler.jsonc`, jf. beslutning 6).
-4. [ ] `GET /activity/since-last-visit` + `POST /activity/acknowledge` +
+   (ingen ændring i `wrangler.jsonc`, jf. beslutning 6).~~ ✅
+   **Gennemført.**
+4. ~~`GET /activity/since-last-visit` + `POST /activity/acknowledge` +
    tests: ingen-cursor-tilfælde (opretter cursor, viser intet), tom
    aktivitet (cursor rykker automatisk), fundet aktivitet (cursor rykker
-   først ved acknowledge), idempotent acknowledge.
-5. [ ] Frontend: `ActivityTeaserCard` + `ActivitySummaryDialog` +
+   først ved acknowledge), idempotent acknowledge.~~ ✅ **Gennemført**:
+   8 tests.
+5. ~~Frontend: teaser-kort (`ActivityCard`) + `ActivitySummaryDialog` +
    `ActivityFullListDialog`, indsat i `HomePage.tsx` mellem hilsenen og
-   den eksisterende to-kolonne-grid.
-6. [ ] Retention: udvid det eksisterende daglige cleanup-cron til at rydde
-   `calendar_activity_log` ældre end 90 dage + test.
+   den eksisterende to-kolonne-grid.~~ ✅ **Gennemført**, inkl. en ren
+   `buildActivityRows()`-funktion (6 tests) der bygger den prioriterede
+   rækkefølge, delt af begge dialoger.
+6. ~~Retention: udvid det eksisterende daglige cleanup-cron til at rydde
+   `calendar_activity_log` ældre end 90 dage + test.~~ ✅ **Gennemført**
+   som del af trin 2/3 (`cleanupOldCalendarActivity`).
 7. [ ] Manuel test på beta (kræver et rigtigt cron-tick + reel
    kalenderaktivitet for at se en ægte "siden sidst"-periode) — Nicolaj
    bekræfter ved lejlighed, samme mønster som tidligere sprints.
-8. [ ] Kvalitetskontrol (`lint`, `tsc -b`, `test`, `build`) → commit → push
-   → verificér grøn CI + begge Workers Builds → merge.
+8. ~~Kvalitetskontrol (`lint`, `tsc -b`, `test`, `build`).~~ ✅
+   **Gennemført**: 65 testfiler, 612 tests, ren lint/build. → commit →
+   push → verificér grøn CI + begge Workers Builds → merge.
 
 ---
 

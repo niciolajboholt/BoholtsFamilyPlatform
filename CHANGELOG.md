@@ -1,5 +1,21 @@
 # Changelog
 
+## Sprint 33 — "Siden sidst du var her"
+
+- Nyt overblikskort på forsiden: et kompakt teaser-felt der ved tryk åbner
+  et overblik over, hvad familien har lavet i appen siden brugerens
+  sidste besøg — nye, flyttede og aflyste kalenderaftaler, fuldførte/nye
+  opgaver, indkøb og nye familiemedlemmer, med "Vis alt" til den fulde,
+  grupperede liste.
+- Server-side kalender-aktivitetssynk (Google `syncToken`, samme mønster
+  som Sprint 25's klient-cache) via det eksisterende 5-minutters
+  cron-tick — ikke et live Google-opslag ved hvert besøg. Første synk og
+  et udløbet syncToken er bevidst en bootstrap uden aktivitetsrækker, så
+  ingen eksisterende aftaler fejlagtigt vises som "nye".
+- Egen besøgs-cursor pr. bruger/familie (ikke sessions-baseret — en
+  session lever 30 dage uden fornyelse og ville vise en for gammel
+  "siden sidst").
+
 ## Sprint 28 — AI-ugeresumé
 
 - Et kort, AI-genereret ugeresumé (kalenderaftaler, opgaver og
