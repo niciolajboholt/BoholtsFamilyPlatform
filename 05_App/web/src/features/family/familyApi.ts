@@ -260,6 +260,66 @@ export function deleteShareLink(familyId: string) {
   );
 }
 
+// Sprint 33 ("Siden sidst du var her"): aktivitet siden brugerens sidste
+// besøg i DENNE familie. `hasActivity: false` er bevidst et smallere svar
+// (ingen af de øvrige felter er meningsfulde, hvis der intet er at vise) —
+// se server/routes/activity.ts.
+export interface ActivityCalendarMovedDto {
+  title: string;
+  oldStart: string | null;
+  newStart: string | null;
+}
+
+export interface ActivityCalendarCancelledDto {
+  title: string;
+  oldStart: string | null;
+}
+
+export interface ActivityCalendarCreatedDto {
+  title: string;
+  start: string | null;
+}
+
+export interface ActivityFamilyMemberDto {
+  name: string;
+}
+
+export type ActivitySummaryDto =
+  | { hasActivity: false; since: string | null; asOf: string }
+  | {
+      hasActivity: true;
+      since: string;
+      asOf: string;
+      calendar: {
+        moved: ActivityCalendarMovedDto[];
+        cancelled: ActivityCalendarCancelledDto[];
+        created: ActivityCalendarCreatedDto[];
+      };
+      tasksCompletedCount: number;
+      tasksCreatedCount: number;
+      shoppingAddedCount: number;
+      shoppingCheckedCount: number;
+      newFamilyMembers: ActivityFamilyMemberDto[];
+      totalCount: number;
+    };
+
+// Den indsnævrede variant, komponenter der allerede ved der ER aktivitet
+// (dialogerne) kan bruge, uden selv at skulle udelukke `hasActivity: false`.
+export type ActiveActivitySummary = Extract<ActivitySummaryDto, { hasActivity: true }>;
+
+export function getActivitySince(familyId: string) {
+  return request<ActivitySummaryDto & { error?: string }>(
+    `/api/families/${familyId}/activity/since-last-visit`,
+  );
+}
+
+export function acknowledgeActivity(familyId: string, asOf: string) {
+  return request<{ ok?: boolean; error?: string }>(
+    `/api/families/${familyId}/activity/acknowledge`,
+    { method: "POST", body: JSON.stringify({ asOf }) },
+  );
+}
+
 // Fase 9: delte kalendere tilføjet via et ICS-link.
 export interface IcsCalendarSubscriptionDto {
   id: string;

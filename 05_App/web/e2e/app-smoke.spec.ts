@@ -288,6 +288,12 @@ test("mobile week rows keep time, title and member in separate columns", async (
 }, testInfo) => {
   test.skip(testInfo.project.name !== "mobile-chromium");
   await mockAuthenticatedApi(page);
+  // Ugevisningen viser den uge, browserens "nu" falder i — mockens aftale
+  // har en fast dato (2026-08-24 til -30), så uret fryses til samme uge i
+  // stedet for at lade testen langsomt drive ud af "denne uge", efterhånden
+  // som den rigtige kalenderdato passerer den (fandt dette som årsagen til
+  // en periodisk fejlende test, se PR #166).
+  await page.clock.setFixedTime(new Date("2026-08-26T09:00:00+02:00"));
   await page.goto("/calendar");
 
   await page.getByRole("button", { name: "Uge", exact: true }).click();
@@ -1705,6 +1711,9 @@ test("an event with multiple matched family members shows their own colors, spli
     });
   });
 
+  // Samme uge-drift-fiksering som app-smoke.spec.ts's mobile ugevisnings-test
+  // (se PR #166): mockens aftale har en fast dato i ugen 2026-08-24 til -30.
+  await page.clock.setFixedTime(new Date("2026-08-26T09:00:00+02:00"));
   await page.goto("/calendar");
   await page.getByRole("button", { name: "Uge", exact: true }).click();
 
@@ -1783,6 +1792,9 @@ test("an unassigned ICS subscription's event uses the subscription's own color, 
     });
   });
 
+  // Samme uge-drift-fiksering som app-smoke.spec.ts's mobile ugevisnings-test
+  // (se PR #166): mockens aftale har en fast dato i ugen 2026-08-24 til -30.
+  await page.clock.setFixedTime(new Date("2026-08-26T09:00:00+02:00"));
   await page.goto("/calendar");
   await page.getByRole("button", { name: "Uge", exact: true }).click();
 
