@@ -10,13 +10,18 @@ import {
 } from "@mui/material";
 
 import type { CalendarOwner } from "../data/calendarOwners";
-import { getEventOwnerColor } from "../utils/getEventOwnerColor";
+import {
+  getEventOwnerBadges,
+  getEventOwnerBorderSx,
+  getEventOwnerColors,
+} from "../utils/getEventOwnerColor";
 import { useLongPress } from "../hooks/useLongPress";
 import type { CalendarEvent } from "../models/calendarEvent";
 import { getEventsForDate } from "../utils/getEventsForDate";
 import { layoutDayTimelineEvents } from "../utils/layoutDayTimelineEvents";
 import { getEventActionLabel } from "../utils/calendarAccessibility";
 import ConflictBadge from "./ConflictBadge";
+import EventOwnerBadges from "./EventOwnerBadges";
 
 interface DayCalendarProps {
   selectedDate: Date;
@@ -168,23 +173,26 @@ function DayCalendar({
 
             <Box sx={{ display: "grid", gap: 0.75 }}>
               {allDayEvents.map((event) => {
-                const ownerColor = getEventOwnerColor(event, members);
+                const ownerColors = getEventOwnerColors(event, members);
+                const ownerColor = ownerColors[0];
+                const ownerBadges = getEventOwnerBadges(event, members);
 
                 return (
                   <ButtonBase
                     key={event.id}
-                    aria-label={getEventActionLabel(event)}
+                    aria-label={getEventActionLabel(event, members)}
                     onClick={() => onSelectEvent(event)}
                     sx={{
+                      position: "relative",
                       justifyContent: "flex-start",
                       minWidth: 0,
                       p: 0.75,
                       borderRadius: 1,
-                      borderLeft: `4px solid ${ownerColor}`,
-                      backgroundColor: `${ownerColor}30`,
+                      ...getEventOwnerBorderSx(ownerColors, 4),
+                      backgroundColor: `${ownerColor}14`,
 
                       "&:hover": {
-                        backgroundColor: `${ownerColor}45`,
+                        backgroundColor: `${ownerColor}24`,
                       },
 
                       "&:focus-visible": {
@@ -202,6 +210,8 @@ function DayCalendar({
                       >
                         {event.title}
                       </Typography>
+
+                      <EventOwnerBadges owners={ownerBadges} sizePx={14} />
 
                       <ConflictBadge
                         isConflict={conflictEventIds?.has(event.id) ?? false}
@@ -299,7 +309,12 @@ function DayCalendar({
               }}
             >
               {layoutEntries.map((entry) => {
-                const ownerColor = getEventOwnerColor(
+                const ownerColors = getEventOwnerColors(
+                  entry.event,
+                  members,
+                );
+                const ownerColor = ownerColors[0];
+                const ownerBadges = getEventOwnerBadges(
                   entry.event,
                   members,
                 );
@@ -308,7 +323,7 @@ function DayCalendar({
                 return (
                   <ButtonBase
                     key={entry.event.id}
-                    aria-label={getEventActionLabel(entry.event)}
+                    aria-label={getEventActionLabel(entry.event, members)}
                     onClick={() => onSelectEvent(entry.event)}
                     sx={{
                       position: "absolute",
@@ -328,12 +343,12 @@ function DayCalendar({
                       p: 0.5,
                       overflow: "hidden",
                       borderRadius: 1,
-                      borderLeft: `3px solid ${ownerColor}`,
-                      backgroundColor: `${ownerColor}30`,
+                      ...getEventOwnerBorderSx(ownerColors, 3),
+                      backgroundColor: `${ownerColor}14`,
                       textAlign: "left",
 
                       "&:hover": {
-                        backgroundColor: `${ownerColor}45`,
+                        backgroundColor: `${ownerColor}24`,
                       },
 
                       "&:focus-visible": {
@@ -359,6 +374,8 @@ function DayCalendar({
                       >
                         {entry.event.title}
                       </Typography>
+
+                      <EventOwnerBadges owners={ownerBadges} sizePx={14} />
 
                       <ConflictBadge
                         isConflict={conflictEventIds?.has(entry.event.id) ?? false}

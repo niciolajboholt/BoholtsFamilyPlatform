@@ -203,13 +203,15 @@ export function useShoppingList(): UseShoppingListResult {
 
       if (operation.type === "add-item") {
         result = await addShoppingListItem(familyId, selectedListId, operation.name);
-      } else {
+      } else if (operation.type === "toggle-item") {
         result = await setShoppingListItemChecked(
           familyId,
           selectedListId,
           operation.itemId,
           operation.isChecked,
         );
+      } else {
+        result = await clearCheckedShoppingListItems(familyId, selectedListId);
       }
 
       if (result.ok && result.data.items) {
@@ -225,7 +227,9 @@ export function useShoppingList(): UseShoppingListResult {
         setError(
           operation.type === "add-item"
             ? `Kunne ikke tilføje "${operation.name}" — listen findes ikke længere.`
-            : "Kunne ikke synkronisere en afkrydsning — varen er allerede slettet.",
+            : operation.type === "toggle-item"
+              ? "Kunne ikke synkronisere en afkrydsning — varen er allerede slettet."
+              : "Kunne ikke rydde afkrydsede varer — listen findes ikke længere.",
         );
         continue;
       }
@@ -486,8 +490,15 @@ export function useShoppingList(): UseShoppingListResult {
       return;
     }
 
-    withMutation(() => clearCheckedShoppingListItems(familyId, selectedListId));
-  }, [familyId, selectedListId, withMutation]);
+    // Optimistisk, ligesom toggleChecked — de fjernede varer findes allerede
+    // lokalt, så der er intet midlertidigt id at forene senere.
+    setItems((currentItems) => currentItems.filter((item) => !item.isChecked));
+
+    withQueueableMutation(
+      () => clearCheckedShoppingListItems(familyId, selectedListId),
+      () => enqueueShoppingOperation({ type: "clear-checked", familyId, listId: selectedListId }),
+    );
+  }, [familyId, selectedListId, withQueueableMutation]);
 
   // Returnerer AI'ens forslag, uden at gemme noget — kalderen (UI'et) viser
   // dem som afkrydsningsbare forslag og beslutter selv, hvilke der reelt

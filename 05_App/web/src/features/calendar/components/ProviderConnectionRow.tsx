@@ -11,6 +11,11 @@ interface ProviderConnectionRowProps {
   // Udeladt for en provider uden en manuel forbind/afbryd-handling (Fase 3:
   // Google forbindes allerede ved login) — rækken viser da kun status.
   onToggleConnection?: () => void;
+  // Overstyrer det tilgængelige navn på pil-knappen, for en handling der
+  // ikke er "forbind"/"afbryd" (fx ICS-rækken, som åbner en administrations-
+  // dialog, ikke en kontoforbindelse). Udeladt bruger den normale
+  // forbind/afbryd-tekst.
+  actionAriaLabel?: string;
 }
 
 /**
@@ -28,6 +33,7 @@ export function ProviderConnectionRow({
   isBusy,
   isAttemptingSilentReconnect,
   onToggleConnection,
+  actionAriaLabel,
 }: ProviderConnectionRowProps) {
   return (
     <Box
@@ -76,7 +82,7 @@ export function ProviderConnectionRow({
       <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
         {onToggleConnection && (
           <IconButton
-            aria-label={isConnected ? `Afbryd ${label}` : `Forbind ${label}`}
+            aria-label={actionAriaLabel ?? (isConnected ? `Afbryd ${label}` : `Forbind ${label}`)}
             disabled={!isConfigured || isBusy || isAttemptingSilentReconnect}
             onClick={onToggleConnection}
           >

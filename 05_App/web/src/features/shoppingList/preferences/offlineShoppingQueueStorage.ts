@@ -1,7 +1,5 @@
 // Fase 8: lokal, forkastelig kø til udvalgte indkøbslisteændringer, foretaget
-// mens enheden er offline — jf. 31_Offline_Data_Policy.md, som bevidst
-// afgrænser første iteration til tilføj vare og af-/tilkryds vare (ikke ryd
-// afkrydsede eller opgaver — de kommer i en senere PR). Samme
+// mens enheden er offline — jf. 31_Offline_Data_Policy.md. Samme
 // localStorage-mønster som resten af appens klient-tilstand (fx
 // googleCalendarSyncCacheStorage.ts), ikke en ny persistens-teknologi.
 
@@ -26,7 +24,18 @@ export interface QueuedToggleShoppingItem {
   createdAt: string;
 }
 
-export type QueuedShoppingOperation = QueuedAddShoppingItem | QueuedToggleShoppingItem;
+export interface QueuedClearCheckedShoppingItems {
+  type: "clear-checked";
+  id: string;
+  familyId: string;
+  listId: string;
+  createdAt: string;
+}
+
+export type QueuedShoppingOperation =
+  | QueuedAddShoppingItem
+  | QueuedToggleShoppingItem
+  | QueuedClearCheckedShoppingItems;
 
 // Omit<Union, K> collapses to the union members' COMMON keys only (keyof of
 // a union is an intersection) — this distributes it over each member first,
@@ -54,6 +63,10 @@ function isQueuedShoppingOperation(value: unknown): value is QueuedShoppingOpera
   if (candidate.type === "toggle-item") {
     const toggle = candidate as QueuedToggleShoppingItem;
     return typeof toggle.itemId === "string" && typeof toggle.isChecked === "boolean";
+  }
+
+  if (candidate.type === "clear-checked") {
+    return true;
   }
 
   return false;

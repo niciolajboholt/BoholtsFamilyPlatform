@@ -15,6 +15,7 @@ import {
   CircularProgress,
   Container,
   List,
+  ListItem,
   ListItemButton,
   ListItemIcon,
   ListItemText,
@@ -323,41 +324,42 @@ function AppLayout() {
               const isSelected = index === currentIndex;
 
               return (
-                <ListItemButton
-                  key={item.path}
-                  selected={isSelected}
-                  onClick={() => navigate(item.path)}
-                  sx={{
-                    borderRadius: 2,
-                    mb: 0.5,
-                    "&.Mui-selected": {
-                      bgcolor: "primary.main",
-                      color: "primary.contrastText",
-                      "&:hover": { bgcolor: "primary.dark" },
-                      "& .MuiListItemIcon-root": {
-                        color: "primary.contrastText",
-                      },
-                    },
-                  }}
-                >
-                  <ListItemIcon
+                <ListItem key={item.path} disablePadding>
+                  <ListItemButton
+                    selected={isSelected}
+                    onClick={() => navigate(item.path)}
                     sx={{
-                      minWidth: 40,
-                      color: isSelected ? "inherit" : "text.secondary",
+                      borderRadius: 2,
+                      mb: 0.5,
+                      "&.Mui-selected": {
+                        bgcolor: "primary.main",
+                        color: "primary.contrastText",
+                        "&:hover": { bgcolor: "primary.dark" },
+                        "& .MuiListItemIcon-root": {
+                          color: "primary.contrastText",
+                        },
+                      },
                     }}
                   >
-                    {item.icon}
-                  </ListItemIcon>
+                    <ListItemIcon
+                      sx={{
+                        minWidth: 40,
+                        color: isSelected ? "inherit" : "text.secondary",
+                      }}
+                    >
+                      {item.icon}
+                    </ListItemIcon>
 
-                  <ListItemText
-                    primary={item.label}
-                    slotProps={{
-                      primary: {
-                        sx: { fontWeight: isSelected ? 700 : 500 },
-                      },
-                    }}
-                  />
-                </ListItemButton>
+                    <ListItemText
+                      primary={item.label}
+                      slotProps={{
+                        primary: {
+                          sx: { fontWeight: isSelected ? 700 : 500 },
+                        },
+                      }}
+                    />
+                  </ListItemButton>
+                </ListItem>
               );
             })}
           </List>

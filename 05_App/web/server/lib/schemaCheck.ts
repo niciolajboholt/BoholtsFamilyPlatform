@@ -32,6 +32,10 @@ const expectedTables = [
   "family_weekly_summaries",
   "feedback",
   "event_reminders",
+  "user_activity_cursors",
+  "calendar_sync_state",
+  "calendar_event_snapshots",
+  "calendar_activity_log",
 ] as const;
 
 // Kolonner tilføjet via ALTER TABLE på en allerede eksisterende tabel —

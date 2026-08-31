@@ -22,7 +22,9 @@ const { sendPushNotificationToFamily } = await import("../lib/pushNotifications"
 const { generateWeeklySummary } = await import("./aiAssistant");
 const { fetchPublicFamilyCalendarEvents } = await import("./googleCalendarAggregation");
 const { GoogleNotConnectedError } = await import("./googleConnection");
-const { sendWeeklySummaries } = await import("./weeklySummary");
+const { sendWeeklySummaries, generateWeeklySummaryForFamily, computeCurrentWeekStart } = await import(
+  "./weeklySummary"
+);
 
 const sendPushNotificationToFamilyMock = vi.mocked(sendPushNotificationToFamily);
 const generateWeeklySummaryMock = vi.mocked(generateWeeklySummary);
@@ -45,7 +47,7 @@ async function seedFamily(env: ReturnType<typeof createFakeEnv>, familyId = "fam
 describe("sendWeeklySummaries", () => {
   beforeEach(() => {
     sendPushNotificationToFamilyMock.mockReset().mockResolvedValue(undefined);
-    generateWeeklySummaryMock.mockReset().mockResolvedValue("Et roligt resumé af ugen.");
+    generateWeeklySummaryMock.mockReset().mockResolvedValue([{ name: "Fælles", text: "Et roligt resumé af ugen." }]);
     fetchPublicFamilyCalendarEventsMock.mockReset().mockResolvedValue([]);
   });
 
@@ -94,13 +96,13 @@ describe("sendWeeklySummaries", () => {
 
     expect(generateWeeklySummaryMock).toHaveBeenCalledWith(
       env,
-      expect.objectContaining({ openTasks: ["Køb gave"] }),
+      expect.objectContaining({ openTasks: [{ name: "Køb gave" }] }),
     );
     expect(sendPushNotificationToFamilyMock).toHaveBeenCalledWith(
       env,
       "family-1",
       "",
-      expect.objectContaining({ title: "Ugens resumé" }),
+      expect.objectContaining({ title: "Ugens resumé", body: "Fælles: Et roligt resumé af ugen." }),
     );
 
     const saved = await env.DB.prepare("SELECT family_id AS familyId, week_start AS weekStart, content FROM family_weekly_summaries").all<{
@@ -109,7 +111,11 @@ describe("sendWeeklySummaries", () => {
       content: string;
     }>();
     expect(saved.results).toEqual([
-      { familyId: "family-1", weekStart: expectedWeekStart, content: "Et roligt resumé af ugen." },
+      {
+        familyId: "family-1",
+        weekStart: expectedWeekStart,
+        content: JSON.stringify([{ name: "Fælles", text: "Et roligt resumé af ugen." }]),
+      },
     ]);
   });
 
@@ -203,7 +209,157 @@ describe("sendWeeklySummaries", () => {
 
     expect(generateWeeklySummaryMock).toHaveBeenCalledWith(
       env,
-      expect.objectContaining({ openTasks: ["Storrengøring"] }),
+      expect.objectContaining({ openTasks: [{ name: "Storrengøring" }] }),
     );
+  });
+
+  it("attributes an open task to its assigned family member, for the per-person breakdown", async () => {
+    const env = createFakeEnv();
+    await seedFamily(env);
+    await env.DB.prepare(
+      `INSERT INTO family_members (id, family_id, name, color, is_placeholder_name, created_at)
+       VALUES (?, ?, ?, ?, 0, ?)`,
+    )
+      .bind("member-chris", "family-1", "Christine", "#C97653", new Date().toISOString())
+      .run();
+    await env.DB.prepare(
+      `INSERT INTO tasks (id, family_id, name, icon, is_done, task_date, assigned_member_id, created_by_user_id, created_at)
+       VALUES (?, ?, ?, 'fritid', 0, ?, ?, 'owner', ?)`,
+    )
+      .bind("task-assigned", "family-1", "Bestil frisør", expectedWeekStart, "member-chris", new Date().toISOString())
+      .run();
+    await env.DB.prepare(
+      `INSERT INTO tasks (id, family_id, name, icon, is_done, task_date, created_by_user_id, created_at)
+       VALUES (?, ?, ?, 'fritid', 0, ?, 'owner', ?)`,
+    )
+      .bind("task-unassigned", "family-1", "Ryd op i garagen", expectedWeekStart, new Date().toISOString())
+      .run();
+
+    await sendWeeklySummaries(env, aSunday);
+
+    expect(generateWeeklySummaryMock).toHaveBeenCalledWith(
+      env,
+      expect.objectContaining({
+        openTasks: expect.arrayContaining([
+          { name: "Bestil frisør", memberName: "Christine" },
+          { name: "Ryd op i garagen" },
+        ]),
+      }),
+    );
+  });
+
+  it("never forwards a private event's description/location to the AI prompt, even if the calendar layer included them", async () => {
+    const env = createFakeEnv();
+    await seedFamily(env);
+    await env.DB.prepare(
+      `INSERT INTO family_members (id, family_id, name, color, is_placeholder_name, created_at)
+       VALUES (?, ?, ?, ?, 0, ?)`,
+    )
+      .bind("member-1", "family-1", "Nicolaj", "#2E7D32", new Date().toISOString())
+      .run();
+    await env.DB.prepare(
+      "INSERT INTO calendar_member_mappings (family_id, google_calendar_id, family_member_id) VALUES (?, ?, ?)",
+    )
+      .bind("family-1", "primary", "member-1")
+      .run();
+
+    // fetchPublicFamilyCalendarEvents (googleCalendarAggregation.ts) already
+    // redigerer et privat event til {title: "Optaget", description:
+    // undefined, location: undefined} — se dens egen test "redigerer private
+    // detaljer før delelink og AI modtager eventet". Denne test antager
+    // BEVIDST det modsatte (som om den redigering fejlede opstrøms) for at
+    // bevise, at collectUpcomingEvents() har sit eget, uafhængige lag:
+    // typen den returnerer ({title, start, allDay, memberName}) gør det
+    // umuligt at lække description/location videre til AI-prompten, uanset
+    // hvad opstrøms funktionen leverer.
+    fetchPublicFamilyCalendarEventsMock.mockResolvedValue([
+      {
+        title: "Optaget",
+        description: "Følsomme lægenoter — må aldrig nå AI'en",
+        location: "Klinik 4 — må aldrig nå AI'en",
+        start: "2026-08-18T10:00:00.000Z",
+        end: "2026-08-18T11:00:00.000Z",
+        allDay: false,
+        memberName: "Nicolaj",
+        memberColor: "#2E7D32",
+      },
+    ]);
+
+    await sendWeeklySummaries(env, aSunday);
+
+    expect(generateWeeklySummaryMock).toHaveBeenCalledWith(
+      env,
+      expect.objectContaining({
+        events: [
+          { title: "Optaget", start: "2026-08-18T10:00:00.000Z", allDay: false, memberName: "Nicolaj" },
+        ],
+      }),
+    );
+
+    const [, payload] = generateWeeklySummaryMock.mock.calls[0]!;
+    expect(JSON.stringify(payload)).not.toContain("lægenoter");
+    expect(JSON.stringify(payload)).not.toContain("Klinik 4");
+  });
+});
+
+describe("computeCurrentWeekStart", () => {
+  it("returns this week's Monday when today is midweek", () => {
+    expect(computeCurrentWeekStart("2026-08-19")).toBe("2026-08-17");
+  });
+
+  it("returns the same date when today already is a Monday", () => {
+    expect(computeCurrentWeekStart("2026-08-17")).toBe("2026-08-17");
+  });
+
+  // Regression (Nicolaj, 2026-08-30): søndag er sidste dag i sin egen uge,
+  // så en naiv "gå baglæns til mandag" gav ugen der er ved at slutte — et
+  // helt andet resumé end det, kortet allerede viser (som altid er den
+  // kommende uge, sat af cron'en). Et tryk på "opdater" søndag aften
+  // opdaterede derfor et usynligt resumé, mens det synlige stod uændret.
+  it("treats Sunday as tomorrow's week, matching computeUpcomingWeekStart and what the card already shows", () => {
+    expect(computeCurrentWeekStart("2026-08-16")).toBe("2026-08-17");
+  });
+});
+
+describe("generateWeeklySummaryForFamily", () => {
+  beforeEach(() => {
+    generateWeeklySummaryMock.mockReset().mockResolvedValue([{ name: "Fælles", text: "Et frisk resumé." }]);
+    fetchPublicFamilyCalendarEventsMock.mockReset().mockResolvedValue([]);
+  });
+
+  it("reports no-data without calling the AI when nothing is open", async () => {
+    const env = createFakeEnv();
+    await seedFamily(env);
+    const family = { id: "family-1", ownerUserId: "owner" };
+
+    const outcome = await generateWeeklySummaryForFamily(env, family, "2026-08-17", "2026-08-23");
+
+    expect(outcome).toEqual({ status: "no-data" });
+    expect(generateWeeklySummaryMock).not.toHaveBeenCalled();
+  });
+
+  it("updates, rather than duplicates, an existing summary for the same week", async () => {
+    const env = createFakeEnv();
+    await seedFamily(env);
+    const family = { id: "family-1", ownerUserId: "owner" };
+    await env.DB.prepare(
+      `INSERT INTO tasks (id, family_id, name, icon, is_done, task_date, created_by_user_id, created_at)
+       VALUES (?, ?, ?, 'fritid', 0, ?, 'owner', ?)`,
+    )
+      .bind("task-1", "family-1", "Køb gave", "2026-08-17", new Date().toISOString())
+      .run();
+    await env.DB.prepare(
+      "INSERT INTO family_weekly_summaries (id, family_id, week_start, content, created_at) VALUES (?, ?, ?, ?, ?)",
+    )
+      .bind("summary-existing", "family-1", "2026-08-17", "Gammelt resumé.", "2026-08-17T09:00:00.000Z")
+      .run();
+
+    const outcome = await generateWeeklySummaryForFamily(env, family, "2026-08-17", "2026-08-23");
+
+    expect(outcome).toEqual({ status: "generated", content: [{ name: "Fælles", text: "Et frisk resumé." }] });
+    const rows = await env.DB.prepare(
+      "SELECT content FROM family_weekly_summaries WHERE family_id = ? AND week_start = ?",
+    ).bind("family-1", "2026-08-17").all<{ content: string }>();
+    expect(rows.results).toEqual([{ content: JSON.stringify([{ name: "Fælles", text: "Et frisk resumé." }]) }]);
   });
 });

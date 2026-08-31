@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 
 import type { Env } from "./env";
+import activityRoutes from "./routes/activity";
 import authRoutes from "./routes/auth";
 import apiRoutes from "./routes/api";
 import calendarRoutes from "./routes/calendar";
@@ -11,6 +12,7 @@ import publicCalendarRoutes from "./routes/publicCalendar";
 import pushRoutes from "./routes/push";
 import shoppingListsRoutes from "./routes/shoppingLists";
 import tasksRoutes from "./routes/tasks";
+import { cleanupOldCalendarActivity, syncCalendarActivity } from "./lib/calendarActivitySync";
 import { sendDueEventReminders } from "./lib/eventReminders";
 import { cleanupOldRateLimitAttempts } from "./lib/rateLimit";
 import { checkSchema } from "./lib/schemaCheck";
@@ -66,6 +68,7 @@ app.route("/api/families", familiesRoutes);
 app.route("/api/families", shoppingListsRoutes);
 app.route("/api/families", tasksRoutes);
 app.route("/api/families", eventRemindersRoutes);
+app.route("/api/families", activityRoutes);
 app.route("/api/calendar", calendarRoutes);
 app.route("/api/push", pushRoutes);
 app.route("/api/feedback", feedbackRoutes);
@@ -108,19 +111,23 @@ app.get("*", (c) => c.env.ASSETS.fetch(c.req.raw));
 export default {
   fetch: app.fetch,
   // Tre Cron Triggers (se wrangler.jsonc's "triggers"), adskilt på
-  // controller.cron: den daglige (Sprint 24) rydder udløbne sessioner og
-  // gamle rate-limit-forsøg op; hvert 5. minut (Sprint 27, udvidet Sprint 31)
-  // sender tidsbaserede opgave- OG aftale-påmindelser; ugentligt søndag
-  // (Sprint 28) sender et AI-genereret ugeresumé.
+  // controller.cron: den daglige (Sprint 24, udvidet Sprint 33) rydder
+  // udløbne sessioner, gamle rate-limit-forsøg og gammel kalender-
+  // aktivitetslog op; hvert 5. minut (Sprint 27, udvidet Sprint 31 og 33)
+  // sender tidsbaserede opgave- OG aftale-påmindelser og synker kalender-
+  // aktivitet ("Siden sidst"); ugentligt søndag (Sprint 28) sender et
+  // AI-genereret ugeresumé.
   //
-  // Aftale-påmindelser er bevidst lagt på det EKSISTERENDE 5-minutters-tick
-  // frem for en ny cron-trigger — kontoen har et loft på 5 cron-triggers i
-  // alt på tværs af alle Workers/miljøer (se wrangler.jsonc's kommentar),
-  // som allerede er i brug.
+  // Aftale-påmindelser og kalender-aktivitetssynk er bevidst lagt på det
+  // EKSISTERENDE 5-minutters-tick frem for en ny cron-trigger — kontoen
+  // har et loft på 5 cron-triggers i alt på tværs af alle
+  // Workers/miljøer (se wrangler.jsonc's kommentar), som allerede er i
+  // brug.
   async scheduled(controller, env, ctx) {
     if (controller.cron === "*/5 * * * *") {
       ctx.waitUntil(sendDueTaskReminders(env));
       ctx.waitUntil(sendDueEventReminders(env));
+      ctx.waitUntil(syncCalendarActivity(env));
       return;
     }
 
@@ -131,5 +138,6 @@ export default {
 
     ctx.waitUntil(cleanupExpiredSessions(env));
     ctx.waitUntil(cleanupOldRateLimitAttempts(env.DB));
+    ctx.waitUntil(cleanupOldCalendarActivity(env.DB));
   },
 } satisfies ExportedHandler<Env>;

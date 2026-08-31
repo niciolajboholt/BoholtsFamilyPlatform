@@ -4,13 +4,13 @@
 // beslutning 1).
 
 import type { Env } from "../env";
-import { generateWeeklySummary } from "./aiAssistant";
+import { generateWeeklySummary, type WeeklySummaryInput, type WeeklySummarySection } from "./aiAssistant";
 import { fetchPublicFamilyCalendarEvents } from "./googleCalendarAggregation";
 import { GoogleNotConnectedError } from "./googleConnection";
 import { sendPushNotificationToFamily } from "./pushNotifications";
 import { materializeTasksForDate } from "../routes/tasks";
 
-function getCopenhagenDateString(now: Date): string {
+export function getCopenhagenDateString(now: Date): string {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Europe/Copenhagen",
     year: "numeric",
@@ -48,7 +48,35 @@ function computeUpcomingWeekStart(today: string): string {
   return candidate;
 }
 
-interface FamilyRow {
+// Mandag i den uge, "i dag" falder i (i dag selv, hvis i dag er mandag).
+// Bruges af den manuelle opdater-knap, som — i modsætning til cron'en, der
+// altid kigger fremad mod næste uge — som udgangspunkt skal vise et frisk
+// resumé af den uge, man rent faktisk befinder sig i lige nu.
+//
+// Særtilfælde søndag: søndag er den SIDSTE dag i sin egen uge (mandag-
+// søndag), så "ugen man er i" ville ellers blive den uge, der er ved at
+// slutte om få timer — ikke den uge, kortet allerede viser, og som cron'en
+// selv sigter efter, når den kører søndag aften. Uden dette særtilfælde
+// opdaterede/overskrev en søndags-tryk et helt andet (og usynligt) resumé
+// end det, brugeren rent faktisk ser på skærmen, mens selve det synlige
+// resumé forblev uændret — præcis den fejl, der opstod i produktion
+// (Nicolaj, 2026-08-30): "opdater"-knappen virkede tilsyneladende slet
+// ikke. Søndag behandles derfor som "i morgen" her, så resultatet matcher
+// computeUpcomingWeekStart() og dermed det, brugeren allerede ser.
+export function computeCurrentWeekStart(today: string): string {
+  const base = getUtcWeekday(today) === 0 ? addDays(today, 1) : today;
+  let candidate = base;
+
+  while (getUtcWeekday(candidate) !== 1) {
+    candidate = addDays(candidate, -1);
+  }
+
+  return candidate;
+}
+
+export { addDays };
+
+export interface FamilyRow {
   id: string;
   ownerUserId: string;
 }
@@ -58,21 +86,23 @@ async function collectOpenTaskNames(
   familyId: string,
   weekStart: string,
   weekEnd: string,
-): Promise<string[]> {
+): Promise<WeeklySummaryInput["openTasks"]> {
   for (let offset = 0; offset < 7; offset += 1) {
     await materializeTasksForDate(db, familyId, addDays(weekStart, offset));
   }
 
   const { results } = await db
     .prepare(
-      `SELECT name FROM tasks
-       WHERE family_id = ? AND task_date BETWEEN ? AND ? AND is_done = 0
-       ORDER BY task_date ASC, time_of_day ASC`,
+      `SELECT tasks.name AS name, family_members.name AS memberName
+       FROM tasks
+       LEFT JOIN family_members ON family_members.id = tasks.assigned_member_id
+       WHERE tasks.family_id = ? AND tasks.task_date BETWEEN ? AND ? AND tasks.is_done = 0
+       ORDER BY tasks.task_date ASC, tasks.time_of_day ASC`,
     )
     .bind(familyId, weekStart, weekEnd)
-    .all<{ name: string }>();
+    .all<{ name: string; memberName: string | null }>();
 
-  return results.map((row) => row.name);
+  return results.map((row) => ({ name: row.name, memberName: row.memberName ?? undefined }));
 }
 
 async function collectOpenShoppingItemNames(db: D1Database, familyId: string): Promise<string[]> {
@@ -100,7 +130,7 @@ async function collectUpcomingEvents(
   ownerUserId: string,
   weekStart: string,
   weekEnd: string,
-): Promise<{ title: string; start: string }[]> {
+): Promise<WeeklySummaryInput["events"]> {
   const { results: mappings } = await env.DB.prepare(
     "SELECT DISTINCT family_member_id AS familyMemberId FROM calendar_member_mappings WHERE family_id = ?",
   )
@@ -120,7 +150,19 @@ async function collectUpcomingEvents(
       { start: `${weekStart}T00:00:00.000Z`, end: `${addDays(weekEnd, 1)}T00:00:00.000Z` },
     );
 
-    return events.map((event) => ({ title: event.title, start: event.start }));
+    // Flere kalendere hentes hver for sig (Google returnerer kun sin egen
+    // kalender kronologisk) — samlet på tværs af medlemmer skal listen
+    // sorteres eksplicit, ellers får AI'en aftalerne i en tilfældig,
+    // forvirrende rækkefølge (fx torsdag før tirsdag).
+    return events
+      .slice()
+      .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
+      .map((event) => ({
+        title: event.title,
+        start: event.start,
+        allDay: event.allDay,
+        memberName: event.memberName,
+      }));
   } catch (error) {
     if (error instanceof GoogleNotConnectedError) {
       return [];
@@ -137,6 +179,57 @@ async function hasExistingSummary(db: D1Database, familyId: string, weekStart: s
     .first<{ id: string }>();
 
   return existing !== null;
+}
+
+export type WeeklySummaryOutcome =
+  | { status: "generated"; content: WeeklySummarySection[] }
+  | { status: "no-data" }
+  | { status: "generation-failed" };
+
+/**
+ * Samler kalender/opgaver/indkøbsliste for én familie og én uge, beder AI'en
+ * om et resumé, og gemmer det (opdaterer et eksisterende resumé for samme
+ * uge, hvis der allerede er ét — modsat cron-jobbets egen indsættelse, som
+ * aldrig overskriver, se `sendWeeklySummaries`). Ingen push her: kaldes
+ * både af cron'en (som selv sender push efter et vellykket kald) og af den
+ * brugerudløste opdater-knap (hvor personen allerede sidder og kigger på
+ * resultatet, og resten af familien ikke behøver en notifikation for det).
+ */
+export async function generateWeeklySummaryForFamily(
+  env: Env,
+  family: FamilyRow,
+  weekStart: string,
+  weekEnd: string,
+): Promise<WeeklySummaryOutcome> {
+  const [openTasks, shoppingItems, events] = await Promise.all([
+    collectOpenTaskNames(env.DB, family.id, weekStart, weekEnd),
+    collectOpenShoppingItemNames(env.DB, family.id),
+    collectUpcomingEvents(env, family.id, family.ownerUserId, weekStart, weekEnd),
+  ]);
+
+  if (openTasks.length === 0 && shoppingItems.length === 0 && events.length === 0) {
+    return { status: "no-data" };
+  }
+
+  const content = await generateWeeklySummary(env, { events, openTasks, shoppingItems });
+
+  if (!content) {
+    return { status: "generation-failed" };
+  }
+
+  // `content`-kolonnen gemmer sektionerne som en JSON-streng — familySettings.ts's
+  // GET-rute parser den tilbage til strukturerede sektioner, med en fallback for
+  // ældre rækker fra før denne ændring (ren tekst, ikke JSON).
+  await env.DB.prepare(
+    `INSERT INTO family_weekly_summaries (id, family_id, week_start, content, created_at)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(family_id, week_start)
+     DO UPDATE SET content = excluded.content, created_at = excluded.created_at`,
+  )
+    .bind(crypto.randomUUID(), family.id, weekStart, JSON.stringify(content), new Date().toISOString())
+    .run();
+
+  return { status: "generated", content };
 }
 
 /**
@@ -166,19 +259,13 @@ export async function sendWeeklySummaries(env: Env, now: Date = new Date()): Pro
         continue;
       }
 
-      const [openTasks, shoppingItems, events] = await Promise.all([
-        collectOpenTaskNames(env.DB, family.id, weekStart, weekEnd),
-        collectOpenShoppingItemNames(env.DB, family.id),
-        collectUpcomingEvents(env, family.id, family.ownerUserId, weekStart, weekEnd),
-      ]);
+      const outcome = await generateWeeklySummaryForFamily(env, family, weekStart, weekEnd);
 
-      if (openTasks.length === 0 && shoppingItems.length === 0 && events.length === 0) {
+      if (outcome.status === "no-data") {
         continue;
       }
 
-      const content = await generateWeeklySummary(env, { events, openTasks, shoppingItems });
-
-      if (!content) {
+      if (outcome.status === "generation-failed") {
         console.error(JSON.stringify({
           message: "Kunne ikke generere ugeresumé",
           familyId: family.id,
@@ -186,17 +273,12 @@ export async function sendWeeklySummaries(env: Env, now: Date = new Date()): Pro
         continue;
       }
 
-      await env.DB.prepare(
-        "INSERT INTO family_weekly_summaries (id, family_id, week_start, content, created_at) VALUES (?, ?, ?, ?, ?)",
-      )
-        .bind(crypto.randomUUID(), family.id, weekStart, content, new Date().toISOString())
-        .run();
-
       // Ingen handlende bruger at undtage for et system-udløst resumé —
       // samme mønster/begrundelse som Sprint 27's task-påmindelser.
+      const previewText = outcome.content.map((section) => `${section.name}: ${section.text}`).join(" ");
       await sendPushNotificationToFamily(env, family.id, "", {
         title: "Ugens resumé",
-        body: content.length > 120 ? `${content.slice(0, 119)}…` : content,
+        body: previewText.length > 120 ? `${previewText.slice(0, 119)}…` : previewText,
         url: "/",
       });
     } catch (error: unknown) {

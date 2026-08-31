@@ -2,9 +2,33 @@ import { Hono } from "hono";
 
 import type { Env } from "../../env";
 import { getMembershipForFamily } from "../../lib/familyMembership";
-import { getFamily, listFamilyMembers, parseJsonBody, type Variables } from "./familyQueries";
+import {
+  getFamily,
+  listFamilyMembers,
+  listFamilyMemberships,
+  parseJsonBody,
+  type Variables,
+} from "./familyQueries";
 
 const familyMembers = new Hono<{ Bindings: Env; Variables: Variables }>();
+
+// Familiens konti (ikke at forveksle med family_members-profilerne
+// ovenfor) med deres rolle — grundlaget for rolle-/adgangsadministrations-
+// UI'et. Enhver medlem må læse, ligesom resten af familiedata; kun
+// rolleændring/fjernelse nedenfor kræver ejer/admin.
+familyMembers.get("/:id/memberships", async (c) => {
+  const user = c.get("user");
+  const familyId = c.req.param("id");
+  const membership = await getMembershipForFamily(c.env.DB, familyId, user.id);
+
+  if (!membership) {
+    return c.json({ error: "Ikke fundet." }, 404);
+  }
+
+  const memberships = await listFamilyMemberships(c.env.DB, familyId);
+
+  return c.json({ memberships });
+});
 
 // Tilføj et nyt familiemedlem (fx et barn) — ejer/admin.
 familyMembers.post("/:id/members", async (c) => {

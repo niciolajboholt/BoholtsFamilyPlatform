@@ -39,13 +39,24 @@ export interface FamilyMemberRow {
   relation: string | null;
   isPlaceholderName: number;
   linkedUserId: string | null;
+  linkedUserEmail: string | null;
 }
 
+// LEFT JOIN (ikke JOIN): et medlem uden koblet konto (fx et barn) skal
+// stadig komme med i listen, blot med linkedUserEmail: null — bruges
+// client-side til at matche Google-aftalers deltagerliste mod medlemmet
+// (matchAttendeesToOwnerIds.ts), mere præcist end kalender-tildelingen.
 export async function listFamilyMembers(db: D1Database, familyId: string): Promise<FamilyMemberRow[]> {
   const result = await db
     .prepare(
-      `SELECT id, name, color, relation, is_placeholder_name AS isPlaceholderName, linked_user_id AS linkedUserId
-       FROM family_members WHERE family_id = ? ORDER BY created_at ASC`,
+      `SELECT family_members.id AS id, family_members.name AS name, family_members.color AS color,
+              family_members.relation AS relation,
+              family_members.is_placeholder_name AS isPlaceholderName,
+              family_members.linked_user_id AS linkedUserId,
+              users.email AS linkedUserEmail
+       FROM family_members
+       LEFT JOIN users ON users.id = family_members.linked_user_id
+       WHERE family_members.family_id = ? ORDER BY family_members.created_at ASC`,
     )
     .bind(familyId)
     .all<FamilyMemberRow>();
@@ -62,6 +73,30 @@ export interface ShareLinkRow {
 
 export function parseIncludedMemberIds(csv: string): string[] {
   return csv.split(",").filter((id) => id.length > 0);
+}
+
+export interface FamilyMembershipRow {
+  userId: string;
+  email: string;
+  name: string;
+  role: string;
+  joinedAt: string;
+}
+
+export async function listFamilyMemberships(db: D1Database, familyId: string): Promise<FamilyMembershipRow[]> {
+  const result = await db
+    .prepare(
+      `SELECT users.id AS userId, users.email AS email, users.name AS name,
+              family_memberships.role AS role, family_memberships.joined_at AS joinedAt
+       FROM family_memberships
+       JOIN users ON users.id = family_memberships.user_id
+       WHERE family_memberships.family_id = ?
+       ORDER BY family_memberships.joined_at ASC`,
+    )
+    .bind(familyId)
+    .all<FamilyMembershipRow>();
+
+  return result.results;
 }
 
 export interface CalendarMemberMappingRow {

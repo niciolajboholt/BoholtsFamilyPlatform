@@ -8,6 +8,7 @@ import familyCore from "./familyRoutes/familyCore";
 import familyMembers from "./familyRoutes/familyMembers";
 import familySettings from "./familyRoutes/familySettings";
 import type { Variables } from "./familyRoutes/familyQueries";
+import icsSubscriptions from "./familyRoutes/icsSubscriptions";
 import shareLinks from "./familyRoutes/shareLinks";
 
 const families = new Hono<{ Bindings: Env; Variables: Variables }>();
@@ -43,5 +44,6 @@ families.route("/", familyMembers);
 families.route("/", shareLinks);
 families.route("/", familySettings);
 families.route("/", calendarMappings);
+families.route("/", icsSubscriptions);
 
 export default families;

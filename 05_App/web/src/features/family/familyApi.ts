@@ -9,6 +9,7 @@ export interface FamilyMemberDto {
   relation: string | null;
   isPlaceholderName: number;
   linkedUserId: string | null;
+  linkedUserEmail: string | null;
 }
 
 export interface FamilyDto {
@@ -110,6 +111,20 @@ export function deleteFamilyMember(familyId: string, memberId: string) {
   );
 }
 
+export interface FamilyMembershipDto {
+  userId: string;
+  email: string;
+  name: string;
+  role: FamilyRole;
+  joinedAt: string;
+}
+
+export function getFamilyMemberships(familyId: string) {
+  return request<{ memberships?: FamilyMembershipDto[]; error?: string }>(
+    `/api/families/${familyId}/memberships`,
+  );
+}
+
 export function changeMemberRole(
   familyId: string,
   userId: string,
@@ -171,16 +186,31 @@ export function clearAllCalendarMappings(familyId: string) {
   );
 }
 
-// Sprint 28: nyeste gemte AI-ugeresumé.
+// Sprint 28: nyeste gemte AI-ugeresumé. Opdelt pr. familiemedlem (samt en
+// "Fælles"-sektion for resten) i stedet for én sammenhængende tekst, så
+// klienten kan vise hvert navn fremhævet uden selv at skulle gætte på
+// tekstens formatering.
+export interface WeeklySummarySectionDto {
+  name: string;
+  text: string;
+}
+
 export interface WeeklySummaryDto {
   weekStart: string;
-  content: string;
+  sections: WeeklySummarySectionDto[];
   createdAt: string;
 }
 
 export function getWeeklySummary(familyId: string) {
   return request<{ summary: WeeklySummaryDto | null; error?: string }>(
     `/api/families/${familyId}/weekly-summary`,
+  );
+}
+
+export function refreshWeeklySummary(familyId: string) {
+  return request<{ summary?: WeeklySummaryDto; error?: string }>(
+    `/api/families/${familyId}/weekly-summary/refresh`,
+    { method: "POST" },
   );
 }
 
@@ -227,5 +257,138 @@ export function deleteShareLink(familyId: string) {
   return request<{ ok?: boolean; error?: string }>(
     `/api/families/${familyId}/share-link`,
     { method: "DELETE" },
+  );
+}
+
+// Sprint 33 ("Siden sidst du var her"): aktivitet siden brugerens sidste
+// besøg i DENNE familie. `hasActivity: false` er bevidst et smallere svar
+// (ingen af de øvrige felter er meningsfulde, hvis der intet er at vise) —
+// se server/routes/activity.ts.
+export interface ActivityCalendarMovedDto {
+  title: string;
+  oldStart: string | null;
+  newStart: string | null;
+}
+
+export interface ActivityCalendarCancelledDto {
+  title: string;
+  oldStart: string | null;
+}
+
+export interface ActivityCalendarCreatedDto {
+  title: string;
+  start: string | null;
+}
+
+export interface ActivityFamilyMemberDto {
+  name: string;
+}
+
+export type ActivitySummaryDto =
+  | { hasActivity: false; since: string | null; asOf: string }
+  | {
+      hasActivity: true;
+      since: string;
+      asOf: string;
+      calendar: {
+        moved: ActivityCalendarMovedDto[];
+        cancelled: ActivityCalendarCancelledDto[];
+        created: ActivityCalendarCreatedDto[];
+      };
+      tasksCompletedCount: number;
+      tasksCreatedCount: number;
+      shoppingAddedCount: number;
+      shoppingCheckedCount: number;
+      newFamilyMembers: ActivityFamilyMemberDto[];
+      totalCount: number;
+    };
+
+// Den indsnævrede variant, komponenter der allerede ved der ER aktivitet
+// (dialogerne) kan bruge, uden selv at skulle udelukke `hasActivity: false`.
+export type ActiveActivitySummary = Extract<ActivitySummaryDto, { hasActivity: true }>;
+
+export function getActivitySince(familyId: string) {
+  return request<ActivitySummaryDto & { error?: string }>(
+    `/api/families/${familyId}/activity/since-last-visit`,
+  );
+}
+
+export function acknowledgeActivity(familyId: string, asOf: string) {
+  return request<{ ok?: boolean; error?: string }>(
+    `/api/families/${familyId}/activity/acknowledge`,
+    { method: "POST", body: JSON.stringify({ asOf }) },
+  );
+}
+
+// Fase 9: delte kalendere tilføjet via et ICS-link.
+export interface IcsCalendarSubscriptionDto {
+  id: string;
+  familyId: string;
+  url: string;
+  label: string;
+  familyMemberId: string | null;
+  color: string | null;
+  lastFetchedAt: string | null;
+  lastFetchStatus: string | null;
+  createdAt: string;
+}
+
+export function getIcsSubscriptions(familyId: string) {
+  return request<{ subscriptions?: IcsCalendarSubscriptionDto[]; error?: string }>(
+    `/api/families/${familyId}/ics-subscriptions`,
+  );
+}
+
+export function createIcsSubscription(
+  familyId: string,
+  input: { url: string; label: string; familyMemberId?: string | null; color?: string | null },
+) {
+  return request<{ subscriptions?: IcsCalendarSubscriptionDto[]; error?: string }>(
+    `/api/families/${familyId}/ics-subscriptions`,
+    { method: "POST", body: JSON.stringify(input) },
+  );
+}
+
+export function updateIcsSubscription(
+  familyId: string,
+  subscriptionId: string,
+  input: { url?: string; label?: string; familyMemberId?: string | null; color?: string | null },
+) {
+  return request<{ subscriptions?: IcsCalendarSubscriptionDto[]; error?: string }>(
+    `/api/families/${familyId}/ics-subscriptions/${subscriptionId}`,
+    { method: "PATCH", body: JSON.stringify(input) },
+  );
+}
+
+export function deleteIcsSubscription(familyId: string, subscriptionId: string) {
+  return request<{ subscriptions?: IcsCalendarSubscriptionDto[]; error?: string }>(
+    `/api/families/${familyId}/ics-subscriptions/${subscriptionId}`,
+    { method: "DELETE" },
+  );
+}
+
+// Fase 9: aftaler for ét ICS-abonnement, allerede hentet/parset/redigeret
+// (privatliv, RRULE-udfoldning) server-side af server/lib/icsCalendar.ts.
+export interface IcsCalendarEventDto {
+  id: string;
+  title: string;
+  start: string;
+  end: string;
+  allDay: boolean;
+  description?: string;
+  location?: string;
+  isPrivate: boolean;
+}
+
+export function getIcsSubscriptionEvents(
+  familyId: string,
+  subscriptionId: string,
+  range?: { start: string; end: string },
+) {
+  const query = range
+    ? `?start=${encodeURIComponent(range.start)}&end=${encodeURIComponent(range.end)}`
+    : "";
+  return request<{ events?: IcsCalendarEventDto[]; error?: string }>(
+    `/api/families/${familyId}/ics-subscriptions/${subscriptionId}/events${query}`,
   );
 }

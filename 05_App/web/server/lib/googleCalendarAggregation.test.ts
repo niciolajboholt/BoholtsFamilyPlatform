@@ -252,4 +252,26 @@ describe("fetchPublicFamilyCalendarEvents", () => {
     expect(events).toHaveLength(1);
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
+
+  it("returns an empty list — not every calendar — when the family has no mapping at all for the given member", async () => {
+    const env = createFakeEnv();
+    const familyId = await seedFamily(env);
+    // Bevidst INGEN seedMemberMapping-kald: et familiemedlem, der aldrig har
+    // koblet en Google-kalender. Den sikre standard er at vise intet for
+    // vedkommende, ikke at gætte eller falde tilbage til en anden kalender.
+    await env.DB.prepare(
+      "INSERT INTO family_members (id, family_id, name, color, is_placeholder_name, created_at) VALUES (?, ?, ?, ?, 0, ?)",
+    )
+      .bind("member-unmapped", familyId, "Ukoblet", "#2E7D32", new Date().toISOString())
+      .run();
+
+    const events = await fetchPublicFamilyCalendarEvents(env, familyId, "creator", ["member-unmapped"], {
+      start: "2026-08-01T00:00:00.000Z",
+      end: "2026-09-01T00:00:00.000Z",
+    });
+
+    expect(events).toEqual([]);
+    expect(getGoogleAccessTokenMock).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
 });

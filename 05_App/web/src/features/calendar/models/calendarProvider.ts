@@ -1,7 +1,8 @@
 export type CalendarProviderType =
   | "google"
   | "outlook"
-  | "apple";
+  | "apple"
+  | "ics";
 
 /**
  * En leverandøruafhængig kalenderkilde.
@@ -38,7 +39,8 @@ export function isExternalCalendarProviderType(
   return (
     providerType === "google" ||
     providerType === "outlook" ||
-    providerType === "apple"
+    providerType === "apple" ||
+    providerType === "ics"
   );
 }
 

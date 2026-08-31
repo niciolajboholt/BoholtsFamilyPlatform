@@ -18,7 +18,7 @@ import {
 } from "@mui/material";
 
 import type { CalendarOwner } from "../data/calendarOwners";
-import { getEventOwnerColor } from "../utils/getEventOwnerColor";
+import { getEventOwnerBorderSx, getEventOwnerColors } from "../utils/getEventOwnerColor";
 import {
   familyPseudoMemberId,
   type CalendarEvent,
@@ -411,6 +411,7 @@ function FamilyPlannerCalendar({
                             <Box key={column.id} sx={{ minWidth: 0 }}>
                               <Box
                                 sx={{
+                                  position: "relative",
                                   display: "flex",
                                   alignItems: "center",
                                   gap: 0.75,
@@ -437,14 +438,16 @@ function FamilyPlannerCalendar({
 
                               <Box sx={{ display: "grid", gap: 0.625 }}>
                                 {column.events.map((event) => {
-                                  const ownerColor = getEventOwnerColor(event, members);
+                                  const ownerColors = getEventOwnerColors(event, members);
+                                  const ownerColor = ownerColors[0];
 
                                   return (
                                     <ButtonBase
                                       key={`${column.id}::${event.id}`}
-                                      aria-label={getEventActionLabel(event)}
+                                      aria-label={getEventActionLabel(event, members)}
                                       onClick={() => onSelectEvent(event)}
                                       sx={{
+                                        position: "relative",
                                         display: "grid",
                                         gridTemplateColumns: "52px minmax(0, 1fr)",
                                         alignItems: "start",
@@ -453,8 +456,8 @@ function FamilyPlannerCalendar({
                                         minWidth: 0,
                                         p: 1,
                                         borderRadius: 1.75,
-                                        borderLeft: `4px solid ${ownerColor}`,
-                                        backgroundColor: `${ownerColor}12`,
+                                        ...getEventOwnerBorderSx(ownerColors, 4),
+                                        backgroundColor: `${ownerColor}14`,
                                         textAlign: "left",
                                         "&:focus-visible": {
                                           outline: "2px solid",
@@ -672,15 +675,16 @@ function FamilyPlannerCalendar({
                           }}
                         >
                           {columnEvents.map((event) => {
-                            const ownerColor = getEventOwnerColor(
+                            const ownerColors = getEventOwnerColors(
                               event,
                               members,
                             );
+                            const ownerColor = ownerColors[0];
 
                             return (
                               <ButtonBase
                                 key={`${column.id}::${event.id}`}
-                                aria-label={getEventActionLabel(event)}
+                                aria-label={getEventActionLabel(event, members)}
                                 title={`${formatEventTime(event)} · ${event.title}`}
                                 onClick={() => onSelectEvent(event)}
                                 sx={{
@@ -692,7 +696,7 @@ function FamilyPlannerCalendar({
                                   minWidth: 0,
                                   p: 0.5,
                                   borderRadius: 1,
-                                  borderLeft: `3px solid ${ownerColor}`,
+                                  ...getEventOwnerBorderSx(ownerColors, 3),
                                   backgroundColor: `${ownerColor}14`,
                                   textAlign: "left",
 

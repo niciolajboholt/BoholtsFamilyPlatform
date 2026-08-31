@@ -7,6 +7,7 @@ import {
   toLocalMidnightIso,
 } from "./googleCalendarMapper";
 import type { GoogleCalendarEvent } from "./googleCalendarTypes";
+import type { CalendarOwner } from "../../data/calendarOwners";
 
 describe("toLocalMidnightIso", () => {
   it("keeps a bare date on the same local calendar day (regression: was shifted by the UTC offset)", () => {
@@ -231,5 +232,58 @@ describe("mapGoogleCalendarEvent", () => {
     const event: GoogleCalendarEvent = { id: "no-dates" };
 
     expect(mapGoogleCalendarEvent(calendarId, event)).toBeNull();
+  });
+
+  // Fase 1-følgeret: farven i kalenderen skal afspejle hvem aftalen reelt
+  // er FOR, ikke kun hvilken kalender den ligger på (se
+  // matchAttendeesToOwnerIds.ts og bug-rapporten, den løser).
+  describe("attendee-based ownership (går forud for kalender-tildelingen)", () => {
+    const members: CalendarOwner[] = [
+      { id: "christine", name: "Christine", color: "#C62828", email: "christine@example.com" },
+      { id: "jens", name: "Jens", color: "#00838F", email: "jens@example.com" },
+    ];
+
+    it("attributes the event to the matched attendees instead of the calendar's mapped owner", () => {
+      const event: GoogleCalendarEvent = {
+        id: "kbh1",
+        summary: "Christine og Jens KBH",
+        start: { dateTime: "2026-08-24T09:00:00+02:00" },
+        end: { dateTime: "2026-08-24T10:00:00+02:00" },
+        attendees: [{ email: "christine@example.com" }, { email: "jens@example.com" }],
+      };
+
+      // "family" er den kalender-tildeling, aftalen ELLERS ville have fået
+      // (fx den delte "Familien"-kalender) — deltagerne vinder alligevel.
+      const mapped = mapGoogleCalendarEvent(calendarId, event, "family", members);
+
+      expect(mapped?.ownerIds).toEqual(["christine", "jens"]);
+    });
+
+    it("falls back to the calendar's mapped owner when no attendee matches a family member", () => {
+      const event: GoogleCalendarEvent = {
+        id: "kbh2",
+        summary: "Frokost med en ven",
+        start: { dateTime: "2026-08-24T12:00:00+02:00" },
+        end: { dateTime: "2026-08-24T13:00:00+02:00" },
+        attendees: [{ email: "en-ven@example.com" }],
+      };
+
+      const mapped = mapGoogleCalendarEvent(calendarId, event, "family", members);
+
+      expect(mapped?.ownerIds).toEqual(["family"]);
+    });
+
+    it("falls back to the calendar's mapped owner when the event has no attendees at all", () => {
+      const event: GoogleCalendarEvent = {
+        id: "kbh3",
+        summary: "Frisør",
+        start: { dateTime: "2026-08-24T12:00:00+02:00" },
+        end: { dateTime: "2026-08-24T13:00:00+02:00" },
+      };
+
+      const mapped = mapGoogleCalendarEvent(calendarId, event, "family", members);
+
+      expect(mapped?.ownerIds).toEqual(["family"]);
+    });
   });
 });

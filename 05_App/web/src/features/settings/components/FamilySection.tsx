@@ -7,6 +7,7 @@ import {
   FamilyRestroomRounded,
   GroupAddRounded,
   LinkRounded,
+  ManageAccountsRounded,
 } from "@mui/icons-material";
 import { Avatar, Box, Button, Card, CardContent, Divider, IconButton, Typography } from "@mui/material";
 
@@ -20,6 +21,7 @@ import {
 import type { MappableCalendarOption } from "../../calendar/providers/calendarProviderFactory";
 import { listAllMappableCalendars } from "../../calendar/providers/calendarProviderFactory";
 import { getInitials } from "../../calendar/utils/getInitials";
+import { FamilyMembershipsDialog } from "../../family/FamilyMembershipsDialog";
 import { InviteCodeDialog } from "../../family/InviteCodeDialog";
 import { ShareLinkDialog } from "../../family/ShareLinkDialog";
 import { SettingsLinkRow, SettingsSectionHeader } from "./SettingsPrimitives";
@@ -31,6 +33,7 @@ export function FamilySection() {
   const [isMemberDialogOpen, setIsMemberDialogOpen] = useState(false);
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
+  const [isMembershipsDialogOpen, setIsMembershipsDialogOpen] = useState(false);
 
   // Kalender-til-medlem-visning (kun læsning her — selve tildelingen sker i
   // FamilyMemberDialog) — hentes én gang, så familielisten kan vise hvilken
@@ -205,6 +208,15 @@ export function FamilySection() {
           <Divider />
 
           <SettingsLinkRow
+            icon={<ManageAccountsRounded color="action" />}
+            title="Medlemmer og roller"
+            subtitle="Se konti, skift rolle, fjern adgang"
+            onClick={() => setIsMembershipsDialogOpen(true)}
+          />
+
+          <Divider />
+
+          <SettingsLinkRow
             icon={<LinkRounded color="action" />}
             title="Del kalender"
             subtitle="Offentligt link til udenforstående"
@@ -222,6 +234,11 @@ export function FamilySection() {
       />
 
       <InviteCodeDialog open={isInviteDialogOpen} onClose={() => setIsInviteDialogOpen(false)} />
+
+      <FamilyMembershipsDialog
+        open={isMembershipsDialogOpen}
+        onClose={() => setIsMembershipsDialogOpen(false)}
+      />
 
       <ShareLinkDialog open={isShareDialogOpen} onClose={() => setIsShareDialogOpen(false)} />
     </>

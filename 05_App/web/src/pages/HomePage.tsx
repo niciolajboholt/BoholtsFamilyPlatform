@@ -23,6 +23,7 @@ import {
   Typography,
 } from "@mui/material";
 
+import { ActivityCard } from "../features/activity/ActivityCard";
 import { WeeklySummaryCard } from "../features/family/WeeklySummaryCard";
 import { useCalendarEvents } from "../features/calendar/hooks/useCalendarEvents";
 import { useCurrentMember } from "../features/calendar/hooks/useCurrentMember";
@@ -187,6 +188,8 @@ function HomePage() {
           </Box>
         </Typography>
       </Box>
+
+      <ActivityCard />
 
       <Box
         sx={{

@@ -7,7 +7,11 @@ import {
 import { alpha } from "@mui/material/styles";
 
 import type { CalendarOwner } from "../data/calendarOwners";
-import { getEventOwnerColor } from "../utils/getEventOwnerColor";
+import {
+  getEventOwnerBadges,
+  getEventOwnerBorderSx,
+  getEventOwnerColors,
+} from "../utils/getEventOwnerColor";
 import { useLongPress } from "../hooks/useLongPress";
 import type {
   CalendarEvent,
@@ -18,6 +22,7 @@ import {
   getEventActionLabel,
 } from "../utils/calendarAccessibility";
 import ConflictBadge from "./ConflictBadge";
+import EventOwnerBadges from "./EventOwnerBadges";
 
 interface DayCellProps {
   date: Date;
@@ -267,7 +272,10 @@ function DayCell({
                 : isCurrentMonth
                   ? theme.palette.background.paper
                   : theme.palette.action.hover,
-          opacity: isCurrentMonth ? 1 : 0.55,
+          // Sprint 30 stabilisering: 0.55 gjorde datotallet for dage uden for
+          // måneden for lyst (3.44:1 kontrast, kræver 4.5:1) — 0.7 bevarer
+          // det nedtonede udtryk og består WCAG AA.
+          opacity: isCurrentMonth ? 1 : 0.7,
           transition:
             "background-color 150ms, border-color 150ms",
 
@@ -357,13 +365,22 @@ function DayCell({
                   key={ownerId}
                   title={owner.name}
                   sx={{
-                    width: 8,
-                    height: 8,
+                    width: 14,
+                    height: 14,
                     borderRadius: "50%",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
                     backgroundColor:
                       owner.color,
+                    color: "#ffffff",
+                    fontSize: "8px",
+                    fontWeight: 700,
+                    lineHeight: 1,
                   }}
-                />
+                >
+                  {owner.name.charAt(0).toUpperCase()}
+                </Box>
               );
             })}
         </Box>
@@ -382,7 +399,12 @@ function DayCell({
             {events
               .slice(0, 3)
               .map((event) => {
-                const ownerColor = getEventOwnerColor(
+                const ownerColors = getEventOwnerColors(
+                  event,
+                  members,
+                );
+                const ownerColor = ownerColors[0];
+                const ownerBadges = getEventOwnerBadges(
                   event,
                   members,
                 );
@@ -401,10 +423,11 @@ function DayCell({
                 return (
                   <ButtonBase
                     key={event.id}
-                    aria-label={getEventActionLabel(event)}
+                    aria-label={getEventActionLabel(event, members)}
                     title={`${event.allDay ? "Hele dagen" : formatEventTime(new Date(event.start))} · ${event.title}`}
                     onClick={() => onSelectEvent(event)}
                     sx={{
+                      position: "relative",
                       pointerEvents: "auto",
                       justifyContent: "flex-start",
                       px: 1,
@@ -414,15 +437,14 @@ function DayCell({
                       // kun en tynd venstrekant — så aftalen er nem at
                       // skelne uden at skulle læse teksten først.
                       backgroundColor:
-                        `${ownerColor}30`,
-                      borderLeft:
-                        `3px solid ${ownerColor}`,
+                        `${ownerColor}14`,
+                      ...getEventOwnerBorderSx(ownerColors, 3),
                       overflow: "hidden",
                       cursor: "pointer",
 
                       "&:hover": {
                         backgroundColor:
-                          `${ownerColor}45`,
+                          `${ownerColor}24`,
                       },
 
                       "&:focus-visible": {
@@ -470,6 +492,8 @@ function DayCell({
                         )}
                         {event.title}
                       </Typography>
+
+                      <EventOwnerBadges owners={ownerBadges} sizePx={14} />
 
                       <ConflictBadge
                         isConflict={conflictEventIds?.has(event.id) ?? false}

@@ -3,13 +3,12 @@ import {
   ButtonBase,
   Card,
   CardContent,
-  Chip,
   Divider,
   Typography,
 } from "@mui/material";
 
 import type { CalendarOwner } from "../data/calendarOwners";
-import { getEventOwnerColor } from "../utils/getEventOwnerColor";
+import { getEventOwnerBorderSx, getEventOwnerColors } from "../utils/getEventOwnerColor";
 import { useLongPress } from "../hooks/useLongPress";
 import type {
   CalendarEvent,
@@ -96,26 +95,38 @@ function EventCard({
   isConflict,
   onSelectEvent,
 }: EventCardProps) {
-  const ownerColor = getEventOwnerColor(event, members);
+  const ownerColors = getEventOwnerColors(event, members);
+  const ownerColor = ownerColors[0];
+  const ownerNames = event.ownerIds.map((ownerId) => {
+    const owner = members.find((candidate) => candidate.id === ownerId);
+    return owner?.name ?? ownerId;
+  });
 
   return (
     <ButtonBase
-      aria-label={getEventActionLabel(event)}
+      aria-label={getEventActionLabel(event, members)}
       title={`${showTime ? `${formatTime(event)} · ` : ""}${event.title}`}
       onClick={() => onSelectEvent(event)}
       sx={{
         position: "relative",
         zIndex: 1,
-        pointerEvents: "auto",
+        display: "grid",
+        gridTemplateColumns: showTime
+          ? "48px minmax(0, 1fr) auto"
+          : "minmax(0, 1fr) auto",
+        alignItems: "center",
+        columnGap: 0.75,
+        width: "100%",
         minWidth: 0,
         p: 0.75,
         borderRadius: 1,
-        borderLeft: `4px solid ${ownerColor}`,
-        backgroundColor: `${ownerColor}30`,
+        ...getEventOwnerBorderSx(ownerColors, 4),
+        backgroundColor: `${ownerColor}14`,
         cursor: "pointer",
+        textAlign: "left",
 
         "&:hover": {
-          backgroundColor: `${ownerColor}45`,
+          backgroundColor: `${ownerColor}24`,
         },
 
         "&:focus-visible": {
@@ -127,9 +138,10 @@ function EventCard({
     >
       {showTime && (
         <Typography
+          data-testid="week-event-time"
           variant="body2"
+          noWrap
           sx={{
-            display: "block",
             fontWeight: 700,
             fontSize: "0.875rem",
           }}
@@ -138,53 +150,63 @@ function EventCard({
         </Typography>
       )}
 
-      <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, minWidth: 0 }}>
-        <Typography
-          variant="body2"
-          noWrap
-          sx={{ fontWeight: 600, minWidth: 0, fontSize: "0.875rem" }}
-        >
-          {event.title}
-        </Typography>
-
-        <ConflictBadge isConflict={isConflict} />
-      </Box>
+      <Typography
+        data-testid="week-event-title"
+        variant="body2"
+        noWrap
+        sx={{
+          minWidth: 0,
+          fontWeight: 600,
+          fontSize: "0.875rem",
+          textAlign: "left",
+        }}
+      >
+        {event.title}
+      </Typography>
 
       <Box
         sx={{
           display: "flex",
-          flexWrap: "wrap",
+          alignItems: "center",
+          justifySelf: "end",
           gap: 0.5,
-          mt: 0.5,
+          minWidth: 0,
+          maxWidth: {
+            xs: 120,
+            sm: 150,
+          },
         }}
       >
-        {event.ownerIds.map((ownerId) => {
-          const owner = members.find(
-            (candidate) => candidate.id === ownerId,
-          );
+        <ConflictBadge isConflict={isConflict} />
 
-          if (!owner) {
-            return null;
-          }
-
-          return (
-            <Chip
-              key={ownerId}
-              label={owner.name}
-              size="small"
-              sx={{
-                height: 20,
-                backgroundColor: owner.color,
-                color: "#ffffff",
-
-                "& .MuiChip-label": {
-                  px: 0.75,
-                  fontSize: "0.65rem",
-                },
-              }}
-            />
-          );
-        })}
+        {ownerNames.length > 0 && (
+          <Box
+            data-testid="week-event-owners"
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 0.5,
+              minWidth: 0,
+              overflow: "hidden",
+            }}
+          >
+            {ownerNames.map((ownerName) => (
+              <Typography
+                key={ownerName}
+                variant="caption"
+                noWrap
+                color="text.secondary"
+                sx={{
+                  minWidth: 0,
+                  fontWeight: 700,
+                  fontSize: "0.7rem",
+                }}
+              >
+                {ownerName}
+              </Typography>
+            ))}
+          </Box>
+        )}
       </Box>
     </ButtonBase>
   );

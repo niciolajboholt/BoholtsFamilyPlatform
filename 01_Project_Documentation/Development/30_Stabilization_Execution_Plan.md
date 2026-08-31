@@ -4,7 +4,7 @@
 |---|---|
 | Status | Aktiv |
 | Version | 1.0 |
-| Senest opdateret | 2026-08-27 |
+| Senest opdateret | 2026-08-30 |
 | Ejer | Nicolaj Boholts |
 | Arbejdsgren | `develop` |
 | Produktionsgren | `main` |
@@ -35,14 +35,15 @@ verifikation.
 
 | Fase | Område | Status | Næste vigtigste restpunkt |
 |---:|---|---|---|
-| 1 | Kalenderens UI og dubletter | Delvist gennemført | Manuel iPhone-verifikation og eventuel kildespecifik dubletanalyse |
-| 2 | Tilgængelighed og visuelt polish | Delvist gennemført | App-dækkende audit og fysisk VoiceOver-test |
-| 3 | Privatliv og AI | Delvist gennemført | E2E for ejer/andet medlem + offentligt delelink |
-| 4 | Login, branding og OAuth | Delvist gennemført | Google-verificering og scope-gennemgang |
-| 5 | Browserbaserede brugerflowtests | Delvist gennemført | CRUD-, rettigheds- og offline-scenarier |
+| 1 | Kalenderens UI og dubletter | Delvist gennemført | Ingen — kun kildespecifik dubletanalyse, hvis en dublet observeres igen |
+| 2 | Tilgængelighed og visuelt polish | Gennemført | — |
+| 3 | Privatliv og AI | Gennemført | — |
+| 4 | Login, branding og OAuth | Delvist gennemført | Appen kører i Testing (ingen advarsel) — afventer et selv-ejet domæne, uden tidspres |
+| 5 | Browserbaserede brugerflowtests | Gennemført | — |
 | 6 | Refaktorering | Gennemført | — |
-| 7 | Release, drift og dokumentation | Delvist gennemført | Fjern dobbelt Cloudflare-deploy (ekstern) |
-| 8 | Offlineoplevelse | Delvist gennemført | "Ryd afkrydsede" til skrivekøen (afventer opgave-PR-gennemgang) |
+| 7 | Release, drift og dokumentation | Delvist gennemført | D1-gendannelsesøvelse og kontrolleret release til `main` (begge kræver aftalt tidspunkt med Nicolaj) |
+| 8 | Offlineoplevelse | Gennemført | — |
+| 9 | ICS-abonnementskalendere | Gennemført | — |
 
 Appen er egnet til kontrolleret familiebrug og beta. Den er ikke vurderet som
 offentligt lanceringsklar, før privatliv pr. aftale, OAuth-verificering,
@@ -68,9 +69,11 @@ Status pr. 2026-08-27:
   værdi i stedet for et fastfrosset tal her.
 - D1-migrationsregisteret er baselinet for migration 0002-0016, og migration
   0017 er anvendt på beta.
-- Lokal kvalitetsbaseline: lint, produktionsbuild og 457 Vitest-tests består.
+- Lokal kvalitetsbaseline: lint, produktionsbuild og 519 Vitest-tests består.
 - Playwright indeholder login/jura, autentificeret navigation, kalenderlayout,
-  kontrolnavne og mobilbredde-matrix på desktop- og mobilprojekter.
+  kontrolnavne, en automatisk WCAG 2.0/2.1 A/AA-audit (axe-core) af de fem
+  hovedsider, offline-scenarier, privatlivs-redaktion (ejer/andet medlem +
+  offentligt delelink) og mobilbredde-matrix på desktop- og mobilprojekter.
 - Produktionsafhængigheder havde 0 kendte npm-sårbarheder ved sidste audit.
 - `main` og `develop` er nu beskyttede branches: PR med mindst 1 godkendelse
   og en grøn `Lint, build and test`-statuscheck er påkrævet, branchen skal
@@ -102,12 +105,62 @@ utilsigtede dubletter eller unødigt vandret scroll.
   tabletbredde og bevarer den fulde titel som tilgængelig handling/tooltip.
 - [x] Ugevisningen bruger en responsiv agenda med højst tre kolonner i stedet
   for syv smalle desktopkolonner og har en Playwright-layouttest.
+- [x] Fejlrapport fra Nicolaj (skærmbillede): en aftale med flere navngivne
+  personer i titlen (fx "Christine og Jens KBH") viste sig som den generiske
+  lilla "Familien"-farve/mærkat, selvom aftalen reelt var for to specifikke
+  medlemmer. Reprodukeret præcist med en Playwright-testopsætning, der
+  matchede skærmbilledet. **Rodårsag:** aftalens farve/ejerskab kom
+  udelukkende fra hvilken Google-KALENDER aftalen lå på (kalender-til-
+  medlem-tildelingen i Indstillinger) — appen læste aldrig aftalens egen
+  Google-deltagerliste og gættede heller ikke ud fra titlen. Løst efter
+  aftale med Nicolaj (valgte "Læs deltagere fra Google" af tre foreslåede
+  retninger): `matchAttendeesToOwnerIds.ts` matcher nu en Google-aftales
+  `attendees`-e-mails mod familiemedlemmernes koblede konto-e-mail (ny
+  `linkedUserEmail`, tilføjet server-side via `LEFT JOIN users` i
+  `listFamilyMembers()` og ført igennem klientens `CalendarOwner`/
+  `FamilyMemberDto`) — matcher det, går forud for kalender-tildelingen;
+  matcher intet (fx ingen deltagere, eller kun eksterne e-mails), falder
+  tilbage til den hidtidige kalender-baserede adfærd uændret. Et medlem uden
+  koblet konto (fx et barn) kan ikke matches denne vej. Verificeret med nye
+  enhedstests (`matchAttendeesToOwnerIds.test.ts`,
+  `googleCalendarMapper.test.ts`) og en visuel Playwright-reproduktion
+  før/efter, sendt til Nicolaj som skærmbilleder.
+- [x] Opfølgning fra Nicolaj på ovenstående (PR #148 var da allerede merget —
+  ny PR, samme fejlkategori): `getEventOwnerColor()` faldt stadig tilbage
+  til Familien-farven, når en aftale havde MERE end én matchet ejer (den
+  netop tilføjede deltagermatchning ramte netop denne gren), og et
+  ikke-tildelt ICS-abonnement fik slet intet ejerskab på selve AFTALEN,
+  så dets egen valgte farve (allerede korrekt brugt på selve KILDEN, jf.
+  `mapIcsCalendarSource()`) aldrig nåede aftalekortet. Én central regel
+  rettet ét sted (`getEventOwnerColor.ts`, ny `getEventOwnerColors()` +
+  `getEventOwnerBorderSx()`), brugt identisk af alle fem visninger
+  (måned/`DayCell`, uge/`WeekCalendar`, dag/`DayCalendar`,
+  familie/`FamilyPlannerCalendar`, liste/`EventList`) i stedet for
+  specialregler pr. komponent:
+  1. Reel family-tilknytning → Familien-farven.
+  2. Ét eller flere matchede medlemmer → deres egne farver — en opdelt,
+     skarpt afgrænset venstrekant ved flere (`border-image`, ikke en blødt
+     overtonet gradient), ikke Familien-farven.
+  3. Intet medlem-ejerskab, men aftalen har sin egen kildefarve (nyt
+     `CalendarEvent.color`-felt, sat af `icsCalendarMapper.ts` fra
+     abonnementets `color`) → den farve.
+  4. Intet af ovenstående → neutral standardfarve.
+  15 nye/ændrede enhedstests (`getEventOwnerColor.test.ts`,
+  `icsCalendarMapper.test.ts` — ny fil, mapperen havde ingen tests før) +
+  2 nye Playwright-tests, der beviser den FAKTISKE gengivne CSS-farve
+  (`getComputedStyle().borderImageSource`/`.borderLeftColor`), ikke kun
+  `ownerIds`-værdien. Synlig funktionsændring — egen PR, til gennemgang,
+  ikke selv-merget.
+- [x] Genverificeret manuelt af Nicolaj på fysisk iPhone (Safari/PWA,
+  2026-08-29): måned-, uge- og familieagenda-visningen samt de seneste
+  aftalefarve-rettelser blev gennemgået direkte på beta — ingen overlap,
+  ingen vandret scroll, ingen synlige dubletter observeret.
 
 ### Mangler
 
 - [ ] Spor synlige dubletter til kilden: flere kalenderkilder,
-  gentagelsesudfoldning eller medlemsmapping.
-- [ ] Genverificér den seneste mobilvisning manuelt på iPhone Safari/PWA.
+  gentagelsesudfoldning eller medlemsmapping. Ingen aktiv fejlrapport lige
+  nu — punktet aktiveres kun, hvis en dublet reelt observeres igen.
 
 ### Acceptkriterier
 
@@ -117,17 +170,15 @@ utilsigtede dubletter eller unødigt vandret scroll.
   bevares.
 - Måned, uge, dag og familievisning fungerer på desktop og mobil.
 
-**Næste handling:** Deploy den afgrænsede kalender-PR og genverificér måned,
-uge og familieagenda på iPhone. Hvis en dublet stadig ses, logges de stabile
-identitetsfelter lokalt i en sikker debugvisning for at afgøre, om Google
-returnerer samme aftale gennem to reelt forskellige kalendere.
+**Næste handling:** Ingen aktiv handling — mobilverifikationen er
+gennemført. Dublet-sporing tages kun op, hvis en dublet observeres igen.
 
 ## Fase 2 – Tilgængelighed og visuelt polish
 
 **Mål:** Alle primære flows skal kunne forstås og betjenes med tastatur,
 skærmlæser og smalle mobilskærme uden at ændre appens varme grønne design.
 
-**Status: Delvist gennemført**
+**Status: Gennemført**
 
 ### Gennemført
 
@@ -144,15 +195,45 @@ skærmlæser og smalle mobilskærme uden at ændre appens varme grønne design.
   automatisk for et tilgængeligt navn.
 - [x] Pushnotifikationskontakten i Indstillinger har fået et eksplicit
   tilgængeligt navn efter den automatiske audit.
+- [x] Automatisk WCAG 2.0/2.1 A/AA-audit (axe-core) af alle fem hovedsider
+  indført som fast Playwright-test.
+- [x] Navigationsmenuens liste i `AppLayout.tsx` bruger nu gyldig
+  `<ul>`/`<li>`-semantik (hver `ListItemButton` pakket i `ListItem`).
+- [x] Tre marginale WCAG AA-kontrastbrud rettet: kalenderens nedtonede
+  datotal for dage uden for måneden, ikke-valgte faneblade og
+  "Log ud"-knappens røde tekst.
+- [x] Automatiseret tastatur-/fokusgennemgang som faste Playwright-tests
+  (axe-core tjekker kun statisk ARIA-opmærkning, ikke reel
+  tastaturbetjening): (1) på alle fem hovedsider tabbes der reelt igennem
+  desktop-venstremenuen — alle fem punkter skal nås, og intet fokuseret
+  element må have en tom `getClientRects()` (dvs. reelt usynligt); (2) en
+  Indstillinger-dialog (Kalenderforbindelser) skal fange fokus, mens den er
+  åben — Tab langt ud over antallet af fokuserbare elementer i den må aldrig
+  sive fokus ud til siden bagved — og Escape skal lukke dialogen og
+  returnere fokus til den knap, der åbnede den. Ingen fejl fundet; MUI's
+  indbyggede Dialog-fokusfælde og sidebar-menuens fokusrækkefølge virker
+  allerede korrekt. Ren test, ingen adfærdsændring.
 
-### Mangler
-
-- [ ] Gennemfør tastatur- og fokusgennemgang af alle primære sider og dialoger.
-- [ ] Gennemfør systematisk WCAG-kontrastkontrol af tekst, ikoner, personfarver
-  og tilstande.
-- [ ] Test fysisk med iPhone Safari, installeret PWA og VoiceOver.
-- [ ] Ret eventuelle resterende felter uden label, fejlbesked eller tydelig
-  fokusmarkering.
+- [x] Fysisk test med iPhone Safari, installeret PWA og VoiceOver udført af
+  Nicolaj (2026-08-29): bundmenuens navigation, tilføjelse af
+  indkøbsvare/opgave og åbning af en kalenderaftale blev alle gennemgået
+  med VoiceOver aktiveret på beta. Ingen problemer fundet — alt annonceres
+  forståeligt, og ingen fokus- eller labelproblemer observeret.
+- [x] Opfølgning på issue #20's sidste kriterie ("farve er ikke eneste
+  informationsbærer", WCAG 1.4.1): en målrettet gennemgang fandt, at
+  måned- og dagsvisningen (`DayCell.tsx`, `DayCalendar.tsx`) hidtil KUN
+  brugte aftalens kant-/baggrundsfarve til at vise, hvilket familiemedlem
+  aftalen tilhører — intet synligt navn eller ikon, i modsætning til
+  uge- og familievisningen, som allerede viste navnet som tekst. Rettet
+  med et nyt, lille synligt badge (`EventOwnerBadges.tsx`, forbogstav i
+  hvidt på medlemmets farve, op til 3 pr. aftale) på både aftalekortene og
+  dags-oversigtsprikkerne øverst i en måned-celle. Samtidig udvidet
+  `getEventActionLabel()` (`calendarAccessibility.ts`) til også at
+  inkludere ejernavnet i aria-labelen på alle fire kalendervisninger — den
+  indeholdt hidtil slet intet ejernavn, så skærmlæsere fik heller ingen
+  besked om, hvem aftalen tilhørte. Godkendt visuelt af Nicolaj ud fra
+  skærmbilleder af måned- og dagsvisningen. Synlig funktionsændring — til
+  gennemgang, ikke selv-merget.
 
 ### Acceptkriterier
 
@@ -161,8 +242,7 @@ skærmlæser og smalle mobilskærme uden at ændre appens varme grønne design.
 - Alle primære handlinger kan nås og aktiveres med tastatur.
 - Kritiske farvekombinationer opfylder relevante WCAG-kontrastkrav.
 
-**Næste handling:** Udvid den automatiske audit med tastatur-rækkefølge og
-kontrastkontrol. Afslut derefter fasen med fysisk iPhone/PWA/VoiceOver-test.
+**Næste handling:** Ingen — fasen er gennemført.
 
 ## Fase 3 – Privatliv og AI
 
@@ -170,7 +250,7 @@ kontrastkontrol. Afslut derefter fasen med fysisk iPhone/PWA/VoiceOver-test.
 følsomme titler, beskrivelser eller lokationer, og AI-behandling skal være et
 bevidst valg.
 
-**Status: Delvist gennemført**
+**Status: Gennemført**
 
 ### Gennemført
 
@@ -199,17 +279,54 @@ bevidst valg.
   `sensitivity`; fravalg rydder providerens private markering eksplicit.
 - [x] Provider-mapperne og det mock-baserede browserflow tester både privat og
   almindelig lagring uden rigtige kalenderdata.
-
-### Mangler
-
-- [ ] Overvej et separat privatlivsvalg på kalenderniveau; aftaleniveau er nu
-  implementeret som “Privat / vis kun optaget”.
-- [ ] Definér privatlivssikre standardværdier for nye familier og nye
-  delinger.
-- [ ] Tilføj frontend- og servertests for redigering, adgangskontrol og
-  flerfamilie-isolation.
-- [ ] Dokumentér præcist hvilke felter Workers AI modtager, og hvor længe de
-  behandles.
+- [x] Reel Playwright-E2E (ikke kun enhedstests af den isolerede
+  redaktionsfunktion): en privat aftale er fuldt synlig for det familiemedlem,
+  kalenderen er kortlagt til, og redigeres til kun tid + "Optaget" — uden
+  titel/beskrivelse/lokation nogetsteds i DOM'en — for et andet familiemedlem
+  på samme enhed.
+- [x] Reel Playwright-E2E af det offentlige delelink (`/share/:token`, uden
+  session-cookie, præcis som en modtager ville opleve det): en almindelig
+  aftale viser fuld titel/beskrivelse/lokation, en privat aftale viser kun
+  "Optaget" uden nogen af de øvrige felter.
+- [x] Eksplicit servertest for, at AI-ugeresuméet aldrig videresender en privat
+  aftales beskrivelse/lokation — selv i en simuleret situation, hvor
+  aggregationslaget fejlagtigt skulle inkludere dem, dropper
+  `collectUpcomingEvents()`'s egen type/mapping dem uafhængigt.
+- [x] Eksplicit servertest for den sikre standard, når et familiemedlem slet
+  ikke har en kalender-kortlægning: intet vises for vedkommende (ikke en
+  gættet fallback).
+- [x] Reel Playwright-E2E af selve REDIGERINGS-flowet af en privat aftale
+  (ikke kun læsning/visning, som allerede var dækket): (1) et almindeligt
+  feltskift på en eksisterende privat aftale bevarer `visibility: "private"`
+  i det faktiske skrivekald til Google, og (2) at slå
+  "Privat aftale"-kontakten fra og gemme sender rent faktisk
+  `visibility: "default"` — ikke kun en lokal UI-opdatering. Ingen fejl
+  fundet, ren test.
+- [x] Præcis dokumentation af hvilke felter Workers AI modtager, og
+  databehandlingens levetid: `32_Workers_AI_Data_Policy.md` — kodeverificeret
+  gennemgang af alle tre AI-brugssteder (rutine-/ingrediensforslag,
+  ugeresumé), hvilke konkrete felter der sendes/aldrig sendes, bekræftelse
+  af at kaldet går uden om AI Gateway (dennes logging-adfærd er derfor
+  irrelevant), og at fejlhåndteringen aldrig logger selve prompten. Selve
+  Cloudflares infrastruktur-interne opbevaringsperiode kan ikke bekræftes
+  med en autoritativ kilde herfra — flaget som ekstern verifikation, samme
+  kategori som Fase 4's Google-gennemgang.
+- [x] Privatlivssikre standardværdier for nye familier og nye delinger —
+  kodeverificeret (2026-08-29) og godkendt af Nicolaj: en ny aftale er som
+  udgangspunkt synlig for familien (`privacy: "details"`), hvilket er
+  tilsigtet og fornuftigt for en tillid-baseret familieapp — at skjule alt
+  for ens egen familie som standard ville kun give unødig friktion. Et nyt
+  offentligt delelink inkluderer derimod ALDRIG beskrivelse eller lokation,
+  medmindre det aktivt slås til ved oprettelsen
+  (`body.includeDescription === true`/`includeLocation === true` i
+  `shareLinks.ts`, ellers `false`). Begge standarder var allerede korrekte
+  i koden — punktet lukkes uden kodeændring.
+- [x] Separat privatlivsvalg på kalenderniveau bevidst fravalgt (Nicolaj,
+  2026-08-29): aftaleniveau-kontakten ("Privat aftale – familien ser kun
+  Optaget") dækker allerede det grundlæggende behov, og et
+  kalenderniveau-valg er en ren bekvemmeligheds-udvidelse, ikke en
+  sikkerhedsbrist. Tages kun op igen, hvis det opleves som en konkret gene
+  i hverdagen.
 
 ### Acceptkriterier
 
@@ -218,8 +335,9 @@ bevidst valg.
 - AI-resumé kan fravælges og modtager aldrig private felter.
 - Offentlige links viser mindst mulige data som standard.
 
-**Næste handling:** Udbyg E2E med ejer/andet familiemedlem samt offentligt
-delelink, og dokumentér præcist Workers AI-feltgrundlag og datalevetid.
+**Næste handling:** Ingen — fasen er gennemført. Et kalenderniveau-
+privatlivsvalg kan tages op som en selvstændig, ny funktion senere, hvis
+behovet opstår.
 
 ## Fase 4 – Login, branding og OAuth-klargøring
 
@@ -235,13 +353,56 @@ rettigheder med offentligt dokumenteret formål.
 - [x] Login-siden linker til offentlige sider for privatlivspolitik og vilkår.
 - [x] Appnavn og basisbranding er ensrettet i de kodeejede flader.
 - [x] De juridiske sider er tilgængelige uden login.
+- [x] Gennemgå og dokumentér hvert Google OAuth-scope og fjern eventuelle
+  overflødige scopes. Alle fem anmodede scopes
+  (`openid`/`email`/`profile`/`calendar.events`/
+  `calendar.calendarlist.readonly`) er verificeret mod faktisk kodebrug —
+  ingen overflødige fundet (fx bruges bevidst IKKE den bredere `calendar`-
+  scope, da appen aldrig opretter/sletter kalendere, kun aftaler). Fandt
+  samtidig, at `src/features/calendar/providers/google/README.md` og
+  `05_App/web/README.md` beskrev en helt forældet, fjernet arkitektur
+  (Sprint 11.1's klient-popup-flow med `VITE_GOOGLE_CLIENT_ID` i
+  `.env.local`) — reelt erstattet af det nuværende server-side
+  authorization-code+PKCE-flow siden Fase 3, men dokumentationen fulgte
+  aldrig med. Begge rettet til at beskrive det faktiske flow, med korrekt
+  scope-tabel og opsætningsvejledning. Ren dokumentationsrettelse, ingen
+  kodeændring — selv-merget.
+- [x] Kontrollér redirect-URI'er for beta og senere produktionsdomæne.
+  Verificeret i koden (`server/routes/auth.ts`): `redirect_uri` udregnes
+  dynamisk som den indkommende requests eget domæne + `/auth/google/callback`
+  — koden er allerede domæneuagtig og kræver INGEN ændring for et nyt
+  domæne. Det eneste resterende er en Google Cloud Console-konfiguration
+  (tilføj hvert faktisk brugt domæne under "Authorized redirect URIs"),
+  som kun Nicolaj kan udføre — se den opdaterede
+  `providers/google/README.md` for den præcise fremgangsmåde.
 
 ### Mangler
 
-- [ ] Gennemgå og dokumentér hvert Google OAuth-scope og fjern eventuelle
-  overflødige scopes.
-- [ ] Kontrollér redirect-URI'er for beta og senere produktionsdomæne.
 - [ ] Færdiggør Google OAuth-verificering og consent-screen-branding.
+  **Status pr. 2026-08-29 (Nicolaj i gang direkte i Google Cloud
+  Console):** App-navn rettet til "Boholts Familieapp" (var fejlagtigt
+  "Boholts Family Platform"), logo uploadet, scopes registreret og
+  justifikation for `calendar.events` udfyldt. Appen blev midlertidigt sat
+  til "In production" for at starte selve verificeringen, men **blev
+  blokeret**: Googles OAuth-verificering kræver en domæne-niveau-
+  verificering (DNS TXT-record) af `nicolajbach12.workers.dev` i Google
+  Search Console — det domæne ejer Nicolaj ikke DNS-styringen af (det er
+  Cloudflares delte `workers.dev`-zone). En URL-præfiks-verificering af
+  selve beta-adressen blev forsøgt som alternativ (Search
+  Console-verificeringen lykkedes, `google1e28839311687158.html` tilføjet
+  i `public/`), men Cloud Console's "Prepare for verification"-knap forblev
+  gråtonet efter dette — tyder på, at kun domæne-niveau-verificering
+  tæller.
+
+  **Besluttet (Nicolaj, 2026-08-29):** i stedet for at vente under tidspres
+  er appen sat **tilbage til "Testing"**-status, og både Nicolaj og
+  Christine er tilføjet som test-brugere — ingen "ikke-verificeret
+  app"-advarsel for nogen af dem lige nu, og alt allerede udfyldt
+  (branding, scopes, redirect-URI'er, justifikation) forbliver gemt uændret.
+  Domænebeslutningen (skaf et eget, selv-ejet domæne — den eneste reelle
+  vej til domæne-niveau-verificering, da `workers.dev` aldrig kan
+  DNS-verificeres) tages op i ro, uden hastværk, og appen sættes tilbage
+  til "In production" og sendes til verificering, når det er klar.
 - [ ] Sørg for, at Google viser produktnavnet frem for `workers.dev`-domænet.
 - [ ] Beslut og konfigurer eventuelt eget verificeret domæne.
 
@@ -251,15 +412,18 @@ rettigheder med offentligt dokumenteret formål.
 - Ingen ubegrundede OAuth-scopes.
 - Login og callback virker på alle godkendte miljøer uden uverificeret-advarsel.
 
-**Ekstern handling:** Den endelige Google-verificering og domæneejerskab skal
-godkendes i Google Cloud Console af Nicolaj.
+**Ekstern handling:** Appen kører nu igen i "Testing"-status (Nicolaj og
+Christine som test-brugere, ingen advarsel) — uden tidspres. Den endelige
+Google-verificering afventer et selv-ejet domæne (`workers.dev` kan ikke
+domæneverificeres) og godkendes derefter i Google Cloud Console af
+Nicolaj.
 
 ## Fase 5 – Automatiske brugerflowtests
 
 **Mål:** De vigtigste brugerrejser skal testes i en rigtig browser uden
 produktionsdata eller private kalenderkonti.
 
-**Status: Delvist gennemført**
+**Status: Gennemført**
 
 ### Gennemført
 
@@ -269,16 +433,78 @@ produktionsdata eller private kalenderkonti.
 - [x] Mock-autentificeret bruger kan navigere gennem de fem hovedområder på
   desktop og mobil.
 - [x] Mobil familieplanner testes for vandret overflow.
-
-### Mangler
-
-- [ ] Opret, redigér og slet kalenderaftale med mock/testkonto.
-- [ ] Gentagen aftale samt redigering af enkeltforekomst.
-- [ ] Invitation, roller og isolation mellem to familier.
-- [ ] Indkøbsliste, opgaver og rutiner.
-- [ ] Offentligt kalenderlink og privatlivsvalg.
-- [ ] Logout og fuldstændig lokal oprydning.
-- [ ] API-fejl, offline-tilstand og genforbindelse.
+- [x] Offline-tilstand og genforbindelse: fire reelle Playwright-tests
+  (kalender-cache, indkøb tilføj/ryd afkrydsede, opgave-afkrydsning) — se
+  fase 8, gennemført.
+- [x] Offentligt kalenderlink og privatlivsvalg: reel E2E af `/share/:token`
+  (privat vs. almindelig aftale) samt af opret-dialogens "Privat
+  aftale"-kontakt — se fase 3.
+- [x] Familie-isolation, delmængde: to nye servertests bekræfter, at et
+  medlem af én familie ikke kan omdøbe en anden families navn eller
+  regenerere dens invitationskode (`families.test.ts`, PATCH /:id og
+  POST /:id/invites/regenerate) — supplerer den eksisterende
+  cross-family-dækning på indkøbslister, opgaver og skabeloner.
+- [x] Opret, redigér og slet kalenderaftale med mock/testkonto: reel
+  Playwright-E2E gennem den rigtige UI (opret via "Ny aftale", redigér
+  titlen og gem, bekræft-slet-flowet). **Vigtig arkitektonisk afklaring
+  ved samme lejlighed:** "Gentagen aftale samt redigering af
+  enkeltforekomst" kan IKKE testes gennem UI'et i denne app i dag — hverken
+  "Ny aftale"-dialogens gentagelsesvalg eller redigér-dialogens "Kun denne
+  forekomst/Hele rækken"-valg vises for nogen ekstern kalenderkilde
+  (Google/Outlook/ICS); begge er kun kodet til en `source: "internal"`,
+  som ikke længere findes i produktionskoden siden Fase 5's fjernelse af
+  det lokale aftale-lag (ADR-011/012/017,
+  `CompositeCalendarProvider.ts`). Punktet er derfor fjernet fra
+  "Mangler" nedenfor, ikke løst med en test — der er intet UI-flow at
+  teste, før/hvis appen får en rigtig gentagelses-understøttet kilde
+  igen.
+- [x] Fuldt invitations-/rolle-UI-flow. To dele: (1) en helt ny bruger uden
+  familie/localStorage taster en invitationskode ind i
+  `FamilySetupOnboarding` og kommer ind i appen — reel Playwright-E2E med
+  sin egen mock (`/api/families/mine` starter som `family: null`, så
+  onboarding rent faktisk vises, ligesom en ægte ny bruger ville opleve
+  det). (2) Rolleadministration havde INGEN UI overhovedet før denne
+  ændring — kun serverruter (`POST .../memberships/:userId/role`,
+  `DELETE .../memberships/:userId`) uden nogen kaldende komponent.
+  Bygget: ny `GET /:id/memberships`-rute (`familyMembers.ts`, læsbar for
+  ethvert medlem, samme mønster som kalender-mappings) der joiner
+  `family_memberships` med `users` for navn/e-mail/rolle, en ny
+  `FamilyMembershipsDialog.tsx` (åbnet fra en ny "Medlemmer og
+  roller"-række i `FamilySection.tsx`) der viser familiens KONTI (ikke at
+  forveksle med `family_members`-profilerne, som kan være børn uden egen
+  konto) med en rolle-dropdown (kun ejeren må ændre, aldrig på egen eller
+  ejerens række) og en fjern-knap (ejer/admin, samme begrænsning). Genbruger
+  eksisterende, allerede testede serverruter — ingen ny skrivelogik, kun
+  den manglende læserute og selve UI'et. 2 nye servertests
+  (`families.test.ts`) for den nye liste-rute (synlig for ethvert medlem,
+  404 for udenforstående) og 2 nye reelle Playwright-E2E-tests (accept-flow
+  gennem `FamilySetupOnboarding`; rolleskift + fjernelse gennem den nye
+  dialog). Synlig ny funktion (ny UI-flade) — til gennemgang, ikke
+  selv-merget.
+- [x] Indkøbsliste, opgaver og rutiner (opret/redigér/slet gennem UI'et) —
+  det sidste tilbageværende Fase 5-punkt. 3 nye reelle Playwright-E2E-tests:
+  (1) indkøbsliste — tilføj/redigér/slet en vare, samt opret/redigér/slet
+  en hel liste (inkl. skift mellem lister via faneblade); (2) opgaver —
+  tilføj/redigér/slet en opgave; (3) rutiner — opret og slet en rutine
+  (ingen redigér-UI findes for en eksisterende rutine, kun opret/slet —
+  arkitektonisk fakta, ikke en mangel). Ren test/dokumentation, ingen
+  adfærdsændring, selv-merget efter grøn CI.
+- [x] Logout og fuldstændig lokal oprydning, samt en generel API-fejl uden
+  for de allerede dækkede offline-scenarier — Fase 5's sidste to punkter.
+  Reel Playwright-E2E for logout gennem den rigtige "Log ud"-knap fandt en
+  ægte funktionsfejl undervejs: `useSession()` gemmer login-status lokalt i
+  hver komponent uden delt context, så logout kun ryddede AccountDataSection's
+  egen visning — resten af app-skallen (topmenu, sider) forblev synligt
+  logget ind, indtil brugeren selv genindlæste siden. Rettet med et
+  `window.location.reload()` efter logout (samme mønster som backup-import
+  allerede bruger), godkendt af Nicolaj som en synlig adfærdsændring. Testen
+  bekræfter nu: `POST /auth/logout` kaldes, al `localStorage` prefixet
+  `boholts-family-` ryddes, og login-siden vises reelt uden manuel
+  genindlæsning. Den anden nye test simulerer en ægte 500-fejl fra serveren,
+  mens appen ER online (til forskel fra de tre eksisterende
+  offline-køet-tests, som dækker manglende netværk) — bekræfter en synlig
+  fejlmeddelelse ("Handlingen kunne ikke gennemføres. Prøv igen.") i stedet
+  for en tavs fejl eller crash.
 
 ### Acceptkriterier
 
@@ -287,8 +513,7 @@ produktionsdata eller private kalenderkonti.
 - Fejl giver læsbare traces/screenshots, og flaky tests blokerer ikke uden en
   dokumenteret årsag.
 
-**Næste handling:** Udbyg den eksisterende mock-backend med event-CRUD og
-rettighedsscenarier efter fase 1 og 3.
+**Næste handling:** Ingen — fasen er gennemført.
 
 ## Fase 6 – Refaktorering
 
@@ -413,11 +638,13 @@ tilbage uden at være afhængig af tavs manuel viden.
   `restore` og bekræfte resultatet) er bevidst ikke udført autonomt — det
   er en skarp handling på en database med rigtige brugeres data, og afventer
   et aftalt tidspunkt med Nicolaj.
+- [x] Cloudflares gamle native Git-deploy er slået fra af Nicolaj i
+  dashboardet (2026-08-29). Kun den kvalitetssikrede GitHub Actions-pipeline
+  deployer nu beta og produktion — de to tidligere, konstant fejlende
+  "Workers Builds"-tjek på hver PR bortfalder herefter.
 
 ### Mangler
 
-- [ ] Deaktivér Cloudflares gamle native Git-deploy, så kun den
-  kvalitetssikrede GitHub Actions-pipeline deployer beta.
 - [ ] Udfør selve D1-gendannelsesøvelsen (kør `time-travel restore` og
   bekræft resultatet) — kræver et aftalt tidspunkt med Nicolaj, se ovenfor.
 - [ ] Definér og udfør kontrolleret release fra `develop` til `main`, når de
@@ -430,20 +657,23 @@ tilbage uden at være afhængig af tavs manuel viden.
 - Releasechecklisten dækker deploy, migration, health, smoke-test og rollback.
 - `main` kan ikke ændres direkte uden den aftalte kontrol.
 
-**Ekstern handling:** Cloudflare Git-integration skal slås fra i dashboardet
-(kræver dashboard-adgang).
+**Ekstern handling:** Ingen tilbage for selve deploy-pipelinen — Cloudflare
+Git-integration er slået fra. D1-gendannelsesøvelsen og release til `main`
+kræver stadig et aftalt tidspunkt med Nicolaj.
 
 ## Fase 8 – Offlineoplevelse
 
 **Mål:** Appen skal kommunikere ærligt om offline-tilstand og senere kunne
 håndtere udvalgte læse- og skriveflows uden at cache følsomme credentials.
 
-**Status: Delvist gennemført**
+**Status: Gennemført**
 
 ### Gennemført
 
 - [x] Appen viser offline- og genforbindelsesstatus.
-- [x] Teksten lover ikke offline-skrivning, som endnu ikke er implementeret.
+- [x] Teksten i appen kommunikerer offline-tilstanden korrekt: der caches
+  read-only kalenderdata, og udvalgte indkøbs-/opgaveændringer køes lokalt
+  og synkroniseres ved genforbindelse (se skrivekø-punkterne nedenfor).
 - [x] PWA-appskallen caches.
 - [x] Auth, tokens og følsomme API-svar er ikke tilføjet til service-worker-
   cache.
@@ -457,9 +687,8 @@ håndtere udvalgte læse- og skriveflows uden at cache følsomme credentials.
   (indkøbsvare tilføj/af-tilkryds, opgave af-tilkryds — bevidst afgrænset
   til lavrisiko append/toggle-handlinger) og et simpelt konfliktprincip for
   dem (drop den enkelte køede ændring med en synlig besked, hvis dens mål er
-  slettet i mellemtiden). Selve IndexedDB/kø-implementeringen er ikke
-  påbegyndt endnu — det er den efterfølgende opgave, nu med en skrevet
-  ramme at bygge inden for.
+  slettet i mellemtiden). Selve skrivekø-implementeringen er nu gennemført
+  for hele politikkens skriveliste, jf. de følgende punkter.
 - [x] Read-only offline-kalendervisning implementeret efter politikken:
   `googleCalendarSyncCacheStorage.ts` stempler nu hver cache-post med
   `updatedAt`; `GoogleCalendarProvider.getEvents()` falder tilbage til den
@@ -515,14 +744,45 @@ håndtere udvalgte læse- og skriveflows uden at cache følsomme credentials.
   offline-tilstand) for at undgå den race mod andre samtidige
   familiedata-kald, som gjorde en tidligere version af
   indkøbsliste-testen flaky. Ændrer appens faktiske funktion/oplevelse
-  offline — derfor bevidst ikke selv-merget.
+  offline — derfor bevidst ikke selv-merget; godkendt og merget af Nicolaj
+  (PR #129).
+- [x] Skrivekø udvidet til "ryd afkrydsede" på indkøbslisten — samme
+  mønster som de øvrige operationer: `offlineShoppingQueueStorage.ts` fik
+  en tredje operationstype (`clear-checked`), `clearChecked` i
+  `useShoppingList.ts` er optimistisk og køer ved en netværksfejl, samme
+  FIFO-afspilning/404-konfliktregel. Med denne er alle operationer nævnt i
+  `31_Offline_Data_Policy.md`'s skriveliste nu understøttet (indkøb:
+  tilføj/af-tilkryds/ryd afkrydsede; opgaver: af-tilkryds). Verificeret med
+  endnu en reel Playwright-test
+  (`offline shopping list clear-checked is queued locally and syncs on
+  reconnect`), samme afgrænsede fejlsimulering som de to øvrige
+  offline-tests. Godkendt og merget af Nicolaj (PR #132).
+- [x] Dedikeret Playwright-offline-test for kalendervisnings-fallbacket
+  (PR #125), som hidtil kun var verificeret med provider-/lagrings-
+  enhedstests: `offline calendar shows cached events with a visible
+  staleness banner` besøger `/calendar` online (fylder sync-cachen),
+  genindlæser siden med kun selve aftale-hentningen fejlende, og bekræfter
+  både at den cachede aftale stadig vises og at "viser gemte aftaler
+  fra..."-beskeden er synlig — samt at begge forsvinder igen, når
+  forbindelsen er tilbage. Ren test, ingen adfærdsændring — selv-merget.
 
-### Mangler
+Alle tre skrivekø-flows og kalendervisnings-fallbacket har nu hver sin
+egen reelle Playwright-verifikation, og fasens acceptkriterier nedenfor er
+opfyldt.
 
-- [ ] Udvid skrivekøen til "ryd afkrydsede" på indkøbslisten (nævnt i
-  politikken, udskudt i PR #127).
-- [ ] Yderligere automatiske offline-/reconnect-tests, efterhånden som
-  skrivekøen udvides.
+### Fremtidige forbedringer (ikke en del af fasens acceptkriterier)
+
+Fasens acceptkriterier er alle opfyldt — ingen af nedenstående er en
+mangel i Fase 8. De er mulige, ikke-blokerende udvidelser til en senere
+sprint, hvis der opstår behov:
+
+- Offline redigering/sletning af kalenderaftaler, indkøbsvarer eller
+  opgaver ud over den nuværende append/toggle-skriveliste.
+- Et Outlook-offline-fallback svarende til Googles (kun Google har i dag en
+  lokal cache at falde tilbage på).
+
+Begge kræver en ny politikbeslutning i
+`31_Offline_Data_Policy.md` først, ikke kun kode.
 
 ### Acceptkriterier
 
@@ -532,9 +792,398 @@ håndtere udvalgte læse- og skriveflows uden at cache følsomme credentials.
 - Køede ændringer synkroniseres deterministisk eller giver en forståelig
   konfliktbesked.
 
-**Næste handling:** Afvent Nicolajs gennemgang af den åbne
-opgave-skrivekø-PR. Derefter: "ryd afkrydsede" på indkøbslisten, samme
-politik og mønster.
+**Næste handling:** Ingen resterende punkter inden for fasens nuværende
+acceptkriterier. En fremtidig udvidelse af skrivekøen (se "Fremtidige
+forbedringer" ovenfor) kræver en ny politikbeslutning, før den påbegyndes.
+
+## Fase 9 – ICS-abonnementskalendere
+
+**Mål:** Et familiemedlem skal kunne tilføje en delt kalender via et ICS-link
+(fx Googles "hemmelige iCal-adresse", Outlooks offentlige kalenderlink, en
+skole- eller idrætskalender) og se dens aftaler i appen, uden at skulle logge
+ind på den konto, kalenderen tilhører. Skrivebeskyttet — appen redigerer
+aldrig i en ICS-kilde.
+
+**Status: Gennemført**
+
+### Gennemført
+
+- [x] D1-migration `0018_ics_calendar_subscriptions.sql`: ny tabel med
+  familyId, url (klartekst, jf. beslutning nedenfor), label,
+  familyMemberId (valgfri), createdByUserId, lastFetchedAt,
+  lastFetchStatus, createdAt.
+- [x] Server-CRUD for abonnementer (`server/routes/familyRoutes/
+  icsSubscriptions.ts`, mountet i `families.ts`): list (alle medlemmer),
+  opret/redigér/slet (kun ejer/admin), med samme cross-family-tjek af
+  `familyMemberId` som `calendarMappings.ts`. Validerer kun URL-skema
+  (http/https) — reel nåbarheds-/SSRF-kontrol hører til den kommende
+  hentnings-rute, hvor der rent faktisk sker et netværkskald.
+- [x] 5-abonnements-loftet håndhæves server-side (409 ved forsøg på et
+  sjette). 11 nye servertests dækker opret/list/redigér/slet, loftet,
+  rolle-tjek og cross-family-isolation. Rent backend — ingen UI eksponerer
+  endnu disse ruter, så ingen ændring i appens brug eller udseende;
+  selv-merget.
+- [x] `server/lib/icsCalendar.ts`: SSRF-hærdet hentning (kun http/https,
+  blokerer literal private/loopback/link-local IPv4/IPv6-adresser inkl.
+  cloud-metadata-IP'en 169.254.169.254, `localhost`/`.local`, 10s timeout,
+  2 MB svarloft via streaming-læsning i stedet for at stole på
+  Content-Length, op til 3 omdirigeringer hvor HVER ny URL genvalideres —
+  ikke kun den oprindelige). Bruger `ical.js` (ingen afhængigheder, ren
+  ESM, ingen Node-specifikke API'er — bekræftet ved en `wrangler
+  versions upload --dry-run`, som bundlede Workeren uden fejl) til både
+  ICS-parsing og RRULE-udfoldning i ét bibliotek, med samme
+  forekomstsloft-filosofi (500) som `expandRecurringEvents.ts`s eget
+  730-loft. `server/lib/icsCalendarPrivacy.ts` redigerer `CLASS:PRIVATE`/
+  `CONFIDENTIAL`-aftaler til "Optaget", samme princip som
+  `googleCalendarPrivacy.ts`.
+- [x] Ny rute `GET /:id/ics-subscriptions/:subscriptionId/events` henter og
+  parser abonnementets feed for et givent tidsrum og opdaterer altid
+  `lastFetchedAt`/`lastFetchStatus` (også ved fejl), så familien kan se om
+  en kilde svarer. 3 nye ruttests + 37 nye enhedstests af
+  `icsCalendar.ts` (SSRF-blokering, parsing, privatliv, RRULE,
+  omdirigering, størrelsesloft). Ingen UI kalder endnu denne rute.
+- [x] UI i Indstillinger (`IcsSubscriptionsPanel.tsx`): oprindeligt sin egen
+  selvstændige dialog, siden flyttet ind i den eksisterende
+  "Kalenderforbindelser"-dialog (`CalendarConnectionsSection.tsx`), efter
+  ønske fra Nicolaj — samlet ét sted med Google/Outlook i stedet for en
+  ekstra række i Indstillinger. Viser eksisterende abonnementer (navn,
+  tildelt medlem, sidst hentet-status) og en formular til at tilføje et
+  nyt (navn, ICS-link, valgfri medlemstildeling), med fejlvisning og
+  loft-besked fra API'et. E2E-testen for at tilføje/fjerne et abonnement er
+  opdateret til den nye placering. Godkendt visuelt af Nicolaj ud fra
+  rigtige skærmbilleder, før koden blev committet.
+- [x] Placeringen justeret endnu en gang, efter yderligere ønske fra
+  Nicolaj: "Delte kalendere (ICS)" er nu sin EGEN række i
+  "Kalenderforbindelser"-dialogen — genbruger `ProviderConnectionRow`,
+  samme visuelle niveau som Google/Outlook-rækkerne (ny `actionAriaLabel`-
+  prop på komponenten, da rækken åbner en administrationsdialog, ikke en
+  konto-forbind/afbryd-handling) — i stedet for at være indlejret direkte
+  i selve Kalenderforbindelser-dialogens indhold. Klik åbner en ny,
+  dedikeret `IcsSubscriptionsDialog.tsx` med samme `IcsSubscriptionsPanel`-
+  indhold som før. Samtidig tilføjet: redigering af et eksisterende
+  abonnements navn og medlemstildeling (blyant-ikon pr. række, inline
+  redigeringsformular; ikke selve ICS-linket, jf. Nicolajs afgrænsning),
+  via den allerede eksisterende PATCH-rute og `updateIcsSubscription`-
+  klientfunktion (begge fra PR #138/#141, ingen ny backend-kode). E2E-
+  testen udvidet til at dække redigér-flowet. Godkendt visuelt af Nicolaj
+  ud fra rigtige skærmbilleder.
+- [x] Klient-integration: `IcsCalendarProvider` (`providers/ics/
+  IcsCalendarProvider.ts`) implementerer `CalendarProvider` og kalder
+  `/events`-ruten (PR #139); registreret i `CompositeCalendarProvider` med
+  `sourceIdPrefix: "ics:"`. Skrivemetoder kaster ubetinget (`"Delte
+  ICS-kalendere er skrivebeskyttede."`), samme mønster som Google/Outlooks
+  `restoreEvent()`. Ny `CalendarProviderType`/`CalendarEventSource`-værdi
+  `"ics"` tilføjet. `icsCalendarSyncCacheStorage.ts` er den primære
+  friskhedsstrategi (15 min. opdateringsvindue, 7 dages offline-fallback,
+  jf. 31_Offline_Data_Policy.md) — springer selve netværkshentningen over,
+  når cachen er frisk nok, i stedet for at hamre eksterne ICS-servere ved
+  hver kalendervisning. Fejl isoleres pr. abonnement: én ubesvarende kilde
+  skjuler ikke familiens øvrige delte kalendere. Et tilføjet abonnement
+  vises nu med sine aftaler i selve kalenderen, tildelt medlemmets
+  farve/kolonne hvis tildelt. Verificeret med `npm run build` (typecheck),
+  519 grønne Vitest-tests og fuld grøn Playwright-suite (14 tests,
+  desktop-chromium, inkl. WCAG-audit). Synlig ny funktion (aftaler fra en
+  delt kalender vises nu i appen) — til gennemgang, ikke selv-merget.
+- [x] Valgfri farve pr. ICS-abonnement, efter ønske fra Nicolaj. Ny
+  nullable `color`-kolonne (migration 0019, ingen format-/enum-tjek,
+  samme princip som `family_members.color`); accepteret af POST/PATCH i
+  `icsSubscriptions.ts`. UI'et genbruger `FamilyMemberDialog.tsx`s
+  faste 8-farve-swatch-vælger (`familyMemberColorSwatches.ts`) i både
+  tilføj- og redigér-formularen — vist KUN når intet familiemedlem er
+  tildelt, da et tildelt medlems egen farve altid vinder
+  (`icsCalendarMapper.ts`: `mappedOwner?.color ?? subscription.color ??
+  fallbackColor`). Godkendt visuelt af Nicolaj ud fra skærmbilleder.
+  Synlig ny funktion — til gennemgang, ikke selv-merget.
+
+### Beslutninger truffet (2026-08-28, Nicolaj)
+
+- URL'en gemmes i klartekst i D1 for v1 — ikke krypteret som Googles
+  OAuth-token. Kan tilføjes senere, hvis en sikkerhedsgennemgang anbefaler
+  det; krypteringshjælperen i `server/lib/tokenEncryption.ts` (AES-GCM) er
+  allerede generisk nok til at genbruge, hvis det bliver aktuelt.
+- Et ICS-abonnement kan tildeles et familiemedlem, ligesom en Google-/
+  Outlook-kalender — vises med medlemmets navn/farve og indgår i personens
+  kolonne i familieplanleggeren, ikke kun som en løsrevet ekstra kilde.
+- En familie kan have højst 5 ICS-abonnementer ad gangen (håndhæves
+  server-side), for at holde UI'et overskueligt og begrænse
+  proxy-udnyttelse.
+
+### Genanvendelige mønstre (fra research forud for denne fase)
+
+- `CalendarProvider`-interfacet kræver ingen ændring — en ny
+  `IcsCalendarProvider` implementerer det som Google/Outlook, med
+  create/update/delete/restore der kaster (samme mønster som
+  `assertWritableSource()` og de eksisterende providers' skrivebeskyttede
+  `restoreEvent()`).
+- `CompositeCalendarProvider` kræver ingen ændring — registreres blot som
+  endnu en `external`-indgang med sin egen `sourceIdPrefix` (fx `"ics:"`).
+- Fase 8's offline-cache-mønster (`googleCalendarSyncCacheStorage.ts`s
+  TTL/friskhed/oversigt) genbruges til selve hentnings-cachen — uden
+  sync-token-halvdelen, som er Google-specifik. Her er cachen den primære
+  friskhedsstrategi (ikke kun et offline-fallback), da et ICS-link ikke har
+  nogen delta-synk-API.
+- Servertets rute-skelet (Hono-underrouter + `.onError()` + `logError`, jf.
+  `server/routes/calendar.ts`/`publicCalendar.ts`) genbruges til den nye
+  proxy-rute.
+- `googleCalendarPrivacy.ts`s koncept — ikke koden — genbruges: ICS'
+  `CLASS`-felt (`PUBLIC`/`PRIVATE`/`CONFIDENTIAL`, RFC 5545 §3.8.1.3) er den
+  direkte pendant til Googles `visibility`. Ikke en stærk garanti på samme
+  niveau som Google/Outlook, da mange offentlige ICS-feeds slet ikke sætter
+  feltet (og dermed reelt er offentlige) — skal kommunikeres tydeligt i
+  UI'et, ikke stilles som en garanti appen ikke kan indfri.
+
+### Acceptkriterier
+
+- Et gyldigt ICS-link kan tilføjes, og dets aftaler (inkl. gentagne, via
+  RRULE) vises korrekt i kalenderen inden for få minutter.
+- Et ugyldigt eller utilgængeligt link giver en tydelig fejl, ikke en tavs
+  tom kalender.
+- Serverens proxy kan ikke misbruges til at nå interne/private IP-adresser
+  eller andre Cloudflare-interne ressourcer (SSRF).
+- ICS-kilder er altid skrivebeskyttede i appens UI — intet forsøg på at
+  redigere/slette en ICS-hentet aftale lykkes.
+- En familie kan ikke oprette mere end 5 ICS-abonnementer.
+- Aftaler markeret `CLASS:PRIVATE`/`CONFIDENTIAL` redigeres på samme måde
+  som private Google-/Outlook-aftaler, med en synlig forbeholdstekst om, at
+  garantien afhænger af, om kildekalenderen rent faktisk sætter feltet.
+
+**Næste handling:** Ingen — fase 9 er gennemført. Klient-integrationen
+(`IcsCalendarProvider`) ændrer reel funktion (aftaler fra en delt kalender
+vises nu i selve kalenderen) og er til gennemgang hos Nicolaj, ikke
+selv-merget.
+
+## Familiedata-import fra Familyplan (2026-08-29)
+
+Uden for de ni stabiliseringsfaser: Nicolaj uploadede fire CSV-filer
+eksporteret fra den nedlagte familie-planlægningsapp "Familyplan" (aftaler,
+gentagelser, familiemedlemmer, madplan) og bad om at få de relevante aftaler
+importeret til Google Kalender. Ren dataimport — ingen kodeændring i denne
+app.
+
+**Omfang, aftalt med Nicolaj undervejs:**
+
+- Kun aftaler med startdato 1. august 2026 eller senere (2857 rå linjer i
+  kildefilen indsnævret til 47).
+- Enhver aftale med "karate" i titlen udelukket bevidst, uanset store/små
+  bogstaver.
+- Kildens rådata krydstjekket mod den separate "reoccurring"-fil: kun 0 af de
+  47 relevante linjer var reelt en gentagelsesserie i kilden — resten var
+  allerede enkeltstående, forudberegnede linjer og krævede ingen
+  gentagelses-rekonstruktion.
+- "Jobsøgning" (2 linjer) og "Hejmdal" (2 linjer med identisk titel, øvrige
+  Hejmdal-linjer havde forskellige undertitler) bekræftet af Nicolaj som
+  reelt forskellige, enkeltstående aftaler — oprettet hver for sig.
+- Nicolajs fødselsdag (26. maj) og parrets bryllupsdag bekræftet af Nicolaj —
+  bryllupsdagen først opgivet som 8/7 af Nicolaj selv, men rettet til **9.
+  juli** efter at en tidszone-korrekt omregning af kildedataen (UTC →
+  Europe/Copenhagen) pegede på en anden dato end hukommelsen, og Nicolaj
+  bekræftede omregningen som korrekt. Begge oprettet som rigtige, åbne,
+  årligt tilbagevendende Google-kalenderaftaler (RRULE, ikke afgrænset til de
+  årstal kildedataen tilfældigvis stopper ved).
+- Kalenderfordeling godkendt af Nicolaj efter en fremlagt oversigt: aftaler
+  markeret "hele familien" i kilden går til den delte "Familien
+  Boholt"-kalender; aftaler ejet af Nicolaj til hans egen; aftaler der efter
+  gennemgang af titlen reelt kun vedrører Jens eller Alfred specifikt (fest,
+  fødselsdag, øreklinik for Jens; legeaftale for Alfred) til deres egne
+  børnekalendere i stedet for familiekalenderen.
+
+**Resultat:** 45 rigtige Google-kalenderbegivenheder oprettet (47 kildelinjer,
+da fødselsdag og bryllupsdag hver blev til én tilbagevendende aftale i
+stedet for én pr. år) — 32 i Familien Boholt, 8 hos Nicolaj, 4 hos Jens, 1
+hos Alfred.
+
+**Christines kalender (opdatering samme dag):** De 7 aftaler ejet af
+Christine (Jobsøgning ×2, Årskontrol læge, Pandasia, Zoneterapi, Kommunen
+tlf., Psykolog online) kunne først ikke oprettes på hendes egen kalender —
+forbindelsen havde kun læseadgang. De blev derfor midlertidigt oprettet i
+Familien Boholt i stedet. Senere samme dag gav Christine forbindelsen
+skriveadgang til sin kalender, og alle 7 blev derefter oprettet direkte på
+`christineboholt@gmail.com`, hvorefter de midlertidige kopier i Familien
+Boholt blev slettet.
+
+**Dublet-oprydning (opdaget efter selve importen):** En gennemgang af de
+faktiske kalendere efter oprettelsen viste, at flere af Familyplan-aftalerne
+allerede fandtes som rigtige, aktive aftaler på kalenderne (uafhængigt af
+denne import) — formentlig fordi Nicolaj og Christine længe har brugt Google
+Kalender parallelt med den nedlagte Familyplan-app. Ni nyoprettede dubletter
+blev identificeret og slettet igen: "Børne-banko 🏆" og "C&J til KBH" i
+Familien Boholt (dækket af allerede eksisterende "Børne banko" og "Christine
+og Jens KBH"), fem padel-aftaler på Nicolajs kalender ("N: Padel kl 19",
+"Padel – AVK (2)", "Padel – Symmetry (4)", "N: padel", "Padel – Sparekassen
+Kronjylland (1)", alle dækket af allerede eksisterende padel-bookinger på
+samme tidspunkt), samt to utilsigtede dobbeltoprettelser af Christines egne
+"Zoneterapi" og "Kommunen tlf." (opstået fordi skriveadgangen til hendes
+kalender virkede for nogle af de 7 aftaler allerede ved første forsøg, uden
+at det blev opdaget dengang). To afklaringsspørgsmål blev forelagt Nicolaj:
+"Fest for Jens 🎉" fandtes allerede i Familien Boholt med dato 25/9, mens
+Familyplan-dataen pegede på 26/9 — Nicolaj bekræftede at **26/9 er den
+korrekte dato**, så den ældre 25/9-aftale i Familien Boholt blev slettet.
+"N padel 13-18" (Familyplan, 22/8) og den allerede eksisterende
+"N: padel tunnering" (12-17 samme dag) blev bekræftet som samme turnering —
+Familyplan-dubletten blev slettet, den oprindelige bevaret. To reelt
+manglende aftaler blev desuden fundet og oprettet, som ved en fejl ikke var
+kommet med i den oprindelige oprettelsesrunde: "VMGS 🎪🎉" (28/8) og
+"Hejmdal (medicin)" (16/9), begge i Familien Boholt.
+
+**Evidens:** Ingen PR/commit — handlingen skete direkte i Nicolajs live
+Google Kalender via Google Calendar-forbindelsen, efter fuld gennemgang og
+eksplicit godkendelse af både aftaleliste og kalenderfordeling i chatten.
+
+## Ugens resumé: manuel opdater-knap (2026-08-30)
+
+Uden for de ni stabiliseringsfaser: Nicolaj spurgte, hvorfor ugens AI-resumé
+ikke var kommet endnu, og foreslog en opdater-knap til funktionen. Undersøgt
+og bekræftet ved direkte opslag i beta-databasen: funktionen virkede som
+tilsigtet — den genereres udelukkende af et ugentligt cron-tick søndag kl.
+17:00 UTC, og der var reelt data at opsummere (9 ukrydsede indkøbsvarer, 4
+kalendertilknytninger), så resuméet var blot endnu ikke nået at blive
+genereret for den kommende uge.
+
+**Ændring:** Ejer eller admin kan nu selv udløse et frisk resumé fra
+forsiden, i stedet for udelukkende at vente på søndagens cron-tick — samme
+rolle-adgang som resten af familiens indstillinger (ejer ELLER admin, ikke
+kun ejeren, jf. det gennemgående mønster i resten af koden). Genbruger
+cron-jobbets egen samle-/generér-logik (`generateWeeklySummaryForFamily` i
+`server/lib/weeklySummary.ts`), men opdaterer — i modsætning til cron'ens
+"spring over, hvis der allerede findes ét"-idempotens — et eksisterende
+resumé for samme uge, og målretter DEN UGE MAN ER I NU, ikke næste uge (som
+cron'en altid ser frem imod, da den kører søndag aften). Et loft på én
+manuel opdatering i timen forhindrer utilsigtet Workers AI-forbrug ved
+gentagne klik. "Ugens resumé"-kortet på forsiden viser nu desuden en
+tom-tilstand med en "Generér ugens resumé nu"-knap, hvis intet er genereret
+endnu — kortet var før usynligt indtil første cron-kørsel, hvilket var
+selve kilden til Nicolajs spørgsmål.
+
+Synlig ny funktion (nyt kort-indhold og en ny knap på forsiden for ejer/
+admin) — til gennemgang, ikke selv-merget, se
+[PR #162](https://github.com/niciolajboholt/BoholtsFamilyPlatform/pull/162).
+Ny server-rute `POST /:id/weekly-summary/refresh` (`familySettings.ts`),
+dækket af 6 nye servertests (rolle-tjek, deaktiveret AI, tom uge, timelås,
+opdatering af eksisterende resumé) og en ny reel Playwright-E2E for hele
+flowet gennem den rigtige UI.
+
+## Ugens resumé: sprogkvalitet (2026-08-30)
+
+Uden for de ni stabiliseringsfaser: Nicolaj testede den nye opdater-knap
+(se ovenfor) og fandt, at selve AI-teksten var af meget dårlig kvalitet —
+et konkret eksempel viste opfundne detaljer ("Pandasia-stævner", et ord der
+ikke stod i den underliggende aftale), forkert kronologisk rækkefølge
+(torsdagens aftale nævnt før tirsdagens), og en upræcis "vi skal..."-tone på
+aftaler, der reelt kun gjaldt én person (fx Nicolajs egne padelkampe).
+
+**Rodårsag fundet ved kodegennemgang:** Kalenderaftalerne blev sendt til
+AI-modellen som rå ISO 8601 UTC-tidsstempler (fx
+"2026-08-31T10:00:00.000Z"), og modellen — en bevidst lille, hurtig,
+gratis-tilgængelig model (`@cf/zai-org/glm-4.7-flash`, se Sprint 23) — skulle
+selv regne tidszone, ugedag og rækkefølge ud. Det er præcis den slags
+opgave, en lille model er upålidelig til, hvilket forklarer både de
+opfundne detaljer og den forkerte rækkefølge. Aftaler fra flere
+familiemedlemmers kalendere blev desuden samlet uden en global sortering
+(hver kalender kommer sorteret for sig fra Google, men ikke på tværs), og
+selve ejerskabet af en aftale (hvem den gælder for) blev slet ikke sendt
+med, så modellen gættede en blanket "vi" for alt.
+
+**Rettelse:** Ugedag/klokkeslæt formateres nu deterministisk i kode
+(`Intl.DateTimeFormat`, Europe/Copenhagen) FØR aftalerne sendes til
+modellen, aftalerne sorteres kronologisk på tværs af alle medlemmers
+kalendere, og det medlem, aftalen tilhører, sendes med og bruges til at
+skrive "Nicolajs padelkamp" i stedet for "vi skal til padel". Selve
+systemprompten er samtidig strammet: eksplicit forbud mod at opfinde
+kategorier/ord, der ikke står i aftalens egen titel, og et krav om at følge
+den allerede givne kronologiske rækkefølge. Ingen ny type følsomme data
+sendes til modellen — kun aftalens titel, tidspunkt og medlemsnavn, samme
+redaktionsprincip som hidtil (beskrivelse/lokation når aldrig med).
+
+Ren kvalitetsrettelse af AI-outputtets sprog — ingen ændring i hvilke data
+der indsamles, hvornår resuméet genereres, eller UI'et omkring det. Til
+gennemgang, ikke selv-merget, da det ændrer selve den tekst, familien ser,
+se [PR #163](https://github.com/niciolajboholt/BoholtsFamilyPlatform/pull/163).
+7 nye/ændrede tests dækker den nye datoformatering og medlems-tilskrivning.
+
+## Ugens resumé: opdelt pr. familiemedlem (2026-08-30)
+
+Uden for de ni stabiliseringsfaser: Nicolaj bad om, at ugens resumé bliver
+opdelt, så det tydeligt beskriver, hvad hver enkelt i familien selv skal
+den kommende uge, i stedet for én sammenhængende tekst om det hele.
+
+**Ændring:** Aftaler og opgaver grupperes nu pr. familiemedlem, FØR de
+sendes til AI-modellen (samme princip som datoformateringen ovenfor —
+gruppér/sortér deterministisk i kode, lad kun modellen skrive den
+naturlige sætning pr. gruppe). Kalenderaftaler havde allerede et
+medlemsnavn (fra forrige rettelse); opgaver har nu det samme via et
+`LEFT JOIN` til `family_members` på opgavens `assigned_member_id`.
+Indkøbslisten har intet medlemsfelt i skemaet (den er og bliver fælles) og
+lægges sammen med ikke-tildelte opgaver/aftaler i én samlet
+"Fælles"-gruppe. Modellen bedes om ét linjeskift pr. navngiven person, i
+den rækkefølge personerne først optræder, plus højst én afsluttende linje
+for det fælles — ikke længere ét langt afsnit uden struktur.
+
+Kortet i UI'et (`WeeklySummaryCard.tsx`) fik samtidig `white-space:
+pre-line`, så de nye linjeskift rent faktisk vises adskilt i stedet for at
+blive presset sammen til én løbende linje, som almindelig HTML/MUI
+`Typography` ellers ville gøre.
+
+Ren tekststruktur-ændring af AI-outputtet og en lille visningsrettelse —
+ingen ændring i hvilke data der indsamles (ud over det nye medlemsnavn på
+opgaver) eller hvornår resuméet genereres. Til gennemgang, ikke
+selv-merget, da det ændrer selve den tekst og det udseende, familien ser,
+se [PR #164](https://github.com/niciolajboholt/BoholtsFamilyPlatform/pull/164).
+6 nye/ændrede tests dækker gruppering, rækkefølge og medlemstilskrivning
+på opgaver.
+
+**Kritisk følgefejl fundet og rettet samme aften (Nicolaj testede knappen
+efter deploy af PR #163):** `computeCurrentWeekStart()` (introduceret i
+PR #162) gik naivt baglæns til nærmeste mandag — men søndag er den SIDSTE
+dag i sin egen uge, så på en søndag aften (netop hvor Nicolaj testede)
+opdaterede knappen fejlagtigt et resumé for den uge, der er ved at slutte,
+i stedet for den kommende uge, som kortet rent faktisk viser. Resultatet:
+knappen så ud til slet ikke at virke (det synlige resumé forblev
+uændret), og samtidig blev familiens fælles timelås udløst, så et
+gentaget forsøg blot gav "prøv igen om lidt". Rettet ved at behandle
+søndag som "i morgen" i beregningen, så den matcher cron'ens egen
+kommende-uge-logik og dermed det, kortet allerede viser. Tilføjet direkte
+som endnu en commit på PR #164 (samme kodeområde, ikke en ny PR), da den
+er kritisk og bør med i samme review/merge.
+
+## Ugens resumé: navn med fed skrift og pålidelige linjeskift (2026-08-30)
+
+Uden for de ni stabiliseringsfaser: Nicolaj testede den nye person-
+opdeling (foregående afsnit) og fandt, at teksten i praksis kørte sammen
+i ét afsnit uden linjeskift mellem personerne, selvom modellen var bedt
+om at indsætte et linjeskift pr. person. Han bad om, at navnet vises med
+fed skrift, og at der er et pålideligt linjeskift, hver gang der kommer
+et nyt navn.
+
+**Rodårsag:** Fri tekst med en instruks om "sæt et linjeskift/kolon her"
+er upålideligt for den lille model — den fulgte ikke altid formateringen,
+præcis som med de tidligere sprog- og rækkefølgeproblemer.
+
+**Rettelse — samme princip igen (lad koden styre struktur, modellen kun
+ordlyden):** `generateWeeklySummary()` beder nu modellen om struktureret
+JSON (`{"sections": [{"name": ..., "text": ...}]}`) i stedet for fri
+tekst, samme mønster som rutine-/ingrediensforslagene (Sprint 23). En ny
+sammenligningsfunktion (`reconcileWeeklySummarySections`) lægger
+modellens svar sammen med den kendte, korrekte personrækkefølge —
+uafhængigt af hvilken rækkefølge modellens JSON-array selv kom i — og
+lægger et navn, modellen selv har fundet på (fx et separat "Familien" ved
+siden af "Fælles", som blev observeret i test), ind i den fælles tekst i
+stedet for at vise det som en uventet ekstra overskrift. UI'et
+(`WeeklySummaryCard.tsx`) viser nu hver sektion som sit eget afsnit med
+navnet i fed skrift, garanteret af koden — ikke af, om modellen kom til
+at indsætte et linjeskift.
+
+Den lagrede `content`-kolonne indeholder nu sektionerne som en
+JSON-streng i stedet for ren tekst; et ældre resumé (fra før denne
+ændring) vises fortsat korrekt som én unavngiven sektion i stedet for at
+fejle.
+
+Ren tekststruktur- og visningsrettelse — ingen ændring i hvilke data der
+indsamles eller hvornår resuméet genereres. Til gennemgang, ikke
+selv-merget, da det ændrer selve den tekst og det udseende, familien ser,
+se [PR #165](https://github.com/niciolajboholt/BoholtsFamilyPlatform/pull/165).
+9 nye/ændrede tests dækker den strukturerede JSON-parsing, sammenligning
+mod kendte navne (inkl. regression for det opfundne "Familien"-navn), og
+den ældre-resumé-fallback.
 
 ## Prioriteret udførelsesrækkefølge
 
@@ -547,9 +1196,12 @@ afgrænset PR:
 4. Udbyg fase 5 med kritiske CRUD-, rettigheds- og privatlivsflows.
 5. Opdel de største filer i rene refaktor-PR'er (fase 6).
 6. Færdiggør drift/runbooks og eliminér dobbelt deploy (fase 7).
-7. Implementér den aftalte offline-datapolitik og tests (fase 8).
+7. ~~Implementér den aftalte offline-datapolitik og tests (fase 8).~~
+   Gennemført — se fase 8 ovenfor.
 8. Afslut Google OAuth-verificering og fysisk enhedstest, og frigiv derefter
    kontrolleret fra `develop` til `main`.
+9. Implementér fase 9's ICS-abonnementskalendere (ny, uafhængig funktion —
+   blokerer ikke øvrige punkter og kan foregå parallelt).
 
 Eksterne handlinger eller reelle produktvalg må ikke blokere uafhængigt
 arbejde; de samles i afsnittet nedenfor og tages til sidst.
@@ -558,10 +1210,10 @@ arbejde; de samles i afsnittet nedenfor og tages til sidst.
 
 | Punkt | Hvorfor det ikke løses alene i kode | Midlertidig håndtering |
 |---|---|---|
-| Slå Cloudflare native Git-deploy fra | Kræver dashboard-adgang | GitHub Actions er den dokumenterede kvalitetspipeline |
+| ~~Slå Cloudflare native Git-deploy fra~~ | Gjort af Nicolaj 2026-08-29 | — |
 | Google OAuth-verificering | Kræver Google Cloud-ejergodkendelse | Login/jura og branding er kodeklargjort |
-| Eget produktionsdomæne | Domæne- og produktbeslutning | Beta fortsætter på `workers.dev` |
-| Fysisk iPhone/VoiceOver | Kræver rigtig enhed og brugerhandling | Automatiske mobiltests køres i CI |
+| Eget produktionsdomæne | Domæne- og produktbeslutning | Beta fortsætter på `workers.dev`; kan også blive nødvendigt for at fuldføre Google-domæneverificeringen (se Fase 4) |
+| ~~Fysisk iPhone/VoiceOver~~ | Udført af Nicolaj 2026-08-29 | — |
 
 ## Definition of Done for offentlig lancering
 
@@ -614,4 +1266,39 @@ Efter hver fase eller material ændring skal den ansvarlige:
 | 2026-08-27 | Fase 8: Offline-datapolitik skrevet (`31_Offline_Data_Policy.md`) — hvad der aldrig/må caches, TTL, hvilke skrivninger må køes, konfliktprincip | PR #124 |
 | 2026-08-27 | Fase 8: Read-only offline-kalendervisning (Google, 7-dages-TTL, synlig "sidst opdateret") — godkendt og merget af Nicolaj efter gennemgang | PR #125 |
 | 2026-08-27 | Fase 8: Skrivekø til indkøbslistens tilføj/af-tilkryds vare, med reel Playwright-offline-test — godkendt og merget af Nicolaj efter gennemgang | PR #127 |
-| 2026-08-27 | Fase 8: Skrivekø til opgavers af-/tilkrydsning, med reel Playwright-offline-test — åben til Nicolajs gennemgang, ikke selv-merget | PR #129 (open) |
+| 2026-08-27 | Fase 8: Skrivekø til opgavers af-/tilkrydsning, med reel Playwright-offline-test — godkendt og merget af Nicolaj efter gennemgang | PR #129 |
+| 2026-08-28 | Fase 8: Skrivekø til indkøbslistens "ryd afkrydsede" (sidste punkt fra politikkens skriveliste), med reel Playwright-offline-test — godkendt og merget af Nicolaj efter gennemgang | PR #132 |
+| 2026-08-28 | Fase 8: Playwright-offline-test for kalendervisnings-fallbacket (PR #125) — ren test, ingen adfærdsændring, selv-merget. Fase 8 gennemført | PR #133 |
+| 2026-08-28 | Fase 2: Automatisk WCAG 2.0/2.1 A/AA-audit (axe-core) indført; navigationslistens semantik og tre marginale kontrastbrud rettet — synlig farveændring, til gennemgang, ikke selv-merget | PR #134 |
+| 2026-08-28 | Fase 8: Ryddet modstridende tekst om, at offline-skrivning/skrivekøen "endnu ikke er implementeret/påbegyndt" (forældet efter PR #125-#133); flyttet fremtidige udvidelser (offline redigering/sletning, Outlook-fallback) fra "Mangler" til et separat "Fremtidige forbedringer"-afsnit — ren dokumentation, selv-merget efter grøn CI | PR #135 |
+| 2026-08-28 | Fase 3/5: Reel Playwright-E2E for privat-aftale-redaktion (ejer/andet medlem + offentligt delelink), servertests for AI-ugeresumé-redaktion, manglende kalender-kortlægning og cross-family-isolation på familie-omdøbning/invitationsregenerering — ren test/dokumentation, ingen adfærdsændring | PR #137 |
+| 2026-08-28 | Fase 9 oprettet: ICS-abonnementskalendere. Omfang undersøgt (genanvendelige mønstre vs. reelt nyt arbejde) og tre produktbeslutninger truffet af Nicolaj (ingen URL-kryptering i v1, tildeles et familiemedlem, loft på 5 abonnementer pr. familie) — ren planlægning/dokumentation, ingen kode endnu | PR #138 |
+| 2026-08-28 | Fase 9: D1-migration + server-CRUD for ICS-abonnementer (opret/list/redigér/slet, rolle-tjek, cross-family-isolation, 5-loft) — rent backend, ingen UI endnu, ingen ændring i appens brug/udseende, selv-merget sammen med scope-dokumentationen | PR #138 |
+| 2026-08-28 | Fase 9: SSRF-hærdet ICS-hentning/-parsing + RRULE-udfoldning (`server/lib/icsCalendar.ts`, `ical.js`) og en ny hentnings-rute, med privatlivsredaktion for `CLASS:PRIVATE`/`CONFIDENTIAL`. 40 nye tests. Ændrer reel funktion (nye udgående netværkskald, ny afhængighed) — til gennemgang, ikke selv-merget | PR #139 |
+| 2026-08-28 | Fase 9: UI i Indstillinger til at tilføje/fjerne delte ICS-kalendere og tildele dem et familiemedlem — synlig ny funktion, godkendt visuelt af Nicolaj ud fra skærmbilleder før commit. Viser endnu ikke aftalerne i selve kalenderen (kræver klient-provider-integrationen, se Fase 9 "Ny arbejde") | PR #140 |
+| 2026-08-28 | Fase 9: Klient-integration (`IcsCalendarProvider` registreret i `CompositeCalendarProvider`, ny `"ics"`-kildetype, primær friskheds-cache) — tilføjede delte kalendere vises nu i selve kalenderen. ICS-panelet flyttet ind i den eksisterende "Kalenderforbindelser"-dialog i stedet for sin egen, efter ønske fra Nicolaj. Fase 9 gennemført. Synlig ny funktion — til gennemgang, ikke selv-merget | PR #141 |
+| 2026-08-28 | Fase 2: Automatiseret tastatur-/fokusgennemgang som faste Playwright-tests (venstremenuens fulde Tab-rækkefølge på alle fem hovedsider + en Indstillinger-dialogs fokusfælde/Escape-genoprettelse) — ingen fejl fundet, ren test, ingen adfærdsændring, selv-merget efter grøn CI | PR #142 |
+| 2026-08-28 | Fase 3: Reel Playwright-E2E for selve redigerings-flowet af en privat aftale (feltskift bevarer `visibility: "private"`; at slå privatliv fra sender rent faktisk `visibility: "default"`) + `32_Workers_AI_Data_Policy.md` (kodeverificeret gennemgang af alle tre AI-brugssteder, felter sendt/aldrig sendt, fejlhåndtering logger ikke prompten) — ren test/dokumentation, ingen adfærdsændring, selv-merget efter grøn CI | PR #143 |
+| 2026-08-28 | Fase 9: "Delte kalendere (ICS)" fik sin egen række + dedikeret dialog i "Kalenderforbindelser" (samme niveau som Google/Outlook, efter ønske fra Nicolaj), og hvert abonnements navn/medlemstildeling kan nu redigeres (ikke selve ICS-linket) — genbruger eksisterende PATCH-rute/klientfunktion, ingen ny backend. Godkendt visuelt af Nicolaj ud fra skærmbilleder. Synlig ny funktion — til gennemgang, ikke selv-merget | PR #144 |
+| 2026-08-28 | Fase 5: Reel Playwright-E2E for kalenderaftale-CRUD gennem den rigtige UI (opret/redigér/slet), plus en arkitektonisk afklaring: "gentagen aftale/enkeltforekomst" kan ikke testes gennem noget UI i dag, da kun en "internal"-kilde (ikke længere i produktionskoden) understøtter det — fjernet fra "Mangler" i stedet for markeret som en manglende test. Ren test/dokumentation, ingen adfærdsændring, selv-merget efter grøn CI | PR #145 |
+| 2026-08-28 | Fase 9: Valgfri farve pr. ICS-abonnement, efter ønske fra Nicolaj — ny nullable `color`-kolonne (migration 0019), genbruger familiemedlemmers faste 8-farve-swatch-vælger, vist kun når intet medlem er tildelt. Godkendt visuelt af Nicolaj ud fra skærmbilleder. Synlig ny funktion — til gennemgang, ikke selv-merget | PR #146 |
+| 2026-08-28 | Fase 5: Fuldt invitations-/rolle-UI-flow. Ny bruger kan taste en invitationskode ind og komme ind i appen (reel E2E). Rolleadministration havde slet ingen UI før — ny `GET /:id/memberships`-rute + ny "Medlemmer og roller"-dialog (rolleskift kun ejer, fjernelse ejer/admin, aldrig på egen/ejerens række), genbruger allerede testede serverruter. 2 nye servertests + 2 nye reelle Playwright-E2E-tests. Synlig ny funktion — til gennemgang, ikke selv-merget | PR #147 |
+| 2026-08-28 | Fase 1: Rettet farve-/ejerskabsfejl fra Nicolajs fejlrapport — en aftale med navngivne medlemmer i titlen viste generisk "Familien"-lilla i stedet for deres egne farver, da kun kalender-tildelingen (ikke aftalens egne Google-deltagere) bestemte farven. Ny `matchAttendeesToOwnerIds.ts` matcher deltager-e-mails mod medlemmers koblede konto-e-mail (ny `linkedUserEmail`-felt end-to-end); matcher intet, uændret gammel adfærd. Nye enhedstests + visuel før/efter-reproduktion. Synlig funktionsændring — til gennemgang, ikke selv-merget | PR #148 |
+| 2026-08-28 | Fase 1: Opfølgning på PR #148 (allerede merget, ny PR) — `getEventOwnerColor()` gav stadig Familien-farven ved flere matchede ejere, og et ikke-tildelt ICS-abonnement fik intet ejerskab på selve aftalen. Én central regel (`getEventOwnerColors()` + `getEventOwnerBorderSx()`, opdelt venstrekant ved flere medlemmer) brugt identisk af måned/uge/dag/familie/liste-visningen. Nyt `CalendarEvent.color`-felt som ICS-kildens fald-tilbage. 15 nye/ændrede enhedstests + 2 nye Playwright-tests, der beviser den faktiske CSS-farve, ikke kun ownerIds. Synlig funktionsændring — til gennemgang, ikke selv-merget | PR #149 |
+| 2026-08-28 | Fase 1: Visuel opfølgning fra Nicolaj efter test på iPhone (egen, parallel session) — aftalefarver fremstod udvaskede pga. for kraftig gennemsigtig baggrund, og kalenderfilteret viste kildens egen farve i stedet for det faktisk matchede medlems. Skiftet fra `border-image`-venstrekant til en fuldt mættet accentstribe via et pseudo-element (undgår halvmåneform på afrundede kort), baggrundstoning reduceret ca. 19% → 8%, og en ny `getCalendarSourceDisplayColors()` lader "Vis kalendere"-filteret bruge samme farveopløsning som selve aftalekortene. Godkendt og merget af Nicolaj | PR #150 |
+| 2026-08-28 | Fase 5: Sidste "Mangler"-punkt lukket — reel Playwright-E2E for opret/redigér/slet gennem UI'et på indkøbsliste (vare + hel liste), opgaver og rutiner (kun opret/slet — ingen redigér-UI findes for en rutine, arkitektonisk fakta). 3 nye tests. Ren test/dokumentation, ingen adfærdsændring, selv-merget efter grøn CI | PR #152 |
+| 2026-08-29 | Fase 5: Sidste to punkter lukket — logout/lokal oprydning og en generel online-API-fejl (E2E). Fandt undervejs en ægte funktionsfejl: `useSession()`'s manglende delte context lod logout kun opdatere Indstillinger-siden lokalt, mens resten af app-skallen forblev synligt logget ind uden en manuel genindlæsning. Rettet med `window.location.reload()` efter logout (samme mønster som backup-import). Synlig funktionsændring — godkendt af Nicolaj før implementering, til gennemgang, ikke selv-merget | PR #153 |
+| 2026-08-29 | Fase 4: Kodeverificeret gennemgang af alle fem Google OAuth-scopes (ingen overflødige) og redirect-URI-håndtering (allerede domæneuagtig kode, intet at rette). Fandt og rettede to helt forældede README'er, som stadig beskrev det fjernede klient-popup-flow fra Sprint 11.1 (`VITE_GOOGLE_CLIENT_ID` i `.env.local`) i stedet for det faktiske server-side authorization-code+PKCE-flow — kunne have vildledt Google Cloud Console-opsætningen. Indsnævrer Fase 4's resterende punkter til rene eksterne handlinger i Google Cloud Console. Ren dokumentationsrettelse, ingen kodeændring, selv-merget efter grøn CI | PR #154 |
+| 2026-08-29 | Fase 7: Nicolaj slog Cloudflares native Git-deploy fra i dashboardet — kun GitHub Actions-pipelinen deployer nu beta/produktion. Fasens sidste eksterne "ekstern handling"-blokering for selve deploy-pipelinen er dermed fjernet; kun D1-gendannelsesøvelsen og release til `main` mangler, begge afventer et aftalt tidspunkt med Nicolaj. Ren dokumentationsopdatering, ingen kodeændring, selv-merget efter grøn CI | PR #155 |
+| 2026-08-29 | Fase 4: Tilføjede Google Search Console-domæneverificeringsfil (`public/google1e28839311687158.html`) som led i Nicolajs igangværende OAuth-verificering. Ren, usynlig statisk fil, ingen adfærdsændring, selv-merget efter grøn CI | PR #156 |
+| 2026-08-29 | Fase 1 + Fase 2: Nicolaj gennemførte den fysiske iPhone-verifikation (Safari/PWA, mobilvisning uden overlap/dubletter) og VoiceOver-testen af de primære flows (navigation, indkøb, opgaver, kalenderaftale) — ingen problemer fundet. Fase 2 er dermed fuldt gennemført; Fase 1 mangler kun kildespecifik dubletanalyse, hvis en dublet observeres igen. Ren dokumentationsopdatering, ingen kodeændring, selv-merget efter grøn CI | PR #157 |
+| 2026-08-29 | Fase 2: Fandt og rettede issue #20's sidste kriterie — måned- og dagsvisningen viste ejerskab af en aftale UDELUKKENDE via farven, uden noget synligt navn/ikon som backup (uge-/familievisningen havde allerede navnet som tekst). Nyt synligt initial-badge (`EventOwnerBadges.tsx`) på aftalekort og dags-prikker, plus ejernavn tilføjet til `getEventActionLabel()`s aria-label på alle fire visninger (var slet ikke der før). Godkendt visuelt af Nicolaj ud fra skærmbilleder. Synlig funktionsændring — til gennemgang, ikke selv-merget | PR #158 |
+| 2026-08-29 | Fase 3: Lukket to sidste punkter efter Nicolajs godkendelse. Privatlivssikre standardværdier for nye familier/delinger kodeverificeret som allerede korrekte (ny aftale synlig for familien som udgangspunkt; nyt delelink inkluderer aldrig beskrivelse/lokation uden aktivt tilvalg) — ingen kodeændring nødvendig. Kalenderniveau-privatlivsvalg bevidst fravalgt som unødvendig udvidelse ud over den eksisterende aftaleniveau-kontakt. Ren dokumentationsopdatering, selv-merget efter grøn CI | PR #159 |
+| 2026-08-29 | Fase 4: Google OAuth-verificeringen blev blokeret af domæne-niveau-krav, som `workers.dev` ikke kan opfylde. I stedet for at haste en domænebeslutning igennem satte Nicolaj appen tilbage til "Testing"-status og tilføjede sig selv og Christine som test-brugere — ingen "ikke-verificeret app"-advarsel for nogen af dem, og alt allerede udfyldt arbejde (branding, scopes, redirect-URI'er) er gemt uændret til senere. Domænebeslutningen og selve verificeringen tages op i ro, uden tidspres. Ren dokumentationsopdatering, ingen kodeændring, selv-merget efter grøn CI | PR #160 |
+| 2026-08-29 | Uden for stabiliseringsfaserne: importerede 47 relevante aftaler fra den nedlagte Familyplan-app (CSV-eksport) til Google Kalender som 45 rigtige begivenheder — 32 i Familien Boholt, 8 hos Nicolaj (6 padel + fødselsdag 26/5 og bryllupsdag 9/7 som nye, ægte årligt tilbagevendende aftaler), 4 hos Jens, 1 hos Alfred. "Karate" udelukket, kun fra 1. august 2026. Fuld liste og kalenderfordeling godkendt af Nicolaj før oprettelse. Ren dataimport, ingen kodeændring — se dedikeret afsnit "Familiedata-import fra Familyplan" | Google Kalender (direkte, ingen PR) |
+| 2026-08-29 | Opfølgning på ovenstående import: Christine gav senere skriveadgang til sin egen kalender, så hendes 7 aftaler blev flyttet dertil fra den midlertidige placering i Familien Boholt. En gennemgang af de faktiske kalendere fandt derudover ni utilsigtede dubletter mod allerede eksisterende, ægte aftaler (padel-bookinger, "Børne banko", "Christine og Jens KBH", samt to egne dobbeltoprettelser) — alle slettet igen efter to afklaringsspørgsmål til Nicolaj (dato for "Fest for Jens" bekræftet til 26/9; "N padel 13-18" bekræftet som samme turnering som en eksisterende aftale). To reelt manglende aftaler ("VMGS 🎪🎉", "Hejmdal (medicin)") blev fundet og oprettet. Ren dataoprydning, ingen kodeændring | Google Kalender (direkte, ingen PR) |
+| 2026-08-30 | Uden for stabiliseringsfaserne: tilføjet en manuel opdater-knap til "Ugens resumé", udløst af Nicolajs spørgsmål om hvorfor resuméet ikke var kommet (undersøgt og bekræftet som forventet — cron'en kører kun søndag aften). Ejer eller admin kan nu selv generere/opdatere resuméet for den uge, man er i nu, med et loft på én gang i timen; kortet viser en tom-tilstand med en "Generér nu"-knap i stedet for at være usynligt indtil første cron-kørsel. 6 nye servertests + 1 ny Playwright-E2E. Synlig ny funktion — til gennemgang, ikke selv-merget | PR #162 |
+| 2026-08-30 | Ugens resumé: rettet dårlig AI-sprogkvalitet fundet af Nicolaj efter test af opdater-knappen (opfundne detaljer, forkert kronologisk rækkefølge, upræcis "vi"-tone på personlige aftaler). Rodårsag: rå ISO-tidsstempler overladt til den lille AI-model at regne ugedag/tidszone ud, ingen global sortering på tværs af medlemmers kalendere, intet medlemsnavn sendt med. Rettet ved at formatere ugedag/klokkeslæt deterministisk i kode og sende medlemsnavn med, plus strammet systemprompt mod at opfinde kategorier. Ren tekstkvalitetsrettelse, ingen ændring i dataindsamling/UI. 7 nye/ændrede tests. Til gennemgang, ikke selv-merget | PR #163 |
+| 2026-08-30 | Ugens resumé: opdelt pr. familiemedlem efter Nicolajs ønske — aftaler og opgaver grupperes nu pr. person (opgaver fik et medlemsnavn via LEFT JOIN på assigned_member_id, samme princip som forrige rettelses deterministiske datoformatering), modellen skriver én linje pr. navngiven person plus én fælles linje for resten/indkøb, og kortet fik `white-space: pre-line` så linjeskiftene rent faktisk vises. 6 nye/ændrede tests. Synlig tekst- og layoutændring — til gennemgang, ikke selv-merget | PR #164 |
+| 2026-08-30 | Kritisk følgefejl på opdater-knappen (PR #162) fundet af Nicolaj samme aften: `computeCurrentWeekStart()` beregnede fejlagtigt den UDGÅENDE uge på en søndag (sidste dag i sin egen uge) i stedet for den kommende uge, kortet viser — knappen opdaterede derfor et usynligt resumé, mens det synlige forblev uændret, og udløste samtidig familiens timelås unødigt. Rettet ved at behandle søndag som "i morgen", så beregningen matcher cron'ens egen logik. Tilføjet til den allerede åbne PR #164 (samme kodeområde). 1 ny regressionstest | PR #164 |
+| 2026-08-30 | Ugens resumé: navn i fed skrift og pålidelige linjeskift efter Nicolajs test af person-opdelingen (fri tekst med "sæt linjeskift her"-instruks var upålidelig for den lille model, samme mønster som tidligere problemer). Erstattet med struktureret JSON-svar ({"sections":[{"name","text"}]}), en ny sammenligningsfunktion der retter modellens rækkefølge mod den kendte, korrekte rækkefølge og lægger et opfundet navn (fx "Familien" ved siden af "Fælles") ind i den fælles tekst i stedet for en uventet ekstra overskrift, og en UI-rettelse der viser hver sektion med navnet i fed skrift, garanteret af koden. 9 nye/ændrede tests. Synlig tekst- og layoutændring — til gennemgang, ikke selv-merget | PR #165 |
