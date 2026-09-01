@@ -1679,8 +1679,9 @@ test("a family member can choose one occurrence or the whole Google series", asy
     .getByRole("button", { name: /^Rediger aftale: Ugentlig svømning,/ })
     .click();
 
-  await expect(page.getByLabel("Gælder for")).toHaveValue("occurrence");
-  await page.getByLabel("Gælder for").click();
+  const scopeSelect = page.getByRole("combobox", { name: "Gælder for" });
+  await expect(scopeSelect).toContainText("Kun denne forekomst");
+  await scopeSelect.click();
   await page.getByRole("option", { name: "Hele rækken" }).click();
   await expect(
     page.getByText("Ændringer og sletning gælder alle aftaler i den gentagne række."),
