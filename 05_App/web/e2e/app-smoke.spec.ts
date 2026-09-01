@@ -977,6 +977,11 @@ test("a private calendar event is fully visible to its owner and redacted to 'Op
   // kolonne (getPlannerEventsForColumn) og ville derfor slet ikke vise en
   // enkeltpersons-aftale som denne. Månedsvisningen viser alle synlige
   // kalendres aftaler uafhængigt af den fordeling.
+  // Låser "nu" til samme uge som den hardkodede aftale (2026-08-27) — ellers
+  // driver månedsvisningen med tiden og viser en anden måned end den,
+  // aftalen faktisk ligger i (samme rodårsag som de øvrige page.clock-fix i
+  // denne fil).
+  await page.clock.setFixedTime(new Date("2026-08-26T09:00:00+02:00"));
   await page.goto("/calendar");
   // useFamilyMembers() læser kun localStorage ÉN gang, ved sin egen mount —
   // den opdaterer sig aldrig af sig selv, hvis AppLayout's baggrunds-synk
@@ -1111,6 +1116,9 @@ test("editing an existing private event sends the updated fields, and turning pr
     });
   });
 
+  // Låser "nu" til samme uge som den hardkodede aftale (2026-08-27) — se
+  // samme fix ovenfor i den anden private-event-test.
+  await page.clock.setFixedTime(new Date("2026-08-26T09:00:00+02:00"));
   await page.goto("/calendar");
   await page.waitForFunction(() => localStorage.getItem("boholts-family-members") !== null);
   await page.evaluate(() => localStorage.setItem("boholts-current-member-id", "member-e2e"));
@@ -1483,6 +1491,96 @@ test("a family member can create, edit, and delete a calendar event through the 
   await page.getByRole("button", { name: "Bekræft sletning" }).click();
 
   await expect(renamedEventButton).not.toBeVisible();
+});
+
+// Sprint 34: gentagne aftaler kan kun OPRETTES mod Google (se
+// providerSupportsRecurrenceCreation) — testen bekræfter, at gentagelses-
+// feltet rent faktisk når frem til POST-kaldet mod Google, gennem den
+// samme UI-flow som den almindelige opret-test ovenfor.
+test("a family member can create a recurring Google event through the real UI", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  await mockAuthenticatedApi(page);
+  await page.route("**/api/calendar/status", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ connected: true }),
+    }),
+  );
+
+  let postedEvent: Record<string, unknown> | null = null;
+
+  await page.route("**/api/calendar/calendars/*/events*", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    const calendarId = decodeURIComponent(path.split("/")[4] ?? "");
+
+    if (calendarId !== "alex-calendar") {
+      await route.fallback();
+      return;
+    }
+
+    if (route.request().method() === "GET") {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          items: postedEvent ? [postedEvent] : [],
+          nextSyncToken: "alex-calendar-sync-token",
+        }),
+      });
+      return;
+    }
+
+    if (route.request().method() === "POST") {
+      const posted = route.request().postDataJSON() as Record<string, unknown>;
+      postedEvent = {
+        id: "recurring-test-event",
+        summary: posted.summary,
+        start: posted.start,
+        end: posted.end,
+        status: "confirmed",
+      };
+      await route.fulfill({
+        status: 201,
+        contentType: "application/json",
+        body: JSON.stringify(postedEvent),
+      });
+      return;
+    }
+
+    await route.fallback();
+  });
+
+  await page.goto("/calendar");
+
+  await page.getByRole("button", { name: "Ny aftale" }).click();
+  await page.getByLabel("Hvem gælder aftalen for?").click();
+  await page.locator('[role="option"][data-value="google:alex-calendar"]').click();
+  await page.getByLabel("Titel").fill("Svømning");
+
+  await page.getByRole("button", { name: "Flere muligheder" }).click();
+  await page.getByLabel("Gentages").click();
+  await page.getByRole("option", { name: "Hver uge" }).click();
+  await expect(page.getByText(/^Gentages hver/)).toBeVisible();
+
+  const [request] = await Promise.all([
+    page.waitForRequest(
+      (req) =>
+        /\/api\/calendar\/calendars\/.+\/events/.test(req.url()) &&
+        req.method() === "POST",
+    ),
+    page.getByRole("button", { name: "Opret aftale" }).click(),
+  ]);
+
+  const body = request.postDataJSON() as { recurrence?: string[] };
+  expect(body.recurrence).toHaveLength(1);
+  expect(body.recurrence?.[0]).toMatch(/^RRULE:FREQ=WEEKLY/);
+
+  await expect(
+    page.getByRole("button", { name: new RegExp(`^Rediger aftale: Svømning,`) }),
+  ).toBeVisible();
 });
 
 // Fase 5: "Fuldt invitations-/rolleflow gennem UI'et" — del 1: en helt ny

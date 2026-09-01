@@ -45,6 +45,21 @@ export function isExternalCalendarProviderType(
 }
 
 /**
+ * Sprint 34: kun Google Kalender-skrivevejen (googleCalendarWriteMapper.ts)
+ * ved i dag, hvordan en gentagelsesregel oversættes til det format,
+ * kilden forstår (RFC 5545 RRULE for Google) — Outlook/Apple/ICS er
+ * fortsat udenfor scope. Brug denne i stedet for at sammenligne mod
+ * "google" direkte i UI-laget, så det er tydeligt hvorfor Google er en
+ * undtagelse fra isExternalCalendarProviderType ovenfor, ikke en
+ * modsigelse af den.
+ */
+export function providerSupportsRecurrenceCreation(
+  providerType: CalendarProviderType | undefined,
+): boolean {
+  return providerType === "google";
+}
+
+/**
  * Standardvindue for at hente aftaler: begrænset og gyldigt for Googles
  * `timeMin`/`timeMax` (RFC3339-tidspunkter), i modsætning til den tidligere
  * konstant der brugte ECMAScripts dato-yderpunkter (år -271821 til +275760)

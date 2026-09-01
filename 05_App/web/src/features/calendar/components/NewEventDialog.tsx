@@ -52,7 +52,10 @@ import type {
   CalendarEvent,
 } from "../models/calendarEvent";
 import type { CalendarSource } from "../models/calendarProvider";
-import { isExternalCalendarProviderType } from "../models/calendarProvider";
+import {
+  isExternalCalendarProviderType,
+  providerSupportsRecurrenceCreation,
+} from "../models/calendarProvider";
 import type { CreateCalendarEventInput } from "../models/calendarEventInput";
 import type { CalendarOwner } from "../data/calendarOwners";
 import { eventReminderOffsetOptions } from "../eventReminders/eventReminderApi";
@@ -318,7 +321,7 @@ function NewEventDialog({
       return;
     }
 
-    if (!isExternalCalendarProviderType(selectedSource?.providerType) && recurrenceError) {
+    if (providerSupportsRecurrenceCreation(selectedSource?.providerType) && recurrenceError) {
       setSubmitError(recurrenceError);
 
       return;
@@ -369,9 +372,9 @@ function NewEventDialog({
           form.privacy === "busy" ? "busy" : undefined,
 
         recurrence:
-          isExternalCalendarProviderType(selectedSource?.providerType)
-            ? undefined
-            : recurrenceFormValueToRule(recurrence, start),
+          providerSupportsRecurrenceCreation(selectedSource?.providerType)
+            ? recurrenceFormValueToRule(recurrence, start)
+            : undefined,
       };
 
     try {
@@ -544,7 +547,7 @@ function NewEventDialog({
 
           <Collapse in={isMoreOptionsOpen} timeout="auto">
             <Box sx={{ display: "grid", gap: 2 }}>
-              {!isExternalCalendarProviderType(selectedSource?.providerType) && (
+              {providerSupportsRecurrenceCreation(selectedSource?.providerType) && (
                 <EventRecurrenceSection
                   value={recurrence}
                   eventStartDate={form.startDate}
