@@ -23,7 +23,10 @@ import { EventParticipantsSection } from "./EventParticipantsSection";
 import { EventRecurrenceSection } from "./EventRecurrenceSection";
 import type { CalendarEvent } from "../models/calendarEvent";
 import type { CalendarSource } from "../models/calendarProvider";
-import { isExternalCalendarProviderType } from "../models/calendarProvider";
+import {
+  isExternalCalendarProviderType,
+  providerSupportsRecurrenceCreation,
+} from "../models/calendarProvider";
 import type { RecurrenceExceptionOverride } from "../preferences/recurrenceExceptionsStorage";
 import type { CalendarOwner } from "../data/calendarOwners";
 import { eventReminderOffsetOptions } from "../eventReminders/eventReminderApi";
@@ -227,6 +230,18 @@ function EditEventDialog({
               dateFieldsFullWidth={false}
             />
 
+            {canEditRecurrenceRule &&
+              (!isExternalCalendarProviderType(eventSource?.providerType) ||
+                providerSupportsRecurrenceCreation(eventSource?.providerType)) && (
+                <EventRecurrenceSection
+                  value={recurrence}
+                  eventStartDate={formState.startDate}
+                  disabled={!isInternalEvent || isSaving}
+                  errorMessage={recurrenceError}
+                  onChange={setRecurrence}
+                />
+              )}
+
             {conflictingEvents.length > 0 && isInternalEvent && (
               <EventConflictAlert
                 conflicts={conflictingEvents}
@@ -252,16 +267,6 @@ function EditEventDialog({
 
             <Collapse in={isMoreOptionsOpen} timeout="auto">
               <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                {!isExternalCalendarProviderType(eventSource?.providerType) && canEditRecurrenceRule && (
-                  <EventRecurrenceSection
-                    value={recurrence}
-                    eventStartDate={formState.startDate}
-                    disabled={!isInternalEvent || isSaving}
-                    errorMessage={recurrenceError}
-                    onChange={setRecurrence}
-                  />
-                )}
-
                 {!isExternalCalendarProviderType(eventSource?.providerType) && (
                   <EventParticipantsSection
                     ownerIds={formState.ownerIds}
