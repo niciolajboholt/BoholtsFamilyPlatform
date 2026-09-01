@@ -92,16 +92,17 @@ export class GoogleCalendarApi {
 
   // Sprint 25: to hentemåder. Med "range" hentes alt i tidsvinduet (dagens
   // adfærd, bruges ved første synk eller når et syncToken er udløbet).
-  // Med "syncToken" sender Google kun ÆNDRINGER siden sidst — Googles API
-  // tillader ikke at kombinere syncToken med timeMin/timeMax/singleEvents/
-  // orderBy, så de to grene sender helt forskellige forespørgselsparametre.
+  // Med "syncToken" sender Google kun ÆNDRINGER siden sidst. timeMin,
+  // timeMax og orderBy må ikke gentages, men singleEvents SKAL fortsat have
+  // samme værdi som ved første synk, så gentagne serier bliver ved med at
+  // komme tilbage som forekomster.
   async listEvents(
     calendarId: string,
     params: { range: CalendarEventRange } | { syncToken: string },
   ): Promise<GoogleCalendarEventsPage> {
     const query: Record<string, string> =
       "syncToken" in params
-        ? { syncToken: params.syncToken }
+        ? { syncToken: params.syncToken, singleEvents: "true" }
         : {
             timeMin: params.range.start,
             timeMax: params.range.end,
@@ -114,6 +115,20 @@ export class GoogleCalendarApi {
 
   createEvent(calendarId: string, request: GoogleCalendarEventRequest): Promise<GoogleCalendarEvent> {
     return this.writeEvent("POST", calendarId, undefined, request);
+  }
+
+  async getEvent(calendarId: string, eventId: string): Promise<GoogleCalendarEvent> {
+    const response = await this.request(
+      "GET",
+      `/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}`,
+      undefined,
+      {},
+    );
+    try {
+      return await response.json() as GoogleCalendarEvent;
+    } catch (error: unknown) {
+      throw new CalendarProviderError("unknown", "Google Kalender sendte en ugyldig aftale.", { cause: error });
+    }
   }
 
   updateEvent(calendarId: string, eventId: string, request: GoogleCalendarEventRequest): Promise<GoogleCalendarEvent> {
@@ -163,7 +178,7 @@ export class GoogleCalendarApi {
     }
   }
 
-  private async request(method: "POST" | "PATCH" | "DELETE", path: string, body: GoogleCalendarEventRequest | undefined, query: Record<string, string>): Promise<Response> {
+  private async request(method: "GET" | "POST" | "PATCH" | "DELETE", path: string, body: GoogleCalendarEventRequest | undefined, query: Record<string, string>): Promise<Response> {
     const response = await fetch(`${calendarApiBaseUrl}${path}?${new URLSearchParams(query).toString()}`, {
       method,
       credentials: "same-origin",

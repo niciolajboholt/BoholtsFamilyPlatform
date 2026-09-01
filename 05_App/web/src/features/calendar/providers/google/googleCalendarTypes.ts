@@ -35,6 +35,8 @@ export interface GoogleCalendarEvent {
   start?: GoogleEventDateTime;
   end?: GoogleEventDateTime;
   recurringEventId?: string;
+  originalStartTime?: GoogleEventDateTime;
+  recurrence?: string[];
   visibility?: string;
   // Bruges til at genkende, hvilke familiemedlemmer aftalen reelt er FOR —
   // mere præcist end kalender-tildelingen, som kun ved hvilken kalender

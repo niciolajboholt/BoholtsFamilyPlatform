@@ -529,6 +529,7 @@ export function useCalendarPageController() {
 
   async function handleDeleteEvent(
     eventId: string,
+    sourceId?: string,
   ) {
     const eventToDelete =
       events.find(
@@ -536,7 +537,9 @@ export function useCalendarPageController() {
           event.id === eventId,
       );
 
-    if (!eventToDelete) {
+    const selectedEventToDelete = eventToDelete ?? selectedEvent;
+
+    if (!selectedEventToDelete) {
       showSnackbar(
         "error",
         "Aftalen kunne ikke findes.",
@@ -546,10 +549,10 @@ export function useCalendarPageController() {
     }
 
     try {
-      await deleteEvent(eventId);
+      await deleteEvent(eventId, sourceId ?? selectedEventToDelete.sourceId);
 
       setDeletedEvent(
-        eventToDelete,
+        selectedEventToDelete,
       );
 
       setSelectedEvent(null);
@@ -557,7 +560,7 @@ export function useCalendarPageController() {
       showSnackbar(
         "success",
         "Aftalen blev slettet.",
-        true,
+        selectedEventToDelete.source === "internal",
       );
     } catch {
       showSnackbar(

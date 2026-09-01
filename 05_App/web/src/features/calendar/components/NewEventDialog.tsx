@@ -521,6 +521,16 @@ function NewEventDialog({
             dateFieldsFullWidth
           />
 
+          {providerSupportsRecurrenceCreation(selectedSource?.providerType) && (
+            <EventRecurrenceSection
+              value={recurrence}
+              eventStartDate={form.startDate}
+              disabled={isSaving}
+              errorMessage={recurrenceError}
+              onChange={setRecurrence}
+            />
+          )}
+
           {conflictingEvents.length >
             0 && (
               <EventConflictAlert
@@ -547,16 +557,6 @@ function NewEventDialog({
 
           <Collapse in={isMoreOptionsOpen} timeout="auto">
             <Box sx={{ display: "grid", gap: 2 }}>
-              {providerSupportsRecurrenceCreation(selectedSource?.providerType) && (
-                <EventRecurrenceSection
-                  value={recurrence}
-                  eventStartDate={form.startDate}
-                  disabled={isSaving}
-                  errorMessage={recurrenceError}
-                  onChange={setRecurrence}
-                />
-              )}
-
               {!isExternalCalendarProviderType(selectedSource?.providerType) && (
                 <EventParticipantsSection
                   ownerIds={form.ownerIds}

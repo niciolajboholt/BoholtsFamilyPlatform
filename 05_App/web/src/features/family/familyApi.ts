@@ -306,6 +306,7 @@ export type ActivitySummaryDto =
 // Den indsnævrede variant, komponenter der allerede ved der ER aktivitet
 // (dialogerne) kan bruge, uden selv at skulle udelukke `hasActivity: false`.
 export type ActiveActivitySummary = Extract<ActivitySummaryDto, { hasActivity: true }>;
+export type EmptyActivitySummary = Extract<ActivitySummaryDto, { hasActivity: false }>;
 
 export function getActivitySince(familyId: string) {
   return request<ActivitySummaryDto & { error?: string }>(

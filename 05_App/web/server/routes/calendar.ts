@@ -163,6 +163,14 @@ calendar.get("/calendars/:calendarId/events", (c) =>
   proxyToGoogle(c, "GET", `${calendarPath(c)}/events`),
 );
 
+calendar.get("/calendars/:calendarId/events/:eventId", (c) =>
+  proxyToGoogle(
+    c,
+    "GET",
+    `${calendarPath(c)}/events/${encodeURIComponent(c.req.param("eventId")!)}`,
+  ),
+);
+
 calendar.post("/calendars/:calendarId/events", async (c) => {
   const response = await proxyToGoogle(c, "POST", `${calendarPath(c)}/events`);
 

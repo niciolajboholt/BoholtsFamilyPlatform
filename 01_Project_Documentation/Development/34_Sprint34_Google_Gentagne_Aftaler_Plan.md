@@ -1,14 +1,14 @@
 # 34_Sprint34_Google_Gentagne_Aftaler_Plan
 
-> Status: Godkendt ("kører på"), kode i gang
+> Status: Fase 1 gennemført; fase 2 (synlighed og redigeringsomfang) til gennemgang
 
-Version: 1.0
+Version: 1.1
 
 Project:
 Boholts Family Platform
 
 Last Updated:
-2026-08-31
+2026-09-01
 
 Owner:
 Nicolaj Bach Boholt
@@ -30,13 +30,12 @@ rest fra tiden før Sprint 20 fjernede appens lokale (ikke-Google)
 aftale-lag. Skærmbilleder af den eksisterende UI er delt med Nicolaj
 separat i chatten.
 
-**Afgrænset til oprettelse af nye aftaler.** At ændre gentagelses­mønsteret
-på en ALLEREDE eksisterende Google-serie, eller redigere "kun denne
-forekomst" vs. "hele rækken" via appen, er bevidst udenfor scope — det
-kræver Googles egen forekomst-model (hver forekomst er sit eget event med
-`recurringEventId`), som ikke er det, appens nuværende (nu forældede)
-lokale forekomst-undtagelses-mekanisme (`recurrenceExceptionsStorage.ts`)
-er bygget til. Naturlig fase 2, hvis fase 1 fungerer godt.
+Fase 1 var afgrænset til oprettelse. Fase 2 blev sat i gang efter brugerens
+praktiske test viste, at "Gentages" var for svært at finde, og at valget
+mellem én forekomst og hele rækken manglede for Google. Fase 2 gør feltet
+direkte synligt og bruger Googles egen `recurringEventId`/seriemester-model
+til redigering og sletning. Selve RRULE-mønsteret på en eksisterende serie
+ændres fortsat i Google Kalender.
 
 ---
 
@@ -61,18 +60,17 @@ er bygget til. Naturlig fase 2, hvis fase 1 fungerer godt.
    struktureret næsten identisk med RRULE'ens felter (frequency/interval/
    byWeekdays/until/count/monthlyPattern/byOrdinalWeekday/byMonthDay) —
    oversættelsen er mekanisk formatering, ikke en ny datamodel.
-4. **Kun oprettelses-stien påvirkes.** `mapGoogleEventWriteRequest()`
-   tager i dag `CreateCalendarEventInput | WritableEvent` — kun
-   førstnævnte har et `recurrence`-felt. Redigering af en eksisterende
-   aftale (`WritableEvent`, afledt af `CalendarEvent`) har ingen
-   `recurrence`-egenskab at læse, og påvirkes derfor slet ikke af denne
-   ændring.
+4. **Eksisterende RRULE ændres ikke ved redigering.**
+   `mapGoogleEventWriteRequest()` udelader fortsat `recurrence` ved PATCH.
+   Fase 2 kan derimod målrette enten forekomst-id'et eller den bagvedliggende
+   seriemester og opdatere aftalens almindelige felter.
 5. **UNTIL formateres forskelligt for heldags- vs. tidsbestemte aftaler**
    — RFC 5545 kræver, at UNTIL's værditype matcher DTSTART's (dato-kun
    for en heldagsaftale, UTC-dato-tid ellers).
-6. **Ingen ændring på læse-siden.** Googles egen `recurringEventId`-baserede
-   udfoldning (via `singleEvents: true`) er allerede korrekt og uændret —
-   denne sprint udvider kun skrive-siden.
+6. **Læse-siden bevarer forekomstmodellen gennem inkrementel synk.**
+   `singleEvents=true` sendes både ved første hentning og sammen med det
+   efterfølgende `syncToken`. Mapperen gemmer kodet seriemester-id og
+   `originalStartTime`, så skrivevejen kan målrette korrekt.
 
 ---
 
@@ -99,6 +97,13 @@ er bygget til. Naturlig fase 2, hvis fase 1 fungerer godt.
   redigering), og én ny E2E-smoketest der opretter en reelt gentagende
   aftale gennem den rigtige UI og verificerer det udgående
   `recurrence`-felt.
+- Fase 2: `EventRecurrenceSection` flyttes ud af "Flere muligheder".
+  Google-forekomster får et "Gælder for"-valg i redigér-dialogen.
+  `GoogleCalendarProvider` henter seriemesteren ved hele-rækken-valget og
+  anvender forekomstens relative tidsændring på serien. Sletning målretter
+  tilsvarende forekomst eller seriemester.
+- "Siden sidst"-synkroniseringen bruger samme `singleEvents=true` med
+  `syncToken` og grupperer en ny udfoldet serie som én aktivitet.
 
 ---
 
@@ -113,8 +118,12 @@ er bygget til. Naturlig fase 2, hvis fase 1 fungerer godt.
    muligheder"-afsnit — testen åbner det først. Fangede desuden to
    allerede-eksisterende E2E-tests, der var blevet flaky af samme
    dato-drift-årsag som tidligere fikset i denne fil — se Kendte risici.)
-5. [ ] Kvalitetskontrol (`lint`, `tsc -b`, `test`, `build`, `test:e2e`) →
-   commit → push → PR → grøn CI → merge.
+5. [x] ~~Kvalitetskontrol og merge af fase 1.~~ ✅
+6. [x] ~~Gør "Gentages" direkte synligt i opret-dialogen.~~ ✅
+7. [x] ~~Tilføj Google-valget "Kun denne forekomst"/"Hele rækken" og
+   målret korrekt event-id ved redigering/sletning.~~ ✅
+8. [x] ~~Ret inkrementel synk og aktivitetsgruppering for gentagelser.~~ ✅
+9. [ ] Grøn CI og manuel beta-godkendelse af fase 2.
 
 ---
 
@@ -123,9 +132,10 @@ er bygget til. Naturlig fase 2, hvis fase 1 fungerer godt.
 1. **Kun Google.** Outlook/ICS-brugere ser stadig ikke "Gentages" — samme
    begrænsning som i dag, ikke en regression, men værd at nævne hvis
    familien nogensinde tager Outlook i brug.
-2. **Ingen redigering af en eksisterende series gentagelse fra appen** —
-   kun oprettelse. Skal ændres, gøres det i selve Google Kalender indtil
-   fase 2.
+2. **Eksisterende seriers gentagelsesmønster redigeres ikke i appen.**
+   Brugeren kan vælge om almindelige feltændringer/sletning gælder én
+   forekomst eller hele rækken, men ændring af fx ugentlig til månedlig
+   foretages fortsat i Google Kalender.
 3. **Ingen forhåndsvalidering af Googles egen accept af RRULE'en** ud over
    det, formularen selv sikrer (fx mindst én ugedag) — en sjælden,
    uforudset kombination Google afviser, rammer den allerede

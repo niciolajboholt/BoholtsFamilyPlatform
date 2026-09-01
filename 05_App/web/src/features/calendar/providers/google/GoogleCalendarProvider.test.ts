@@ -2,6 +2,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { GoogleCalendarEvent, GoogleCalendarListEntry } from "./googleCalendarTypes";
+import type { GoogleCalendarEventRequest } from "./googleCalendarTypes";
 import type { GoogleCalendarEventsPage } from "./GoogleCalendarApi";
 import {
   getCachedCalendarSyncState,
@@ -16,14 +17,43 @@ const listEvents = vi.fn<
     params: { range: { start: string; end: string } } | { syncToken: string },
   ) => Promise<GoogleCalendarEventsPage>
 >();
+const getEvent = vi.fn<(calendarId: string, eventId: string) => Promise<GoogleCalendarEvent>>();
+const updateEvent = vi.fn<
+  (
+    calendarId: string,
+    eventId: string,
+    request: GoogleCalendarEventRequest,
+  ) => Promise<GoogleCalendarEvent>
+>();
+const moveEvent = vi.fn<
+  (
+    calendarId: string,
+    eventId: string,
+    destinationCalendarId: string,
+  ) => Promise<GoogleCalendarEvent>
+>();
+const createEvent = vi.fn<
+  (calendarId: string, request: GoogleCalendarEventRequest) => Promise<GoogleCalendarEvent>
+>();
+const deleteEvent = vi.fn<(calendarId: string, eventId: string) => Promise<void>>();
 
 vi.mock("./GoogleCalendarApi", () => ({
   GoogleCalendarApi: vi.fn().mockImplementation(function (this: {
     listCalendars: typeof listCalendars;
     listEvents: typeof listEvents;
+    getEvent: typeof getEvent;
+    updateEvent: typeof updateEvent;
+    moveEvent: typeof moveEvent;
+    createEvent: typeof createEvent;
+    deleteEvent: typeof deleteEvent;
   }) {
     this.listCalendars = listCalendars;
     this.listEvents = listEvents;
+    this.getEvent = getEvent;
+    this.updateEvent = updateEvent;
+    this.moveEvent = moveEvent;
+    this.createEvent = createEvent;
+    this.deleteEvent = deleteEvent;
   }),
 }));
 
@@ -222,5 +252,103 @@ describe("GoogleCalendarProvider.getEvents (Sprint 25: inkrementel synk)", () =>
 
       vi.useRealTimers();
     });
+  });
+});
+
+describe("GoogleCalendarProvider recurring event writes", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    window.localStorage.clear();
+    listCalendars.mockResolvedValue([
+      { id: calendarId, summary: "Familien", accessRole: "owner" },
+    ]);
+  });
+
+  async function createProvider() {
+    const { GoogleCalendarProvider } = await import("./GoogleCalendarProvider");
+    return new GoogleCalendarProvider();
+  }
+
+  it("updates only the selected Google occurrence by default", async () => {
+    updateEvent.mockResolvedValue(
+      googleEvent({
+        id: "instance-1",
+        recurringEventId: "series-1",
+        originalStartTime: { dateTime: "2026-09-07T09:00:00.000Z" },
+        summary: "Ugentligt møde – ændret",
+      }),
+    );
+    const provider = await createProvider();
+
+    await provider.updateEvent({
+      id: "google-event:cal-1:instance-1",
+      source: "google",
+      sourceId: "google:cal-1",
+      title: "Ugentligt møde – ændret",
+      start: "2026-09-07T10:00:00.000Z",
+      end: "2026-09-07T11:00:00.000Z",
+      allDay: false,
+      ownerIds: [],
+      recurrenceMasterId: "google-event:cal-1:series-1",
+      recurrenceOccurrenceStart: "2026-09-07T09:00:00.000Z",
+      recurrenceEditScope: "occurrence",
+    });
+
+    expect(getEvent).not.toHaveBeenCalled();
+    expect(updateEvent).toHaveBeenCalledWith(
+      calendarId,
+      "instance-1",
+      expect.objectContaining({ summary: "Ugentligt møde – ændret" }),
+    );
+  });
+
+  it("targets the recurring master and keeps the occurrence's relative time change for the whole series", async () => {
+    getEvent.mockResolvedValue(
+      googleEvent({
+        id: "series-1",
+        summary: "Ugentligt møde",
+        start: { dateTime: "2026-08-31T09:00:00.000Z" },
+        end: { dateTime: "2026-08-31T10:00:00.000Z" },
+        recurrence: ["RRULE:FREQ=WEEKLY"],
+      }),
+    );
+    updateEvent.mockResolvedValue(googleEvent({ id: "series-1" }));
+    const provider = await createProvider();
+
+    await provider.updateEvent({
+      id: "google-event:cal-1:instance-2",
+      source: "google",
+      sourceId: "google:cal-1",
+      title: "Ugentligt møde – ændret",
+      start: "2026-09-07T10:30:00.000Z",
+      end: "2026-09-07T12:00:00.000Z",
+      allDay: false,
+      ownerIds: [],
+      recurrenceMasterId: "google-event:cal-1:series-1",
+      recurrenceOccurrenceStart: "2026-09-07T09:00:00.000Z",
+      recurrenceEditScope: "series",
+      recurrenceOriginalStart: "2026-09-07T09:00:00.000Z",
+      recurrenceOriginalEnd: "2026-09-07T10:00:00.000Z",
+    });
+
+    expect(getEvent).toHaveBeenCalledWith(calendarId, "series-1");
+    expect(updateEvent).toHaveBeenCalledWith(
+      calendarId,
+      "series-1",
+      expect.objectContaining({
+        summary: "Ugentligt møde – ændret",
+        start: expect.objectContaining({ dateTime: "2026-08-31T10:30:00.000Z" }),
+        end: expect.objectContaining({ dateTime: "2026-08-31T12:00:00.000Z" }),
+      }),
+    );
+  });
+
+  it("deletes the recurring master when the series id is selected", async () => {
+    deleteEvent.mockResolvedValue(undefined);
+    const provider = await createProvider();
+
+    await provider.deleteEvent("google-event:cal-1:series-1", "google:cal-1");
+
+    expect(deleteEvent).toHaveBeenCalledWith(calendarId, "series-1");
   });
 });

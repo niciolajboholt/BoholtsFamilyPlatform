@@ -49,6 +49,8 @@ interface GoogleCalendarEvent {
   end?: GoogleEventDateTime;
   visibility?: string;
   updated?: string;
+  recurringEventId?: string;
+  originalStartTime?: GoogleEventDateTime;
 }
 
 interface GoogleCalendarEventsResponse {
@@ -78,6 +80,11 @@ async function fetchEventPage(
 
   if ("syncToken" in params) {
     url.searchParams.set("syncToken", params.syncToken);
+    // Googles syncToken er knyttet til den oprindelige forespørgsels form.
+    // Bootstrap bruger singleEvents=true, så incremental sync skal gøre det
+    // samme. Ellers er svaret udefineret, og gentagne aftaler kan skifte fra
+    // forekomster til seriemestre mellem de to kald.
+    url.searchParams.set("singleEvents", "true");
   } else {
     url.searchParams.set("timeMin", params.timeMin);
     url.searchParams.set("timeMax", params.timeMax);
@@ -264,9 +271,10 @@ async function deltaSyncCalendar(
   now: Date,
 ): Promise<void> {
   const { events, nextSyncToken } = await fetchAllEvents(accessToken, googleCalendarId, { syncToken });
+  const loggedCreatedSeriesIds = new Set<string>();
 
   for (const event of events) {
-    await applyDelta(db, googleCalendarId, familyId, event, now);
+    await applyDelta(db, googleCalendarId, familyId, event, now, loggedCreatedSeriesIds);
   }
 
   await saveSyncToken(db, googleCalendarId, familyId, nextSyncToken);
@@ -278,6 +286,7 @@ async function applyDelta(
   familyId: string,
   event: GoogleCalendarEvent,
   now: Date,
+  loggedCreatedSeriesIds: Set<string>,
 ): Promise<void> {
   if (!event.id) {
     return;
@@ -321,7 +330,14 @@ async function applyDelta(
   const safe = getSafeGoogleEventDetails(event);
 
   if (!existing) {
-    await logActivity(db, familyId, "created", safe.title, { newStart: times.start, sourceUpdatedAt: event.updated, detectedAt });
+    // Google udfolder en ny gentagende serie til mange forekomster, når
+    // singleEvents=true. Overblikket skal vise serien som én ny aftale, ikke
+    // fx 52 næsten ens aktiviteter. Alle forekomster gemmes stadig som
+    // snapshots, så senere flytning/aflysning af én forekomst kan opdages.
+    if (!event.recurringEventId || !loggedCreatedSeriesIds.has(event.recurringEventId)) {
+      await logActivity(db, familyId, "created", safe.title, { newStart: times.start, sourceUpdatedAt: event.updated, detectedAt });
+      if (event.recurringEventId) loggedCreatedSeriesIds.add(event.recurringEventId);
+    }
   } else if (existing.start !== times.start || existing.end !== times.end) {
     await logActivity(db, familyId, "moved", safe.title, {
       oldStart: existing.start,

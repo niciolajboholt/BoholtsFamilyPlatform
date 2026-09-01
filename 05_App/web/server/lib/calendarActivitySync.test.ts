@@ -98,6 +98,7 @@ describe("syncCalendarActivity", () => {
     const requestedUrl = new URL(fetchMock.mock.calls[0]![0] as string);
     expect(requestedUrl.searchParams.has("timeMin")).toBe(true);
     expect(requestedUrl.searchParams.has("syncToken")).toBe(false);
+    expect(requestedUrl.searchParams.get("singleEvents")).toBe("true");
   });
 
   it("never stores the raw title of a private event, only the redacted one", async () => {
@@ -199,6 +200,55 @@ describe("syncCalendarActivity", () => {
     // syncToken-kaldet bruger syncToken, ikke tidsvindue.
     const requestedUrl = new URL(fetchMock.mock.calls[0]![0] as string);
     expect(requestedUrl.searchParams.get("syncToken")).toBe("old-token");
+    expect(requestedUrl.searchParams.get("singleEvents")).toBe("true");
+  });
+
+  it("logs a newly created recurring series once while snapshotting every occurrence", async () => {
+    const env = createFakeEnv();
+    await seedFamilyWithCalendar(env);
+
+    await env.DB.prepare(
+      "INSERT INTO calendar_sync_state (google_calendar_id, family_id, sync_token, updated_at) VALUES (?, ?, ?, ?)",
+    )
+      .bind(calendarId, "family-1", "old-token", new Date().toISOString())
+      .run();
+
+    fetchMock.mockResolvedValue(
+      jsonResponse({
+        items: [
+          {
+            id: "series-1_20260908T150000Z",
+            recurringEventId: "series-1",
+            summary: "Svømning",
+            start: { dateTime: "2026-09-08T15:00:00.000Z" },
+            end: { dateTime: "2026-09-08T16:00:00.000Z" },
+          },
+          {
+            id: "series-1_20260915T150000Z",
+            recurringEventId: "series-1",
+            summary: "Svømning",
+            start: { dateTime: "2026-09-15T15:00:00.000Z" },
+            end: { dateTime: "2026-09-15T16:00:00.000Z" },
+          },
+        ],
+        nextSyncToken: "new-token",
+      }),
+    );
+
+    await syncCalendarActivity(env, now);
+
+    const activity = await env.DB.prepare(
+      "SELECT change_type AS changeType, safe_title AS safeTitle FROM calendar_activity_log",
+    ).all<{ changeType: string; safeTitle: string }>();
+    expect(activity.results).toEqual([{ changeType: "created", safeTitle: "Svømning" }]);
+
+    const snapshots = await env.DB.prepare(
+      "SELECT event_id AS eventId FROM calendar_event_snapshots ORDER BY event_id",
+    ).all<{ eventId: string }>();
+    expect(snapshots.results.map((row) => row.eventId)).toEqual([
+      "series-1_20260908T150000Z",
+      "series-1_20260915T150000Z",
+    ]);
   });
 
   it("does not log a plain edit that leaves start/end unchanged", async () => {
