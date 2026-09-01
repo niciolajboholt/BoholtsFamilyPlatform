@@ -60,6 +60,9 @@ export interface GoogleCalendarEventRequest {
   start: GoogleEventDateTimeWrite;
   end: GoogleEventDateTimeWrite;
   visibility?: "default" | "private";
+  // Sprint 34: kun sat ved oprettelse af en ny gentagende aftale — se
+  // mapRecurrenceRuleToGoogleRRule() i googleCalendarWriteMapper.ts.
+  recurrence?: string[];
 }
 
 export interface GoogleCalendarEventsResponse {
