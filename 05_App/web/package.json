@@ -14,7 +14,7 @@
     "worker:types:check": "npm run worker:types -- --check"
   },
   "dependencies": {
-    "@azure/msal-browser": "^5.17.3",
+    "@azure/msal-browser": "^5.20.0",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
     "@mui/icons-material": "^9.2.0",
