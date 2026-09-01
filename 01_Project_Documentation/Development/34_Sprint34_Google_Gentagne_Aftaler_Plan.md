@@ -31,10 +31,12 @@ aftale-lag. Skærmbilleder af den eksisterende UI er delt med Nicolaj
 separat i chatten.
 
 Fase 1 var afgrænset til oprettelse. Fase 2 blev sat i gang efter brugerens
-praktiske test viste, at "Gentages" var for svært at finde, og at valget
-mellem én forekomst og hele rækken manglede for Google. Fase 2 gør feltet
-direkte synligt og bruger Googles egen `recurringEventId`/seriemester-model
-til redigering og sletning. Selve RRULE-mønsteret på en eksisterende serie
+praktiske test viste, at "Gentages" var for svært at finde, at almindelige
+eksisterende aftaler ikke kunne omdannes til serier, og at valget mellem én
+forekomst og hele rækken manglede for Google. Fase 2 gør feltet direkte
+synligt ved både oprettelse og redigering af en almindelig aftale og bruger
+Googles egen `recurringEventId`/seriemester-model til efterfølgende
+redigering og sletning. Selve RRULE-mønsteret på en allerede gentagen serie
 ændres fortsat i Google Kalender.
 
 ---
@@ -98,7 +100,8 @@ til redigering og sletning. Selve RRULE-mønsteret på en eksisterende serie
   aftale gennem den rigtige UI og verificerer det udgående
   `recurrence`-felt.
 - Fase 2: `EventRecurrenceSection` flyttes ud af "Flere muligheder".
-  Google-forekomster får et "Gælder for"-valg i redigér-dialogen.
+  En almindelig eksisterende Google-aftale kan få en ny RRULE via PATCH,
+  mens Google-forekomster får et "Gælder for"-valg i redigér-dialogen.
   `GoogleCalendarProvider` henter seriemesteren ved hele-rækken-valget og
   anvender forekomstens relative tidsændring på serien. Sletning målretter
   tilsvarende forekomst eller seriemester.
@@ -123,7 +126,9 @@ til redigering og sletning. Selve RRULE-mønsteret på en eksisterende serie
 7. [x] ~~Tilføj Google-valget "Kun denne forekomst"/"Hele rækken" og
    målret korrekt event-id ved redigering/sletning.~~ ✅
 8. [x] ~~Ret inkrementel synk og aktivitetsgruppering for gentagelser.~~ ✅
-9. [ ] Grøn CI og manuel beta-godkendelse af fase 2.
+9. [x] ~~Tillad en almindelig eksisterende Google-aftale at blive omdannet
+   til en gentagen serie.~~ ✅
+10. [ ] Grøn CI og manuel beta-godkendelse af fase 2.
 
 ---
 

@@ -5,7 +5,14 @@ import type { GoogleCalendarEventRequest } from "./googleCalendarTypes";
 
 type WritableEvent = Pick<
   CalendarEvent,
-  "title" | "start" | "end" | "allDay" | "description" | "location" | "privacy"
+  | "title"
+  | "start"
+  | "end"
+  | "allDay"
+  | "description"
+  | "location"
+  | "privacy"
+  | "recurrence"
 >;
 
 const weekdayToRRuleCode: Record<CalendarWeekday, string> = {
@@ -117,10 +124,10 @@ export function mapGoogleEventWriteRequest(
   if (event.description) request.description = event.description;
   if (event.location) request.location = event.location;
 
-  // Kun CreateCalendarEventInput har et recurrence-felt — en redigering
-  // (WritableEvent) har det slet ikke, så en eksisterende aftales
-  // gentagelse kan ikke utilsigtet blive rørt af denne funktion (se
-  // planens beslutning 4).
+  // Recurrence er sat ved oprettelse af en ny serie eller når en almindelig
+  // eksisterende Google-aftale omdannes til en serie. Ved almindelige
+  // redigeringer er feltet undefined og udelades fra PATCH-requesten, så en
+  // eksisterende gentagelsesregel ikke ændres utilsigtet.
   if ("recurrence" in event && event.recurrence) {
     request.recurrence = mapRecurrenceRuleToGoogleRRule(event.recurrence, event.allDay);
   }

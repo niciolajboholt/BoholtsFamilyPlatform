@@ -118,7 +118,7 @@ describe("mapGoogleEventWriteRequest", () => {
     expect(request.recurrence).toBeUndefined();
   });
 
-  it("omits recurrence for an edit input, which has no recurrence field at all", () => {
+  it("omits recurrence for an ordinary edit input", () => {
     const editInput = {
       title: baseInput.title,
       start: baseInput.start,
@@ -129,6 +129,23 @@ describe("mapGoogleEventWriteRequest", () => {
     const request = mapGoogleEventWriteRequest(editInput);
 
     expect(request.recurrence).toBeUndefined();
+  });
+
+  it("includes recurrence when an existing Google event is converted to a series", () => {
+    const request = mapGoogleEventWriteRequest({
+      title: baseInput.title,
+      start: baseInput.start,
+      end: baseInput.end,
+      allDay: baseInput.allDay,
+      recurrence: {
+        frequency: "weekly",
+        interval: 1,
+        endType: "never",
+        byWeekdays: [1],
+      },
+    });
+
+    expect(request.recurrence).toEqual(["RRULE:FREQ=WEEKLY;BYDAY=MO"]);
   });
 });
 
