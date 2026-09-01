@@ -38,7 +38,7 @@ interface EditEventDialogProps {
   isSaving: boolean;
   onClose: () => void;
   onUpdate: (event: CalendarEvent) => Promise<void>;
-  onDelete: (eventId: string) => Promise<void>;
+  onDelete: (eventId: string, sourceId?: string) => Promise<void>;
   onUpdateOccurrence: (
     masterEventId: string,
     occurrenceStart: string,
@@ -61,7 +61,7 @@ function EditEventDialog({
   onDeleteOccurrence,
 }: EditEventDialogProps) {
   const {
-    isRecurringLocalOccurrence,
+    isRecurringOccurrence,
     editScope,
     setEditScope,
     effectiveEvent,
@@ -132,7 +132,7 @@ function EditEventDialog({
               </Alert>
             )}
 
-            {isRecurringLocalOccurrence && (
+            {isRecurringOccurrence && (
               <TextField
                 select
                 label="Gælder for"
@@ -146,6 +146,12 @@ function EditEventDialog({
                 <MenuItem value="occurrence">Kun denne forekomst</MenuItem>
                 <MenuItem value="series">Hele rækken</MenuItem>
               </TextField>
+            )}
+
+            {isRecurringOccurrence && editScope === "series" && effectiveEvent?.source === "google" && (
+              <Alert severity="info">
+                Ændringer og sletning gælder alle aftaler i den gentagne række.
+              </Alert>
             )}
 
             {canChangeCalendar && (
@@ -338,7 +344,13 @@ function EditEventDialog({
                   </Button>
                 }
               >
-                Aftalen slettes fra denne browser. Den kan efterfølgende gendannes via Fortryd.
+                {effectiveEvent?.source === "google"
+                  ? isRecurringOccurrence && editScope === "series"
+                    ? "Hele den gentagne række slettes fra Google Kalender. Handlingen kan ikke fortrydes i appen."
+                    : isRecurringOccurrence
+                      ? "Denne forekomst slettes fra Google Kalender. Handlingen kan ikke fortrydes i appen."
+                      : "Aftalen slettes fra Google Kalender. Handlingen kan ikke fortrydes i appen."
+                  : "Aftalen slettes fra denne browser. Den kan efterfølgende gendannes via Fortryd."}
               </Alert>
             )}
           </Box>

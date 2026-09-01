@@ -38,7 +38,7 @@ export interface UseEditEventDialogControllerArgs {
   isSaving: boolean;
   onClose: () => void;
   onUpdate: (event: CalendarEvent) => Promise<void>;
-  onDelete: (eventId: string) => Promise<void>;
+  onDelete: (eventId: string, sourceId?: string) => Promise<void>;
   onUpdateOccurrence: (
     masterEventId: string,
     occurrenceStart: string,
@@ -104,11 +104,13 @@ export function useEditEventDialogController({
   onUpdateOccurrence,
   onDeleteOccurrence,
 }: UseEditEventDialogControllerArgs) {
-  // En udfoldet forekomst af en lokal gentagelsesrække (Sprint 16) — Google-
-  // forekomster har intet valg her, jf. planen: de redigeres/slettes altid
-  // som netop den ene Google-forekomst, uændret ift. eksisterende flow.
+  // En udfoldet forekomst af en lokal eller Google-baseret gentagelsesrække.
+  // Begge får et eksplicit valg mellem denne forekomst og hele rækken.
   const isRecurringLocalOccurrence =
     Boolean(event?.recurrenceMasterId) && event?.source === "internal";
+  const isRecurringGoogleOccurrence =
+    Boolean(event?.recurrenceMasterId) && event?.source === "google";
+  const isRecurringOccurrence = isRecurringLocalOccurrence || isRecurringGoogleOccurrence;
 
   const [editScope, setEditScope] = useState<EditScope>("occurrence");
 
@@ -346,6 +348,9 @@ export function useEditEventDialogController({
           recurrence: canEditRecurrenceRule
             ? recurrenceFormValueToRule(recurrence, start)
             : effectiveEvent.recurrence,
+          recurrenceEditScope: isRecurringGoogleOccurrence ? editScope : undefined,
+          recurrenceOriginalStart: isRecurringGoogleOccurrence ? event?.start : undefined,
+          recurrenceOriginalEnd: isRecurringGoogleOccurrence ? event?.end : undefined,
         };
 
         await onUpdate(updatedEvent);
@@ -373,7 +378,11 @@ export function useEditEventDialogController({
       ) {
         onDeleteOccurrence(event.recurrenceMasterId, event.recurrenceOccurrenceStart);
       } else {
-        await onDelete(effectiveEvent.id);
+        const targetEventId =
+          isRecurringGoogleOccurrence && editScope === "series" && event?.recurrenceMasterId
+            ? event.recurrenceMasterId
+            : effectiveEvent.id;
+        await onDelete(targetEventId, effectiveEvent.sourceId);
       }
 
       onClose();
@@ -384,6 +393,7 @@ export function useEditEventDialogController({
 
   return {
     isRecurringLocalOccurrence,
+    isRecurringOccurrence,
     editScope,
     setEditScope,
     effectiveEvent,

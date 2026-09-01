@@ -446,18 +446,14 @@ produktionsdata eller private kalenderkonti.
   cross-family-dækning på indkøbslister, opgaver og skabeloner.
 - [x] Opret, redigér og slet kalenderaftale med mock/testkonto: reel
   Playwright-E2E gennem den rigtige UI (opret via "Ny aftale", redigér
-  titlen og gem, bekræft-slet-flowet). **Vigtig arkitektonisk afklaring
-  ved samme lejlighed:** "Gentagen aftale samt redigering af
-  enkeltforekomst" kan IKKE testes gennem UI'et i denne app i dag — hverken
-  "Ny aftale"-dialogens gentagelsesvalg eller redigér-dialogens "Kun denne
-  forekomst/Hele rækken"-valg vises for nogen ekstern kalenderkilde
-  (Google/Outlook/ICS); begge er kun kodet til en `source: "internal"`,
-  som ikke længere findes i produktionskoden siden Fase 5's fjernelse af
-  det lokale aftale-lag (ADR-011/012/017,
-  `CompositeCalendarProvider.ts`). Punktet er derfor fjernet fra
-  "Mangler" nedenfor, ikke løst med en test — der er intet UI-flow at
-  teste, før/hvis appen får en rigtig gentagelses-understøttet kilde
-  igen.
+  titlen og gem, bekræft-slet-flowet). Google-flowet dækker nu også
+  gentagelser: "Gentages" er synligt direkte i "Ny aftale", og en
+  eksisterende Google-forekomst giver valget "Kun denne forekomst" eller
+  "Hele rækken" ved redigering og sletning. Separate Playwright-tests
+  verificerer både RRULE ved oprettelse og at serieredigering rammer Googles
+  seriemester. Selve gentagelsesmønsteret (fx ugentlig → månedlig) ændres
+  fortsat i Google Kalender; appens scopevalg gælder titel, tid og øvrige
+  aftalefelter.
 - [x] Fuldt invitations-/rolle-UI-flow. To dele: (1) en helt ny bruger uden
   familie/localStorage taster en invitationskode ind i
   `FamilySetupOnboarding` og kommer ind i appen — reel Playwright-E2E med

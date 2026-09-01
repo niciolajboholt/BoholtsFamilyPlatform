@@ -7,6 +7,7 @@ import {
   toLocalMidnightIso,
 } from "./googleCalendarMapper";
 import type { GoogleCalendarEvent } from "./googleCalendarTypes";
+import { encodeGoogleEventId } from "./googleCalendarIds";
 import type { CalendarOwner } from "../../data/calendarOwners";
 
 describe("toLocalMidnightIso", () => {
@@ -183,6 +184,7 @@ describe("mapGoogleCalendarEvent", () => {
     const event: GoogleCalendarEvent = {
       id: "instance1",
       recurringEventId: "series1",
+      originalStartTime: { dateTime: "2026-07-31T09:00:00Z" },
       start: { dateTime: "2026-07-31T09:00:00Z" },
       end: { dateTime: "2026-07-31T10:00:00Z" },
     };
@@ -190,7 +192,8 @@ describe("mapGoogleCalendarEvent", () => {
     const mapped = mapGoogleCalendarEvent(calendarId, event);
 
     expect(mapped).not.toBeNull();
-    expect(mapped?.recurrenceMasterId).toBe("series1");
+    expect(mapped?.recurrenceMasterId).toBe(encodeGoogleEventId(calendarId, "series1"));
+    expect(mapped?.recurrenceOccurrenceStart).toBe("2026-07-31T09:00:00Z");
   });
 
   it("marks private and confidential Google events as busy-only", () => {

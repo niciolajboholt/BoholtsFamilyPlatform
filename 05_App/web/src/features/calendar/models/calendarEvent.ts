@@ -211,4 +211,12 @@ export interface CalendarEvent {
    * forekomstens faktiske tid efterfølgende er ændret.
    */
   recurrenceOccurrenceStart?: string;
+
+  /**
+   * Midlertidig skriveinstruks fra redigér-dialogen. Bruges kun, når en
+   * Google-forekomst gemmes mod hele den bagvedliggende serie.
+   */
+  recurrenceEditScope?: "occurrence" | "series";
+  recurrenceOriginalStart?: string;
+  recurrenceOriginalEnd?: string;
 }

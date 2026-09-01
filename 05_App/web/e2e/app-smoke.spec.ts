@@ -73,6 +73,12 @@ async function mockAuthenticatedApi(page: Page): Promise<void> {
       };
     } else if (path.endsWith("/weekly-summary")) {
       body = { summary: null };
+    } else if (path.endsWith("/activity/since-last-visit")) {
+      body = {
+        hasActivity: false,
+        since: "2026-08-31T08:00:00.000Z",
+        asOf: "2026-09-01T08:00:00.000Z",
+      };
     } else if (path.endsWith("/calendar-mappings")) {
       body = {
         mappings: [
@@ -212,6 +218,19 @@ test("authenticated family can open every primary area", async ({ page }) => {
   }
 
   await expect(page.getByText("Version e2e-version-")).toBeVisible();
+});
+
+test("home keeps the since-last-visit feature visible when the family is up to date", async ({
+  page,
+}) => {
+  await mockAuthenticatedApi(page);
+
+  await page.goto("/");
+
+  await expect(page.getByRole("heading", { name: "Siden sidst du var her" })).toBeVisible();
+  await expect(
+    page.getByText("Du er helt ajour – der er ingen nye ændringer."),
+  ).toBeVisible();
 });
 
 // Refresh-knappen på "Ugens resumé" (svar på Nicolajs spørgsmål om, hvorfor
@@ -1371,11 +1390,8 @@ test("a family member can add and remove an ICS calendar subscription in Setting
 // flowet gennem den rigtige UI, ikke kun det isolerede opret-kald (allerede
 // dækket af "creating a private event..." ovenfor) eller det isolerede
 // redigér-kald (allerede dækket af "editing an existing private event...").
-// Bemærk: gentagne aftaler kan IKKE testes gennem UI'et her — hverken
-// "Ny aftale"-dialogens gentagelsesvalg eller redigér-dialogens "Kun denne
-// forekomst/Hele rækken"-valg vises for en Google-kalenderkilde (kun for en
-// "internal" kilde, som ikke længere findes i produktionskoden, jf.
-// ADR-017/CompositeCalendarProvider.ts) — se Fase 5's "Mangler".
+// Gentagelsesoprettelse og redigeringsomfang dækkes særskilt nedenfor, så
+// dette scenarie kan holde fokus på det almindelige CRUD-flow.
 test("a family member can create, edit, and delete a calendar event through the real UI", async ({
   page,
 }, testInfo) => {
@@ -1560,7 +1576,7 @@ test("a family member can create a recurring Google event through the real UI", 
   await page.locator('[role="option"][data-value="google:alex-calendar"]').click();
   await page.getByLabel("Titel").fill("Svømning");
 
-  await page.getByRole("button", { name: "Flere muligheder" }).click();
+  await expect(page.getByLabel("Gentages")).toBeVisible();
   await page.getByLabel("Gentages").click();
   await page.getByRole("option", { name: "Hver uge" }).click();
   await expect(page.getByText(/^Gentages hver/)).toBeVisible();
@@ -1581,6 +1597,99 @@ test("a family member can create a recurring Google event through the real UI", 
   await expect(
     page.getByRole("button", { name: new RegExp(`^Rediger aftale: Svømning,`) }),
   ).toBeVisible();
+});
+
+test("a family member can choose one occurrence or the whole Google series", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  await mockAuthenticatedApi(page);
+  await page.clock.setFixedTime(new Date("2026-08-26T09:00:00+02:00"));
+  await page.route("**/api/calendar/status", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ connected: true }),
+    }),
+  );
+
+  await page.route("**/api/calendar/calendars/alex-calendar/events*", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (route.request().method() !== "GET" || !path.endsWith("/events")) {
+      await route.fallback();
+      return;
+    }
+
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        items: [
+          {
+            id: "series-1_20260827T070000Z",
+            recurringEventId: "series-1",
+            originalStartTime: { dateTime: "2026-08-27T07:00:00.000Z" },
+            summary: "Ugentlig svømning",
+            status: "confirmed",
+            start: { dateTime: "2026-08-27T07:00:00.000Z" },
+            end: { dateTime: "2026-08-27T08:00:00.000Z" },
+          },
+        ],
+        nextSyncToken: "recurring-series-token",
+      }),
+    });
+  });
+
+  let patchedEventId: string | null = null;
+  await page.route("**/api/calendar/calendars/alex-calendar/events/*", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    const eventId = decodeURIComponent(path.split("/").at(-1) ?? "");
+
+    if (route.request().method() === "GET") {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          id: "series-1",
+          summary: "Ugentlig svømning",
+          start: { dateTime: "2026-08-20T07:00:00.000Z" },
+          end: { dateTime: "2026-08-20T08:00:00.000Z" },
+          recurrence: ["RRULE:FREQ=WEEKLY"],
+        }),
+      });
+      return;
+    }
+
+    if (route.request().method() === "PATCH") {
+      patchedEventId = eventId;
+      const patched = route.request().postDataJSON() as Record<string, unknown>;
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ id: eventId, ...patched }),
+      });
+      return;
+    }
+
+    await route.fallback();
+  });
+
+  await page.goto("/calendar");
+  await page
+    .getByRole("button", { name: /^Rediger aftale: Ugentlig svømning,/ })
+    .click();
+
+  await expect(page.getByLabel("Gælder for")).toHaveValue("occurrence");
+  await page.getByLabel("Gælder for").click();
+  await page.getByRole("option", { name: "Hele rækken" }).click();
+  await expect(
+    page.getByText("Ændringer og sletning gælder alle aftaler i den gentagne række."),
+  ).toBeVisible();
+
+  await page.getByLabel("Titel").fill("Ugentlig svømning – hele rækken");
+  await page.getByRole("button", { name: "Gem ændringer" }).click();
+
+  await expect.poll(() => patchedEventId).toBe("series-1");
 });
 
 // Fase 5: "Fuldt invitations-/rolleflow gennem UI'et" — del 1: en helt ny

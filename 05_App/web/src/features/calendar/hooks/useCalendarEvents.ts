@@ -31,6 +31,7 @@ interface UseCalendarEventsResult {
   ) => Promise<CalendarEvent>;
   deleteEvent: (
     eventId: string,
+    sourceId?: string,
   ) => Promise<void>;
   restoreEvent: (
     event: CalendarEvent,
@@ -186,6 +187,7 @@ export function useCalendarEvents(
   const deleteEvent = useCallback(
     async (
       eventId: string,
+      sourceId?: string,
     ): Promise<void> => {
       setIsSaving(true);
 
@@ -197,7 +199,7 @@ export function useCalendarEvents(
 
         await provider.deleteEvent(
           eventId,
-          event?.sourceId,
+          sourceId ?? event?.sourceId,
         );
 
         await refreshEvents();

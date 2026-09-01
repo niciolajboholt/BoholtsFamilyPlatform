@@ -71,11 +71,15 @@ export function mapGoogleCalendarEvent(
   // når aftalen ikke har nogen deltagere, der matcher et koblet medlem.
   const attendeeOwnerIds = matchAttendeesToOwnerIds(event.attendees, members ?? []);
   const ownerIds = attendeeOwnerIds.length > 0 ? attendeeOwnerIds : mappedOwnerId ? [mappedOwnerId] : [];
-  // event.recurringEventId er sat på hver enkelt forekomst af en Google-
-  // gentagelse (Google udfolder selv serien pga. singleEvents: "true" i
-  // GoogleCalendarApi.listEvents) — mappes til recurrenceMasterId, samme
-  // felt som lokale udfoldede forekomster bruger (expandRecurringEvents).
-  return { id: encodeGoogleEventId(calendarId, event.id), source: "google", sourceId: encodeGoogleCalendarSourceId(calendarId), title: event.summary || "Google-aftale", start, end, allDay, ownerIds, description: event.description, location: event.location, recurrenceMasterId: event.recurringEventId, privacy: event.visibility === "private" || event.visibility === "confidential" ? "busy" : undefined };
+  // Google leverer seriemesterens rå id på hver forekomst. Det kodes med
+  // kalender-id'et, ligesom eventets eget id, så skrivevejen senere kan
+  // målrette enten forekomsten eller hele serien uden at gætte kalenderen.
+  const recurrenceOccurrenceStart = event.originalStartTime
+    ? event.originalStartTime.date
+      ? toLocalMidnightIso(event.originalStartTime.date)
+      : event.originalStartTime.dateTime
+    : undefined;
+  return { id: encodeGoogleEventId(calendarId, event.id), source: "google", sourceId: encodeGoogleCalendarSourceId(calendarId), title: event.summary || "Google-aftale", start, end, allDay, ownerIds, description: event.description, location: event.location, recurrenceMasterId: event.recurringEventId ? encodeGoogleEventId(calendarId, event.recurringEventId) : undefined, recurrenceOccurrenceStart, privacy: event.visibility === "private" || event.visibility === "confidential" ? "busy" : undefined };
 }
 
 export function toLocalMidnightIso(dateOnly: string | undefined): string | undefined {
