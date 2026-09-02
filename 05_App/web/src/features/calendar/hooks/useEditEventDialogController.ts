@@ -121,7 +121,13 @@ export function useEditEventDialogController({
   const effectiveEvent =
     isRecurringLocalOccurrence && editScope === "series" ? masterEvent : event;
 
-  const canEditRecurrenceRule = !isRecurringLocalOccurrence || editScope === "series";
+  // En almindelig Google-aftale kan omdannes til en gentagen serie. Når
+  // Google allerede har udfoldet serien til forekomster, styrer appen kun
+  // om almindelige feltændringer gælder forekomsten eller hele rækken;
+  // selve RRULE-mønsteret ændres fortsat i Google Kalender.
+  const canEditRecurrenceRule = effectiveEvent?.source === "google"
+    ? !isRecurringGoogleOccurrence
+    : !isRecurringLocalOccurrence || editScope === "series";
 
   const initialFormState = useMemo(() => createInitialFormState(effectiveEvent), [effectiveEvent]);
 

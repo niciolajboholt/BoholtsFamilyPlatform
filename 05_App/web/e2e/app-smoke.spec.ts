@@ -1599,6 +1599,57 @@ test("a family member can create a recurring Google event through the real UI", 
   ).toBeVisible();
 });
 
+test("a family member can turn an existing Google event into a recurring series", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  await mockAuthenticatedApi(page);
+  await page.clock.setFixedTime(new Date("2026-08-26T09:00:00+02:00"));
+
+  let patchedRecurrence: string[] | undefined;
+  await page.route("**/api/calendar/calendars/alex-calendar/events/*", async (route) => {
+    if (route.request().method() !== "PATCH") {
+      await route.fallback();
+      return;
+    }
+
+    const patched = route.request().postDataJSON() as {
+      summary?: string;
+      start?: object;
+      end?: object;
+      recurrence?: string[];
+    };
+    patchedRecurrence = patched.recurrence;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        id: "alex-calendar-event",
+        summary: patched.summary,
+        start: patched.start,
+        end: patched.end,
+        recurrence: patched.recurrence,
+      }),
+    });
+  });
+
+  await page.goto("/calendar");
+  await page
+    .getByRole("button", {
+      name: /^Rediger aftale: Tandlæge og efterfølgende kontrol,/,
+    })
+    .click();
+
+  await expect(page.getByLabel("Gentages")).toBeVisible();
+  await page.getByLabel("Gentages").click();
+  await page.getByRole("option", { name: "Hver uge" }).click();
+  await page.getByRole("button", { name: "Gem ændringer" }).click();
+
+  await expect.poll(() => patchedRecurrence).toEqual([
+    expect.stringMatching(/^RRULE:FREQ=WEEKLY/),
+  ]);
+});
+
 test("a family member can choose one occurrence or the whole Google series", async ({
   page,
 }, testInfo) => {

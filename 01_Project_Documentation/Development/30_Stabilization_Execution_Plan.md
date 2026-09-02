@@ -448,10 +448,13 @@ produktionsdata eller private kalenderkonti.
   Playwright-E2E gennem den rigtige UI (opret via "Ny aftale", redigér
   titlen og gem, bekræft-slet-flowet). Google-flowet dækker nu også
   gentagelser: "Gentages" er synligt direkte i "Ny aftale", og en
+  almindelig eksisterende Google-aftale kan omdannes til en serie fra
+  redigér-dialogen. En
   eksisterende Google-forekomst giver valget "Kun denne forekomst" eller
   "Hele rækken" ved redigering og sletning. Separate Playwright-tests
-  verificerer både RRULE ved oprettelse og at serieredigering rammer Googles
-  seriemester. Selve gentagelsesmønsteret (fx ugentlig → månedlig) ændres
+  verificerer RRULE ved både oprettelse og omdannelse af en eksisterende
+  aftale samt at serieredigering rammer Googles seriemester. Selve
+  gentagelsesmønsteret (fx ugentlig → månedlig) ændres
   fortsat i Google Kalender; appens scopevalg gælder titel, tid og øvrige
   aftalefelter.
 - [x] Fuldt invitations-/rolle-UI-flow. To dele: (1) en helt ny bruger uden
