@@ -233,6 +233,31 @@ test("home keeps the since-last-visit feature visible when the family is up to d
   ).toBeVisible();
 });
 
+// Forsidens "Næste aftale"/"Resten af dagen" hentede tidligere ALLE
+// aftaler uden at tage hensyn til "Vis kalendere"-fravalget fra Kalender-
+// siden — en kalender man havde skjult der (fx et arbejds- eller
+// skoleskema) dukkede alligevel op på forsiden. Sætter chris-calendar
+// skjult direkte i localStorage (samme lagringsnøgle som
+// calendarSourceVisibilityStorage.ts bruger) FØR appen monterer, så
+// useCalendarSources læser den skjulte tilstand ved første indlæsning.
+test("home page's next-appointment widgets respect a calendar hidden via 'Vis kalendere'", async ({
+  page,
+}) => {
+  await mockAuthenticatedApi(page);
+  await page.clock.setFixedTime(new Date("2026-08-26T09:00:00+02:00"));
+  await page.addInitScript(() => {
+    window.localStorage.setItem(
+      "boholts-family-calendar-source-visibility",
+      JSON.stringify(["google:chris-calendar"]),
+    );
+  });
+
+  await page.goto("/");
+
+  await expect(page.getByText("Tandlæge og efterfølgende kontrol")).toBeVisible();
+  await expect(page.getByText("Forældremøde på skolen")).not.toBeVisible();
+});
+
 // Refresh-knappen på "Ugens resumé" (svar på Nicolajs spørgsmål om, hvorfor
 // resuméet ikke var kommet endnu — cron'en kører kun søndag aften, så en
 // ejer/admin kan nu selv udløse et frisk resumé i stedet for at vente).
