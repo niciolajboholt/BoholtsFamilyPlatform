@@ -207,6 +207,15 @@ function DayCell({
     ),
   ) as CalendarOwnerId[];
 
+  // Samme kompakte, ét-linjes badge-stil som aftalekortene selv bruger
+  // (EventOwnerBadges, med overlap i stedet for at bryde om) — ellers ville
+  // en dag med flere ejere bryde om til flere rækker og blive højere end
+  // resten af ugens dage, så cellerne ikke længere fremstår ensartede.
+  const dayOwnerBadges = ownerIds
+    .map((ownerId) => members.find((candidate) => candidate.id === ownerId))
+    .filter((owner): owner is CalendarOwner => Boolean(owner))
+    .map((owner) => ({ id: owner.id, name: owner.name, color: owner.color }));
+
   return (
     <Box
       sx={{
@@ -341,49 +350,11 @@ function DayCell({
           )}
         </Box>
 
-        <Box
-          sx={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: 0.5,
-            mt: 1,
-          }}
-        >
-          {ownerIds
-            .slice(0, 5)
-            .map((ownerId) => {
-              const owner = members.find(
-                (candidate) => candidate.id === ownerId,
-              );
-
-              if (!owner) {
-                return null;
-              }
-
-              return (
-                <Box
-                  key={ownerId}
-                  title={owner.name}
-                  sx={{
-                    width: 14,
-                    height: 14,
-                    borderRadius: "50%",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    backgroundColor:
-                      owner.color,
-                    color: "#ffffff",
-                    fontSize: "8px",
-                    fontWeight: 700,
-                    lineHeight: 1,
-                  }}
-                >
-                  {owner.name.charAt(0).toUpperCase()}
-                </Box>
-              );
-            })}
-        </Box>
+        {dayOwnerBadges.length > 0 && (
+          <Box sx={{ mt: 1 }}>
+            <EventOwnerBadges owners={dayOwnerBadges} sizePx={14} ariaHidden={false} />
+          </Box>
+        )}
 
         {events.length > 0 && (
           <Box

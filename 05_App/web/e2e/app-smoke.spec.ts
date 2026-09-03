@@ -2119,6 +2119,110 @@ test("an event with multiple matched family members shows their own colors, spli
   expect(accentImage).not.toContain(hexToRgb("#6D597A")); // Familien-farven
 });
 
+// Månedsvisningens dagsceller viste tidligere op til 5 ejer-badges, der
+// brød om til flere rækker (flexWrap) — en dag med flere ejere blev derved
+// synligt højere end resten af ugens celler. DayCell.tsx genbruger nu
+// samme ét-linjes, overlappende badge-stil som selve aftalekortene
+// (EventOwnerBadges) — bekræfter her, at en dag med fire forskellige ejere
+// får præcis samme cellehøjde som en nabodag uden nogen aftaler.
+test("a month-view day cell with several owners is the same height as a day with none", async ({
+  page,
+}, testInfo) => {
+  // Mobil, ikke desktop: badge-rækken bryder kun om ved smalle cellebredder
+  // — en desktop-bred celle rummer allerede 3 badges på én linje uden fix.
+  test.skip(testInfo.project.name !== "mobile-chromium");
+
+  await page.route("**/api/**", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    let body: object = {};
+
+    if (path === "/api/me") {
+      body = { user: { id: "user-e2e", email: "familie@example.com", name: "Testbruger", pictureUrl: null } };
+    } else if (path === "/api/families/mine") {
+      body = {
+        family,
+        role: "owner",
+        members: [
+          { id: "member-e2e", name: "Alex", color: "#2F6B4F", relation: "Andet", isPlaceholderName: 0, linkedUserId: "user-e2e" },
+          { id: "member-chris", name: "Chris", color: "#C97653", relation: "Andet", isPlaceholderName: 0, linkedUserId: null },
+          { id: "member-billie", name: "Billie", color: "#D19A2A", relation: "Barn", isPlaceholderName: 0, linkedUserId: null },
+          { id: "member-dana", name: "Dana", color: "#6B4FC9", relation: "Andet", isPlaceholderName: 0, linkedUserId: null },
+        ],
+        inviteCode: "TEST1234",
+      };
+    } else if (path.endsWith("/weekly-summary")) {
+      body = { summary: null };
+    } else if (path.endsWith("/calendar-mappings")) {
+      body = {
+        mappings: [
+          { googleCalendarId: "alex-calendar", familyMemberId: "member-e2e" },
+          { googleCalendarId: "chris-calendar", familyMemberId: "member-chris" },
+          { googleCalendarId: "billie-calendar", familyMemberId: "member-billie" },
+          { googleCalendarId: "dana-calendar", familyMemberId: "member-dana" },
+        ],
+      };
+    } else if (path.endsWith("/routines")) {
+      body = { routines: [] };
+    } else if (path.endsWith("/tasks")) {
+      body = { tasks: [] };
+    } else if (path.endsWith("/shopping-lists")) {
+      body = { lists: [] };
+    } else if (path === "/api/calendar/status") {
+      body = { connected: true };
+    } else if (path === "/api/calendar/calendars") {
+      body = {
+        items: [
+          { id: "alex-calendar", summary: "Alex", accessRole: "owner" },
+          { id: "chris-calendar", summary: "Chris", accessRole: "owner" },
+          { id: "billie-calendar", summary: "Billie", accessRole: "owner" },
+          { id: "dana-calendar", summary: "Dana", accessRole: "owner" },
+        ],
+      };
+    } else if (path.includes("/api/calendar/calendars/") && path.endsWith("/events")) {
+      const calendarId = decodeURIComponent(path.split("/")[4]);
+      // Alle fire kalendre har en aftale på SAMME dag (26/8) — de øvrige
+      // dage i ugen har ingen aftaler, så deres celler er referencen.
+      body = {
+        items: [{
+          id: `${calendarId}-event`,
+          summary: `${calendarId} aftale`,
+          status: "confirmed",
+          start: { dateTime: "2026-08-26T08:00:00+02:00" },
+          end: { dateTime: "2026-08-26T09:00:00+02:00" },
+        }],
+        nextSyncToken: `${calendarId}-token`,
+      };
+    } else if (path === "/api/health") {
+      body = { status: "ok", version: { id: "e2e-version-123456" } };
+    } else if (path.includes("/activity/")) {
+      body = { hasActivity: false, since: null, asOf: new Date().toISOString() };
+    }
+
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
+  });
+
+  await page.clock.setFixedTime(new Date("2026-08-26T09:00:00+02:00"));
+  await page.goto("/calendar");
+  await page.getByRole("button", { name: "Måned", exact: true }).click();
+
+  // Sammenligner bevidst på tværs af UGE-rækker, ikke to dage i samme
+  // uge: CSS Grid strækker allerede alle celler i samme række til rækkens
+  // højeste celle, så et wrap ville gøre HELE ugens række højere end
+  // ugerne omkring den — ikke kun den ene dags celle. Det er præcis den
+  // synlige forskel fra skærmbilledet (én ugerække tydeligt højere end
+  // resten), som fixet skal fjerne.
+  const busyDay = page.locator('button[aria-label*="26. august"]');
+  const emptyDay = page.locator('button[aria-label*="2. september"]');
+  await expect(busyDay).toBeVisible();
+  await expect(emptyDay).toBeVisible();
+
+  const busyBox = await busyDay.boundingBox();
+  const emptyBox = await emptyDay.boundingBox();
+  expect(busyBox).not.toBeNull();
+  expect(emptyBox).not.toBeNull();
+  expect(busyBox!.height).toBeCloseTo(emptyBox!.height, 0);
+});
+
 // Fase 1-følgeret (PR #148-opfølgning): et ICS-abonnement UDEN
 // medlemstilknytning fik ingen ejer på selve aftalen, så
 // getEventOwnerColor() faldt tilbage til Familien-lilla i stedet for
