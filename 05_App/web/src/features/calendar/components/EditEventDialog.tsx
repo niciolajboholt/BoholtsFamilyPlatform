@@ -80,6 +80,7 @@ function EditEventDialog({
     setIsMoreOptionsOpen,
     eventSource,
     isInternalEvent,
+    canOverrideOwners,
     canChangeCalendar,
     requestedSourceId,
     setRequestedSourceId,
@@ -267,7 +268,8 @@ function EditEventDialog({
 
             <Collapse in={isMoreOptionsOpen} timeout="auto">
               <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                {!isExternalCalendarProviderType(eventSource?.providerType) && (
+                {(!isExternalCalendarProviderType(eventSource?.providerType) ||
+                  canOverrideOwners) && (
                   <EventParticipantsSection
                     ownerIds={formState.ownerIds}
                     members={members}
