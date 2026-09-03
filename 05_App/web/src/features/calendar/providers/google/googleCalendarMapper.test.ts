@@ -289,4 +289,70 @@ describe("mapGoogleCalendarEvent", () => {
       expect(mapped?.ownerIds).toEqual(["family"]);
     });
   });
+
+  // Sprint 36: et manuelt sat ejerskab (Googles extendedProperties) er den
+  // eneste vej for et familiemedlem uden egen konto/kalender (fx et barn)
+  // til overhovedet at kunne matches — går derfor forud for både
+  // deltager-match og kalender-tildeling.
+  describe("manual owner override via extendedProperties (Sprint 36)", () => {
+    it("uses the override instead of the calendar's mapped owner", () => {
+      const event: GoogleCalendarEvent = {
+        id: "manual1",
+        summary: "Fodboldtræning",
+        start: { dateTime: "2026-08-24T16:00:00+02:00" },
+        end: { dateTime: "2026-08-24T17:00:00+02:00" },
+        extendedProperties: { private: { boholtsOwnerIds: "member-alfred" } },
+      };
+
+      const mapped = mapGoogleCalendarEvent(calendarId, event, "family");
+
+      expect(mapped?.ownerIds).toEqual(["member-alfred"]);
+    });
+
+    it("uses the override instead of a matched attendee", () => {
+      const members: CalendarOwner[] = [
+        { id: "christine", name: "Christine", color: "#C62828", email: "christine@example.com" },
+      ];
+      const event: GoogleCalendarEvent = {
+        id: "manual2",
+        summary: "Fodboldtræning",
+        start: { dateTime: "2026-08-24T16:00:00+02:00" },
+        end: { dateTime: "2026-08-24T17:00:00+02:00" },
+        attendees: [{ email: "christine@example.com" }],
+        extendedProperties: { private: { boholtsOwnerIds: "member-alfred" } },
+      };
+
+      const mapped = mapGoogleCalendarEvent(calendarId, event, "family", members);
+
+      expect(mapped?.ownerIds).toEqual(["member-alfred"]);
+    });
+
+    it("supports multiple comma-separated owners", () => {
+      const event: GoogleCalendarEvent = {
+        id: "manual3",
+        summary: "Søskendeaftale",
+        start: { dateTime: "2026-08-24T16:00:00+02:00" },
+        end: { dateTime: "2026-08-24T17:00:00+02:00" },
+        extendedProperties: { private: { boholtsOwnerIds: "member-alfred, member-jens" } },
+      };
+
+      const mapped = mapGoogleCalendarEvent(calendarId, event);
+
+      expect(mapped?.ownerIds).toEqual(["member-alfred", "member-jens"]);
+    });
+
+    it("falls back to normal matching when no override is present", () => {
+      const event: GoogleCalendarEvent = {
+        id: "manual4",
+        summary: "Frisør",
+        start: { dateTime: "2026-08-24T16:00:00+02:00" },
+        end: { dateTime: "2026-08-24T17:00:00+02:00" },
+        extendedProperties: { private: {} },
+      };
+
+      const mapped = mapGoogleCalendarEvent(calendarId, event, "family");
+
+      expect(mapped?.ownerIds).toEqual(["family"]);
+    });
+  });
 });

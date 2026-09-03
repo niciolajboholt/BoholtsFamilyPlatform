@@ -43,6 +43,11 @@ export interface GoogleCalendarEvent {
   // aftalen ligger på (se matchAttendeesToOwnerIds.ts). Kun til stede, hvis
   // Google-aftalen faktisk har inviterede deltagere.
   attendees?: GoogleCalendarEventAttendee[];
+  // Googles eget mekanisme til app-privat metadata på en aftale — bruges
+  // til et manuelt sat familiemedlem-ejerskab (se ownerIdsOverrideKey i
+  // googleCalendarMapper.ts), for medlemmer uden egen konto/kalender, som
+  // hverken deltager- eller kalender-tildeling kan nå (fx et barn).
+  extendedProperties?: { private?: Record<string, string> };
 }
 
 // Kun til skrivning (create/update) — "date"/"dateTime"/"timeZone" skal
@@ -65,6 +70,11 @@ export interface GoogleCalendarEventRequest {
   // Sprint 34: kun sat ved oprettelse af en ny gentagende aftale — se
   // mapRecurrenceRuleToGoogleRRule() i googleCalendarWriteMapper.ts.
   recurrence?: string[];
+  // Sprint 36: kun sat når et manuelt ejerskab skal skrives eller ryddes —
+  // en værdi på `null` sletter den navngivne private egenskab hos Google
+  // (Googles egen konvention for at fjerne en extendedProperties-nøgle via
+  // PATCH), en streng sætter/opdaterer den.
+  extendedProperties?: { private?: Record<string, string | null> };
 }
 
 export interface GoogleCalendarEventsResponse {

@@ -147,6 +147,34 @@ describe("mapGoogleEventWriteRequest", () => {
 
     expect(request.recurrence).toEqual(["RRULE:FREQ=WEEKLY;BYDAY=MO"]);
   });
+
+  it("omits extendedProperties when ownerIdsOverride is not set", () => {
+    const request = mapGoogleEventWriteRequest(baseInput);
+
+    expect(request.extendedProperties).toBeUndefined();
+  });
+
+  it("writes the owner override as a comma-joined extended property", () => {
+    const request = mapGoogleEventWriteRequest({
+      ...baseInput,
+      ownerIdsOverride: ["member-alfred", "member-jens"],
+    });
+
+    expect(request.extendedProperties).toEqual({
+      private: { boholtsOwnerIds: "member-alfred,member-jens" },
+    });
+  });
+
+  it("clears the owner override by sending null for the property, when set to an empty list", () => {
+    const request = mapGoogleEventWriteRequest({
+      ...baseInput,
+      ownerIdsOverride: [],
+    });
+
+    expect(request.extendedProperties).toEqual({
+      private: { boholtsOwnerIds: null },
+    });
+  });
 });
 
 describe("mapRecurrenceRuleToGoogleRRule", () => {

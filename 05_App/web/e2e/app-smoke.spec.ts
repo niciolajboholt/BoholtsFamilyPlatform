@@ -1769,6 +1769,103 @@ test("a family member can choose one occurrence or the whole Google series", asy
   await expect.poll(() => patchedEventId).toBe("series-1");
 });
 
+// Sprint 36: et familiemedlem uden egen konto/kalender (fx et barn) kan
+// hverken matches via deltagere eller kalender-tildeling (se
+// matchAttendeesToOwnerIds.ts) — så "Hvem gælder aftalen for?" er nu
+// tilgængelig for Google-aftaler i redigér-dialogen, til at sætte den
+// tilknytning manuelt. Bekræfter det udgående PATCH-kald bærer valget som
+// Googles egen extendedProperties.
+test("a family member can manually assign an owner to a Google event through the real UI", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  await mockAuthenticatedApi(page);
+  await page.route("**/api/calendar/status", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ connected: true }),
+    }),
+  );
+
+  let patchedBody: Record<string, unknown> | undefined;
+
+  await page.route("**/api/calendar/calendars/alex-calendar/events/*", async (route) => {
+    if (route.request().method() !== "PATCH") {
+      await route.fallback();
+      return;
+    }
+
+    patchedBody = route.request().postDataJSON() as Record<string, unknown>;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ id: "alex-calendar-event", ...patchedBody }),
+    });
+  });
+
+  await page.clock.setFixedTime(new Date("2026-08-26T09:00:00+02:00"));
+  await page.goto("/calendar");
+  await page
+    .getByRole("button", { name: /^Rediger aftale: Tandlæge og efterfølgende kontrol,/ })
+    .click();
+  await page.getByRole("button", { name: "Flere muligheder" }).click();
+
+  // Alex er allerede automatisk tilknyttet via kalender-tildelingen —
+  // markerer også Billie, så begge indgår i den manuelle overstyring.
+  await page.getByRole("checkbox", { name: "Billie" }).check();
+  await page.getByRole("button", { name: "Gem ændringer" }).click();
+
+  await expect.poll(() => patchedBody?.extendedProperties).toEqual({
+    private: { boholtsOwnerIds: "member-e2e,member-billie" },
+  });
+});
+
+// Regressionstest: en almindelig redigering, der IKKE rører ejerkredsen,
+// må ikke utilsigtet fastfryse det automatisk matchede ejerskab som en
+// permanent Google-overstyring (se ownerIdsChanged-kommentaren i
+// useEditEventDialogController.ts).
+test("editing a Google event without touching ownership does not write an owner override", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  await mockAuthenticatedApi(page);
+  await page.route("**/api/calendar/status", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ connected: true }),
+    }),
+  );
+
+  let patchedBody: Record<string, unknown> | undefined;
+
+  await page.route("**/api/calendar/calendars/alex-calendar/events/*", async (route) => {
+    if (route.request().method() !== "PATCH") {
+      await route.fallback();
+      return;
+    }
+
+    patchedBody = route.request().postDataJSON() as Record<string, unknown>;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ id: "alex-calendar-event", ...patchedBody }),
+    });
+  });
+
+  await page.clock.setFixedTime(new Date("2026-08-26T09:00:00+02:00"));
+  await page.goto("/calendar");
+  await page
+    .getByRole("button", { name: /^Rediger aftale: Tandlæge og efterfølgende kontrol,/ })
+    .click();
+  await page.getByLabel("Titel").fill("Tandlæge, flyttet");
+  await page.getByRole("button", { name: "Gem ændringer" }).click();
+
+  await expect.poll(() => patchedBody?.summary).toBe("Tandlæge, flyttet");
+  expect(patchedBody?.extendedProperties).toBeUndefined();
+});
+
 // Fase 5: "Fuldt invitations-/rolleflow gennem UI'et" — del 1: en helt ny
 // bruger (ingen familie, ingen localStorage) taster en invitationskode ind
 // og kommer ind i appen. Egen mock (ikke mockAuthenticatedApi ovenfor), da

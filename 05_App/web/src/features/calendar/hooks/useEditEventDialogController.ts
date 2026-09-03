@@ -24,7 +24,10 @@ import {
 import type { CalendarEvent } from "../models/calendarEvent";
 import { isExternalCalendarEventSource } from "../models/calendarEvent";
 import type { CalendarSource } from "../models/calendarProvider";
-import { isExternalCalendarProviderType } from "../models/calendarProvider";
+import {
+  isExternalCalendarProviderType,
+  providerSupportsManualOwnerOverride,
+} from "../models/calendarProvider";
 import type { RecurrenceExceptionOverride } from "../preferences/recurrenceExceptionsStorage";
 import { useEventReminder } from "../eventReminders/useEventReminder";
 
@@ -150,6 +153,12 @@ export function useEditEventDialogController({
     ? calendarSources.find((source) => source.id === effectiveEvent.sourceId)
     : undefined;
   const isInternalEvent = eventSource?.isReadOnly === false && !effectiveEvent?.privacyRedacted;
+
+  // Sprint 36: kun Google — lader et familiemedlem uden egen konto/kalender
+  // (fx et barn) blive manuelt tilknyttet en enkelt Google-aftale, når
+  // hverken deltager- eller kalender-match kan finde vedkommende (se
+  // matchAttendeesToOwnerIds.ts).
+  const canOverrideOwners = providerSupportsManualOwnerOverride(eventSource?.providerType);
 
   // Kun Google-aftaler kan skifte kalender i dag (se
   // GoogleCalendarProvider.updateEvent — Googles "move"-handling har ingen
@@ -316,6 +325,14 @@ export function useEditEventDialogController({
 
     setSubmitError(null);
 
+    // Kun sat, når brugeren selv har rørt ejerkredsen i denne redigering —
+    // ellers ville hver eneste redigering af en Google-aftale (selv en
+    // titelrettelse) utilsigtet fastfryse det automatisk matchede ejerskab
+    // som en permanent overstyring, der siden går forud for et opdateret
+    // deltager-/kalender-match.
+    const ownerIdsChanged =
+      [...formState.ownerIds].sort().join(",") !== [...initialFormState.ownerIds].sort().join(",");
+
     const start = formState.allDay
       ? createAllDayDate(formState.startDate, false)
       : createDateTime(formState.startDate, formState.startTime);
@@ -357,6 +374,8 @@ export function useEditEventDialogController({
           recurrenceEditScope: isRecurringGoogleOccurrence ? editScope : undefined,
           recurrenceOriginalStart: isRecurringGoogleOccurrence ? event?.start : undefined,
           recurrenceOriginalEnd: isRecurringGoogleOccurrence ? event?.end : undefined,
+          ownerIdsOverride:
+            canOverrideOwners && ownerIdsChanged ? [...formState.ownerIds] : undefined,
         };
 
         await onUpdate(updatedEvent);
@@ -415,6 +434,7 @@ export function useEditEventDialogController({
     setIsMoreOptionsOpen,
     eventSource,
     isInternalEvent,
+    canOverrideOwners,
     canChangeCalendar,
     requestedSourceId,
     setRequestedSourceId,

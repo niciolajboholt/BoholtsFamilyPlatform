@@ -60,6 +60,20 @@ export function providerSupportsRecurrenceCreation(
 }
 
 /**
+ * Sprint 36: kun Google Kalender-skrivevejen ved i dag, hvordan et manuelt
+ * ejerskab skrives/ryddes (Googles egne extendedProperties, se
+ * googleCalendarWriteMapper.ts/googleCalendarMapper.ts) — for et
+ * familiemedlem uden egen konto/kalender, som hverken deltager- eller
+ * kalender-tildeling kan nå. Outlook/Apple/ICS er fortsat udenfor scope.
+ * Brug denne i stedet for at sammenligne mod "google" direkte i UI-laget.
+ */
+export function providerSupportsManualOwnerOverride(
+  providerType: CalendarProviderType | undefined,
+): boolean {
+  return providerType === "google";
+}
+
+/**
  * Standardvindue for at hente aftaler: begrænset og gyldigt for Googles
  * `timeMin`/`timeMax` (RFC3339-tidspunkter), i modsætning til den tidligere
  * konstant der brugte ECMAScripts dato-yderpunkter (år -271821 til +275760)

@@ -54,6 +54,7 @@ import type {
 import type { CalendarSource } from "../models/calendarProvider";
 import {
   isExternalCalendarProviderType,
+  providerSupportsManualOwnerOverride,
   providerSupportsRecurrenceCreation,
 } from "../models/calendarProvider";
 import type { CreateCalendarEventInput } from "../models/calendarEventInput";
@@ -375,6 +376,11 @@ function NewEventDialog({
           providerSupportsRecurrenceCreation(selectedSource?.providerType)
             ? recurrenceFormValueToRule(recurrence, start)
             : undefined,
+
+        ownerIdsOverride:
+          providerSupportsManualOwnerOverride(selectedSource?.providerType)
+            ? [...form.ownerIds]
+            : undefined,
       };
 
     try {
@@ -557,7 +563,8 @@ function NewEventDialog({
 
           <Collapse in={isMoreOptionsOpen} timeout="auto">
             <Box sx={{ display: "grid", gap: 2 }}>
-              {!isExternalCalendarProviderType(selectedSource?.providerType) && (
+              {(!isExternalCalendarProviderType(selectedSource?.providerType) ||
+                providerSupportsManualOwnerOverride(selectedSource?.providerType)) && (
                 <EventParticipantsSection
                   ownerIds={form.ownerIds}
                   members={members}

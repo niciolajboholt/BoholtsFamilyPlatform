@@ -1,6 +1,7 @@
 import type { CalendarEvent, CalendarWeekday, RecurrenceRule } from "../../models/calendarEvent";
 import type { CreateCalendarEventInput } from "../../models/calendarEventInput";
 import { CalendarProviderError } from "../calendarProviderErrors";
+import { ownerIdsOverrideKey } from "./googleCalendarMapper";
 import type { GoogleCalendarEventRequest } from "./googleCalendarTypes";
 
 type WritableEvent = Pick<
@@ -13,6 +14,7 @@ type WritableEvent = Pick<
   | "location"
   | "privacy"
   | "recurrence"
+  | "ownerIdsOverride"
 >;
 
 const weekdayToRRuleCode: Record<CalendarWeekday, string> = {
@@ -130,6 +132,21 @@ export function mapGoogleEventWriteRequest(
   // eksisterende gentagelsesregel ikke ændres utilsigtet.
   if ("recurrence" in event && event.recurrence) {
     request.recurrence = mapRecurrenceRuleToGoogleRRule(event.recurrence, event.allDay);
+  }
+
+  // ownerIdsOverride er `undefined`, når hverken oprettelsen eller
+  // redigér-dialogen har rørt ejerskabet — så skal PATCH'en slet ikke nævne
+  // extendedProperties (Googles "patch semantics" lader så det stå
+  // urørt). En tom liste er en eksplicit rydning: sender `null` for netop
+  // den navngivne egenskab, Googles egen måde at slette en enkelt privat
+  // egenskab på uden at røre andre.
+  if (event.ownerIdsOverride) {
+    request.extendedProperties = {
+      private: {
+        [ownerIdsOverrideKey]:
+          event.ownerIdsOverride.length > 0 ? event.ownerIdsOverride.join(",") : null,
+      },
+    };
   }
 
   return request;
