@@ -207,14 +207,26 @@ function DayCell({
     ),
   ) as CalendarOwnerId[];
 
-  // Samme kompakte, ét-linjes badge-stil som aftalekortene selv bruger
-  // (EventOwnerBadges, med overlap i stedet for at bryde om) — ellers ville
-  // en dag med flere ejere bryde om til flere rækker og blive højere end
-  // resten af ugens dage, så cellerne ikke længere fremstår ensartede.
   const dayOwnerBadges = ownerIds
     .map((ownerId) => members.find((candidate) => candidate.id === ownerId))
     .filter((owner): owner is CalendarOwner => Boolean(owner))
     .map((owner) => ({ id: owner.id, name: owner.name, color: owner.color }));
+
+  // Ejer-badges vises i et fast 2×2-gitter i stedet for én række — pladsen
+  // reserveres altid (se minHeight på gitter-boksen nedenfor), uanset hvor
+  // mange ejere dagen faktisk har, så alle dagsceller i månedsvisningen
+  // forbliver lige høje. Uden en fast reserveret højde ville en dag med to
+  // rækker badges igen blive højere end resten af ugens celler, jf. CSS
+  // Grids "stretch" på tværs af hele rækken.
+  const maxVisibleDayOwnerBadges = 4;
+  const visibleDayOwnerBadges =
+    dayOwnerBadges.length > maxVisibleDayOwnerBadges
+      ? dayOwnerBadges.slice(0, maxVisibleDayOwnerBadges - 1)
+      : dayOwnerBadges;
+  const hiddenDayOwnerCount = Math.max(
+    0,
+    dayOwnerBadges.length - visibleDayOwnerBadges.length,
+  );
 
   return (
     <Box
@@ -350,11 +362,56 @@ function DayCell({
           )}
         </Box>
 
-        {dayOwnerBadges.length > 0 && (
-          <Box sx={{ mt: 1 }}>
-            <EventOwnerBadges owners={dayOwnerBadges} sizePx={14} ariaHidden={false} />
-          </Box>
-        )}
+        <Box
+          sx={{
+            mt: 1,
+            display: "grid",
+            gridTemplateColumns: "repeat(2, 14px)",
+            gridAutoRows: "14px",
+            gap: 0.4,
+            // To rækker reserveret, selv på dage uden ejer-badges, så
+            // dagscellens højde ikke afhænger af hvor mange ejere dagen har.
+            minHeight: "32px",
+          }}
+        >
+          {visibleDayOwnerBadges.map((owner) => (
+            <Box
+              key={owner.id}
+              title={owner.name}
+              sx={{
+                width: 14,
+                height: 14,
+                borderRadius: "50%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                backgroundColor: owner.color,
+                border: "1px solid",
+                borderColor: "background.paper",
+                color: "#ffffff",
+                fontSize: "8px",
+                fontWeight: 700,
+                lineHeight: 1,
+              }}
+            >
+              {owner.name.charAt(0).toUpperCase()}
+            </Box>
+          ))}
+          {hiddenDayOwnerCount > 0 && (
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{
+                fontSize: "9px",
+                lineHeight: 1,
+                display: "flex",
+                alignItems: "center",
+              }}
+            >
+              +{hiddenDayOwnerCount}
+            </Typography>
+          )}
+        </Box>
 
         {events.length > 0 && (
           <Box

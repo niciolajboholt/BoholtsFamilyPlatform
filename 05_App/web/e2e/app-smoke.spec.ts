@@ -2147,6 +2147,7 @@ test("a month-view day cell with several owners is the same height as a day with
           { id: "member-chris", name: "Chris", color: "#C97653", relation: "Andet", isPlaceholderName: 0, linkedUserId: null },
           { id: "member-billie", name: "Billie", color: "#D19A2A", relation: "Barn", isPlaceholderName: 0, linkedUserId: null },
           { id: "member-dana", name: "Dana", color: "#6B4FC9", relation: "Andet", isPlaceholderName: 0, linkedUserId: null },
+          { id: "member-eli", name: "Eli", color: "#4F8AC9", relation: "Barn", isPlaceholderName: 0, linkedUserId: null },
         ],
         inviteCode: "TEST1234",
       };
@@ -2159,6 +2160,7 @@ test("a month-view day cell with several owners is the same height as a day with
           { googleCalendarId: "chris-calendar", familyMemberId: "member-chris" },
           { googleCalendarId: "billie-calendar", familyMemberId: "member-billie" },
           { googleCalendarId: "dana-calendar", familyMemberId: "member-dana" },
+          { googleCalendarId: "eli-calendar", familyMemberId: "member-eli" },
         ],
       };
     } else if (path.endsWith("/routines")) {
@@ -2176,11 +2178,12 @@ test("a month-view day cell with several owners is the same height as a day with
           { id: "chris-calendar", summary: "Chris", accessRole: "owner" },
           { id: "billie-calendar", summary: "Billie", accessRole: "owner" },
           { id: "dana-calendar", summary: "Dana", accessRole: "owner" },
+          { id: "eli-calendar", summary: "Eli", accessRole: "owner" },
         ],
       };
     } else if (path.includes("/api/calendar/calendars/") && path.endsWith("/events")) {
       const calendarId = decodeURIComponent(path.split("/")[4]);
-      // Alle fire kalendre har en aftale på SAMME dag (26/8) — de øvrige
+      // Alle fem kalendre har en aftale på SAMME dag (26/8) — de øvrige
       // dage i ugen har ingen aftaler, så deres celler er referencen.
       body = {
         items: [{
@@ -2221,6 +2224,16 @@ test("a month-view day cell with several owners is the same height as a day with
   expect(busyBox).not.toBeNull();
   expect(emptyBox).not.toBeNull();
   expect(busyBox!.height).toBeCloseTo(emptyBox!.height, 0);
+
+  // Dagscellens 2×2-gitter viser højst 4 ejer-badges — den femte skal ikke
+  // bare forsvinde sporløst, men vises som "+2" (3 badges + tallet, samme
+  // "+X flere"-mønster som aftalelisten under kalenderen bruger). "+2"
+  // sidder som en visuel søskende til selve knappen (den dækker kun
+  // klik-laget, jf. DayCell.tsx), så tjekket går via den fælles
+  // dagscelle-beholder, ikke knappen selv.
+  await expect(
+    busyDay.locator("xpath=..").getByText("+2", { exact: true }),
+  ).toBeVisible();
 });
 
 // Fase 1-følgeret (PR #148-opfølgning): et ICS-abonnement UDEN
