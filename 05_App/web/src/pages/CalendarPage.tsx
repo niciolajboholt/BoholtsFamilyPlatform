@@ -157,21 +157,6 @@ function CalendarPage() {
         </Button>
       </Box>
 
-      <CalendarToolbar
-        calendarView={
-          calendarView
-        }
-        visibleDate={visibleDate}
-        onPrevious={
-          handlePrevious
-        }
-        onNext={handleNext}
-        onToday={handleToday}
-        onChangeView={
-          handleChangeView
-        }
-      />
-
       {!isGoogleCalendarStatusLoading && (
         <ExternalCalendarConnectionBanner
           providerLabel="Google"
@@ -230,6 +215,21 @@ function CalendarPage() {
           />
         </CardContent>
       </Card>
+
+      <CalendarToolbar
+        calendarView={
+          calendarView
+        }
+        visibleDate={visibleDate}
+        onPrevious={
+          handlePrevious
+        }
+        onNext={handleNext}
+        onToday={handleToday}
+        onChangeView={
+          handleChangeView
+        }
+      />
 
       {isInitialLoading || isInitialSourceLoading ? (
         <Card sx={{ mb: 2.5 }}>
