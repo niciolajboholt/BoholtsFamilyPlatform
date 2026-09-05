@@ -1,7 +1,7 @@
 // Sprint 28: AI-genereret ugeresumé. Kaldes fra index.ts's scheduled()-
-// handler ved det ugentlige "0 17 * * SUN"-tick (søndag kl. 17 UTC, ~18-19
+// handler ved det ugentlige "0 7 * * SUN"-tick (søndag kl. 07 UTC, ~08-09
 // dansk tid afhængig af sommer-/vintertid — se 28_Sprint28_AI_Ugeresume_Plan.md,
-// beslutning 1).
+// beslutning 1, justeret til søndag morgen efter ønske fra Nicolaj).
 
 import type { Env } from "../env";
 import { generateWeeklySummary, type WeeklySummaryInput, type WeeklySummarySection } from "./aiAssistant";
