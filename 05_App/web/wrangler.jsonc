@@ -185,7 +185,7 @@
       // "triggers"-kommentar for hvorfor produktion har en tom liste
       // (Cloudflares konto-brede 5-cron-loft på Free-planen).
       "triggers": {
-        "crons": ["0 4 * * *", "*/5 * * * *", "0 17 * * SUN"]
+        "crons": ["0 4 * * *", "*/5 * * * *", "0 7 * * SUN"]
       },
       "observability": {
         "enabled": true,
