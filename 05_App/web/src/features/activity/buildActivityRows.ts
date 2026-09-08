@@ -16,17 +16,25 @@ export interface ActivityRow {
   detail?: string;
 }
 
-function formatShortWeekdayTime(iso: string): string {
+// Viser den faktiske dato (ikke kun ugedagens navn) — en ugedag alene kan
+// ikke skelne mellem fx to forekomster af samme gentagne aftale i to
+// forskellige uger.
+function formatShortDateTime(iso: string): string {
   const date = new Date(iso);
-  const weekday = new Intl.DateTimeFormat("da-DK", { weekday: "short" })
-    .format(date)
-    .replace(/\.$/, "");
+  const dateStr = new Intl.DateTimeFormat("da-DK", { day: "numeric", month: "short" }).format(date);
   const time = new Intl.DateTimeFormat("da-DK", { hour: "2-digit", minute: "2-digit" }).format(date);
-  return `${weekday} ${time}`;
+  return `${dateStr} ${time}`;
 }
 
-function formatWeekdayLong(iso: string): string {
-  return new Intl.DateTimeFormat("da-DK", { weekday: "long" }).format(new Date(iso));
+function formatDateLong(iso: string): string {
+  return new Intl.DateTimeFormat("da-DK", { day: "numeric", month: "long" }).format(new Date(iso));
+}
+
+// Kun sat, hvis aftalens kalender er kortlagt til et familiemedlem — se
+// ActivityCalendarMovedDto m.fl. i familyApi.ts.
+function appendMember(detail: string | undefined, memberName: string | undefined): string | undefined {
+  if (!memberName) return detail;
+  return detail ? `${detail} · ${memberName}` : memberName;
 }
 
 export interface BuildActivityRowsOptions {
@@ -48,10 +56,12 @@ export function buildActivityRows(
       attention: true,
       icon: "calendar",
       title: `${event.title} er flyttet`,
-      detail:
+      detail: appendMember(
         event.oldStart && event.newStart
-          ? `${formatShortWeekdayTime(event.oldStart)} → ${formatShortWeekdayTime(event.newStart)}`
+          ? `${formatShortDateTime(event.oldStart)} → ${formatShortDateTime(event.newStart)}`
           : undefined,
+        event.memberName,
+      ),
     });
   }
 
@@ -61,7 +71,7 @@ export function buildActivityRows(
       attention: true,
       icon: "calendar",
       title: `${event.title} er aflyst`,
-      detail: event.oldStart ? formatShortWeekdayTime(event.oldStart) : undefined,
+      detail: appendMember(event.oldStart ? formatShortDateTime(event.oldStart) : undefined, event.memberName),
     });
   }
 
@@ -72,7 +82,7 @@ export function buildActivityRows(
         attention: false,
         icon: "calendar",
         title: event.title,
-        detail: event.start ? formatShortWeekdayTime(event.start) : undefined,
+        detail: appendMember(event.start ? formatShortDateTime(event.start) : undefined, event.memberName),
       });
     }
   } else if (summary.calendar.created.length > 0) {
@@ -84,7 +94,7 @@ export function buildActivityRows(
       attention: false,
       icon: "calendar",
       title: `${count} ${count === 1 ? "ny aftale" : "nye aftaler"} i kalenderen`,
-      detail: next?.start ? `Næste: ${next.title}, ${formatWeekdayLong(next.start)}` : undefined,
+      detail: next?.start ? `Næste: ${next.title}, ${formatDateLong(next.start)}` : undefined,
     });
   }
 

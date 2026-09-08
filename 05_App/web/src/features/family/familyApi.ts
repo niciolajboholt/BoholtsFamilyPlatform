@@ -268,16 +268,22 @@ export interface ActivityCalendarMovedDto {
   title: string;
   oldStart: string | null;
   newStart: string | null;
+  // Kun sat, hvis aftalens kalender er kortlagt til et familiemedlem (se
+  // calendar_member_mappings) — fx en ICS-abonnementskalender uden
+  // medlemstildeling har ingen ejer at vise.
+  memberName?: string;
 }
 
 export interface ActivityCalendarCancelledDto {
   title: string;
   oldStart: string | null;
+  memberName?: string;
 }
 
 export interface ActivityCalendarCreatedDto {
   title: string;
   start: string | null;
+  memberName?: string;
 }
 
 export interface ActivityFamilyMemberDto {
