@@ -29,7 +29,17 @@ function formatWeekdayLong(iso: string): string {
   return new Intl.DateTimeFormat("da-DK", { weekday: "long" }).format(new Date(iso));
 }
 
-export function buildActivityRows(summary: ActiveActivitySummary): ActivityRow[] {
+export interface BuildActivityRowsOptions {
+  // Den kompakte oversigt (ActivitySummaryDialog, højst 6 rækker) grupperer
+  // bevidst nye kalenderaftaler i én række — men "Vis alt"-dialogen lover
+  // netop "alle ændringer", så der skal hver aftale vises for sig.
+  expandCalendarCreated?: boolean;
+}
+
+export function buildActivityRows(
+  summary: ActiveActivitySummary,
+  options: BuildActivityRowsOptions = {},
+): ActivityRow[] {
   const rows: ActivityRow[] = [];
 
   for (const event of summary.calendar.moved) {
@@ -55,7 +65,17 @@ export function buildActivityRows(summary: ActiveActivitySummary): ActivityRow[]
     });
   }
 
-  if (summary.calendar.created.length > 0) {
+  if (options.expandCalendarCreated) {
+    for (const event of summary.calendar.created) {
+      rows.push({
+        id: `created-${event.title}-${event.start ?? ""}`,
+        attention: false,
+        icon: "calendar",
+        title: event.title,
+        detail: event.start ? formatShortWeekdayTime(event.start) : undefined,
+      });
+    }
+  } else if (summary.calendar.created.length > 0) {
     const [next] = summary.calendar.created;
     const count = summary.calendar.created.length;
 
