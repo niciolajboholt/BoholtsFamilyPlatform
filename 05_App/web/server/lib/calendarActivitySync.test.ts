@@ -251,6 +251,69 @@ describe("syncCalendarActivity", () => {
     ]);
   });
 
+  it("does not re-log a recurring series when a later occurrence appears in a separate sync tick", async () => {
+    const env = createFakeEnv();
+    await seedFamilyWithCalendar(env);
+
+    await env.DB.prepare(
+      "INSERT INTO calendar_sync_state (google_calendar_id, family_id, sync_token, updated_at) VALUES (?, ?, ?, ?)",
+    )
+      .bind(calendarId, "family-1", "old-token", new Date().toISOString())
+      .run();
+
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({
+        items: [
+          {
+            id: "series-1_20260908T150000Z",
+            recurringEventId: "series-1",
+            summary: "Håndbold",
+            start: { dateTime: "2026-09-08T15:00:00.000Z" },
+            end: { dateTime: "2026-09-08T16:00:00.000Z" },
+          },
+        ],
+        nextSyncToken: "token-2",
+      }),
+    );
+
+    await syncCalendarActivity(env, now);
+
+    // Et separat, senere tick opdager en NY forekomst af den SAMME serie —
+    // fx fordi Google leverer en gentagende serie fordelt over flere
+    // synk-svar. Det tidligere in-memory-dedup (nulstillet pr. tick) ville
+    // fejlagtigt logge dette som endnu en "ny aftale"; det persisterede
+    // opslag (hasSeenSeries) skal forhindre det.
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({
+        items: [
+          {
+            id: "series-1_20260915T150000Z",
+            recurringEventId: "series-1",
+            summary: "Håndbold",
+            start: { dateTime: "2026-09-15T15:00:00.000Z" },
+            end: { dateTime: "2026-09-15T16:00:00.000Z" },
+          },
+        ],
+        nextSyncToken: "token-3",
+      }),
+    );
+
+    await syncCalendarActivity(env, now);
+
+    const activity = await env.DB.prepare(
+      "SELECT change_type AS changeType, safe_title AS safeTitle FROM calendar_activity_log",
+    ).all<{ changeType: string; safeTitle: string }>();
+    expect(activity.results).toEqual([{ changeType: "created", safeTitle: "Håndbold" }]);
+
+    const snapshots = await env.DB.prepare(
+      "SELECT event_id AS eventId FROM calendar_event_snapshots ORDER BY event_id",
+    ).all<{ eventId: string }>();
+    expect(snapshots.results.map((row) => row.eventId)).toEqual([
+      "series-1_20260908T150000Z",
+      "series-1_20260915T150000Z",
+    ]);
+  });
+
   it("does not log a plain edit that leaves start/end unchanged", async () => {
     const env = createFakeEnv();
     await seedFamilyWithCalendar(env);

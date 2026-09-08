@@ -152,25 +152,46 @@ async function upsertSnapshot(
   eventId: string,
   safe: SafeGoogleEventDetails,
   times: { start: string; end: string },
+  recurringEventId: string | null,
 ): Promise<void> {
   await db
     .prepare(
       `INSERT INTO calendar_event_snapshots
-         (google_calendar_id, event_id, safe_title, is_private, start, end)
-       VALUES (?, ?, ?, ?, ?, ?)
+         (google_calendar_id, event_id, safe_title, is_private, start, end, recurring_event_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(google_calendar_id, event_id) DO UPDATE SET
          safe_title = excluded.safe_title,
          is_private = excluded.is_private,
          start = excluded.start,
-         end = excluded.end`,
+         end = excluded.end,
+         recurring_event_id = excluded.recurring_event_id`,
     )
-    .bind(googleCalendarId, eventId, safe.title, safe.isPrivate ? 1 : 0, times.start, times.end)
+    .bind(googleCalendarId, eventId, safe.title, safe.isPrivate ? 1 : 0, times.start, times.end, recurringEventId)
     .run();
+}
+
+// Har vi allerede set (og evt. rapporteret) EN ANDEN forekomst af denne
+// serie, uanset hvornår? Persisteret opslag i stedet for et in-memory Set,
+// der kun huskede det aktuelle synk-tick (se migration 0021's kommentar).
+async function hasSeenSeries(
+  db: D1Database,
+  googleCalendarId: string,
+  recurringEventId: string,
+): Promise<boolean> {
+  const existing = await db
+    .prepare(
+      `SELECT 1 FROM calendar_event_snapshots WHERE google_calendar_id = ? AND recurring_event_id = ? LIMIT 1`,
+    )
+    .bind(googleCalendarId, recurringEventId)
+    .first();
+
+  return existing !== null;
 }
 
 async function logActivity(
   db: D1Database,
   familyId: string,
+  googleCalendarId: string,
   changeType: "created" | "moved" | "cancelled",
   safeTitle: string,
   fields: { oldStart?: string; newStart?: string; sourceUpdatedAt?: string; detectedAt: string },
@@ -178,12 +199,13 @@ async function logActivity(
   await db
     .prepare(
       `INSERT INTO calendar_activity_log
-         (id, family_id, change_type, safe_title, old_start, new_start, source_updated_at, detected_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+         (id, family_id, google_calendar_id, change_type, safe_title, old_start, new_start, source_updated_at, detected_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .bind(
       crypto.randomUUID(),
       familyId,
+      googleCalendarId,
       changeType,
       safeTitle,
       fields.oldStart ?? null,
@@ -254,7 +276,14 @@ async function bootstrapCalendar(
       continue;
     }
 
-    await upsertSnapshot(db, googleCalendarId, event.id, getSafeGoogleEventDetails(event), times);
+    await upsertSnapshot(
+      db,
+      googleCalendarId,
+      event.id,
+      getSafeGoogleEventDetails(event),
+      times,
+      event.recurringEventId ?? null,
+    );
   }
 
   await saveSyncToken(db, googleCalendarId, familyId, nextSyncToken);
@@ -271,10 +300,9 @@ async function deltaSyncCalendar(
   now: Date,
 ): Promise<void> {
   const { events, nextSyncToken } = await fetchAllEvents(accessToken, googleCalendarId, { syncToken });
-  const loggedCreatedSeriesIds = new Set<string>();
 
   for (const event of events) {
-    await applyDelta(db, googleCalendarId, familyId, event, now, loggedCreatedSeriesIds);
+    await applyDelta(db, googleCalendarId, familyId, event, now);
   }
 
   await saveSyncToken(db, googleCalendarId, familyId, nextSyncToken);
@@ -286,7 +314,6 @@ async function applyDelta(
   familyId: string,
   event: GoogleCalendarEvent,
   now: Date,
-  loggedCreatedSeriesIds: Set<string>,
 ): Promise<void> {
   if (!event.id) {
     return;
@@ -307,7 +334,7 @@ async function applyDelta(
     // forvejen — en aflyst forekomst af en gentagende aftale, vi aldrig
     // så, har intet at "have været" for brugeren.
     if (existing) {
-      await logActivity(db, familyId, "cancelled", existing.safeTitle, {
+      await logActivity(db, familyId, googleCalendarId, "cancelled", existing.safeTitle, {
         oldStart: existing.start,
         sourceUpdatedAt: event.updated,
         detectedAt,
@@ -334,12 +361,23 @@ async function applyDelta(
     // singleEvents=true. Overblikket skal vise serien som én ny aftale, ikke
     // fx 52 næsten ens aktiviteter. Alle forekomster gemmes stadig som
     // snapshots, så senere flytning/aflysning af én forekomst kan opdages.
-    if (!event.recurringEventId || !loggedCreatedSeriesIds.has(event.recurringEventId)) {
-      await logActivity(db, familyId, "created", safe.title, { newStart: times.start, sourceUpdatedAt: event.updated, detectedAt });
-      if (event.recurringEventId) loggedCreatedSeriesIds.add(event.recurringEventId);
+    // Opslaget er persisteret (hasSeenSeries), ikke et in-memory Set — en
+    // gentagende aftales forekomster kan dukke op fordelt over FLERE
+    // separate synk-tick, ikke kun inden for det aktuelle (se migration
+    // 0021's kommentar for symptomet, dette rettede).
+    const alreadySeenSeries = event.recurringEventId
+      ? await hasSeenSeries(db, googleCalendarId, event.recurringEventId)
+      : false;
+
+    if (!alreadySeenSeries) {
+      await logActivity(db, familyId, googleCalendarId, "created", safe.title, {
+        newStart: times.start,
+        sourceUpdatedAt: event.updated,
+        detectedAt,
+      });
     }
   } else if (existing.start !== times.start || existing.end !== times.end) {
-    await logActivity(db, familyId, "moved", safe.title, {
+    await logActivity(db, familyId, googleCalendarId, "moved", safe.title, {
       oldStart: existing.start,
       newStart: times.start,
       sourceUpdatedAt: event.updated,
@@ -350,7 +388,7 @@ async function applyDelta(
   // opdaterer snapshottet nedenfor, men rapporteres bevidst ikke som
   // aktivitet — planen dækker kun nye/flyttede/aflyste aftaler.
 
-  await upsertSnapshot(db, googleCalendarId, event.id, safe, times);
+  await upsertSnapshot(db, googleCalendarId, event.id, safe, times, event.recurringEventId ?? null);
 }
 
 async function syncOneCalendar(

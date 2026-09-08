@@ -211,6 +211,56 @@ describe("activity routes", () => {
     expect(cursor?.lastSeenAt).toBe(since);
   });
 
+  it("resolves each calendar event's family member via calendar_member_mappings", async () => {
+    const { cookieHeader, userId } = await seedLoggedInUser(env.DB as never, { id: "nicolaj" });
+    await seedFamily(env, "family-1", userId);
+    const since = new Date(Date.now() - 60 * 60_000).toISOString();
+    await seedCursor(env, userId, "family-1", since);
+    const afterSince = new Date(Date.now() - 30 * 60_000).toISOString();
+
+    await env.DB.prepare(
+      "INSERT INTO family_members (id, family_id, name, color, created_at) VALUES (?, ?, 'Alfred', '#2F6B4F', ?)",
+    )
+      .bind("member-alfred", "family-1", since)
+      .run();
+    await env.DB.prepare(
+      "INSERT INTO calendar_member_mappings (family_id, google_calendar_id, family_member_id) VALUES (?, ?, ?)",
+    )
+      .bind("family-1", "alfred-calendar", "member-alfred")
+      .run();
+
+    await env.DB.prepare(
+      `INSERT INTO calendar_activity_log
+         (id, family_id, google_calendar_id, change_type, safe_title, new_start, detected_at)
+       VALUES (?, 'family-1', 'alfred-calendar', 'created', 'Håndbold', '2026-09-08T17:00:00.000Z', ?)`,
+    )
+      .bind("log-created-mapped", afterSince)
+      .run();
+    // En kalender uden kortlægning (fx et ICS-abonnement) skal blot mangle
+    // memberName, ikke fejle.
+    await env.DB.prepare(
+      `INSERT INTO calendar_activity_log
+         (id, family_id, google_calendar_id, change_type, safe_title, new_start, detected_at)
+       VALUES (?, 'family-1', 'unmapped-calendar', 'created', 'Skolefest', '2026-09-09T10:00:00.000Z', ?)`,
+    )
+      .bind("log-created-unmapped", afterSince)
+      .run();
+
+    const response = await activity.request(
+      "/family-1/activity/since-last-visit",
+      { headers: { Cookie: cookieHeader } },
+      env,
+    );
+
+    const body = await response.json<{
+      calendar: { created: Array<{ title: string; memberName?: string }> };
+    }>();
+
+    const byTitle = Object.fromEntries(body.calendar.created.map((event) => [event.title, event.memberName]));
+    expect(byTitle["Håndbold"]).toBe("Alfred");
+    expect(byTitle["Skolefest"]).toBeUndefined();
+  });
+
   it("advances the cursor to the acknowledged asOf timestamp", async () => {
     const { cookieHeader, userId } = await seedLoggedInUser(env.DB as never, { id: "nicolaj" });
     await seedFamily(env, "family-1", userId);
