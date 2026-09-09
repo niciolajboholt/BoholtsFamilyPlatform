@@ -22,6 +22,7 @@ interface FamilyMemberJson {
   isPlaceholderName: number;
   linkedUserId: string | null;
   linkedUserEmail: string | null;
+  birthday: string | null;
 }
 
 interface CreateFamilyResponse {
@@ -596,6 +597,216 @@ describe("families routes", () => {
       const body: { members: FamilyMemberJson[] } = await response.json();
 
       expect(body.members.some((m) => m.id === familyPseudoMember!.id)).toBe(true);
+    });
+
+    it("sets, rejects an invalid, and clears a member's birthday", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader);
+
+      const addResponse = await families.request(
+        `/${created.family.id}/members`,
+        {
+          method: "POST",
+          headers: { Cookie: owner.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({ name: "Billie", color: "#123456", relation: "Barn" }),
+        },
+        env,
+      );
+      const { members: afterAdd }: { members: FamilyMemberJson[] } = await addResponse.json();
+      const billie = afterAdd.find((m) => m.name === "Billie")!;
+
+      const invalidResponse = await families.request(
+        `/${created.family.id}/members/${billie.id}`,
+        {
+          method: "PATCH",
+          headers: { Cookie: owner.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({ birthday: "13-40" }),
+        },
+        env,
+      );
+      expect(invalidResponse.status).toBe(400);
+
+      const setResponse = await families.request(
+        `/${created.family.id}/members/${billie.id}`,
+        {
+          method: "PATCH",
+          headers: { Cookie: owner.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({ birthday: "06-15" }),
+        },
+        env,
+      );
+      const { members: afterSet }: { members: FamilyMemberJson[] } = await setResponse.json();
+      expect(afterSet.find((m) => m.id === billie.id)?.birthday).toBe("06-15");
+
+      const clearResponse = await families.request(
+        `/${created.family.id}/members/${billie.id}`,
+        {
+          method: "PATCH",
+          headers: { Cookie: owner.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({ birthday: null }),
+        },
+        env,
+      );
+      const { members: afterClear }: { members: FamilyMemberJson[] } = await clearResponse.json();
+      expect(afterClear.find((m) => m.id === billie.id)?.birthday).toBeNull();
+    });
+  });
+
+  describe("birthday gift plans", () => {
+    interface GiftPlanJson {
+      id: string;
+      familyMemberId: string;
+      year: number;
+      giftIdea: string;
+      budgetAmount: number | null;
+      isPurchased: number;
+    }
+
+    it("creates, edits, and deletes a gift plan", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader);
+      const addMemberResponse = await families.request(
+        `/${created.family.id}/members`,
+        {
+          method: "POST",
+          headers: { Cookie: owner.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({ name: "Billie", color: "#123456", relation: "Barn" }),
+        },
+        env,
+      );
+      const { members }: { members: FamilyMemberJson[] } = await addMemberResponse.json();
+      const billie = members.find((m) => m.name === "Billie")!;
+
+      const createResponse = await families.request(
+        `/${created.family.id}/birthday-gift-plans`,
+        {
+          method: "POST",
+          headers: { Cookie: owner.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            familyMemberId: billie.id,
+            year: 2026,
+            giftIdea: "Cykel",
+            budgetAmount: 2000,
+          }),
+        },
+        env,
+      );
+      const { plans: afterCreate }: { plans: GiftPlanJson[] } = await createResponse.json();
+      const plan = afterCreate.find((p) => p.giftIdea === "Cykel");
+      expect(plan).toBeDefined();
+      expect(plan?.budgetAmount).toBe(2000);
+      expect(plan?.isPurchased).toBe(0);
+
+      const editResponse = await families.request(
+        `/${created.family.id}/birthday-gift-plans/${plan!.id}`,
+        {
+          method: "PATCH",
+          headers: { Cookie: owner.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({ isPurchased: true }),
+        },
+        env,
+      );
+      const { plans: afterEdit }: { plans: GiftPlanJson[] } = await editResponse.json();
+      expect(afterEdit.find((p) => p.id === plan!.id)?.isPurchased).toBe(1);
+
+      const deleteResponse = await families.request(
+        `/${created.family.id}/birthday-gift-plans/${plan!.id}`,
+        { method: "DELETE", headers: { Cookie: owner.cookieHeader } },
+        env,
+      );
+      const { plans: afterDelete }: { plans: GiftPlanJson[] } = await deleteResponse.json();
+      expect(afterDelete.some((p) => p.id === plan!.id)).toBe(false);
+    });
+
+    it("rejects an unknown family member or an invalid year", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader);
+
+      const unknownMemberResponse = await families.request(
+        `/${created.family.id}/birthday-gift-plans`,
+        {
+          method: "POST",
+          headers: { Cookie: owner.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({ familyMemberId: "not-a-member", year: 2026, giftIdea: "Cykel" }),
+        },
+        env,
+      );
+      expect(unknownMemberResponse.status).toBe(400);
+
+      const familyPseudoMember = created.members.find((m) => m.relation === null)!;
+      const invalidYearResponse = await families.request(
+        `/${created.family.id}/birthday-gift-plans`,
+        {
+          method: "POST",
+          headers: { Cookie: owner.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            familyMemberId: familyPseudoMember.id,
+            year: 1500,
+            giftIdea: "Cykel",
+          }),
+        },
+        env,
+      );
+      expect(invalidYearResponse.status).toBe(400);
+    });
+
+    // ADR-020: en gaveplan skal ikke afsløre sig selv for den, planen er
+    // FOR, hvis vedkommende har en koblet konto — kun for andre.
+    it("hides a member's own gift plans from their own linked account, but shows them to other members", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader);
+      const partner = await seedLoggedInUser(env.DB as never, { id: "partner" });
+
+      // Koble partneren til et rigtigt medlem (ikke pseudomedlemmet) via
+      // det eksisterende link-me-selvbetjenings-flow.
+      const addMemberResponse = await families.request(
+        `/${created.family.id}/members`,
+        {
+          method: "POST",
+          headers: { Cookie: owner.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({ name: "Christine", color: "#654321", relation: "Andet" }),
+        },
+        env,
+      );
+      const { members }: { members: FamilyMemberJson[] } = await addMemberResponse.json();
+      const christineMember = members.find((m) => m.name === "Christine")!;
+
+      await families.request(
+        `/invites/${created.inviteCode}/accept`,
+        { method: "POST", headers: { Cookie: partner.cookieHeader } },
+        env,
+      );
+      await families.request(
+        `/${created.family.id}/members/${christineMember.id}/link-me`,
+        { method: "POST", headers: { Cookie: partner.cookieHeader } },
+        env,
+      );
+
+      await families.request(
+        `/${created.family.id}/birthday-gift-plans`,
+        {
+          method: "POST",
+          headers: { Cookie: owner.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({ familyMemberId: christineMember.id, year: 2026, giftIdea: "Halskæde" }),
+        },
+        env,
+      );
+
+      const ownerViewResponse = await families.request(
+        `/${created.family.id}/birthday-gift-plans`,
+        { headers: { Cookie: owner.cookieHeader } },
+        env,
+      );
+      const { plans: ownerView }: { plans: GiftPlanJson[] } = await ownerViewResponse.json();
+      expect(ownerView.some((p) => p.giftIdea === "Halskæde")).toBe(true);
+
+      const partnerViewResponse = await families.request(
+        `/${created.family.id}/birthday-gift-plans`,
+        { headers: { Cookie: partner.cookieHeader } },
+        env,
+      );
+      const { plans: partnerView }: { plans: GiftPlanJson[] } = await partnerViewResponse.json();
+      expect(partnerView.some((p) => p.giftIdea === "Halskæde")).toBe(false);
     });
   });
 

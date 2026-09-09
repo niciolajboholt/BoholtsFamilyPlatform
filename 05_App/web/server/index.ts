@@ -13,6 +13,7 @@ import publicCalendarRoutes from "./routes/publicCalendar";
 import pushRoutes from "./routes/push";
 import shoppingListsRoutes from "./routes/shoppingLists";
 import tasksRoutes from "./routes/tasks";
+import { sendDueBirthdayReminders } from "./lib/birthdayReminders";
 import { cleanupOldCalendarActivity, syncCalendarActivity } from "./lib/calendarActivitySync";
 import { sendDueEventReminders } from "./lib/eventReminders";
 import { cleanupOldRateLimitAttempts } from "./lib/rateLimit";
@@ -113,18 +114,18 @@ app.get("*", (c) => c.env.ASSETS.fetch(c.req.raw));
 export default {
   fetch: app.fetch,
   // Tre Cron Triggers (se wrangler.jsonc's "triggers"), adskilt på
-  // controller.cron: den daglige (Sprint 24, udvidet Sprint 33) rydder
-  // udløbne sessioner, gamle rate-limit-forsøg og gammel kalender-
-  // aktivitetslog op; hvert 5. minut (Sprint 27, udvidet Sprint 31 og 33)
-  // sender tidsbaserede opgave- OG aftale-påmindelser og synker kalender-
-  // aktivitet ("Siden sidst"); ugentligt søndag (Sprint 28) sender et
-  // AI-genereret ugeresumé.
+  // controller.cron: den daglige (Sprint 24, udvidet Sprint 33 og 40)
+  // rydder udløbne sessioner, gamle rate-limit-forsøg og gammel kalender-
+  // aktivitetslog op, og sender fødselsdagspåmindelser 7 dage før; hvert 5.
+  // minut (Sprint 27, udvidet Sprint 31 og 33) sender tidsbaserede opgave-
+  // OG aftale-påmindelser og synker kalender-aktivitet ("Siden sidst");
+  // ugentligt søndag (Sprint 28) sender et AI-genereret ugeresumé.
   //
-  // Aftale-påmindelser og kalender-aktivitetssynk er bevidst lagt på det
-  // EKSISTERENDE 5-minutters-tick frem for en ny cron-trigger — kontoen
-  // har et loft på 5 cron-triggers i alt på tværs af alle
-  // Workers/miljøer (se wrangler.jsonc's kommentar), som allerede er i
-  // brug.
+  // Aftale-påmindelser, kalender-aktivitetssynk og fødselsdagspåmindelser
+  // er bevidst lagt på EKSISTERENDE cron-tick's frem for nye cron-
+  // triggers — kontoen har et loft på 5 cron-triggers i alt på tværs af
+  // alle Workers/miljøer (se wrangler.jsonc's kommentar), som allerede er
+  // i brug.
   async scheduled(controller, env, ctx) {
     if (controller.cron === "*/5 * * * *") {
       ctx.waitUntil(sendDueTaskReminders(env));
@@ -141,5 +142,6 @@ export default {
     ctx.waitUntil(cleanupExpiredSessions(env));
     ctx.waitUntil(cleanupOldRateLimitAttempts(env.DB));
     ctx.waitUntil(cleanupOldCalendarActivity(env.DB));
+    ctx.waitUntil(sendDueBirthdayReminders(env));
   },
 } satisfies ExportedHandler<Env>;

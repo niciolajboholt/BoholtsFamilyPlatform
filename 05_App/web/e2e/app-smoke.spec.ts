@@ -3159,3 +3159,138 @@ test("completing a rewarded task books an allowance, and unchecking it reverses 
   await page.getByRole("checkbox").click();
   await expect(page.getByText("Billie: 10 kr.")).not.toBeVisible();
 });
+
+// Sprint 40: fødselsdag pr. medlem (MM-DD) og en tilhørende gaveplan-liste.
+// Dækker både at fødselsdagen rent faktisk gemmes (overlever genindlæsning)
+// og ADR-020-privatlivsreglen på klientniveau: en gaveplan oprettet til
+// Billie skal kunne ses og redigeres, uafhængigt af hvem der er logget ind
+// som — den egentlige skjul-for-modtageren-logik ligger server-side og er
+// dækket af families.test.ts, men UI'en skal i det mindste vise, hvad
+// serveren returnerer, uden selv at filtrere forkert.
+test("a family member can set a birthday and collect gift ideas in Settings", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  await mockAuthenticatedApi(page);
+
+  let members: Array<Record<string, unknown>> = [
+    { id: "member-e2e", name: "Alex", color: "#2F6B4F", relation: "Andet", isPlaceholderName: 0, linkedUserId: "user-e2e", birthday: null },
+    { id: "member-chris", name: "Chris", color: "#C97653", relation: "Andet", isPlaceholderName: 0, linkedUserId: null, birthday: null },
+    { id: "member-billie", name: "Billie", color: "#D19A2A", relation: "Barn", isPlaceholderName: 0, linkedUserId: null, birthday: null },
+  ];
+  let plans: Array<Record<string, unknown>> = [];
+  let nextPlanId = 1;
+
+  await page.route("**/api/families/mine", async (route) => {
+    if (route.request().method() !== "GET") {
+      await route.fallback();
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ family, role: "owner", members, inviteCode: "TEST1234" }),
+    });
+  });
+
+  await page.route("**/api/families/*/members/*", async (route) => {
+    if (route.request().method() !== "PATCH") {
+      await route.fallback();
+      return;
+    }
+    const memberId = new URL(route.request().url()).pathname.split("/")[5];
+    const patched = route.request().postDataJSON() as { birthday?: string | null };
+    members = members.map((member) =>
+      member.id === memberId ? { ...member, birthday: patched.birthday ?? null } : member,
+    );
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ members }) });
+  });
+
+  await page.route("**/api/families/*/birthday-gift-plans", async (route) => {
+    if (route.request().method() === "GET") {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ plans }) });
+      return;
+    }
+
+    if (route.request().method() === "POST") {
+      const posted = route.request().postDataJSON() as {
+        familyMemberId: string;
+        year: number;
+        giftIdea: string;
+        budgetAmount?: number | null;
+      };
+      plans = [
+        ...plans,
+        {
+          id: `plan-${nextPlanId++}`,
+          familyId: family.id,
+          familyMemberId: posted.familyMemberId,
+          year: posted.year,
+          giftIdea: posted.giftIdea,
+          budgetAmount: posted.budgetAmount ?? null,
+          isPurchased: 0,
+          createdByUserId: "user-e2e",
+          createdAt: new Date().toISOString(),
+        },
+      ];
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ plans }) });
+      return;
+    }
+
+    await route.fallback();
+  });
+
+  await page.route("**/api/families/*/birthday-gift-plans/*", async (route) => {
+    const planId = new URL(route.request().url()).pathname.split("/")[5];
+    const method = route.request().method();
+
+    if (method === "PATCH") {
+      const patched = route.request().postDataJSON() as { isPurchased?: boolean };
+      plans = plans.map((plan) => (plan.id === planId ? { ...plan, ...patched } : plan));
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ plans }) });
+      return;
+    }
+
+    if (method === "DELETE") {
+      plans = plans.filter((plan) => plan.id !== planId);
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ plans }) });
+      return;
+    }
+
+    await route.fallback();
+  });
+
+  await page.goto("/settings");
+  await expect(page.getByText("Fødselsdage og gaver")).toBeVisible();
+
+  const billieRow = page.getByText("Billie", { exact: true }).locator("..");
+  await billieRow.getByPlaceholder("MM-DD").fill("06-15");
+  await billieRow.getByPlaceholder("MM-DD").blur();
+  await expect.poll(() => members.find((member) => member.id === "member-billie")?.birthday).toBe("06-15");
+
+  // Genindlæs siden for at bevise fødselsdagen rent faktisk blev sendt og
+  // gemt — ikke kun opdateret i lokal komponent-state.
+  await page.reload();
+  await expect(page.getByPlaceholder("MM-DD").nth(2)).toHaveValue("06-15");
+
+  await page.getByRole("button", { name: "Gaveideer til Billie" }).click();
+  const dialog = page.getByRole("dialog", { name: "Gaveideer til Billie" });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByText("Ingen gaveideer endnu.")).toBeVisible();
+
+  await dialog.getByLabel("Ny gaveide").fill("Cykelhjelm");
+  await dialog.getByLabel("Budget (kr.)").fill("300");
+  await dialog.getByRole("button", { name: "Tilføj" }).click();
+  await expect(dialog.getByText("Cykelhjelm")).toBeVisible();
+  await expect(dialog.getByText("300 kr.", { exact: false })).toBeVisible();
+
+  await dialog.getByRole("checkbox").click();
+  await expect.poll(() => plans[0]?.isPurchased).toBe(true);
+  await expect(dialog.getByRole("checkbox")).toBeChecked();
+
+  await dialog.getByRole("button", { name: "Slet Cykelhjelm" }).click();
+  await expect(dialog.getByText("Ingen gaveideer endnu.")).toBeVisible();
+
+  await dialog.getByRole("button", { name: "Luk" }).click();
+  await expect(dialog).not.toBeVisible();
+});

@@ -1005,3 +1005,84 @@ bruger.
   SameSite uden begrundelse.
 * `01_Project_Documentation/Development/37_Sprint37_Sikkerhed_Kodekvalitet_Plan.md`
   — sprintet, der formaliserede denne ADR.
+
+# ADR-020: Fødselsdagsgaveplaner skjules for den, planen er FOR — ikke rolle-baseret
+
+## Status
+
+Accepteret.
+
+## Kontekst
+
+Sprint 40 tilføjer gaveideer og budget knyttet til familiemedlemmers
+fødselsdage (`birthday_gift_plans`, se
+[40_Sprint40_Foedselsdag_Gaveplanlaegning_Plan.md](../Development/40_Sprint40_Foedselsdag_Gaveplanlaegning_Plan.md)).
+Al anden adgangskontrol i appen er rolle-baseret (ejer/admin/medlem,
+se ADR-017) — enhver, der er medlem af familien, ser den samme
+familiedata. En gaveplan er kvalitativt anderledes: formålet er netop,
+at DEN, planen handler om, ikke skal se den, mens alle ANDRE
+familiemedlemmer gerne må — en overraskelse, ikke en adgangsbegrænsning
+i sikkerhedsforstand.
+
+Dette er et nyt princip i appens datamodel: at skjule data for ét
+SPECIFIKT menneske, uafhængigt af rolle, i stedet for at afgøre synlighed
+ud fra hvem der er logget ind som hvilken rolle.
+
+## Beslutning
+
+`GET /:id/birthday-gift-plans` filtrerer server-side på, om den
+forespørgende brugers eget `user.id` matcher `family_members.linked_user_id`
+for den familiemedlem, planen er oprettet FOR — uanset hvem der oprettede
+planen, og uanset rolle (selv familiens ejer ser ikke sine egne planer).
+Et familiemedlem uden koblet konto (fx et barn, jf. ADR-017 punkt 5) har
+intet at skjule det for og optræder derfor aldrig i filtreringen.
+
+Filtreringen sker ved LÆSNING (i `listVisibleGiftPlans` i
+`server/routes/familyRoutes/birthdayGiftPlans.ts`), ikke ved oprettelse —
+en bruger kan stadig oprette en gaveplan for sig selv (giver ingen mening
+i praksis, men er ikke et sikkerhedsproblem: vedkommende kender jo allerede
+sin egen tekst), den vil blot være usynlig for dem selv ved næste opslag,
+ligesom for enhver anden.
+
+## Alternativer overvejet
+
+### Rolle-baseret adgang (kun ejer/admin må se gaveplaner)
+
+Afvist: løser ikke det egentlige problem. En admin, der selv er den
+fødselaren gælder, ville stadig kunne se sin egen overraskelse — og en
+almindelig medlem (fx en bedsteforælder uden admin-rolle), der IKKE er
+fødselaren, ville fejlagtigt blive udelukket fra at se og bidrage til
+planlægningen.
+
+### Klient-side skjulning (vis alle planer, filtrér kun i UI'et)
+
+Afvist: al anden privatlivsfølsom data i appen (private
+kalenderaftaler, jf. `13_Release_And_Security_Baseline.md`) redigeres
+server-side, aldrig kun i klienten — samme princip skal gælde her. En
+klient-side-filtrering ville sende de "hemmelige" gaveideer med i
+netværkssvaret til den, de skal overraske, og kun stole på, at UI'et
+ikke viser dem.
+
+## Konsekvenser
+
+### Positivt
+
+* Løser det egentlige formål (overraskelsen bevares) uafhængigt af rolle.
+* Data forlader aldrig serveren til den forkerte modtager — ikke kun en
+  UI-begrænsning.
+
+### Negativt
+
+* Et nyt, særskilt filtreringsprincip i kodebasen, adskilt fra den
+  ellers ensartede rolle-baserede model — en fremtidig udvikler skal
+  kende til og huske dette specifikke undtagelsesmønster, hvis flere
+  "skjul for én bestemt person"-funktioner tilføjes senere (fx en
+  fremtidig overraskelsesfest-planlægning).
+
+## Relaterede dokumenter
+
+* `server/routes/familyRoutes/birthdayGiftPlans.ts` —
+  `listVisibleGiftPlans`.
+* `01_Project_Documentation/Development/40_Sprint40_Foedselsdag_Gaveplanlaegning_Plan.md`
+  — sprintet, der formaliserede denne ADR.
+  — sprintet, der formaliserede denne ADR.

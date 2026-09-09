@@ -3,6 +3,7 @@ import { Hono } from "hono";
 import type { Env } from "../env";
 import { getSessionUser } from "../lib/session";
 import { logError } from "../lib/structuredLog";
+import birthdayGiftPlans from "./familyRoutes/birthdayGiftPlans";
 import calendarMappings from "./familyRoutes/calendarMappings";
 import familyCore from "./familyRoutes/familyCore";
 import familyMembers from "./familyRoutes/familyMembers";
@@ -45,5 +46,6 @@ families.route("/", shareLinks);
 families.route("/", familySettings);
 families.route("/", calendarMappings);
 families.route("/", icsSubscriptions);
+families.route("/", birthdayGiftPlans);
 
 export default families;
