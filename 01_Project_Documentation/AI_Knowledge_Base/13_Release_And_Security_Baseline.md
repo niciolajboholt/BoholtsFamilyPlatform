@@ -48,6 +48,9 @@ test`-check er påkrævet, ingen direkte push er muligt (sat op 2026-08-27).
 - Rate limits på invitationer, AI, push og offentlige delelinks.
 - Rolle-/medlemskabstjek på familieendpoints.
 - Krypterede Google refresh-tokens og Secure/HttpOnly/SameSite-sessioncookies.
+  Intet separat CSRF-token — ADR-019 (`05_ADR_Architecture_Decisions.md`)
+  begrunder hvorfor SameSite=Lax er tilstrækkeligt, og dokumenterer de to
+  eneste identificerede GET-ruter med sideeffekt.
 - Offentlige kalenderlinks viser som standard kun titel og tidspunkt;
   beskrivelse/lokation kræver aktivt tilvalg og linket kan tilbagekaldes.
 - Aftaler markeret private (Google `visibility`/Outlook `sensitivity`, eller
