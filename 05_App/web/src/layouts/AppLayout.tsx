@@ -4,6 +4,7 @@ import {
   CalendarMonthRounded,
   CheckCircleOutlineRounded,
   HomeRounded,
+  RestaurantMenuRounded,
   SettingsRounded,
   ShoppingCartOutlined,
 } from "@mui/icons-material";
@@ -50,6 +51,7 @@ const navItems: NavItem[] = [
   { path: "/", label: "Overblik", icon: <HomeRounded /> },
   { path: "/calendar", label: "Kalender", icon: <CalendarMonthRounded /> },
   { path: "/shopping-list", label: "Indkøb", icon: <ShoppingCartOutlined /> },
+  { path: "/meal-plan", label: "Måltider", icon: <RestaurantMenuRounded /> },
   { path: "/tasks", label: "Opgaver", icon: <CheckCircleOutlineRounded /> },
   { path: "/settings", label: "Indstillinger", icon: <SettingsRounded /> },
 ];

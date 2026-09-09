@@ -2903,3 +2903,157 @@ test("a genuine server error while online shows a visible error message instead 
   await expect(page.getByText("Mælk", { exact: true })).not.toBeVisible();
   await expect(addItemInput).toBeEditable();
 });
+
+test("a family member can plan a week's dishes and generate a deduplicated shopping draft", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  await mockAuthenticatedApi(page);
+
+  const lists = [
+    {
+      id: "list-groceries",
+      familyId: family.id,
+      name: "Dagligvarer",
+      type: "dagligvarer",
+      createdAt: "2026-08-20T00:00:00.000Z",
+    },
+  ];
+  const dishesByDate: Record<string, string> = {};
+  const addedItemNames: string[] = [];
+
+  await page.route("**/api/families/*/shopping-lists", async (route) => {
+    if (route.request().method() !== "GET") {
+      await route.fallback();
+      return;
+    }
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ lists }) });
+  });
+
+  await page.route("**/api/families/*/shopping-lists/*/items", async (route) => {
+    const method = route.request().method();
+
+    if (method === "GET") {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ items: [] }) });
+      return;
+    }
+
+    if (method === "POST") {
+      const posted = route.request().postDataJSON() as { name: string };
+      addedItemNames.push(posted.name);
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ items: [] }) });
+      return;
+    }
+
+    await route.fallback();
+  });
+
+  function entriesInRange(startDate: string, endDate: string): { date: string; dishName: string }[] {
+    return Object.entries(dishesByDate)
+      .filter(([date]) => date >= startDate && date <= endDate)
+      .map(([date, dishName]) => ({ date, dishName }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+  }
+
+  // Ét enkelt glob-jokertegn ("*") krydser ikke "/" i Playwrights
+  // mønster-matching — et trailing "**" er derfor nødvendigt her for at
+  // ramme både GET .../meal-plan?startDate=... (query-streng, intet ekstra
+  // sti-segment), PUT .../meal-plan/2026-09-07 og POST
+  // .../meal-plan/generate-ingredients-draft?... (begge med et ekstra
+  // sti-segment) i samme registrering.
+  await page.route("**/api/families/*/meal-plan**", async (route) => {
+    const url = new URL(route.request().url());
+    const segments = url.pathname.split("/");
+    const method = route.request().method();
+    const lastSegment = segments[segments.length - 1];
+
+    if (lastSegment === "meal-plan" && method === "GET") {
+      const startDate = url.searchParams.get("startDate")!;
+      const endDate = url.searchParams.get("endDate")!;
+
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ entries: entriesInRange(startDate, endDate) }),
+      });
+      return;
+    }
+
+    if (lastSegment === "generate-ingredients-draft" && method === "POST") {
+      // To retter (Spaghetti bolognese, Løgsuppe), begge bruger "Løg" —
+      // beviser at serveren de-duplikerer på tværs af retter, ikke kun at
+      // klienten viser, hvad den fik.
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          items: [
+            { name: "Hakket oksekød", category: "Kød" },
+            { name: "Løg", category: "Frugt & grønt" },
+            { name: "Bouillon", category: "Andet" },
+          ],
+        }),
+      });
+      return;
+    }
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(lastSegment ?? "") && method === "PUT") {
+      const date = lastSegment!;
+      const posted = route.request().postDataJSON() as { dishName: string };
+
+      if (posted.dishName.trim()) {
+        dishesByDate[date] = posted.dishName.trim();
+      } else {
+        delete dishesByDate[date];
+      }
+
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ entries: [{ date, dishName: dishesByDate[date] ?? "" }].filter((e) => e.dishName) }),
+      });
+      return;
+    }
+
+    await route.fallback();
+  });
+
+  await page.goto("/meal-plan");
+
+  await expect(page.getByRole("heading", { name: "Måltidsplan" })).toBeVisible();
+
+  const dishInputs = page.getByPlaceholder("Ingen ret planlagt");
+  await expect(dishInputs.first()).toBeVisible();
+
+  const firstSaved = page.waitForResponse(
+    (response) => /\/meal-plan\/\d{4}-\d{2}-\d{2}$/.test(response.url()) && response.request().method() === "PUT",
+  );
+  await dishInputs.nth(0).fill("Spaghetti bolognese");
+  await dishInputs.nth(0).blur();
+  await firstSaved;
+
+  const secondSaved = page.waitForResponse(
+    (response) => /\/meal-plan\/\d{4}-\d{2}-\d{2}$/.test(response.url()) && response.request().method() === "PUT",
+  );
+  await dishInputs.nth(1).fill("Løgsuppe");
+  await dishInputs.nth(1).blur();
+  await secondSaved;
+
+  // Retten er reelt gemt, ikke kun vist lokalt — en genindlæsning viser den
+  // stadig.
+  await page.reload();
+  await expect(page.getByPlaceholder("Ingen ret planlagt").first()).toHaveValue("Spaghetti bolognese");
+
+  await page.getByRole("button", { name: "Foreslå indkøb" }).click();
+  await page.getByRole("button", { name: "Generér forslag" }).click();
+
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByText("Hakket oksekød")).toBeVisible();
+  await expect(dialog.getByText("Løg", { exact: true })).toBeVisible();
+  await expect(dialog.getByText("Bouillon")).toBeVisible();
+
+  await dialog.getByRole("button", { name: "Tilføj valgte" }).click();
+
+  await expect(dialog).not.toBeVisible();
+  expect(addedItemNames.sort()).toEqual(["Bouillon", "Hakket oksekød", "Løg"].sort());
+});

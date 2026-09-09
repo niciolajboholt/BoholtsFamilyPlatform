@@ -11,6 +11,7 @@ import AppLayout from '../layouts/AppLayout'
 const HomePage = lazy(() => import('../pages/HomePage'))
 const CalendarPage = lazy(() => import('../pages/CalendarPage'))
 const ShoppingListPage = lazy(() => import('../pages/ShoppingListPage'))
+const MealPlanPage = lazy(() => import('../pages/MealPlanPage'))
 const TasksPage = lazy(() => import('../pages/TasksPage'))
 const SettingsPage = lazy(() => import('../pages/SettingsPage'))
 const PublicSharedCalendarPage = lazy(() => import('../pages/PublicSharedCalendarPage'))
@@ -39,6 +40,7 @@ export function AppRouter() {
             <Route index element={<HomePage />} />
             <Route path="calendar" element={<CalendarPage />} />
             <Route path="shopping-list" element={<ShoppingListPage />} />
+            <Route path="meal-plan" element={<MealPlanPage />} />
             <Route path="tasks" element={<TasksPage />} />
             <Route path="settings" element={<SettingsPage />} />
           </Route>
