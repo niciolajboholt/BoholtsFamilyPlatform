@@ -46,15 +46,6 @@ function CalendarPage() {
         onCreateEvent={() => setIsNewEventDialogOpen(true)}
       />
 
-      <CalendarToolbar
-        calendarView={calendarView}
-        visibleDate={visibleDate}
-        onPrevious={handlePrevious}
-        onNext={handleNext}
-        onToday={handleToday}
-        onChangeView={handleChangeView}
-      />
-
       <CalendarConnectionBanners
         isGoogleCalendarStatusLoading={isGoogleCalendarStatusLoading}
         isGoogleCalendarConnected={isGoogleCalendarConnected}
@@ -87,6 +78,15 @@ function CalendarPage() {
           />
         </CardContent>
       </Card>
+
+      <CalendarToolbar
+        calendarView={calendarView}
+        visibleDate={visibleDate}
+        onPrevious={handlePrevious}
+        onNext={handleNext}
+        onToday={handleToday}
+        onChangeView={handleChangeView}
+      />
 
       <CalendarBody {...controller} />
 

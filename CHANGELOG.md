@@ -1,6 +1,6 @@
 # Changelog
 
-## Sprint 34 — Sikkerhed og kodekvalitet efter eksternt review
+## Sprint 37 — Sikkerhed og kodekvalitet efter eksternt review
 
 - `ADMIN_EMAIL` flyttet fra klartekst i `wrangler.jsonc` til Cloudflares
   Secrets Store, samme mønster som de øvrige fire secrets.

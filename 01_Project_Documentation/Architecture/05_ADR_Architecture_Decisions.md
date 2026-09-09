@@ -868,7 +868,7 @@ lige nu.
   hvor beslutningen om `beta` som reel produktion først blev bekræftet.
 * `01_Project_Documentation/Development/29_Sprint29_Sikkerhed_Privatliv_Drift_Plan.md`
   — nævner beslutningen som allerede taget, "bevidst udeladt" derfra.
-* `01_Project_Documentation/Development/34_Sprint34_Sikkerhed_Kodekvalitet_Plan.md`
+* `01_Project_Documentation/Development/37_Sprint37_Sikkerhed_Kodekvalitet_Plan.md`
   — sprintet, der formaliserede denne ADR.
 
 # ADR-019: SameSite=Lax uden separat CSRF-token er tilstrækkeligt
@@ -1003,5 +1003,5 @@ bruger.
 * `01_Project_Documentation/AI_Knowledge_Base/13_Release_And_Security_Baseline.md`
   — opdateret til at henvise til denne ADR i stedet for kun at nævne
   SameSite uden begrundelse.
-* `01_Project_Documentation/Development/34_Sprint34_Sikkerhed_Kodekvalitet_Plan.md`
+* `01_Project_Documentation/Development/37_Sprint37_Sikkerhed_Kodekvalitet_Plan.md`
   — sprintet, der formaliserede denne ADR.

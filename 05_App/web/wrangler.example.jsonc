@@ -5,7 +5,7 @@
   // forbliver tracked i git med sine rigtige database_id/store_id, fordi
   // GitHub Actions' `wrangler deploy` kræver dem direkte i filen (wrangler
   // har ingen indbygget miljøvariabel-interpolation for disse felter i
-  // .jsonc); se ADR-018 og 34_Sprint34_Sikkerhed_Kodekvalitet_Plan.md.
+  // .jsonc); se ADR-018 og 37_Sprint37_Sikkerhed_Kodekvalitet_Plan.md.
   // Ingen af felterne nedenfor er selv hemmeligheder — de kræver ikke
   // separat autentifikation for at bruges — men de er unødvendig
   // recon-information i klartekst i et offentligt repo, derfor placeholders

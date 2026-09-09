@@ -51,27 +51,35 @@ interface MovedRow {
   safeTitle: string;
   oldStart: string | null;
   newStart: string | null;
+  googleCalendarId: string | null;
 }
 
 interface CancelledRow {
   safeTitle: string;
   oldStart: string | null;
+  googleCalendarId: string | null;
 }
 
 interface CreatedRow {
   safeTitle: string;
   newStart: string | null;
+  googleCalendarId: string | null;
 }
 
 interface FamilyMemberRow {
   name: string;
 }
 
+interface CalendarOwnerRow {
+  googleCalendarId: string;
+  memberName: string;
+}
+
 export interface ActivitySummary {
   calendar: {
-    moved: Array<{ title: string; oldStart: string | null; newStart: string | null }>;
-    cancelled: Array<{ title: string; oldStart: string | null }>;
-    created: Array<{ title: string; start: string | null }>;
+    moved: Array<{ title: string; oldStart: string | null; newStart: string | null; memberName?: string }>;
+    cancelled: Array<{ title: string; oldStart: string | null; memberName?: string }>;
+    created: Array<{ title: string; start: string | null; memberName?: string }>;
   };
   tasksCompletedCount: number;
   tasksCreatedCount: number;
@@ -82,11 +90,12 @@ export interface ActivitySummary {
 }
 
 async function collectSummary(db: D1Database, familyId: string, since: string): Promise<ActivitySummary> {
-  const [moved, cancelled, created, tasksCompleted, tasksCreated, shoppingAdded, shoppingChecked, newMembers] =
+  const [moved, cancelled, created, tasksCompleted, tasksCreated, shoppingAdded, shoppingChecked, newMembers, calendarOwners] =
     await Promise.all([
       db
         .prepare(
-          `SELECT safe_title AS safeTitle, old_start AS oldStart, new_start AS newStart
+          `SELECT safe_title AS safeTitle, old_start AS oldStart, new_start AS newStart,
+                  google_calendar_id AS googleCalendarId
            FROM calendar_activity_log
            WHERE family_id = ? AND change_type = 'moved' AND detected_at > ?
            ORDER BY detected_at DESC`,
@@ -95,7 +104,7 @@ async function collectSummary(db: D1Database, familyId: string, since: string): 
         .all<MovedRow>(),
       db
         .prepare(
-          `SELECT safe_title AS safeTitle, old_start AS oldStart
+          `SELECT safe_title AS safeTitle, old_start AS oldStart, google_calendar_id AS googleCalendarId
            FROM calendar_activity_log
            WHERE family_id = ? AND change_type = 'cancelled' AND detected_at > ?
            ORDER BY detected_at DESC`,
@@ -104,7 +113,7 @@ async function collectSummary(db: D1Database, familyId: string, since: string): 
         .all<CancelledRow>(),
       db
         .prepare(
-          `SELECT safe_title AS safeTitle, new_start AS newStart
+          `SELECT safe_title AS safeTitle, new_start AS newStart, google_calendar_id AS googleCalendarId
            FROM calendar_activity_log
            WHERE family_id = ? AND change_type = 'created' AND detected_at > ?
            ORDER BY detected_at DESC`,
@@ -142,6 +151,17 @@ async function collectSummary(db: D1Database, familyId: string, since: string): 
         .prepare("SELECT name FROM family_members WHERE family_id = ? AND created_at > ? ORDER BY created_at DESC")
         .bind(familyId, since)
         .all<FamilyMemberRow>(),
+      // Samme JOIN-mønster som googleCalendarAggregation.ts — ét opslag pr.
+      // familie, ikke pr. logrække, slået op i hukommelsen nedenfor.
+      db
+        .prepare(
+          `SELECT cmm.google_calendar_id AS googleCalendarId, fm.name AS memberName
+           FROM calendar_member_mappings cmm
+           JOIN family_members fm ON fm.id = cmm.family_member_id
+           WHERE cmm.family_id = ?`,
+        )
+        .bind(familyId)
+        .all<CalendarOwnerRow>(),
     ]);
 
   const tasksCompletedCount = tasksCompleted?.count ?? 0;
@@ -160,11 +180,32 @@ async function collectSummary(db: D1Database, familyId: string, since: string): 
     shoppingCheckedCount +
     newFamilyMembers.length;
 
+  // En aftale uden kortlagt kalender (fx en ICS-abonnementskalender uden
+  // medlemstildeling) har blot ingen ejer at vise — ikke en fejl.
+  const memberNameByCalendar = new Map(
+    calendarOwners.results.map((row) => [row.googleCalendarId, row.memberName]),
+  );
+  const memberNameFor = (googleCalendarId: string | null): string | undefined =>
+    googleCalendarId ? memberNameByCalendar.get(googleCalendarId) : undefined;
+
   return {
     calendar: {
-      moved: moved.results.map((row) => ({ title: row.safeTitle, oldStart: row.oldStart, newStart: row.newStart })),
-      cancelled: cancelled.results.map((row) => ({ title: row.safeTitle, oldStart: row.oldStart })),
-      created: created.results.map((row) => ({ title: row.safeTitle, start: row.newStart })),
+      moved: moved.results.map((row) => ({
+        title: row.safeTitle,
+        oldStart: row.oldStart,
+        newStart: row.newStart,
+        memberName: memberNameFor(row.googleCalendarId),
+      })),
+      cancelled: cancelled.results.map((row) => ({
+        title: row.safeTitle,
+        oldStart: row.oldStart,
+        memberName: memberNameFor(row.googleCalendarId),
+      })),
+      created: created.results.map((row) => ({
+        title: row.safeTitle,
+        start: row.newStart,
+        memberName: memberNameFor(row.googleCalendarId),
+      })),
     },
     tasksCompletedCount,
     tasksCreatedCount,

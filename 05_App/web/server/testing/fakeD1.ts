@@ -29,6 +29,8 @@ const migrationFiles = [
   "0018_ics_calendar_subscriptions.sql",
   "0019_ics_calendar_subscriptions_color.sql",
   "0020_activity_overview.sql",
+  "0021_calendar_snapshot_series.sql",
+  "0022_calendar_activity_log_calendar_id.sql",
 ];
 
 function loadMigrations(db: DatabaseSync): void {

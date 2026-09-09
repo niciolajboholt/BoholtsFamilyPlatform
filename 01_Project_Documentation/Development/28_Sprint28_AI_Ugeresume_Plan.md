@@ -163,3 +163,14 @@ som en push-notifikation og synlig i appen, via Cloudflare Workers AI
 
 Intet arbejde påbegyndes, før Nicolaj har godkendt denne plan — herunder
 specifikt beslutningerne ovenfor. Godkend ved at sige til i chatten.
+
+---
+
+## Tillæg (2026-09-05): Flyttet til søndag morgen
+
+Beslutning 1's oprindelige tidspunkt (søndag kl. 18:00 dansk tid) er
+ændret til søndag kl. 09:00 dansk tid, efter ønske fra Nicolaj. Cron'en
+(`wrangler.jsonc`, beta-miljøet) er ændret fra `0 17 * * SUN` til
+`0 7 * * SUN` (samme praksis som før: et fast UTC-klokkeslæt, der
+forskyder sig en time omkring sommer-/vintertidsskift, i stedet for at
+genberegne cron-udtrykket to gange om året).

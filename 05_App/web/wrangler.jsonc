@@ -48,12 +48,12 @@
       "store_id": "2bc6325a385d4ca3bc555d66f5453a21",
       "secret_name": "resend-api-key"
     },
-    // Sprint 34: flyttet ud af "vars" — ikke selv en driftshemmelighed
+    // Sprint 37: flyttet ud af "vars" — ikke selv en driftshemmelighed
     // (sammenlignes bare mod den loggede brugers e-mail server-side, Sprint
     // 30), men en rigtig, personlig e-mailadresse, som ikke skal ligge i
     // klartekst i det offentlige repo. Kræver at secret'en "admin-email" er
     // oprettet i Cloudflares Secrets Store (samme store_id som ovenfor) FØR
-    // næste deploy — se 34_Sprint34_Sikkerhed_Kodekvalitet_Plan.md.
+    // næste deploy — se 37_Sprint37_Sikkerhed_Kodekvalitet_Plan.md.
     {
       "binding": "ADMIN_EMAIL",
       "store_id": "2bc6325a385d4ca3bc555d66f5453a21",
@@ -161,7 +161,7 @@
           "store_id": "2bc6325a385d4ca3bc555d66f5453a21",
           "secret_name": "resend-api-key"
         },
-        // Sprint 34: samme flytning som det unavngivne miljø ovenfor.
+        // Sprint 37: samme flytning som det unavngivne miljø ovenfor.
         {
           "binding": "ADMIN_EMAIL",
           "store_id": "2bc6325a385d4ca3bc555d66f5453a21",
@@ -198,7 +198,7 @@
       // "triggers"-kommentar for hvorfor produktion har en tom liste
       // (Cloudflares konto-brede 5-cron-loft på Free-planen).
       "triggers": {
-        "crons": ["0 4 * * *", "*/5 * * * *", "0 17 * * SUN"]
+        "crons": ["0 4 * * *", "*/5 * * * *", "0 7 * * SUN"]
       },
       "observability": {
         "enabled": true,

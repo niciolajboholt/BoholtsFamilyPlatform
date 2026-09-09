@@ -1,4 +1,11 @@
-# 34_Sprint34_Sikkerhed_Kodekvalitet_Plan
+# 37_Sprint37_Sikkerhed_Kodekvalitet_Plan
+
+> **Omdøbt fra "Sprint 34" til "Sprint 37"** ved merge med `develop`
+> (2026-09-09): `develop` havde i mellemtiden fået sit eget "Sprint 34"
+> (Google gentagne aftaler) og "Sprint 36" (manuelt ejerskab), uden
+> nummer 35 nogetsteds. Dette sprints indhold er uændret — kun
+> nummereringen er rettet for at undgå to forskellige sprints med samme
+> nummer.
 
 > Status: Godkendt og kode gennemført — afventer manuel gennemgang, CI og merge
 

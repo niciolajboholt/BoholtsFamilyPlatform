@@ -47,6 +47,8 @@ const expectedColumns = [
   { table: "family_share_links", column: "include_description" },
   { table: "family_share_links", column: "include_location" },
   { table: "families", column: "ai_weekly_summary_enabled" },
+  { table: "calendar_event_snapshots", column: "recurring_event_id" },
+  { table: "calendar_activity_log", column: "google_calendar_id" },
 ] as const;
 
 export interface SchemaCheckResult {

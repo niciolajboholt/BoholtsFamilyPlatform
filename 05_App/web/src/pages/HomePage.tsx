@@ -26,6 +26,7 @@ import {
 import { ActivityCard } from "../features/activity/ActivityCard";
 import { WeeklySummaryCard } from "../features/family/WeeklySummaryCard";
 import { useCalendarEvents } from "../features/calendar/hooks/useCalendarEvents";
+import { useCalendarSources } from "../features/calendar/hooks/useCalendarSources";
 import { useCurrentMember } from "../features/calendar/hooks/useCurrentMember";
 import { redactCalendarEventForViewer } from "../features/calendar/utils/redactCalendarEventForViewer";
 import { useFamilyMembers } from "../features/calendar/hooks/useFamilyMembers";
@@ -105,6 +106,7 @@ function HomePage() {
   const { members } = useFamilyMembers();
   const { currentMember } = useCurrentMember();
   const { events } = useCalendarEvents();
+  const { visibleCalendarSourceIds } = useCalendarSources();
   const recurrenceExceptions = useRecurrenceExceptions();
 
   const currentDate = new Intl.DateTimeFormat("da-DK", {
@@ -119,8 +121,15 @@ function HomePage() {
       const rangeEnd = new Date(now);
       rangeEnd.setDate(rangeEnd.getDate() + dashboardLookaheadDays);
 
+      // Kun kalendere brugeren faktisk har valgt at vise (samme "Vis
+      // kalendere"-tilvalg som Kalender-siden bruger) — ellers dukker en
+      // skjult/abonneret kalender (fx et arbejds- eller skoleskema) uventet
+      // op på forsidens "Næste aftale"/"Resten af dagen", selvom den er
+      // fravalgt i selve kalenderen.
+      const visibleSourceIds = new Set(visibleCalendarSourceIds);
+
       const expandedEvents = expandRecurringEvents(
-        events,
+        events.filter((event) => visibleSourceIds.has(event.sourceId)),
         { start: now.toISOString(), end: rangeEnd.toISOString() },
         recurrenceExceptions.exceptions,
       ).map((event) => redactCalendarEventForViewer(event, currentMember?.id));
@@ -148,7 +157,7 @@ function HomePage() {
           event.ownerIds.includes(familyPseudoMemberId),
         ),
       };
-    }, [currentMember?.id, events, recurrenceExceptions.exceptions]);
+    }, [currentMember?.id, events, recurrenceExceptions.exceptions, visibleCalendarSourceIds]);
 
   const individualMembers = members.filter(
     (member) => member.id !== familyPseudoMemberId,

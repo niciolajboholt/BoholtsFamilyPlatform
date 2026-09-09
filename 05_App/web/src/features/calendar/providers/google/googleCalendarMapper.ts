@@ -14,6 +14,23 @@ import { matchAttendeesToOwnerIds } from "../../utils/matchAttendeesToOwnerIds";
 
 const fallbackColor = "#607d8b";
 
+// Sprint 36: manuelt sat familiemedlem-ejerskab, gemt i Googles egen
+// "private extended properties" — den eneste vej til at knytte en Google-
+// aftale til et medlem uden egen konto/kalender (fx et barn), hvor hverken
+// deltager- eller kalender-tildeling kan nå (se matchAttendeesToOwnerIds.ts'
+// egen kommentar om denne begrænsning). Deles mellem læse- og skrive-mapper.
+export const ownerIdsOverrideKey = "boholtsOwnerIds";
+
+function parseOwnerIdsOverride(
+  rawValue: string | undefined,
+): CalendarOwnerId[] | undefined {
+  if (rawValue === undefined) return undefined;
+  return rawValue
+    .split(",")
+    .map((id) => id.trim())
+    .filter((id) => id.length > 0);
+}
+
 export function isGoogleCalendarWritable(
   accessRole: string | undefined,
 ): boolean {
@@ -65,17 +82,29 @@ export function mapGoogleCalendarEvent(
     ? toLocalMidnightIso(event.end?.date)
     : event.end?.dateTime;
   if (!start || !end) return null;
-  // Deltager-match (hvem aftalen reelt er FOR) går forud for kalender-
-  // tildelingen (hvilken kalender aftalen ligger på) — mere præcist, se
-  // matchAttendeesToOwnerIds.ts. Falder tilbage til kalender-tildelingen,
-  // når aftalen ikke har nogen deltagere, der matcher et koblet medlem.
+  // Et manuelt sat ejerskab (se ownerIdsOverrideKey ovenfor) går forud for
+  // BÅDE deltager-match og kalender-tildeling — det er brugerens eksplicitte
+  // valg, ikke et gæt. Uden en override går deltager-match forud for
+  // kalender-tildelingen (hvilken kalender aftalen ligger på) — mere
+  // præcist, se matchAttendeesToOwnerIds.ts. Falder tilbage til kalender-
+  // tildelingen, når aftalen ikke har nogen deltagere, der matcher et
+  // koblet medlem.
+  const ownerIdsOverride = parseOwnerIdsOverride(
+    event.extendedProperties?.private?.[ownerIdsOverrideKey],
+  );
   const attendeeOwnerIds = matchAttendeesToOwnerIds(event.attendees, members ?? []);
-  const ownerIds = attendeeOwnerIds.length > 0 ? attendeeOwnerIds : mappedOwnerId ? [mappedOwnerId] : [];
-  // event.recurringEventId er sat på hver enkelt forekomst af en Google-
-  // gentagelse (Google udfolder selv serien pga. singleEvents: "true" i
-  // GoogleCalendarApi.listEvents) — mappes til recurrenceMasterId, samme
-  // felt som lokale udfoldede forekomster bruger (expandRecurringEvents).
-  return { id: encodeGoogleEventId(calendarId, event.id), source: "google", sourceId: encodeGoogleCalendarSourceId(calendarId), title: event.summary || "Google-aftale", start, end, allDay, ownerIds, description: event.description, location: event.location, recurrenceMasterId: event.recurringEventId, privacy: event.visibility === "private" || event.visibility === "confidential" ? "busy" : undefined };
+  const ownerIds =
+    ownerIdsOverride ??
+    (attendeeOwnerIds.length > 0 ? attendeeOwnerIds : mappedOwnerId ? [mappedOwnerId] : []);
+  // Google leverer seriemesterens rå id på hver forekomst. Det kodes med
+  // kalender-id'et, ligesom eventets eget id, så skrivevejen senere kan
+  // målrette enten forekomsten eller hele serien uden at gætte kalenderen.
+  const recurrenceOccurrenceStart = event.originalStartTime
+    ? event.originalStartTime.date
+      ? toLocalMidnightIso(event.originalStartTime.date)
+      : event.originalStartTime.dateTime
+    : undefined;
+  return { id: encodeGoogleEventId(calendarId, event.id), source: "google", sourceId: encodeGoogleCalendarSourceId(calendarId), title: event.summary || "Google-aftale", start, end, allDay, ownerIds, description: event.description, location: event.location, recurrenceMasterId: event.recurringEventId ? encodeGoogleEventId(calendarId, event.recurringEventId) : undefined, recurrenceOccurrenceStart, privacy: event.visibility === "private" || event.visibility === "confidential" ? "busy" : undefined };
 }
 
 export function toLocalMidnightIso(dateOnly: string | undefined): string | undefined {

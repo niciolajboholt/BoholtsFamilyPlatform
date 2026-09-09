@@ -23,7 +23,10 @@ import { EventParticipantsSection } from "./EventParticipantsSection";
 import { EventRecurrenceSection } from "./EventRecurrenceSection";
 import type { CalendarEvent } from "../models/calendarEvent";
 import type { CalendarSource } from "../models/calendarProvider";
-import { isExternalCalendarProviderType } from "../models/calendarProvider";
+import {
+  isExternalCalendarProviderType,
+  providerSupportsRecurrenceCreation,
+} from "../models/calendarProvider";
 import type { RecurrenceExceptionOverride } from "../preferences/recurrenceExceptionsStorage";
 import type { CalendarOwner } from "../data/calendarOwners";
 import { eventReminderOffsetOptions } from "../eventReminders/eventReminderApi";
@@ -38,7 +41,7 @@ interface EditEventDialogProps {
   isSaving: boolean;
   onClose: () => void;
   onUpdate: (event: CalendarEvent) => Promise<void>;
-  onDelete: (eventId: string) => Promise<void>;
+  onDelete: (eventId: string, sourceId?: string) => Promise<void>;
   onUpdateOccurrence: (
     masterEventId: string,
     occurrenceStart: string,
@@ -61,7 +64,7 @@ function EditEventDialog({
   onDeleteOccurrence,
 }: EditEventDialogProps) {
   const {
-    isRecurringLocalOccurrence,
+    isRecurringOccurrence,
     editScope,
     setEditScope,
     effectiveEvent,
@@ -77,6 +80,7 @@ function EditEventDialog({
     setIsMoreOptionsOpen,
     eventSource,
     isInternalEvent,
+    canOverrideOwners,
     canChangeCalendar,
     requestedSourceId,
     setRequestedSourceId,
@@ -132,7 +136,7 @@ function EditEventDialog({
               </Alert>
             )}
 
-            {isRecurringLocalOccurrence && (
+            {isRecurringOccurrence && (
               <TextField
                 select
                 label="Gælder for"
@@ -146,6 +150,12 @@ function EditEventDialog({
                 <MenuItem value="occurrence">Kun denne forekomst</MenuItem>
                 <MenuItem value="series">Hele rækken</MenuItem>
               </TextField>
+            )}
+
+            {isRecurringOccurrence && editScope === "series" && effectiveEvent?.source === "google" && (
+              <Alert severity="info">
+                Ændringer og sletning gælder alle aftaler i den gentagne række.
+              </Alert>
             )}
 
             {canChangeCalendar && (
@@ -221,6 +231,18 @@ function EditEventDialog({
               dateFieldsFullWidth={false}
             />
 
+            {canEditRecurrenceRule &&
+              (!isExternalCalendarProviderType(eventSource?.providerType) ||
+                providerSupportsRecurrenceCreation(eventSource?.providerType)) && (
+                <EventRecurrenceSection
+                  value={recurrence}
+                  eventStartDate={formState.startDate}
+                  disabled={!isInternalEvent || isSaving}
+                  errorMessage={recurrenceError}
+                  onChange={setRecurrence}
+                />
+              )}
+
             {conflictingEvents.length > 0 && isInternalEvent && (
               <EventConflictAlert
                 conflicts={conflictingEvents}
@@ -246,17 +268,8 @@ function EditEventDialog({
 
             <Collapse in={isMoreOptionsOpen} timeout="auto">
               <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                {!isExternalCalendarProviderType(eventSource?.providerType) && canEditRecurrenceRule && (
-                  <EventRecurrenceSection
-                    value={recurrence}
-                    eventStartDate={formState.startDate}
-                    disabled={!isInternalEvent || isSaving}
-                    errorMessage={recurrenceError}
-                    onChange={setRecurrence}
-                  />
-                )}
-
-                {!isExternalCalendarProviderType(eventSource?.providerType) && (
+                {(!isExternalCalendarProviderType(eventSource?.providerType) ||
+                  canOverrideOwners) && (
                   <EventParticipantsSection
                     ownerIds={formState.ownerIds}
                     members={members}
@@ -338,7 +351,13 @@ function EditEventDialog({
                   </Button>
                 }
               >
-                Aftalen slettes fra denne browser. Den kan efterfølgende gendannes via Fortryd.
+                {effectiveEvent?.source === "google"
+                  ? isRecurringOccurrence && editScope === "series"
+                    ? "Hele den gentagne række slettes fra Google Kalender. Handlingen kan ikke fortrydes i appen."
+                    : isRecurringOccurrence
+                      ? "Denne forekomst slettes fra Google Kalender. Handlingen kan ikke fortrydes i appen."
+                      : "Aftalen slettes fra Google Kalender. Handlingen kan ikke fortrydes i appen."
+                  : "Aftalen slettes fra denne browser. Den kan efterfølgende gendannes via Fortryd."}
               </Alert>
             )}
           </Box>

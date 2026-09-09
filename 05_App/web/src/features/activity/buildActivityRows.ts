@@ -16,20 +16,38 @@ export interface ActivityRow {
   detail?: string;
 }
 
-function formatShortWeekdayTime(iso: string): string {
+// Viser den faktiske dato (ikke kun ugedagens navn) — en ugedag alene kan
+// ikke skelne mellem fx to forekomster af samme gentagne aftale i to
+// forskellige uger.
+function formatShortDateTime(iso: string): string {
   const date = new Date(iso);
-  const weekday = new Intl.DateTimeFormat("da-DK", { weekday: "short" })
-    .format(date)
-    .replace(/\.$/, "");
+  const dateStr = new Intl.DateTimeFormat("da-DK", { day: "numeric", month: "short" }).format(date);
   const time = new Intl.DateTimeFormat("da-DK", { hour: "2-digit", minute: "2-digit" }).format(date);
-  return `${weekday} ${time}`;
+  return `${dateStr} ${time}`;
 }
 
-function formatWeekdayLong(iso: string): string {
-  return new Intl.DateTimeFormat("da-DK", { weekday: "long" }).format(new Date(iso));
+function formatDateLong(iso: string): string {
+  return new Intl.DateTimeFormat("da-DK", { day: "numeric", month: "long" }).format(new Date(iso));
 }
 
-export function buildActivityRows(summary: ActiveActivitySummary): ActivityRow[] {
+// Kun sat, hvis aftalens kalender er kortlagt til et familiemedlem — se
+// ActivityCalendarMovedDto m.fl. i familyApi.ts.
+function appendMember(detail: string | undefined, memberName: string | undefined): string | undefined {
+  if (!memberName) return detail;
+  return detail ? `${detail} · ${memberName}` : memberName;
+}
+
+export interface BuildActivityRowsOptions {
+  // Den kompakte oversigt (ActivitySummaryDialog, højst 6 rækker) grupperer
+  // bevidst nye kalenderaftaler i én række — men "Vis alt"-dialogen lover
+  // netop "alle ændringer", så der skal hver aftale vises for sig.
+  expandCalendarCreated?: boolean;
+}
+
+export function buildActivityRows(
+  summary: ActiveActivitySummary,
+  options: BuildActivityRowsOptions = {},
+): ActivityRow[] {
   const rows: ActivityRow[] = [];
 
   for (const event of summary.calendar.moved) {
@@ -38,10 +56,12 @@ export function buildActivityRows(summary: ActiveActivitySummary): ActivityRow[]
       attention: true,
       icon: "calendar",
       title: `${event.title} er flyttet`,
-      detail:
+      detail: appendMember(
         event.oldStart && event.newStart
-          ? `${formatShortWeekdayTime(event.oldStart)} → ${formatShortWeekdayTime(event.newStart)}`
+          ? `${formatShortDateTime(event.oldStart)} → ${formatShortDateTime(event.newStart)}`
           : undefined,
+        event.memberName,
+      ),
     });
   }
 
@@ -51,11 +71,21 @@ export function buildActivityRows(summary: ActiveActivitySummary): ActivityRow[]
       attention: true,
       icon: "calendar",
       title: `${event.title} er aflyst`,
-      detail: event.oldStart ? formatShortWeekdayTime(event.oldStart) : undefined,
+      detail: appendMember(event.oldStart ? formatShortDateTime(event.oldStart) : undefined, event.memberName),
     });
   }
 
-  if (summary.calendar.created.length > 0) {
+  if (options.expandCalendarCreated) {
+    for (const event of summary.calendar.created) {
+      rows.push({
+        id: `created-${event.title}-${event.start ?? ""}`,
+        attention: false,
+        icon: "calendar",
+        title: event.title,
+        detail: appendMember(event.start ? formatShortDateTime(event.start) : undefined, event.memberName),
+      });
+    }
+  } else if (summary.calendar.created.length > 0) {
     const [next] = summary.calendar.created;
     const count = summary.calendar.created.length;
 
@@ -64,7 +94,7 @@ export function buildActivityRows(summary: ActiveActivitySummary): ActivityRow[]
       attention: false,
       icon: "calendar",
       title: `${count} ${count === 1 ? "ny aftale" : "nye aftaler"} i kalenderen`,
-      detail: next?.start ? `Næste: ${next.title}, ${formatWeekdayLong(next.start)}` : undefined,
+      detail: next?.start ? `Næste: ${next.title}, ${formatDateLong(next.start)}` : undefined,
     });
   }
 

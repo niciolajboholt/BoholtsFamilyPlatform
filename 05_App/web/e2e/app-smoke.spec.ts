@@ -73,6 +73,12 @@ async function mockAuthenticatedApi(page: Page): Promise<void> {
       };
     } else if (path.endsWith("/weekly-summary")) {
       body = { summary: null };
+    } else if (path.endsWith("/activity/since-last-visit")) {
+      body = {
+        hasActivity: false,
+        since: "2026-08-31T08:00:00.000Z",
+        asOf: "2026-09-01T08:00:00.000Z",
+      };
     } else if (path.endsWith("/calendar-mappings")) {
       body = {
         mappings: [
@@ -214,6 +220,44 @@ test("authenticated family can open every primary area", async ({ page }) => {
   await expect(page.getByText("Version e2e-version-")).toBeVisible();
 });
 
+test("home keeps the since-last-visit feature visible when the family is up to date", async ({
+  page,
+}) => {
+  await mockAuthenticatedApi(page);
+
+  await page.goto("/");
+
+  await expect(page.getByRole("heading", { name: "Siden sidst du var her" })).toBeVisible();
+  await expect(
+    page.getByText("Du er helt ajour – der er ingen nye ændringer."),
+  ).toBeVisible();
+});
+
+// Forsidens "Næste aftale"/"Resten af dagen" hentede tidligere ALLE
+// aftaler uden at tage hensyn til "Vis kalendere"-fravalget fra Kalender-
+// siden — en kalender man havde skjult der (fx et arbejds- eller
+// skoleskema) dukkede alligevel op på forsiden. Sætter chris-calendar
+// skjult direkte i localStorage (samme lagringsnøgle som
+// calendarSourceVisibilityStorage.ts bruger) FØR appen monterer, så
+// useCalendarSources læser den skjulte tilstand ved første indlæsning.
+test("home page's next-appointment widgets respect a calendar hidden via 'Vis kalendere'", async ({
+  page,
+}) => {
+  await mockAuthenticatedApi(page);
+  await page.clock.setFixedTime(new Date("2026-08-26T09:00:00+02:00"));
+  await page.addInitScript(() => {
+    window.localStorage.setItem(
+      "boholts-family-calendar-source-visibility",
+      JSON.stringify(["google:chris-calendar"]),
+    );
+  });
+
+  await page.goto("/");
+
+  await expect(page.getByText("Tandlæge og efterfølgende kontrol")).toBeVisible();
+  await expect(page.getByText("Forældremøde på skolen")).not.toBeVisible();
+});
+
 // Refresh-knappen på "Ugens resumé" (svar på Nicolajs spørgsmål om, hvorfor
 // resuméet ikke var kommet endnu — cron'en kører kun søndag aften, så en
 // ejer/admin kan nu selv udløse et frisk resumé i stedet for at vente).
@@ -264,7 +308,7 @@ test("a family member can review \"Siden sidst du var her\" and it disappears on
   await mockAuthenticatedApi(page);
 
   // Sprint 33 tilføjede "Siden sidst du var her", men ingen Playwright-test
-  // dækkede den endnu (fundet ved gennemgang i Sprint 34, punkt 6) — det
+  // dækkede den endnu (fundet ved gennemgang i Sprint 37, punkt 6) — det
   // globale mockAuthenticatedApi-fald-tilbage (tomt objekt) gør, at kortet
   // aldrig har vist sig i de øvrige tests, uden at nogen af dem har fejlet.
   let hasBeenAcknowledged = false;
@@ -284,8 +328,13 @@ test("a family member can review \"Siden sidst du var her\" and it disappears on
   };
 
   await page.route("**/api/families/*/activity/since-last-visit", async (route) => {
+    // Efter denne test blev skrevet, udvidede develop (parallelt) kortet til
+    // altid at blive stående i en ikke-klikbar "ajour"-tilstand i stedet for
+    // at forsvinde helt, når der intet er sket — se ActivityCard.tsx. `since`
+    // sat (ikke null) her matcher den optimistiske klient-tilstand lige efter
+    // kvittering, så teksten er den samme før og efter en genindlæsning.
     const body = hasBeenAcknowledged
-      ? { hasActivity: false, since: null, asOf: new Date().toISOString() }
+      ? { hasActivity: false, since: acknowledgedAsOf, asOf: new Date().toISOString() }
       : activitySummary;
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
   });
@@ -320,12 +369,18 @@ test("a family member can review \"Siden sidst du var her\" and it disappears on
   // Kortet lukkes med det PRÆCISE asOf-tidspunkt, brugeren fik at se (ikke et
   // nyt "nu") — server-cursoren må aldrig utilsigtet springe over aktivitet,
   // der skete mens dialogen var åben.
-  await expect(activityCard).not.toBeVisible();
   expect(acknowledgedAsOf).toBe(activitySummary.asOf);
 
-  // Genindlæsning efter kvittering viser ikke kortet igen, uden ny aktivitet.
+  // Kortet forsvinder ikke helt, men går over i en ikke-klikbar
+  // "ajour"-tilstand (bevidst ændring, tilføjet parallelt i develop).
+  await expect(activityCard).not.toBeVisible();
+  await expect(page.getByText("Du er helt ajour")).toBeVisible();
+
+  // Genindlæsning efter kvittering viser stadig ajour-tilstanden, ikke det
+  // oprindelige klikbare kort, uden ny aktivitet.
   await page.reload();
   await expect(page.getByRole("button", { name: /Siden sidst du var her/ })).not.toBeVisible();
+  await expect(page.getByText("Du er helt ajour")).toBeVisible();
 });
 
 test("mobile family planner is a readable agenda without horizontal overflow", async ({
@@ -1047,6 +1102,11 @@ test("a private calendar event is fully visible to its owner and redacted to 'Op
   // kolonne (getPlannerEventsForColumn) og ville derfor slet ikke vise en
   // enkeltpersons-aftale som denne. Månedsvisningen viser alle synlige
   // kalendres aftaler uafhængigt af den fordeling.
+  // Låser "nu" til samme uge som den hardkodede aftale (2026-08-27) — ellers
+  // driver månedsvisningen med tiden og viser en anden måned end den,
+  // aftalen faktisk ligger i (samme rodårsag som de øvrige page.clock-fix i
+  // denne fil).
+  await page.clock.setFixedTime(new Date("2026-08-26T09:00:00+02:00"));
   await page.goto("/calendar");
   // useFamilyMembers() læser kun localStorage ÉN gang, ved sin egen mount —
   // den opdaterer sig aldrig af sig selv, hvis AppLayout's baggrunds-synk
@@ -1181,6 +1241,9 @@ test("editing an existing private event sends the updated fields, and turning pr
     });
   });
 
+  // Låser "nu" til samme uge som den hardkodede aftale (2026-08-27) — se
+  // samme fix ovenfor i den anden private-event-test.
+  await page.clock.setFixedTime(new Date("2026-08-26T09:00:00+02:00"));
   await page.goto("/calendar");
   await page.waitForFunction(() => localStorage.getItem("boholts-family-members") !== null);
   await page.evaluate(() => localStorage.setItem("boholts-current-member-id", "member-e2e"));
@@ -1433,11 +1496,8 @@ test("a family member can add and remove an ICS calendar subscription in Setting
 // flowet gennem den rigtige UI, ikke kun det isolerede opret-kald (allerede
 // dækket af "creating a private event..." ovenfor) eller det isolerede
 // redigér-kald (allerede dækket af "editing an existing private event...").
-// Bemærk: gentagne aftaler kan IKKE testes gennem UI'et her — hverken
-// "Ny aftale"-dialogens gentagelsesvalg eller redigér-dialogens "Kun denne
-// forekomst/Hele rækken"-valg vises for en Google-kalenderkilde (kun for en
-// "internal" kilde, som ikke længere findes i produktionskoden, jf.
-// ADR-017/CompositeCalendarProvider.ts) — se Fase 5's "Mangler".
+// Gentagelsesoprettelse og redigeringsomfang dækkes særskilt nedenfor, så
+// dette scenarie kan holde fokus på det almindelige CRUD-flow.
 test("a family member can create, edit, and delete a calendar event through the real UI", async ({
   page,
 }, testInfo) => {
@@ -1553,6 +1613,338 @@ test("a family member can create, edit, and delete a calendar event through the 
   await page.getByRole("button", { name: "Bekræft sletning" }).click();
 
   await expect(renamedEventButton).not.toBeVisible();
+});
+
+// Sprint 34: gentagne aftaler kan kun OPRETTES mod Google (se
+// providerSupportsRecurrenceCreation) — testen bekræfter, at gentagelses-
+// feltet rent faktisk når frem til POST-kaldet mod Google, gennem den
+// samme UI-flow som den almindelige opret-test ovenfor.
+test("a family member can create a recurring Google event through the real UI", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  await mockAuthenticatedApi(page);
+  await page.route("**/api/calendar/status", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ connected: true }),
+    }),
+  );
+
+  let postedEvent: Record<string, unknown> | null = null;
+
+  await page.route("**/api/calendar/calendars/*/events*", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    const calendarId = decodeURIComponent(path.split("/")[4] ?? "");
+
+    if (calendarId !== "alex-calendar") {
+      await route.fallback();
+      return;
+    }
+
+    if (route.request().method() === "GET") {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          items: postedEvent ? [postedEvent] : [],
+          nextSyncToken: "alex-calendar-sync-token",
+        }),
+      });
+      return;
+    }
+
+    if (route.request().method() === "POST") {
+      const posted = route.request().postDataJSON() as Record<string, unknown>;
+      postedEvent = {
+        id: "recurring-test-event",
+        summary: posted.summary,
+        start: posted.start,
+        end: posted.end,
+        status: "confirmed",
+      };
+      await route.fulfill({
+        status: 201,
+        contentType: "application/json",
+        body: JSON.stringify(postedEvent),
+      });
+      return;
+    }
+
+    await route.fallback();
+  });
+
+  await page.goto("/calendar");
+
+  await page.getByRole("button", { name: "Ny aftale" }).click();
+  await page.getByLabel("Hvem gælder aftalen for?").click();
+  await page.locator('[role="option"][data-value="google:alex-calendar"]').click();
+  await page.getByLabel("Titel").fill("Svømning");
+
+  await expect(page.getByLabel("Gentages")).toBeVisible();
+  await page.getByLabel("Gentages").click();
+  await page.getByRole("option", { name: "Hver uge" }).click();
+  await expect(page.getByText(/^Gentages hver/)).toBeVisible();
+
+  const [request] = await Promise.all([
+    page.waitForRequest(
+      (req) =>
+        /\/api\/calendar\/calendars\/.+\/events/.test(req.url()) &&
+        req.method() === "POST",
+    ),
+    page.getByRole("button", { name: "Opret aftale" }).click(),
+  ]);
+
+  const body = request.postDataJSON() as { recurrence?: string[] };
+  expect(body.recurrence).toHaveLength(1);
+  expect(body.recurrence?.[0]).toMatch(/^RRULE:FREQ=WEEKLY/);
+
+  await expect(
+    page.getByRole("button", { name: new RegExp(`^Rediger aftale: Svømning,`) }),
+  ).toBeVisible();
+});
+
+test("a family member can turn an existing Google event into a recurring series", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  await mockAuthenticatedApi(page);
+  await page.clock.setFixedTime(new Date("2026-08-26T09:00:00+02:00"));
+
+  let patchedRecurrence: string[] | undefined;
+  await page.route("**/api/calendar/calendars/alex-calendar/events/*", async (route) => {
+    if (route.request().method() !== "PATCH") {
+      await route.fallback();
+      return;
+    }
+
+    const patched = route.request().postDataJSON() as {
+      summary?: string;
+      start?: object;
+      end?: object;
+      recurrence?: string[];
+    };
+    patchedRecurrence = patched.recurrence;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        id: "alex-calendar-event",
+        summary: patched.summary,
+        start: patched.start,
+        end: patched.end,
+        recurrence: patched.recurrence,
+      }),
+    });
+  });
+
+  await page.goto("/calendar");
+  await page
+    .getByRole("button", {
+      name: /^Rediger aftale: Tandlæge og efterfølgende kontrol,/,
+    })
+    .click();
+
+  await expect(page.getByLabel("Gentages")).toBeVisible();
+  await page.getByLabel("Gentages").click();
+  await page.getByRole("option", { name: "Hver uge" }).click();
+  await page.getByRole("button", { name: "Gem ændringer" }).click();
+
+  await expect.poll(() => patchedRecurrence).toEqual([
+    expect.stringMatching(/^RRULE:FREQ=WEEKLY/),
+  ]);
+});
+
+test("a family member can choose one occurrence or the whole Google series", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  await mockAuthenticatedApi(page);
+  await page.clock.setFixedTime(new Date("2026-08-26T09:00:00+02:00"));
+  await page.route("**/api/calendar/status", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ connected: true }),
+    }),
+  );
+
+  await page.route("**/api/calendar/calendars/alex-calendar/events*", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (route.request().method() !== "GET" || !path.endsWith("/events")) {
+      await route.fallback();
+      return;
+    }
+
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        items: [
+          {
+            id: "series-1_20260827T070000Z",
+            recurringEventId: "series-1",
+            originalStartTime: { dateTime: "2026-08-27T07:00:00.000Z" },
+            summary: "Ugentlig svømning",
+            status: "confirmed",
+            start: { dateTime: "2026-08-27T07:00:00.000Z" },
+            end: { dateTime: "2026-08-27T08:00:00.000Z" },
+          },
+        ],
+        nextSyncToken: "recurring-series-token",
+      }),
+    });
+  });
+
+  let patchedEventId: string | null = null;
+  await page.route("**/api/calendar/calendars/alex-calendar/events/*", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    const eventId = decodeURIComponent(path.split("/").at(-1) ?? "");
+
+    if (route.request().method() === "GET") {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          id: "series-1",
+          summary: "Ugentlig svømning",
+          start: { dateTime: "2026-08-20T07:00:00.000Z" },
+          end: { dateTime: "2026-08-20T08:00:00.000Z" },
+          recurrence: ["RRULE:FREQ=WEEKLY"],
+        }),
+      });
+      return;
+    }
+
+    if (route.request().method() === "PATCH") {
+      patchedEventId = eventId;
+      const patched = route.request().postDataJSON() as Record<string, unknown>;
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ id: eventId, ...patched }),
+      });
+      return;
+    }
+
+    await route.fallback();
+  });
+
+  await page.goto("/calendar");
+  await page
+    .getByRole("button", { name: /^Rediger aftale: Ugentlig svømning,/ })
+    .click();
+
+  const scopeSelect = page.getByRole("combobox", { name: "Gælder for" });
+  await expect(scopeSelect).toContainText("Kun denne forekomst");
+  await scopeSelect.click();
+  await page.getByRole("option", { name: "Hele rækken" }).click();
+  await expect(
+    page.getByText("Ændringer og sletning gælder alle aftaler i den gentagne række."),
+  ).toBeVisible();
+
+  await page.getByLabel("Titel").fill("Ugentlig svømning – hele rækken");
+  await page.getByRole("button", { name: "Gem ændringer" }).click();
+
+  await expect.poll(() => patchedEventId).toBe("series-1");
+});
+
+// Sprint 36: et familiemedlem uden egen konto/kalender (fx et barn) kan
+// hverken matches via deltagere eller kalender-tildeling (se
+// matchAttendeesToOwnerIds.ts) — så "Hvem gælder aftalen for?" er nu
+// tilgængelig for Google-aftaler i redigér-dialogen, til at sætte den
+// tilknytning manuelt. Bekræfter det udgående PATCH-kald bærer valget som
+// Googles egen extendedProperties.
+test("a family member can manually assign an owner to a Google event through the real UI", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  await mockAuthenticatedApi(page);
+  await page.route("**/api/calendar/status", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ connected: true }),
+    }),
+  );
+
+  let patchedBody: Record<string, unknown> | undefined;
+
+  await page.route("**/api/calendar/calendars/alex-calendar/events/*", async (route) => {
+    if (route.request().method() !== "PATCH") {
+      await route.fallback();
+      return;
+    }
+
+    patchedBody = route.request().postDataJSON() as Record<string, unknown>;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ id: "alex-calendar-event", ...patchedBody }),
+    });
+  });
+
+  await page.clock.setFixedTime(new Date("2026-08-26T09:00:00+02:00"));
+  await page.goto("/calendar");
+  await page
+    .getByRole("button", { name: /^Rediger aftale: Tandlæge og efterfølgende kontrol,/ })
+    .click();
+  await page.getByRole("button", { name: "Flere muligheder" }).click();
+
+  // Alex er allerede automatisk tilknyttet via kalender-tildelingen —
+  // markerer også Billie, så begge indgår i den manuelle overstyring.
+  await page.getByRole("checkbox", { name: "Billie" }).check();
+  await page.getByRole("button", { name: "Gem ændringer" }).click();
+
+  await expect.poll(() => patchedBody?.extendedProperties).toEqual({
+    private: { boholtsOwnerIds: "member-e2e,member-billie" },
+  });
+});
+
+// Regressionstest: en almindelig redigering, der IKKE rører ejerkredsen,
+// må ikke utilsigtet fastfryse det automatisk matchede ejerskab som en
+// permanent Google-overstyring (se ownerIdsChanged-kommentaren i
+// useEditEventDialogController.ts).
+test("editing a Google event without touching ownership does not write an owner override", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  await mockAuthenticatedApi(page);
+  await page.route("**/api/calendar/status", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ connected: true }),
+    }),
+  );
+
+  let patchedBody: Record<string, unknown> | undefined;
+
+  await page.route("**/api/calendar/calendars/alex-calendar/events/*", async (route) => {
+    if (route.request().method() !== "PATCH") {
+      await route.fallback();
+      return;
+    }
+
+    patchedBody = route.request().postDataJSON() as Record<string, unknown>;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ id: "alex-calendar-event", ...patchedBody }),
+    });
+  });
+
+  await page.clock.setFixedTime(new Date("2026-08-26T09:00:00+02:00"));
+  await page.goto("/calendar");
+  await page
+    .getByRole("button", { name: /^Rediger aftale: Tandlæge og efterfølgende kontrol,/ })
+    .click();
+  await page.getByLabel("Titel").fill("Tandlæge, flyttet");
+  await page.getByRole("button", { name: "Gem ændringer" }).click();
+
+  await expect.poll(() => patchedBody?.summary).toBe("Tandlæge, flyttet");
+  expect(patchedBody?.extendedProperties).toBeUndefined();
 });
 
 // Fase 5: "Fuldt invitations-/rolleflow gennem UI'et" — del 1: en helt ny
@@ -1806,6 +2198,123 @@ test("an event with multiple matched family members shows their own colors, spli
   expect(accentImage).toContain(hexToRgb("#2F6B4F"));
   expect(accentImage).toContain(hexToRgb("#C97653"));
   expect(accentImage).not.toContain(hexToRgb("#6D597A")); // Familien-farven
+});
+
+// Månedsvisningens dagsceller viste tidligere op til 5 ejer-badges, der
+// brød om til flere rækker (flexWrap) — en dag med flere ejere blev derved
+// synligt højere end resten af ugens celler. DayCell.tsx genbruger nu
+// samme ét-linjes, overlappende badge-stil som selve aftalekortene
+// (EventOwnerBadges) — bekræfter her, at en dag med fire forskellige ejere
+// får præcis samme cellehøjde som en nabodag uden nogen aftaler.
+test("a month-view day cell with several owners is the same height as a day with none", async ({
+  page,
+}, testInfo) => {
+  // Mobil, ikke desktop: badge-rækken bryder kun om ved smalle cellebredder
+  // — en desktop-bred celle rummer allerede 3 badges på én linje uden fix.
+  test.skip(testInfo.project.name !== "mobile-chromium");
+
+  await page.route("**/api/**", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    let body: object = {};
+
+    if (path === "/api/me") {
+      body = { user: { id: "user-e2e", email: "familie@example.com", name: "Testbruger", pictureUrl: null } };
+    } else if (path === "/api/families/mine") {
+      body = {
+        family,
+        role: "owner",
+        members: [
+          { id: "member-e2e", name: "Alex", color: "#2F6B4F", relation: "Andet", isPlaceholderName: 0, linkedUserId: "user-e2e" },
+          { id: "member-chris", name: "Chris", color: "#C97653", relation: "Andet", isPlaceholderName: 0, linkedUserId: null },
+          { id: "member-billie", name: "Billie", color: "#D19A2A", relation: "Barn", isPlaceholderName: 0, linkedUserId: null },
+          { id: "member-dana", name: "Dana", color: "#6B4FC9", relation: "Andet", isPlaceholderName: 0, linkedUserId: null },
+          { id: "member-eli", name: "Eli", color: "#4F8AC9", relation: "Barn", isPlaceholderName: 0, linkedUserId: null },
+        ],
+        inviteCode: "TEST1234",
+      };
+    } else if (path.endsWith("/weekly-summary")) {
+      body = { summary: null };
+    } else if (path.endsWith("/calendar-mappings")) {
+      body = {
+        mappings: [
+          { googleCalendarId: "alex-calendar", familyMemberId: "member-e2e" },
+          { googleCalendarId: "chris-calendar", familyMemberId: "member-chris" },
+          { googleCalendarId: "billie-calendar", familyMemberId: "member-billie" },
+          { googleCalendarId: "dana-calendar", familyMemberId: "member-dana" },
+          { googleCalendarId: "eli-calendar", familyMemberId: "member-eli" },
+        ],
+      };
+    } else if (path.endsWith("/routines")) {
+      body = { routines: [] };
+    } else if (path.endsWith("/tasks")) {
+      body = { tasks: [] };
+    } else if (path.endsWith("/shopping-lists")) {
+      body = { lists: [] };
+    } else if (path === "/api/calendar/status") {
+      body = { connected: true };
+    } else if (path === "/api/calendar/calendars") {
+      body = {
+        items: [
+          { id: "alex-calendar", summary: "Alex", accessRole: "owner" },
+          { id: "chris-calendar", summary: "Chris", accessRole: "owner" },
+          { id: "billie-calendar", summary: "Billie", accessRole: "owner" },
+          { id: "dana-calendar", summary: "Dana", accessRole: "owner" },
+          { id: "eli-calendar", summary: "Eli", accessRole: "owner" },
+        ],
+      };
+    } else if (path.includes("/api/calendar/calendars/") && path.endsWith("/events")) {
+      const calendarId = decodeURIComponent(path.split("/")[4]);
+      // Alle fem kalendre har en aftale på SAMME dag (26/8) — de øvrige
+      // dage i ugen har ingen aftaler, så deres celler er referencen.
+      body = {
+        items: [{
+          id: `${calendarId}-event`,
+          summary: `${calendarId} aftale`,
+          status: "confirmed",
+          start: { dateTime: "2026-08-26T08:00:00+02:00" },
+          end: { dateTime: "2026-08-26T09:00:00+02:00" },
+        }],
+        nextSyncToken: `${calendarId}-token`,
+      };
+    } else if (path === "/api/health") {
+      body = { status: "ok", version: { id: "e2e-version-123456" } };
+    } else if (path.includes("/activity/")) {
+      body = { hasActivity: false, since: null, asOf: new Date().toISOString() };
+    }
+
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
+  });
+
+  await page.clock.setFixedTime(new Date("2026-08-26T09:00:00+02:00"));
+  await page.goto("/calendar");
+  await page.getByRole("button", { name: "Måned", exact: true }).click();
+
+  // Sammenligner bevidst på tværs af UGE-rækker, ikke to dage i samme
+  // uge: CSS Grid strækker allerede alle celler i samme række til rækkens
+  // højeste celle, så et wrap ville gøre HELE ugens række højere end
+  // ugerne omkring den — ikke kun den ene dags celle. Det er præcis den
+  // synlige forskel fra skærmbilledet (én ugerække tydeligt højere end
+  // resten), som fixet skal fjerne.
+  const busyDay = page.locator('button[aria-label*="26. august"]');
+  const emptyDay = page.locator('button[aria-label*="2. september"]');
+  await expect(busyDay).toBeVisible();
+  await expect(emptyDay).toBeVisible();
+
+  const busyBox = await busyDay.boundingBox();
+  const emptyBox = await emptyDay.boundingBox();
+  expect(busyBox).not.toBeNull();
+  expect(emptyBox).not.toBeNull();
+  expect(busyBox!.height).toBeCloseTo(emptyBox!.height, 0);
+
+  // Dagscellens 2×2-gitter viser højst 4 ejer-badges — den femte skal ikke
+  // bare forsvinde sporløst, men vises som "+2" (3 badges + tallet, samme
+  // "+X flere"-mønster som aftalelisten under kalenderen bruger). "+2"
+  // sidder som en visuel søskende til selve knappen (den dækker kun
+  // klik-laget, jf. DayCell.tsx), så tjekket går via den fælles
+  // dagscelle-beholder, ikke knappen selv.
+  await expect(
+    busyDay.locator("xpath=..").getByText("+2", { exact: true }),
+  ).toBeVisible();
 });
 
 // Fase 1-følgeret (PR #148-opfølgning): et ICS-abonnement UDEN
