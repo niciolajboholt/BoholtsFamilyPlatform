@@ -302,6 +302,87 @@ test("a family owner can generate and refresh the weekly summary from the home p
   await expect(page.getByText("Resumé nummer 2.")).toBeVisible();
 });
 
+test("a family member can review \"Siden sidst du var her\" and it disappears once acknowledged", async ({
+  page,
+}) => {
+  await mockAuthenticatedApi(page);
+
+  // Sprint 33 tilføjede "Siden sidst du var her", men ingen Playwright-test
+  // dækkede den endnu (fundet ved gennemgang i Sprint 37, punkt 6) — det
+  // globale mockAuthenticatedApi-fald-tilbage (tomt objekt) gør, at kortet
+  // aldrig har vist sig i de øvrige tests, uden at nogen af dem har fejlet.
+  let hasBeenAcknowledged = false;
+  let acknowledgedAsOf: string | null = null;
+
+  const activitySummary = {
+    hasActivity: true,
+    since: "2026-08-30T08:00:00.000Z",
+    asOf: "2026-08-31T09:00:00.000Z",
+    calendar: { moved: [], cancelled: [], created: [] },
+    tasksCompletedCount: 2,
+    tasksCreatedCount: 0,
+    shoppingAddedCount: 3,
+    shoppingCheckedCount: 0,
+    newFamilyMembers: [],
+    totalCount: 5,
+  };
+
+  await page.route("**/api/families/*/activity/since-last-visit", async (route) => {
+    // Efter denne test blev skrevet, udvidede develop (parallelt) kortet til
+    // altid at blive stående i en ikke-klikbar "ajour"-tilstand i stedet for
+    // at forsvinde helt, når der intet er sket — se ActivityCard.tsx. `since`
+    // sat (ikke null) her matcher den optimistiske klient-tilstand lige efter
+    // kvittering, så teksten er den samme før og efter en genindlæsning.
+    const body = hasBeenAcknowledged
+      ? { hasActivity: false, since: acknowledgedAsOf, asOf: new Date().toISOString() }
+      : activitySummary;
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
+  });
+
+  await page.route("**/api/families/*/activity/acknowledge", async (route) => {
+    const requestBody = route.request().postDataJSON() as { asOf?: string };
+    acknowledgedAsOf = requestBody.asOf ?? null;
+    hasBeenAcknowledged = true;
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true }) });
+  });
+
+  await page.goto("/");
+
+  const activityCard = page.getByRole("button", { name: /Siden sidst du var her/ });
+  await expect(activityCard).toBeVisible();
+  await activityCard.click();
+
+  const summaryDialog = page.getByRole("dialog");
+  await expect(summaryDialog.getByText("Siden sidst du var her")).toBeVisible();
+  await expect(summaryDialog.getByText("2 opgaver fuldført")).toBeVisible();
+  await expect(summaryDialog.getByText("3 varer tilføjet")).toBeVisible();
+
+  await page.getByRole("button", { name: "Vis alt (5)" }).click();
+
+  const fullListDialog = page.getByRole("dialog");
+  await expect(fullListDialog.getByText("Alle ændringer")).toBeVisible();
+  await expect(fullListDialog.getByText("2 opgaver fuldført")).toBeVisible();
+  await expect(fullListDialog.getByText("3 varer tilføjet")).toBeVisible();
+
+  await page.getByRole("button", { name: "Luk" }).click();
+
+  // Kortet lukkes med det PRÆCISE asOf-tidspunkt, brugeren fik at se (ikke et
+  // nyt "nu") — server-cursoren må aldrig utilsigtet springe over aktivitet,
+  // der skete mens dialogen var åben.
+  expect(acknowledgedAsOf).toBe(activitySummary.asOf);
+
+  // Kortet forsvinder ikke helt, men går over i en ikke-klikbar
+  // "ajour"-tilstand (bevidst ændring, tilføjet parallelt i develop).
+  await expect(activityCard).not.toBeVisible();
+  await expect(page.getByText("Du er helt ajour")).toBeVisible();
+
+  // Genindlæsning efter kvittering viser stadig ajour-tilstanden, ikke det
+  // oprindelige klikbare kort, uden ny aktivitet.
+  await page.reload();
+  await expect(page.getByRole("button", { name: /Siden sidst du var her/ })).not.toBeVisible();
+  await expect(page.getByText("Du er helt ajour")).toBeVisible();
+});
+
 test("mobile family planner is a readable agenda without horizontal overflow", async ({
   page,
 }, testInfo) => {

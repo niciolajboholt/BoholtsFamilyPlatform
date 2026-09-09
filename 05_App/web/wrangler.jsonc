@@ -23,10 +23,7 @@
     // Sprint 21, Del A: ikke-hemmelig VAPID-nøgle (klienten henter den via
     // /api/push/public-key for at abonnere) — se 21_Sprint21-planen.
     "VAPID_PUBLIC_KEY": "BHVSXcjfORTKBlCSOyokP1Iq9Jwgnuetorda-TEqjEUjvK4hZjp-PE1p4qDJ7Tgq3dywzervtXgt0VKzMxfJZG8",
-    "VAPID_SUBJECT": "mailto:nicolajbach12@gmail.com",
-    // Sprint 30: hvem der må se indsendt feedback (GET /api/feedback) —
-    // ikke-hemmelig, sammenlignes mod den loggede brugers e-mail server-side.
-    "ADMIN_EMAIL": "nicolajbach12@gmail.com"
+    "VAPID_SUBJECT": "mailto:nicolajbach12@gmail.com"
   },
   // Bekræftet identisk med beta i Cloudflare-dashboardets Bindings-fane
   // (Sprint 24, 2026-08-18) — samme secret-navne, samme store_id.
@@ -50,6 +47,17 @@
       "binding": "RESEND_API_KEY",
       "store_id": "2bc6325a385d4ca3bc555d66f5453a21",
       "secret_name": "resend-api-key"
+    },
+    // Sprint 37: flyttet ud af "vars" — ikke selv en driftshemmelighed
+    // (sammenlignes bare mod den loggede brugers e-mail server-side, Sprint
+    // 30), men en rigtig, personlig e-mailadresse, som ikke skal ligge i
+    // klartekst i det offentlige repo. Kræver at secret'en "admin-email" er
+    // oprettet i Cloudflares Secrets Store (samme store_id som ovenfor) FØR
+    // næste deploy — se 37_Sprint37_Sikkerhed_Kodekvalitet_Plan.md.
+    {
+      "binding": "ADMIN_EMAIL",
+      "store_id": "2bc6325a385d4ca3bc555d66f5453a21",
+      "secret_name": "admin-email"
     }
   ],
   "assets": {
@@ -125,8 +133,7 @@
       "vars": {
         "GOOGLE_CLIENT_ID": "621931405628-lc7afq5qp0ejmdks5hl9c6b7uclskiie.apps.googleusercontent.com",
         "VAPID_PUBLIC_KEY": "BHVSXcjfORTKBlCSOyokP1Iq9Jwgnuetorda-TEqjEUjvK4hZjp-PE1p4qDJ7Tgq3dywzervtXgt0VKzMxfJZG8",
-        "VAPID_SUBJECT": "mailto:nicolajbach12@gmail.com",
-        "ADMIN_EMAIL": "nicolajbach12@gmail.com"
+        "VAPID_SUBJECT": "mailto:nicolajbach12@gmail.com"
       },
       // Ligesom "vars" ovenfor: bindinger tilføjet kun via dashboardets
       // Bindings-fane forsvinder ved næste Git-udløste deploy ("Cannot read
@@ -153,6 +160,12 @@
           "binding": "RESEND_API_KEY",
           "store_id": "2bc6325a385d4ca3bc555d66f5453a21",
           "secret_name": "resend-api-key"
+        },
+        // Sprint 37: samme flytning som det unavngivne miljø ovenfor.
+        {
+          "binding": "ADMIN_EMAIL",
+          "store_id": "2bc6325a385d4ca3bc555d66f5453a21",
+          "secret_name": "admin-email"
         }
       ],
       "assets": {
