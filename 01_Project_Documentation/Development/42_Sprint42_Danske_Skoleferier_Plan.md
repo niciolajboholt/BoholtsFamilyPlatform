@@ -1,6 +1,7 @@
 # 42_Sprint42_Danske_Skoleferier_Plan
 
-> Status: Forslag — afventer godkendelse af scope/rækkefølge
+> Status: Research gennemført — afventer Nicolajs produktbeslutning (se
+> "Research-resultat" nedenfor). Ingen kode ændret i dette sprint.
 
 Version: 1.0
 
@@ -80,6 +81,58 @@ først, før noget kodes.
 - **Loft på 5 ICS-abonnementer pr. familie** (håndhævet i
   applikationslaget, se `0018`-migrationens kommentar) — en tilføjet
   skoleferie-feed tæller med i dette loft, ikke en undtagelse.
+
+---
+
+## Research-resultat (2026-09-09)
+
+Konklusionen fra dette punkts eget "Verificeret grundlag"-afsnit holder,
+men i den negative retning beskrevet i risikoafsnittets punkt 3: **der
+findes ikke én pålidelig, landsdækkende, offentlig ICS-feed for danske
+skoleferier.**
+
+- Skoleferier fastsættes af den enkelte kommune (98 kommuner) inden for
+  rammerne af folkeskoleloven — ikke centralt af UVM eller staten.
+- Kun sommerferiens start (sidste lørdag i juni) og efterårsferien
+  (uge 42) er reelt ensartede på tværs af landet. Vinterferie
+  (uge 7 eller 8, varierer pr. kommune), skolestart efter sommerferien
+  og øvrige fridage varierer fra kommune til kommune.
+- KL (Kommunernes Landsforening) og enkelte kommuner (fx Københavns
+  Kommune) publicerer en "vejledende ferieplan", men den er netop
+  vejledende — den enkelte kommune/skole kan afvige fra den, og der er
+  ikke fundet en ICS-feed knyttet til den vejledende plan.
+- Der findes eksempler på, at ENKELTE kommuner selv publicerer en
+  abonnerbar ICS/Google-kalenderfeed for deres egen skoleferieplan (fx
+  Aarhus Kommune). Det er præcis den risiko, plandokumentets eget
+  risikoafsnit advarer imod at bruge som en generel "dansk
+  skoleferie"-genvej: en sådan feed er kun korrekt for familier i netop
+  dén kommune, og ville vise forkerte feriedatoer for enhver anden
+  familie, der bruger appen — værre end slet ingen funktion for en
+  funktion, der handler om børns skolegang.
+
+**Derfor implementeres punkt 2 (en foruddefineret "Tilføj danske
+skoleferier"-genvejsknap) IKKE i dette sprint** — der er intet
+landsdækkende korrekt mål at pege den på. At gætte én kommunes feed som
+"standard" ville aktivt introducere forkert data for de fleste familier,
+hvilket plandokumentets eget punkt 3 udtrykkeligt beder om at undgå.
+
+**Hvad der stadig virker uden ny kode:** hvis en familie selv kender og
+har tillid til sin egen kommunes skoleferie-ICS-feed (fx fundet på
+kommunens hjemmeside, som Aarhus-eksemplet ovenfor), kan de allerede i
+dag tilføje den som en almindelig delt kalender under Indstillinger →
+Kalenderforbindelser → Delte kalendere, præcis som antaget i dette
+dokuments "Verificeret grundlag"-afsnit. Denne mulighed kræver ingen
+kodeændring og findes allerede.
+
+**Åben produktbeslutning til Nicolaj** (jf. risikoafsnittets punkt 3):
+skal appen i stedet vedligeholde sin egen, manuelt indtastede liste af
+skoleferiedatoer — enten for én bestemt kommune (Boholt-familiens egen)
+eller som et fritekst-felt familien selv udfylder — eller skal punktet
+lukkes uden yderligere kode, da den generiske ICS-import allerede dækker
+behovet for enhver familie, der selv finder sin kommunes feed? Dette er
+bevidst ikke besluttet autonomt her, da plandokumentet selv navngiver det
+som en beslutning, der kræver Nicolajs stillingtagen, ikke en rimelig
+standardantagelse.
 
 ---
 
