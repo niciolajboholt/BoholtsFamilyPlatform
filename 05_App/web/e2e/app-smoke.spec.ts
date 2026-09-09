@@ -3057,3 +3057,105 @@ test("a family member can plan a week's dishes and generate a deduplicated shopp
   await expect(dialog).not.toBeVisible();
   expect(addedItemNames.sort()).toEqual(["Bouillon", "Hakket oksekød", "Løg"].sort());
 });
+
+test("completing a rewarded task books an allowance, and unchecking it reverses the booking", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  await mockAuthenticatedApi(page);
+
+  let tasksList: Array<Record<string, unknown>> = [];
+  let ledgerAmount = 0;
+
+  await page.route("**/api/families/*/tasks", async (route) => {
+    const method = route.request().method();
+
+    if (method === "GET") {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ tasks: tasksList }) });
+      return;
+    }
+
+    if (method === "POST") {
+      const posted = route.request().postDataJSON() as {
+        name: string;
+        icon: string;
+        assignedMemberId?: string | null;
+        rewardAmount?: number;
+      };
+      tasksList = [
+        ...tasksList,
+        {
+          id: "task-1",
+          familyId: family.id,
+          name: posted.name,
+          icon: posted.icon,
+          assignedMemberId: posted.assignedMemberId ?? null,
+          timeOfDay: null,
+          isDone: 0,
+          routineItemId: null,
+          taskDate: new Date().toISOString().slice(0, 10),
+          createdByUserId: "user-e2e",
+          createdAt: new Date().toISOString(),
+          doneAt: null,
+          rewardAmount: posted.rewardAmount ?? 0,
+        },
+      ];
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ tasks: tasksList }) });
+      return;
+    }
+
+    await route.fallback();
+  });
+
+  await page.route("**/api/families/*/tasks/*", async (route) => {
+    const url = new URL(route.request().url());
+    const taskId = url.pathname.split("/")[5];
+    const method = route.request().method();
+
+    if (method === "PATCH") {
+      const patched = route.request().postDataJSON() as { isDone?: boolean };
+      const task = tasksList.find((existing) => existing.id === taskId);
+
+      // Efterligner server-sidens bogføring/fortryd, som sker sammen med
+      // selve isDone-skiftet (se tasksCrud.ts) — ikke et separat kald.
+      if (patched.isDone !== undefined && task) {
+        const reward = Number(task.rewardAmount ?? 0);
+        ledgerAmount = patched.isDone ? ledgerAmount + reward : Math.max(0, ledgerAmount - reward);
+      }
+
+      tasksList = tasksList.map((existing) => (existing.id === taskId ? { ...existing, ...patched } : existing));
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ tasks: tasksList }) });
+      return;
+    }
+
+    await route.fallback();
+  });
+
+  await page.route("**/api/families/*/allowance-balances", async (route) => {
+    const balances = ledgerAmount > 0 ? [{ familyMemberId: "member-billie", balanceAmount: ledgerAmount }] : [];
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ balances }) });
+  });
+
+  await page.goto("/tasks");
+
+  // "Min dag" (standardfanen) viser kun egne og familie-rettede opgaver —
+  // en opgave tildelt Billie (ikke den loggede bruger) kræver "Familien"-
+  // fanen, samme som en rigtig bruger ville opleve det.
+  await page.getByRole("tab", { name: "Familien" }).click();
+
+  await page.getByLabel("Opgave", { exact: true }).fill("Fold vasketøj");
+  await page.getByRole("combobox", { name: "Tildel til" }).click();
+  await page.getByRole("option", { name: "Billie" }).click();
+  await page.getByLabel("Belønning (kr.)").fill("10");
+  await page.getByRole("button", { name: "Tilføj" }).click();
+  await expect(page.getByText("Fold vasketøj", { exact: true })).toBeVisible();
+
+  // Ingen saldo-chip endnu — opgaven er ikke fuldført.
+  await expect(page.getByText("Billie: 10 kr.")).not.toBeVisible();
+
+  await page.getByRole("checkbox").click();
+  await expect(page.getByText("Billie: 10 kr.")).toBeVisible();
+
+  await page.getByRole("checkbox").click();
+  await expect(page.getByText("Billie: 10 kr.")).not.toBeVisible();
+});

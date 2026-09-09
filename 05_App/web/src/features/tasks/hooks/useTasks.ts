@@ -13,9 +13,11 @@ import {
   deleteTask,
   deleteTaskRoutine,
   generateRoutineDraft,
+  getAllowanceBalances,
   getTaskRoutines,
   getTasks,
   updateTask,
+  type AllowanceBalanceDto,
   type NewRoutineItemInput,
   type RoutineDraft,
   type TaskDto,
@@ -37,11 +39,13 @@ interface UseTasksResult {
   date: string;
   tasks: TaskDto[];
   routines: TaskRoutineDto[];
+  balances: AllowanceBalanceDto[];
   addNewTask: (
     name: string,
     icon: string,
     assignedMemberId?: string | null,
     timeOfDay?: string | null,
+    rewardAmount?: number,
   ) => void;
   toggleDone: (taskId: string, isDone: boolean) => void;
   renameTask: (taskId: string, name: string) => void;
@@ -73,6 +77,7 @@ export function useTasks(): UseTasksResult {
   const [date] = useState(() => todayLocalDateString());
   const [tasksState, setTasksState] = useState<TaskDto[]>([]);
   const [routines, setRoutines] = useState<TaskRoutineDto[]>([]);
+  const [balances, setBalances] = useState<AllowanceBalanceDto[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pendingOfflineChangeCount, setPendingOfflineChangeCount] = useState(0);
@@ -92,9 +97,10 @@ export function useTasks(): UseTasksResult {
       }
 
       const resolvedFamilyId = familyResult.data.family.id;
-      const [tasksResult, routinesResult] = await Promise.all([
+      const [tasksResult, routinesResult, balancesResult] = await Promise.all([
         getTasks(resolvedFamilyId, date),
         getTaskRoutines(resolvedFamilyId),
+        getAllowanceBalances(resolvedFamilyId),
       ]);
 
       if (isCancelled) {
@@ -111,6 +117,10 @@ export function useTasks(): UseTasksResult {
         setRoutines(routinesResult.data.routines ?? []);
       }
 
+      if (balancesResult.ok) {
+        setBalances(balancesResult.data.balances ?? []);
+      }
+
       setFamilyId(resolvedFamilyId);
       setMembers(familyResult.data.members ?? []);
       setIsLoading(false);
@@ -120,6 +130,21 @@ export function useTasks(): UseTasksResult {
       isCancelled = true;
     };
   }, [date]);
+
+  // Sprint 39: saldoen kan ændre sig af en isDone-skift (bogføring/fortryd
+  // sker server-side sammen med selve skiftet, se tasksCrud.ts) — genhentes
+  // derfor efter enhver vellykket af-/tilkrydsning, ikke kun ved indlæsning.
+  const refreshBalances = useCallback((): void => {
+    if (!familyId) {
+      return;
+    }
+
+    getAllowanceBalances(familyId).then((result) => {
+      if (result.ok && result.data.balances) {
+        setBalances(result.data.balances);
+      }
+    });
+  }, [familyId]);
 
   // Fase 8: afspiller ventende offline-afkrydsninger, én ad gangen (FIFO).
   // Et "ikke fundet" (404) betyder opgaven er slettet i mellemtiden — den
@@ -148,6 +173,7 @@ export function useTasks(): UseTasksResult {
         removeQueuedTaskToggle(operation.id);
         setTasksState(result.data.tasks);
         setPendingOfflineChangeCount((count) => Math.max(0, count - 1));
+        refreshBalances();
         continue;
       }
 
@@ -161,7 +187,7 @@ export function useTasks(): UseTasksResult {
       // Formentlig stadig offline — stop og prøv resten igen senere.
       return;
     }
-  }, [familyId]);
+  }, [familyId, refreshBalances]);
 
   useEffect(() => {
     // flushQueuedTaskToggles synchronously sets pendingOfflineChangeCount
@@ -206,6 +232,7 @@ export function useTasks(): UseTasksResult {
     (
       action: () => Promise<{ ok: boolean; data: { tasks?: TaskDto[] } }>,
       onNetworkFailure: () => void,
+      onSuccess?: () => void,
     ) => {
       setError(null);
 
@@ -213,6 +240,7 @@ export function useTasks(): UseTasksResult {
         .then((result) => {
           if (result.ok && result.data.tasks) {
             setTasksState(result.data.tasks);
+            onSuccess?.();
           } else {
             setError("Handlingen kunne ikke gennemføres. Prøv igen.");
           }
@@ -231,13 +259,16 @@ export function useTasks(): UseTasksResult {
       icon: string,
       assignedMemberId?: string | null,
       timeOfDay?: string | null,
+      rewardAmount?: number,
     ): void => {
       const trimmed = name.trim();
       if (!trimmed || !familyId) {
         return;
       }
 
-      withTaskMutation(() => addTask(familyId, { name: trimmed, icon, date, assignedMemberId, timeOfDay }));
+      withTaskMutation(() =>
+        addTask(familyId, { name: trimmed, icon, date, assignedMemberId, timeOfDay, rewardAmount }),
+      );
     },
     [familyId, date, withTaskMutation],
   );
@@ -258,9 +289,10 @@ export function useTasks(): UseTasksResult {
       withQueueableTaskMutation(
         () => updateTask(familyId, taskId, { isDone }),
         () => enqueueTaskToggle({ familyId, taskId, isDone }),
+        refreshBalances,
       );
     },
-    [familyId, withQueueableTaskMutation],
+    [familyId, withQueueableTaskMutation, refreshBalances],
   );
 
   const renameTask = useCallback(
@@ -403,6 +435,7 @@ export function useTasks(): UseTasksResult {
     date,
     tasks: tasksState,
     routines,
+    balances,
     addNewTask,
     toggleDone,
     renameTask,

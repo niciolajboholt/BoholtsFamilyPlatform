@@ -354,6 +354,215 @@ describe("task routes", () => {
     expect(undoneBody.tasks[0]?.doneAt).toBeNull();
   });
 
+  it("rejects a reward amount without an assigned family member", async () => {
+    const { cookieHeader, userId } = await seedLoggedInUser(env.DB as never, { id: "nicolaj" });
+    await seedFamily(env, "family-1", [userId]);
+
+    const response = await tasks.request(
+      "/family-1/tasks",
+      {
+        method: "POST",
+        headers: { Cookie: cookieHeader, "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "Fold vasketøj", icon: "laesning", date: aThursday, rewardAmount: 10 }),
+      },
+      env,
+      fakeExecutionCtx,
+    );
+
+    expect(response.status).toBe(400);
+  });
+
+  it("rejects a negative or non-integer reward amount", async () => {
+    const { cookieHeader, userId } = await seedLoggedInUser(env.DB as never, { id: "nicolaj" });
+    await seedFamily(env, "family-1", [userId]);
+    await seedFamilyMember(env, { id: "member-billie", familyId: "family-1", name: "Billie" });
+
+    for (const rewardAmount of [-5, 1.5]) {
+      const response = await tasks.request(
+        "/family-1/tasks",
+        {
+          method: "POST",
+          headers: { Cookie: cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: "Fold vasketøj",
+            icon: "laesning",
+            date: aThursday,
+            assignedMemberId: "member-billie",
+            rewardAmount,
+          }),
+        },
+        env,
+        fakeExecutionCtx,
+      );
+
+      expect(response.status).toBe(400);
+    }
+  });
+
+  it("books a reward on completion, reverses it if unchecked, and never double-books on a repeated toggle", async () => {
+    const { cookieHeader, userId } = await seedLoggedInUser(env.DB as never, { id: "nicolaj" });
+    await seedFamily(env, "family-1", [userId]);
+    await seedFamilyMember(env, { id: "member-billie", familyId: "family-1", name: "Billie" });
+
+    const addResponse = await tasks.request(
+      "/family-1/tasks",
+      {
+        method: "POST",
+        headers: { Cookie: cookieHeader, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: "Fold vasketøj",
+          icon: "laesning",
+          date: aThursday,
+          assignedMemberId: "member-billie",
+          rewardAmount: 10,
+        }),
+      },
+      env,
+      fakeExecutionCtx,
+    );
+    const { tasks: created } = (await addResponse.json()) as { tasks: TaskDto[] };
+    const taskId = created[0]!.id;
+
+    async function getBalances(): Promise<{ familyMemberId: string; balanceAmount: number }[]> {
+      const response = await tasks.request(
+        "/family-1/allowance-balances",
+        { headers: { Cookie: cookieHeader } },
+        env,
+      );
+      const body = (await response.json()) as { balances: { familyMemberId: string; balanceAmount: number }[] };
+      return body.balances;
+    }
+
+    expect(await getBalances()).toEqual([]);
+
+    await tasks.request(
+      `/family-1/tasks/${taskId}`,
+      {
+        method: "PATCH",
+        headers: { Cookie: cookieHeader, "Content-Type": "application/json" },
+        body: JSON.stringify({ isDone: true }),
+      },
+      env,
+    );
+
+    expect(await getBalances()).toEqual([{ familyMemberId: "member-billie", balanceAmount: 10 }]);
+
+    // Gentaget "fuldført"-kald (fx to samtidige klik) må ikke bogføre
+    // beløbet to gange.
+    await tasks.request(
+      `/family-1/tasks/${taskId}`,
+      {
+        method: "PATCH",
+        headers: { Cookie: cookieHeader, "Content-Type": "application/json" },
+        body: JSON.stringify({ isDone: true }),
+      },
+      env,
+    );
+
+    expect(await getBalances()).toEqual([{ familyMemberId: "member-billie", balanceAmount: 10 }]);
+
+    await tasks.request(
+      `/family-1/tasks/${taskId}`,
+      {
+        method: "PATCH",
+        headers: { Cookie: cookieHeader, "Content-Type": "application/json" },
+        body: JSON.stringify({ isDone: false }),
+      },
+      env,
+    );
+
+    expect(await getBalances()).toEqual([]);
+  });
+
+  it("does not book a reward for a family-wide task, even if a reward amount is somehow set", async () => {
+    const { cookieHeader, userId } = await seedLoggedInUser(env.DB as never, { id: "nicolaj" });
+    await seedFamily(env, "family-1", [userId]);
+
+    await env.DB.prepare(
+      `INSERT INTO tasks (id, family_id, name, icon, is_done, task_date, created_by_user_id, created_at, reward_amount)
+       VALUES ('task-family-wide', 'family-1', 'Ryd op i stuen', 'star', 0, ?, ?, ?, 10)`,
+    )
+      .bind(aThursday, userId, new Date().toISOString())
+      .run();
+
+    await tasks.request(
+      "/family-1/tasks/task-family-wide",
+      {
+        method: "PATCH",
+        headers: { Cookie: cookieHeader, "Content-Type": "application/json" },
+        body: JSON.stringify({ isDone: true }),
+      },
+      env,
+    );
+
+    const balancesResponse = await tasks.request(
+      "/family-1/allowance-balances",
+      { headers: { Cookie: cookieHeader } },
+      env,
+    );
+    const { balances } = (await balancesResponse.json()) as { balances: unknown[] };
+    expect(balances).toEqual([]);
+  });
+
+  it("preserves ledger history when the underlying task is later deleted", async () => {
+    const { cookieHeader, userId } = await seedLoggedInUser(env.DB as never, { id: "nicolaj" });
+    await seedFamily(env, "family-1", [userId]);
+    await seedFamilyMember(env, { id: "member-billie", familyId: "family-1", name: "Billie" });
+
+    const addResponse = await tasks.request(
+      "/family-1/tasks",
+      {
+        method: "POST",
+        headers: { Cookie: cookieHeader, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: "Fold vasketøj",
+          icon: "laesning",
+          date: aThursday,
+          assignedMemberId: "member-billie",
+          rewardAmount: 10,
+        }),
+      },
+      env,
+      fakeExecutionCtx,
+    );
+    const { tasks: created } = (await addResponse.json()) as { tasks: TaskDto[] };
+    const taskId = created[0]!.id;
+
+    await tasks.request(
+      `/family-1/tasks/${taskId}`,
+      {
+        method: "PATCH",
+        headers: { Cookie: cookieHeader, "Content-Type": "application/json" },
+        body: JSON.stringify({ isDone: true }),
+      },
+      env,
+    );
+
+    await tasks.request(`/family-1/tasks/${taskId}`, { method: "DELETE", headers: { Cookie: cookieHeader } }, env);
+
+    const balancesResponse = await tasks.request(
+      "/family-1/allowance-balances",
+      { headers: { Cookie: cookieHeader } },
+      env,
+    );
+    const { balances } = (await balancesResponse.json()) as {
+      balances: { familyMemberId: string; balanceAmount: number }[];
+    };
+    expect(balances).toEqual([{ familyMemberId: "member-billie", balanceAmount: 10 }]);
+  });
+
+  it("returns 404 for allowance-balances on a family the user does not belong to", async () => {
+    const { cookieHeader } = await seedLoggedInUser(env.DB as never, { id: "nicolaj" });
+
+    const response = await tasks.request(
+      "/family-1/allowance-balances",
+      { headers: { Cookie: cookieHeader } },
+      env,
+    );
+
+    expect(response.status).toBe(404);
+  });
+
   it("deletes a task", async () => {
     const { cookieHeader, userId } = await seedLoggedInUser(env.DB as never, { id: "nicolaj" });
     await seedFamily(env, "family-1", [userId]);
