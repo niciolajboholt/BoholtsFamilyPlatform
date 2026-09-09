@@ -451,3 +451,61 @@ export function deleteBirthdayGiftPlan(familyId: string, planId: string) {
     { method: "DELETE" },
   );
 }
+
+// Sprint 41: et simpelt "hvem betalte/hvem skylder"-overblik mellem
+// forældre, ikke fuld bogføring — se
+// 41_Sprint41_Deleoekonomi_Foraeldre_Plan.md. Kun medlemmer med en
+// tilknyttet konto (linkedUserId) kan betale/deltage.
+export interface SharedExpenseDto {
+  id: string;
+  familyId: string;
+  description: string;
+  amount: number;
+  paidByMemberId: string;
+  splitBetween: string[];
+  expenseDate: string;
+  createdByUserId: string;
+  createdAt: string;
+}
+
+export interface SharedExpenseBalanceDto {
+  debtorMemberId: string;
+  creditorMemberId: string;
+  amount: number;
+}
+
+export function getSharedExpenses(familyId: string) {
+  return request<{ expenses?: SharedExpenseDto[]; error?: string }>(
+    `/api/families/${familyId}/shared-expenses`,
+  );
+}
+
+export function getSharedExpenseBalances(familyId: string) {
+  return request<{ balances?: SharedExpenseBalanceDto[]; error?: string }>(
+    `/api/families/${familyId}/shared-expense-balances`,
+  );
+}
+
+export function createSharedExpense(
+  familyId: string,
+  expense: { description: string; amount: number; paidByMemberId: string; splitBetween: string[]; expenseDate: string },
+) {
+  return request<{ expenses?: SharedExpenseDto[]; error?: string }>(
+    `/api/families/${familyId}/shared-expenses`,
+    { method: "POST", body: JSON.stringify(expense) },
+  );
+}
+
+export function deleteSharedExpense(familyId: string, expenseId: string) {
+  return request<{ expenses?: SharedExpenseDto[]; error?: string }>(
+    `/api/families/${familyId}/shared-expenses/${expenseId}`,
+    { method: "DELETE" },
+  );
+}
+
+export function settleSharedExpenseBalance(familyId: string, memberIdA: string, memberIdB: string) {
+  return request<{ balances?: SharedExpenseBalanceDto[]; error?: string }>(
+    `/api/families/${familyId}/shared-expense-settlements`,
+    { method: "POST", body: JSON.stringify({ memberIdA, memberIdB }) },
+  );
+}

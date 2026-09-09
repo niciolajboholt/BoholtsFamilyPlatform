@@ -3294,3 +3294,109 @@ test("a family member can set a birthday and collect gift ideas in Settings", as
   await dialog.getByRole("button", { name: "Luk" }).click();
   await expect(dialog).not.toBeVisible();
 });
+
+// Sprint 41: et simpelt "hvem betalte/hvem skylder"-overblik mellem
+// forældre. Sektionen vises kun når mindst to medlemmer har en koblet
+// konto — standard-familien i mockAuthenticatedApi har kun Alex koblet,
+// så testen kobler Chris til også, for at gøre sektionen synlig.
+test("a family member can log a shared expense, see the split balance, and settle it in Settings", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  await mockAuthenticatedApi(page);
+
+  const members = [
+    { id: "member-e2e", name: "Alex", color: "#2F6B4F", relation: "Andet", isPlaceholderName: 0, linkedUserId: "user-e2e", birthday: null },
+    { id: "member-chris", name: "Chris", color: "#C97653", relation: "Andet", isPlaceholderName: 0, linkedUserId: "user-chris", birthday: null },
+    { id: "member-billie", name: "Billie", color: "#D19A2A", relation: "Barn", isPlaceholderName: 0, linkedUserId: null, birthday: null },
+  ];
+
+  let expenses: Array<Record<string, unknown>> = [];
+  let balances: Array<{ debtorMemberId: string; creditorMemberId: string; amount: number }> = [];
+  let nextExpenseId = 1;
+
+  await page.route("**/api/families/mine", async (route) => {
+    if (route.request().method() !== "GET") {
+      await route.fallback();
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ family, role: "owner", members, inviteCode: "TEST1234" }),
+    });
+  });
+
+  await page.route("**/api/families/*/shared-expenses", async (route) => {
+    if (route.request().method() === "GET") {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ expenses }) });
+      return;
+    }
+
+    if (route.request().method() === "POST") {
+      const posted = route.request().postDataJSON() as {
+        description: string;
+        amount: number;
+        paidByMemberId: string;
+        splitBetween: string[];
+        expenseDate: string;
+      };
+      expenses = [
+        ...expenses,
+        {
+          id: `expense-${nextExpenseId++}`,
+          familyId: family.id,
+          description: posted.description,
+          amount: posted.amount,
+          paidByMemberId: posted.paidByMemberId,
+          splitBetween: posted.splitBetween,
+          expenseDate: posted.expenseDate,
+          createdByUserId: "user-e2e",
+          createdAt: new Date().toISOString(),
+        },
+      ];
+
+      // Efterligner server-sidens ligelige deling (sharedExpenses.ts) —
+      // kun til visning i denne test, ikke selve produktionslogikken.
+      const other = posted.splitBetween.find((id) => id !== posted.paidByMemberId);
+      if (other) {
+        const share = Math.round(posted.amount / posted.splitBetween.length);
+        balances = [{ debtorMemberId: other, creditorMemberId: posted.paidByMemberId, amount: share }];
+      }
+
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ expenses }) });
+      return;
+    }
+
+    await route.fallback();
+  });
+
+  await page.route("**/api/families/*/shared-expense-balances", async (route) => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ balances }) });
+  });
+
+  await page.route("**/api/families/*/shared-expense-settlements", async (route) => {
+    if (route.request().method() !== "POST") {
+      await route.fallback();
+      return;
+    }
+    balances = [];
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ balances }) });
+  });
+
+  await page.goto("/settings");
+  await expect(page.getByText("Deleøkonomi")).toBeVisible();
+  await expect(page.getByText("Ingen udestående saldo.")).toBeVisible();
+
+  await page.getByLabel("Beskrivelse").fill("Fritidsaktivitet");
+  await page.getByLabel("Beløb (kr.)").fill("300");
+  await page.getByLabel("Betalt af").click();
+  await page.getByRole("option", { name: "Alex" }).click();
+  await page.getByRole("button", { name: "Tilføj udgift" }).click();
+
+  await expect(page.getByText("Fritidsaktivitet")).toBeVisible();
+  await expect(page.getByText("Chris skylder Alex 150 kr.")).toBeVisible();
+
+  await page.getByRole("button", { name: "Marker som afregnet" }).click();
+  await expect(page.getByText("Ingen udestående saldo.")).toBeVisible();
+});

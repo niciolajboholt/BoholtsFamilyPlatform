@@ -34,6 +34,7 @@ const migrationFiles = [
   "0023_meal_plan_entries.sql",
   "0024_allowance_ledger.sql",
   "0025_birthday_gift_plans.sql",
+  "0026_shared_expenses.sql",
 ];
 
 function loadMigrations(db: DatabaseSync): void {

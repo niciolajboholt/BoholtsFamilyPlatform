@@ -1955,4 +1955,199 @@ describe("families routes", () => {
       });
     });
   });
+
+  describe("shared expenses (Sprint 41)", () => {
+    interface SharedExpenseJson {
+      id: string;
+      description: string;
+      amount: number;
+      paidByMemberId: string;
+      splitBetween: string[];
+      expenseDate: string;
+    }
+
+    interface BalanceJson {
+      debtorMemberId: string;
+      creditorMemberId: string;
+      amount: number;
+    }
+
+    // Kobler ejeren til "Far" og en anden bruger til "Mor" — de eneste to
+    // seedede medlemmer med en tilknyttet konto efter dette, jf.
+    // isLinkedMember()-kravet i sharedExpenses.ts (kun linkede medlemmer
+    // kan betale/deltage).
+    async function createFamilyWithTwoLinkedParents(): Promise<{
+      familyId: string;
+      ownerCookie: string;
+      partnerCookie: string;
+      farId: string;
+      morId: string;
+    }> {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader, "Boholt");
+      const farId = created.members.find((m) => m.name === "Far")!.id;
+      const morId = created.members.find((m) => m.name === "Mor")!.id;
+
+      await families.request(
+        `/${created.family.id}/members/${farId}/link-me`,
+        { method: "POST", headers: { Cookie: owner.cookieHeader } },
+        env,
+      );
+
+      const partner = await seedLoggedInUser(env.DB as never, { id: "partner" });
+      await families.request(
+        `/invites/${created.inviteCode}/accept`,
+        { method: "POST", headers: { Cookie: partner.cookieHeader } },
+        env,
+      );
+      await families.request(
+        `/${created.family.id}/members/${morId}/link-me`,
+        { method: "POST", headers: { Cookie: partner.cookieHeader } },
+        env,
+      );
+
+      return { familyId: created.family.id, ownerCookie: owner.cookieHeader, partnerCookie: partner.cookieHeader, farId, morId };
+    }
+
+    it("rejects an expense with an unlinked (child) participant", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader, "Boholt");
+      const farId = created.members.find((m) => m.name === "Far")!.id;
+      const barnId = created.members.find((m) => m.name === "Barn 1")!.id;
+
+      await families.request(
+        `/${created.family.id}/members/${farId}/link-me`,
+        { method: "POST", headers: { Cookie: owner.cookieHeader } },
+        env,
+      );
+
+      const response = await families.request(
+        `/${created.family.id}/shared-expenses`,
+        {
+          method: "POST",
+          headers: { Cookie: owner.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            description: "Fødselsdagsgave til Barn 1",
+            amount: 200,
+            paidByMemberId: farId,
+            splitBetween: [farId, barnId],
+            expenseDate: "2026-09-01",
+          }),
+        },
+        env,
+      );
+
+      expect(response.status).toBe(400);
+    });
+
+    it("splits an expense equally, computes the net balance, and lets the debtor settle it to zero", async () => {
+      const { familyId, ownerCookie, partnerCookie, farId, morId } = await createFamilyWithTwoLinkedParents();
+
+      const createResponse = await families.request(
+        `/${familyId}/shared-expenses`,
+        {
+          method: "POST",
+          headers: { Cookie: ownerCookie, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            description: "Fritidsaktivitet",
+            amount: 300,
+            paidByMemberId: farId,
+            splitBetween: [farId, morId],
+            expenseDate: "2026-09-01",
+          }),
+        },
+        env,
+      );
+      const { expenses }: { expenses: SharedExpenseJson[] } = await createResponse.json();
+      expect(expenses).toHaveLength(1);
+      expect(expenses[0].splitBetween.sort()).toEqual([farId, morId].sort());
+
+      const balancesResponse = await families.request(
+        `/${familyId}/shared-expense-balances`,
+        { headers: { Cookie: partnerCookie } },
+        env,
+      );
+      const { balances }: { balances: BalanceJson[] } = await balancesResponse.json();
+
+      // Far lagde 300 kr ud, delt ligeligt — Mor skylder derfor Far 150 kr.
+      expect(balances).toEqual([{ debtorMemberId: morId, creditorMemberId: farId, amount: 150 }]);
+
+      const settleResponse = await families.request(
+        `/${familyId}/shared-expense-settlements`,
+        {
+          method: "POST",
+          headers: { Cookie: partnerCookie, "Content-Type": "application/json" },
+          body: JSON.stringify({ memberIdA: farId, memberIdB: morId }),
+        },
+        env,
+      );
+      const { balances: afterSettle }: { balances: BalanceJson[] } = await settleResponse.json();
+      expect(afterSettle).toEqual([]);
+    });
+
+    it("rejects settling a pair with no outstanding balance", async () => {
+      const { familyId, ownerCookie, farId, morId } = await createFamilyWithTwoLinkedParents();
+
+      const response = await families.request(
+        `/${familyId}/shared-expense-settlements`,
+        {
+          method: "POST",
+          headers: { Cookie: ownerCookie, "Content-Type": "application/json" },
+          body: JSON.stringify({ memberIdA: farId, memberIdB: morId }),
+        },
+        env,
+      );
+
+      expect(response.status).toBe(400);
+    });
+
+    it("lets the payer delete an expense, removing it from the balance", async () => {
+      const { familyId, ownerCookie, farId, morId } = await createFamilyWithTwoLinkedParents();
+
+      const createResponse = await families.request(
+        `/${familyId}/shared-expenses`,
+        {
+          method: "POST",
+          headers: { Cookie: ownerCookie, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            description: "Fødselsdagsgave",
+            amount: 400,
+            paidByMemberId: farId,
+            splitBetween: [farId, morId],
+            expenseDate: "2026-09-01",
+          }),
+        },
+        env,
+      );
+      const { expenses }: { expenses: SharedExpenseJson[] } = await createResponse.json();
+
+      const deleteResponse = await families.request(
+        `/${familyId}/shared-expenses/${expenses[0].id}`,
+        { method: "DELETE", headers: { Cookie: ownerCookie } },
+        env,
+      );
+      expect(deleteResponse.status).toBe(200);
+      expect((await deleteResponse.json()).expenses).toEqual([]);
+
+      const balancesResponse = await families.request(
+        `/${familyId}/shared-expense-balances`,
+        { headers: { Cookie: ownerCookie } },
+        env,
+      );
+      expect((await balancesResponse.json()).balances).toEqual([]);
+    });
+
+    it("returns 404 for a non-member", async () => {
+      const { familyId } = await createFamilyWithTwoLinkedParents();
+      const outsider = await seedLoggedInUser(env.DB as never, { id: "outsider" });
+
+      const response = await families.request(
+        `/${familyId}/shared-expenses`,
+        { headers: { Cookie: outsider.cookieHeader } },
+        env,
+      );
+
+      expect(response.status).toBe(404);
+    });
+  });
 });

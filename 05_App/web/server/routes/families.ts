@@ -11,6 +11,7 @@ import familySettings from "./familyRoutes/familySettings";
 import type { Variables } from "./familyRoutes/familyQueries";
 import icsSubscriptions from "./familyRoutes/icsSubscriptions";
 import shareLinks from "./familyRoutes/shareLinks";
+import sharedExpenses from "./familyRoutes/sharedExpenses";
 
 const families = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -47,5 +48,6 @@ families.route("/", familySettings);
 families.route("/", calendarMappings);
 families.route("/", icsSubscriptions);
 families.route("/", birthdayGiftPlans);
+families.route("/", sharedExpenses);
 
 export default families;

@@ -6,6 +6,7 @@ import { BirthdaysSection } from "../features/settings/components/BirthdaysSecti
 import { CalendarConnectionsSection } from "../features/settings/components/CalendarConnectionsSection";
 import { FamilySection } from "../features/settings/components/FamilySection";
 import { HelpFeedbackSection } from "../features/settings/components/HelpFeedbackSection";
+import { SharedExpensesSection } from "../features/settings/components/SharedExpensesSection";
 
 function SettingsPage() {
   return (
@@ -21,6 +22,7 @@ function SettingsPage() {
       <Box sx={{ display: "grid", gap: 2.5 }}>
         <FamilySection />
         <BirthdaysSection />
+        <SharedExpensesSection />
         <CalendarConnectionsSection />
         <AppNotificationsSection />
         <AccountDataSection />
