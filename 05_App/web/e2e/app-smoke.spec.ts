@@ -977,6 +977,9 @@ test("a private calendar event is fully visible to its owner and redacted to 'Op
   // kolonne (getPlannerEventsForColumn) og ville derfor slet ikke vise en
   // enkeltpersons-aftale som denne. Månedsvisningen viser alle synlige
   // kalendres aftaler uafhængigt af den fordeling.
+  // Lås kalenderen til samme måned som den hardkodede aftale. Ellers
+  // begynder testen at fejle, når den virkelige dato passerer august 2026.
+  await page.clock.setFixedTime(new Date("2026-08-26T09:00:00+02:00"));
   await page.goto("/calendar");
   // useFamilyMembers() læser kun localStorage ÉN gang, ved sin egen mount —
   // den opdaterer sig aldrig af sig selv, hvis AppLayout's baggrunds-synk
@@ -1111,6 +1114,8 @@ test("editing an existing private event sends the updated fields, and turning pr
     });
   });
 
+  // Lås kalenderen til samme måned som den hardkodede aftale.
+  await page.clock.setFixedTime(new Date("2026-08-26T09:00:00+02:00"));
   await page.goto("/calendar");
   await page.waitForFunction(() => localStorage.getItem("boholts-family-members") !== null);
   await page.evaluate(() => localStorage.setItem("boholts-current-member-id", "member-e2e"));
