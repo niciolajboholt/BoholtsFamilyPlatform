@@ -15,6 +15,7 @@ const MealPlanPage = lazy(() => import('../pages/MealPlanPage'))
 const TasksPage = lazy(() => import('../pages/TasksPage'))
 const SettingsPage = lazy(() => import('../pages/SettingsPage'))
 const PublicSharedCalendarPage = lazy(() => import('../pages/PublicSharedCalendarPage'))
+const KioskPage = lazy(() => import('../pages/KioskPage'))
 const LegalPage = lazy(() => import('../pages/LegalPage'))
 
 function RouteLoadingFallback() {
@@ -33,6 +34,11 @@ export function AppRouter() {
           {/* Sprint 26: uden for AppLayout bevidst — /share/:token skal aldrig
               gå gennem login-gaten (AppLayout's useSession-tjek). */}
           <Route path="share/:token" element={<PublicSharedCalendarPage />} />
+          {/* Sprint 43: samme princip som share/:token — uden for AppLayouts
+              sidemenu/navigation — men KioskPage tjekker selv sessionen
+              (useSession) og forbliver bag login, i modsætning til
+              delelinket ovenfor. */}
+          <Route path="kiosk" element={<KioskPage />} />
           <Route path="privacy" element={<LegalPage kind="privacy" />} />
           <Route path="terms" element={<LegalPage kind="terms" />} />
 

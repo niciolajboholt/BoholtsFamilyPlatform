@@ -3400,3 +3400,120 @@ test("a family member can log a shared expense, see the split balance, and settl
   await page.getByRole("button", { name: "Marker som afregnet" }).click();
   await expect(page.getByText("Ingen udestående saldo.")).toBeVisible();
 });
+
+// Sprint 43: et skrivebeskyttet køkkenskærm-dashboard, uden for AppLayouts
+// sidemenu/navigation, men stadig bag login. Dagens aftale, opgave og
+// indkøbsvare skal alle sammen komme fra allerede eksisterende data — ingen
+// nyt backend-endpoint, kun en ny sammensætning.
+test("the kiosk dashboard shows today's agenda, tasks, and shopping list, without the app navigation", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  await mockAuthenticatedApi(page);
+
+  await page.route("**/api/calendar/status", (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ connected: true }) }),
+  );
+
+  const now = new Date();
+  const todayStart = new Date(now);
+  todayStart.setHours(15, 0, 0, 0);
+  const todayEnd = new Date(now);
+  todayEnd.setHours(16, 0, 0, 0);
+
+  await page.route("**/api/calendar/calendars/*/events*", async (route) => {
+    const calendarId = decodeURIComponent(new URL(route.request().url()).pathname.split("/")[4] ?? "");
+
+    if (calendarId !== "alex-calendar" || route.request().method() !== "GET") {
+      await route.fallback();
+      return;
+    }
+
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        items: [
+          {
+            id: "kiosk-event-1",
+            summary: "Fodboldtræning",
+            start: { dateTime: todayStart.toISOString() },
+            end: { dateTime: todayEnd.toISOString() },
+            status: "confirmed",
+          },
+        ],
+        nextSyncToken: "alex-calendar-sync-token",
+      }),
+    });
+  });
+
+  await page.route("**/api/families/*/tasks*", async (route) => {
+    if (route.request().method() !== "GET") {
+      await route.fallback();
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        tasks: [
+          {
+            id: "kiosk-task-1",
+            familyId: family.id,
+            name: "Fold vasketøj",
+            icon: "laundry",
+            assignedMemberId: "member-billie",
+            timeOfDay: null,
+            isDone: 0,
+            routineItemId: null,
+            taskDate: now.toISOString().slice(0, 10),
+            createdByUserId: "user-e2e",
+            createdAt: now.toISOString(),
+            doneAt: null,
+            rewardAmount: 0,
+          },
+        ],
+      }),
+    });
+  });
+
+  await page.route("**/api/families/*/shopping-lists", async (route) => {
+    if (route.request().method() !== "GET") {
+      await route.fallback();
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ lists: [{ id: "kiosk-list", familyId: family.id, name: "Indkøb", type: "groceries" }] }),
+    });
+  });
+
+  await page.route("**/api/families/*/shopping-lists/*/items", async (route) => {
+    if (route.request().method() !== "GET") {
+      await route.fallback();
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        items: [
+          { id: "kiosk-item-1", listId: "kiosk-list", name: "Mælk", category: "Køl", isChecked: 0, addedByUserId: "user-e2e", createdAt: now.toISOString(), checkedAt: null },
+        ],
+      }),
+    });
+  });
+
+  await page.goto("/kiosk");
+
+  await expect(page.getByText("Fodboldtræning")).toBeVisible();
+  await expect(page.getByText("Fold vasketøj")).toBeVisible();
+  await expect(page.getByText("Billie")).toBeVisible();
+  await expect(page.getByText("Mælk")).toBeVisible();
+
+  // Ingen af AppLayouts navigationselementer må være med — kiosk-siden
+  // ligger uden for den routing-gren, samme princip som /share/:token.
+  await expect(page.getByRole("navigation")).not.toBeVisible();
+  await expect(page.getByRole("button", { name: "Indstillinger" })).not.toBeVisible();
+});
