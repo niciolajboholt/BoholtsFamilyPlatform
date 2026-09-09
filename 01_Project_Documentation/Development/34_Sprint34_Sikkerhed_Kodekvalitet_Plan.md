@@ -1,14 +1,14 @@
 # 34_Sprint34_Sikkerhed_Kodekvalitet_Plan
 
-> Status: Afventer godkendelse af scope/rækkefølge
+> Status: Godkendt og kode gennemført — afventer manuel gennemgang, CI og merge
 
-Version: 1.0
+Version: 2.0
 
 Project:
 Boholts Family Platform
 
 Last Updated:
-2026-09-09
+2026-09-09 (godkendt af Nicolaj og gennemført samme dag)
 
 Owner:
 Nicolaj Bach Boholt
@@ -215,3 +215,66 @@ Denne plan afventer Nicolajs godkendelse af scope og rækkefølge, før
 noget af punkt 1-6 implementeres — jf. arbejdsgangen i
 [06_Claude_Playbook](../AI_Knowledge_Base/06_Claude_Playbook.md) og den
 eksplicitte instruks i reviewets Del C-prompt.
+
+Godkendt 2026-09-09 ("Kør").
+
+---
+
+## Gennemførelse (2026-09-09)
+
+Alle seks punkter er implementeret, i den foreslåede rækkefølge, hver som
+sin egen commit på `claude/boholts-platform-expansion-e29ujp`:
+
+1. **ADMIN_EMAIL → Secrets Store.** Gjort som planlagt. Bekræftet med
+   `wrangler deploy --dry-run --env beta`. **Kræver at Nicolaj opretter
+   secret'en `admin-email` i Cloudflares Secrets Store (samme store_id som
+   de fire eksisterende) før næste rigtige deploy** — uden den fejler
+   bindingen.
+2. **ADR-018** skrevet som planlagt — ren dokumentation, ingen kodeændring.
+3. **ADR-019** skrevet efter en reel, systematisk gennemgang af samtlige
+   GET-ruter (ikke kun antaget) — fandt to lav-konsekvens undtagelser
+   (aktivitetscursor, OAuth-callback), begge dokumenteret og vurderet
+   uden skadepotentiale. Ingen kodeændring var nødvendig.
+4. **`npm outdated`.** 14 pakker opdateret. `typescript` (6→7) og `vitest`
+   (4→5) bevidst udskudt (major-opgraderinger). `@vitejs/plugin-react`
+   patch-bump blokeret af en upstream peer-dependency-konflikt
+   (`@babel/core@8` vs. `@rolldown/plugin-babel`) — ikke noget dette repo
+   kan løse. `npm audit fix` kørt for en ikke-brydende `fast-uri`-sårbarhed;
+   en resterende `sharp`/`miniflare`-sårbarhed (transitiv
+   wrangler-devDependency) er bevidst IKKE rettet, da eneste fix ville
+   nedgradere wrangler til 4.15.2.
+5. **Sideopdeling.** `ShoppingListPage.tsx` 516→187 linjer,
+   `CalendarPage.tsx` 475→98 linjer, samme mønster som Fase 6. Ingen
+   adfærdsændring.
+6. **Playwright-revision.** Fandt ét reelt hul (Sprint 33's aktivitetskort)
+   og lukkede det med én ny, reel E2E-test.
+
+### Vigtige fund og begrænsninger under gennemførelsen
+
+- **Playwright kunne ikke køres direkte i denne session.** Den
+  forudinstallerede Chromium-revision i sandboxen matcher ikke, hvad
+  `@playwright/test` forventer — bekræftet at gælde uafhængigt af denne
+  sprints afhængighedsopdatering. Punkt 5 og 6 er i stedet verificeret med
+  en midlertidig, ALDRIG committet Playwright-config, der pegede på den
+  forudinstallerede browser direkte. Den rigtige, autoritative
+  e2e-verifikation sker i GitHub Actions (som installerer sin egen
+  browser) — betragt ikke dette sprint som "e2e-grønt bekræftet" før CI
+  har kørt.
+- **To eksisterende, IKKE-relaterede e2e-tests fejler lige nu**
+  ("a private calendar event is fully visible...",
+  "editing an existing private event...") — de forudsætter en hardcodet
+  kalenderaftale dateret 2026-08-27, som kalenderens standard-månedsvisning
+  ikke længere viser, nu hvor den rigtige dato er passeret august 2026.
+  Bekræftet identisk fejl på commit `121cf37` (FØR denne sprints
+  refaktorering) — altså en allerede eksisterende skrøbelighed, ikke en
+  regression herfra. **Ikke rettet i dette sprint** (uden for scope), men
+  vil blokere en grøn `npm run test:e2e`, uanset denne gren. Bør rettes
+  som sit eget, lille punkt (gør testdataene tidsrelative, ikke
+  hardcodede) snarest.
+- Punkt 4's og 5's afhængigheds-/dependency-relaterede fund
+  (major-opgraderinger, peer-konflikten, sharp-sårbarheden) er bevidste
+  udskydelser, ikke overset arbejde — se punkt 4 ovenfor.
+
+**Status:** Klar til Nicolajs manuelle gennemgang og test, samt CI. Ikke
+committet/mergeret til `develop`/`main` af denne agent — afventer
+eksplicit godkendelse pr. sædvanlig arbejdsgang.

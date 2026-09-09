@@ -1,11 +1,26 @@
 # Projektstatus
 
-Senest opdateret: 2026-08-27
+Senest opdateret: 2026-09-09
 
 > Den autoritative fase-for-fase-plan og levende status findes i
 > [`30_Stabilization_Execution_Plan.md`](01_Project_Documentation/Development/30_Stabilization_Execution_Plan.md).
+> Resten af dette afsnit er ikke fuldt genskrevet siden 2026-08-27 og
+> dækker derfor ikke Sprint 30-33 — se
+> [CHANGELOG.md](CHANGELOG.md) for den løbende, sprint-for-sprint-opdaterede
+> liste.
 
 ## Aktuel fase
+
+Sprint 34 (se
+[34_Sprint34_Sikkerhed_Kodekvalitet_Plan.md](01_Project_Documentation/Development/34_Sprint34_Sikkerhed_Kodekvalitet_Plan.md))
+rettede seks punkter fra et eksternt review: `ADMIN_EMAIL` flyttet til
+Secrets Store, to nye ADR'er (miljønavngivning, CSRF-stillingtagen),
+afhængighedsopdatering, opdeling af `ShoppingListPage.tsx`/
+`CalendarPage.tsx`, og en ny Playwright-test for Sprint 33's "Siden sidst
+du var her". Afventer Nicolajs gennemgang og CI-bekræftelse, herunder to
+identificerede, IKKE-relaterede eksisterende e2e-tests, der nu fejler pga.
+en hardcodet 2026-08-27-dato (se sprintets sidste commit for detaljer) —
+ikke rettet i dette sprint.
 
 Sprint 23-29 er gennemført på den hidtidige produktionslinje. En samlet
 stabiliseringsrunde er nu merget til `develop` via PR #102 og #103 med
