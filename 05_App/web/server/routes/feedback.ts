@@ -142,12 +142,12 @@ interface FeedbackRow {
 // Kun ejeren (ADMIN_EMAIL) må se listen — feedback kan indeholde andre
 // brugeres ord om appen, ikke noget der skal kunne læses af enhver logget
 // ind bruger.
-function requireAdmin(c: Context<{ Bindings: Env; Variables: Variables }>): boolean {
-  return c.get("user").email === c.env.ADMIN_EMAIL;
+async function requireAdmin(c: Context<{ Bindings: Env; Variables: Variables }>): Promise<boolean> {
+  return c.get("user").email === (await c.env.ADMIN_EMAIL.get());
 }
 
 feedback.get("/", async (c) => {
-  if (!requireAdmin(c)) {
+  if (!(await requireAdmin(c))) {
     return c.json({ error: "Ikke tilladt." }, 403);
   }
 
@@ -171,7 +171,7 @@ feedback.get("/", async (c) => {
 });
 
 feedback.patch("/:id/read", async (c) => {
-  if (!requireAdmin(c)) {
+  if (!(await requireAdmin(c))) {
     return c.json({ error: "Ikke tilladt." }, 403);
   }
 

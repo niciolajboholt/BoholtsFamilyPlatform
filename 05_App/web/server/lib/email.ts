@@ -28,11 +28,12 @@ export async function sendFeedbackNotificationEmail(
   entry: FeedbackNotificationInput,
 ): Promise<void> {
   const apiKey = await env.RESEND_API_KEY.get();
+  const adminEmail = await env.ADMIN_EMAIL.get();
 
   // Ikke sat endnu (fx lokal udvikling, eller før secret'en er oprettet i
   // Cloudflares Secrets Store) — mailen er en bonus-notifikation, ikke
   // feedbackens primære lagring, så den springes bare over.
-  if (!apiKey) {
+  if (!apiKey || !adminEmail) {
     return;
   }
 
@@ -56,7 +57,7 @@ export async function sendFeedbackNotificationEmail(
     },
     body: JSON.stringify({
       from: "Boholts Familieapp <onboarding@resend.dev>",
-      to: env.ADMIN_EMAIL,
+      to: adminEmail,
       reply_to: entry.senderEmail,
       subject: `Ny feedback (${categoryLabel}) fra ${entry.senderName}`,
       text: bodyLines.join("\n"),

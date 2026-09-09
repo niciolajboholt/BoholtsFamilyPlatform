@@ -130,7 +130,7 @@ describe("feedback routes", () => {
 
     const requestBody: { to: string; reply_to: string; subject: string } =
       JSON.parse(fetchMock.mock.calls[0][1].body);
-    expect(requestBody.to).toBe(env.ADMIN_EMAIL);
+    expect(requestBody.to).toBe(await env.ADMIN_EMAIL.get());
     expect(requestBody.reply_to).toBe("line@example.com");
     expect(requestBody.subject).toContain("Line");
   });
@@ -185,7 +185,7 @@ describe("feedback routes", () => {
 
     const { cookieHeader: adminCookie } = await seedLoggedInUser(env.DB as never, {
       id: "nicolaj",
-      email: env.ADMIN_EMAIL,
+      email: await env.ADMIN_EMAIL.get(),
     });
 
     const response = await feedback.request(
@@ -238,7 +238,7 @@ describe("feedback routes", () => {
 
     const { cookieHeader: adminCookie } = await seedLoggedInUser(env.DB as never, {
       id: "nicolaj",
-      email: env.ADMIN_EMAIL,
+      email: await env.ADMIN_EMAIL.get(),
     });
 
     const listResponse = await feedback.request(
