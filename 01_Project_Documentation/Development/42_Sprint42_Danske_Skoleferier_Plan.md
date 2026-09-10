@@ -136,6 +136,53 @@ standardantagelse.
 
 ---
 
+## Opfølgende research: Aula (2026-09-10)
+
+Nicolaj bad om at undersøge, om Aula (den platform, danske
+skoler/daginstitutioner selv bruger til forældrekommunikation) kunne løse
+det, en landsdækkende feed ikke kan. Konklusion: **potentielt ja — men
+det er en per-familie/per-institution genvej, ikke en ny generel feed i
+appen**, og den kunne ikke 100 % bekræftes mod Aulas egen primærkilde
+(se forbehold nedenfor).
+
+- Aula har en indbygget, officiel kalendersynkroniseringsfunktion (ikke
+  det uofficielle, reverse-engineered `scaarup/aula`-API, som ville kræve
+  login-oplysninger i appen og ikke er en sanktioneret integration).
+  Adgang: Aulas kalendermodul → "Kalendersynkronisering" (de tre prikker
+  øverst til højre) → vælg institution → vælg hvilke hændelsestyper der
+  skal med (mødes/begivenheder, ferie/fri, fødselsdage m.fl.) → "Opret
+  kalenderlink". Der oprettes to links (års- og ugekalender), som begge
+  skal tilføjes.
+- Da lukkedage kræver forældre-tilmelding til alternativ pasning, er det
+  sandsynligt (flere uafhængige kilder — en kommunal vejledning, en
+  undervisnings-blog, Aulas egne hjælpesider — er enige om
+  mekanismen), at institutionens lukkedage indgår i "ferie/fri"-
+  kategorien, som netop kan vælges til synkronisering. Dette kunne dog
+  IKKE bekræftes ord-for-ord mod Aulas egen hjælpeside eller en officiel
+  PDF-vejledning — adgangen til `aulainfo.dk`, `aarhus.dk` og et par
+  andre kilder var spærret af dette miljøs netværksproxy under research,
+  så konklusionen hviler på konsistente tredjepartsbeskrivelser, ikke en
+  primærkilde-verifikation. **Bør bekræftes i praksis af en forælder med
+  et rigtigt Aula-login, før det anbefales videre.**
+- Fordelen frem for en national/kommunal feed: dette er PR-ÆKIST rigtigt
+  for netop den institution, barnet faktisk går på — ikke et gæt på
+  kommune-niveau. Det er præcis den type "familien kender og har tillid
+  til sin egen feed"-scenarie, som "Hvad der stadig virker uden ny kode"-
+  afsnittet ovenfor allerede forudsatte ville dække behovet uden
+  kodeændring.
+- Praktisk detalje: to links pr. institution tæller som to af appens
+  loft på fem ICS-abonnementer pr. familie — værd at nævne, hvis en
+  familie har børn i flere institutioner.
+
+**Foreslået lille tilføjelse (afventer Nicolajs godkendelse, ikke
+implementeret endnu):** et par linjers hjælpetekst i
+`IcsSubscriptionsDialog.tsx` ("Bruger I Aula? ..." med de fire trin
+ovenfor) — ren dokumentation i UI'et, ingen ny mekanisme, ingen gættet
+URL. Adskiller sig fra det tidligere afviste punkt 2 ved at pege på en
+reel, brugerspecifik funktion i stedet for at antage én fælles feed.
+
+---
+
 ## Kvalitetsgate
 
 Hvis punkt 2 (UI-genvej) implementeres: `npm run lint`, `npm run build`,
