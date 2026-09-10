@@ -1,6 +1,8 @@
 # 43_Sprint43_Kiosk_Dashboard_Plan
 
-> Status: Forslag — afventer godkendelse af scope/rækkefølge
+> Status: Implementeret (PR #204). Session-levetid bekræftet af Nicolaj
+> (2026-09-10): den eksisterende 30-dages session er fin til kiosk-brug —
+> ingen ændring nødvendig.
 
 Version: 1.0
 

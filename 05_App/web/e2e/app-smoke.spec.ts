@@ -2903,3 +2903,617 @@ test("a genuine server error while online shows a visible error message instead 
   await expect(page.getByText("Mælk", { exact: true })).not.toBeVisible();
   await expect(addItemInput).toBeEditable();
 });
+
+test("a family member can plan a week's dishes and generate a deduplicated shopping draft", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  await mockAuthenticatedApi(page);
+
+  const lists = [
+    {
+      id: "list-groceries",
+      familyId: family.id,
+      name: "Dagligvarer",
+      type: "dagligvarer",
+      createdAt: "2026-08-20T00:00:00.000Z",
+    },
+  ];
+  const dishesByDate: Record<string, string> = {};
+  const addedItemNames: string[] = [];
+
+  await page.route("**/api/families/*/shopping-lists", async (route) => {
+    if (route.request().method() !== "GET") {
+      await route.fallback();
+      return;
+    }
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ lists }) });
+  });
+
+  await page.route("**/api/families/*/shopping-lists/*/items", async (route) => {
+    const method = route.request().method();
+
+    if (method === "GET") {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ items: [] }) });
+      return;
+    }
+
+    if (method === "POST") {
+      const posted = route.request().postDataJSON() as { name: string };
+      addedItemNames.push(posted.name);
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ items: [] }) });
+      return;
+    }
+
+    await route.fallback();
+  });
+
+  function entriesInRange(startDate: string, endDate: string): { date: string; dishName: string }[] {
+    return Object.entries(dishesByDate)
+      .filter(([date]) => date >= startDate && date <= endDate)
+      .map(([date, dishName]) => ({ date, dishName }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+  }
+
+  // Ét enkelt glob-jokertegn ("*") krydser ikke "/" i Playwrights
+  // mønster-matching — et trailing "**" er derfor nødvendigt her for at
+  // ramme både GET .../meal-plan?startDate=... (query-streng, intet ekstra
+  // sti-segment), PUT .../meal-plan/2026-09-07 og POST
+  // .../meal-plan/generate-ingredients-draft?... (begge med et ekstra
+  // sti-segment) i samme registrering.
+  await page.route("**/api/families/*/meal-plan**", async (route) => {
+    const url = new URL(route.request().url());
+    const segments = url.pathname.split("/");
+    const method = route.request().method();
+    const lastSegment = segments[segments.length - 1];
+
+    if (lastSegment === "meal-plan" && method === "GET") {
+      const startDate = url.searchParams.get("startDate")!;
+      const endDate = url.searchParams.get("endDate")!;
+
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ entries: entriesInRange(startDate, endDate) }),
+      });
+      return;
+    }
+
+    if (lastSegment === "generate-ingredients-draft" && method === "POST") {
+      // To retter (Spaghetti bolognese, Løgsuppe), begge bruger "Løg" —
+      // beviser at serveren de-duplikerer på tværs af retter, ikke kun at
+      // klienten viser, hvad den fik.
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          items: [
+            { name: "Hakket oksekød", category: "Kød" },
+            { name: "Løg", category: "Frugt & grønt" },
+            { name: "Bouillon", category: "Andet" },
+          ],
+        }),
+      });
+      return;
+    }
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(lastSegment ?? "") && method === "PUT") {
+      const date = lastSegment!;
+      const posted = route.request().postDataJSON() as { dishName: string };
+
+      if (posted.dishName.trim()) {
+        dishesByDate[date] = posted.dishName.trim();
+      } else {
+        delete dishesByDate[date];
+      }
+
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ entries: [{ date, dishName: dishesByDate[date] ?? "" }].filter((e) => e.dishName) }),
+      });
+      return;
+    }
+
+    await route.fallback();
+  });
+
+  await page.goto("/meal-plan");
+
+  await expect(page.getByRole("heading", { name: "Måltidsplan" })).toBeVisible();
+
+  const dishInputs = page.getByPlaceholder("Ingen ret planlagt");
+  await expect(dishInputs.first()).toBeVisible();
+
+  const firstSaved = page.waitForResponse(
+    (response) => /\/meal-plan\/\d{4}-\d{2}-\d{2}$/.test(response.url()) && response.request().method() === "PUT",
+  );
+  await dishInputs.nth(0).fill("Spaghetti bolognese");
+  await dishInputs.nth(0).blur();
+  await firstSaved;
+
+  const secondSaved = page.waitForResponse(
+    (response) => /\/meal-plan\/\d{4}-\d{2}-\d{2}$/.test(response.url()) && response.request().method() === "PUT",
+  );
+  await dishInputs.nth(1).fill("Løgsuppe");
+  await dishInputs.nth(1).blur();
+  await secondSaved;
+
+  // Retten er reelt gemt, ikke kun vist lokalt — en genindlæsning viser den
+  // stadig.
+  await page.reload();
+  await expect(page.getByPlaceholder("Ingen ret planlagt").first()).toHaveValue("Spaghetti bolognese");
+
+  await page.getByRole("button", { name: "Foreslå indkøb" }).click();
+  await page.getByRole("button", { name: "Generér forslag" }).click();
+
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByText("Hakket oksekød")).toBeVisible();
+  await expect(dialog.getByText("Løg", { exact: true })).toBeVisible();
+  await expect(dialog.getByText("Bouillon")).toBeVisible();
+
+  await dialog.getByRole("button", { name: "Tilføj valgte" }).click();
+
+  await expect(dialog).not.toBeVisible();
+  expect(addedItemNames.sort()).toEqual(["Bouillon", "Hakket oksekød", "Løg"].sort());
+});
+
+test("completing a rewarded task books an allowance, and unchecking it reverses the booking", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  await mockAuthenticatedApi(page);
+
+  let tasksList: Array<Record<string, unknown>> = [];
+  let ledgerAmount = 0;
+
+  await page.route("**/api/families/*/tasks", async (route) => {
+    const method = route.request().method();
+
+    if (method === "GET") {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ tasks: tasksList }) });
+      return;
+    }
+
+    if (method === "POST") {
+      const posted = route.request().postDataJSON() as {
+        name: string;
+        icon: string;
+        assignedMemberId?: string | null;
+        rewardAmount?: number;
+      };
+      tasksList = [
+        ...tasksList,
+        {
+          id: "task-1",
+          familyId: family.id,
+          name: posted.name,
+          icon: posted.icon,
+          assignedMemberId: posted.assignedMemberId ?? null,
+          timeOfDay: null,
+          isDone: 0,
+          routineItemId: null,
+          taskDate: new Date().toISOString().slice(0, 10),
+          createdByUserId: "user-e2e",
+          createdAt: new Date().toISOString(),
+          doneAt: null,
+          rewardAmount: posted.rewardAmount ?? 0,
+        },
+      ];
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ tasks: tasksList }) });
+      return;
+    }
+
+    await route.fallback();
+  });
+
+  await page.route("**/api/families/*/tasks/*", async (route) => {
+    const url = new URL(route.request().url());
+    const taskId = url.pathname.split("/")[5];
+    const method = route.request().method();
+
+    if (method === "PATCH") {
+      const patched = route.request().postDataJSON() as { isDone?: boolean };
+      const task = tasksList.find((existing) => existing.id === taskId);
+
+      // Efterligner server-sidens bogføring/fortryd, som sker sammen med
+      // selve isDone-skiftet (se tasksCrud.ts) — ikke et separat kald.
+      if (patched.isDone !== undefined && task) {
+        const reward = Number(task.rewardAmount ?? 0);
+        ledgerAmount = patched.isDone ? ledgerAmount + reward : Math.max(0, ledgerAmount - reward);
+      }
+
+      tasksList = tasksList.map((existing) => (existing.id === taskId ? { ...existing, ...patched } : existing));
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ tasks: tasksList }) });
+      return;
+    }
+
+    await route.fallback();
+  });
+
+  await page.route("**/api/families/*/allowance-balances", async (route) => {
+    const balances = ledgerAmount > 0 ? [{ familyMemberId: "member-billie", balanceAmount: ledgerAmount }] : [];
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ balances }) });
+  });
+
+  await page.goto("/tasks");
+
+  // "Min dag" (standardfanen) viser kun egne og familie-rettede opgaver —
+  // en opgave tildelt Billie (ikke den loggede bruger) kræver "Familien"-
+  // fanen, samme som en rigtig bruger ville opleve det.
+  await page.getByRole("tab", { name: "Familien" }).click();
+
+  await page.getByLabel("Opgave", { exact: true }).fill("Fold vasketøj");
+  await page.getByRole("combobox", { name: "Tildel til" }).click();
+  await page.getByRole("option", { name: "Billie" }).click();
+  await page.getByLabel("Belønning (kr.)").fill("10");
+  await page.getByRole("button", { name: "Tilføj" }).click();
+  await expect(page.getByText("Fold vasketøj", { exact: true })).toBeVisible();
+
+  // Ingen saldo-chip endnu — opgaven er ikke fuldført.
+  await expect(page.getByText("Billie: 10 kr.")).not.toBeVisible();
+
+  await page.getByRole("checkbox").click();
+  await expect(page.getByText("Billie: 10 kr.")).toBeVisible();
+
+  await page.getByRole("checkbox").click();
+  await expect(page.getByText("Billie: 10 kr.")).not.toBeVisible();
+});
+
+// Sprint 40: fødselsdag pr. medlem (MM-DD) og en tilhørende gaveplan-liste.
+// Dækker både at fødselsdagen rent faktisk gemmes (overlever genindlæsning)
+// og ADR-020-privatlivsreglen på klientniveau: en gaveplan oprettet til
+// Billie skal kunne ses og redigeres, uafhængigt af hvem der er logget ind
+// som — den egentlige skjul-for-modtageren-logik ligger server-side og er
+// dækket af families.test.ts, men UI'en skal i det mindste vise, hvad
+// serveren returnerer, uden selv at filtrere forkert.
+test("a family member can set a birthday and collect gift ideas in Settings", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  await mockAuthenticatedApi(page);
+
+  let members: Array<Record<string, unknown>> = [
+    { id: "member-e2e", name: "Alex", color: "#2F6B4F", relation: "Andet", isPlaceholderName: 0, linkedUserId: "user-e2e", birthday: null },
+    { id: "member-chris", name: "Chris", color: "#C97653", relation: "Andet", isPlaceholderName: 0, linkedUserId: null, birthday: null },
+    { id: "member-billie", name: "Billie", color: "#D19A2A", relation: "Barn", isPlaceholderName: 0, linkedUserId: null, birthday: null },
+  ];
+  let plans: Array<Record<string, unknown>> = [];
+  let nextPlanId = 1;
+
+  await page.route("**/api/families/mine", async (route) => {
+    if (route.request().method() !== "GET") {
+      await route.fallback();
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ family, role: "owner", members, inviteCode: "TEST1234" }),
+    });
+  });
+
+  await page.route("**/api/families/*/members/*", async (route) => {
+    if (route.request().method() !== "PATCH") {
+      await route.fallback();
+      return;
+    }
+    const memberId = new URL(route.request().url()).pathname.split("/")[5];
+    const patched = route.request().postDataJSON() as { birthday?: string | null };
+    members = members.map((member) =>
+      member.id === memberId ? { ...member, birthday: patched.birthday ?? null } : member,
+    );
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ members }) });
+  });
+
+  await page.route("**/api/families/*/birthday-gift-plans", async (route) => {
+    if (route.request().method() === "GET") {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ plans }) });
+      return;
+    }
+
+    if (route.request().method() === "POST") {
+      const posted = route.request().postDataJSON() as {
+        familyMemberId: string;
+        year: number;
+        giftIdea: string;
+        budgetAmount?: number | null;
+      };
+      plans = [
+        ...plans,
+        {
+          id: `plan-${nextPlanId++}`,
+          familyId: family.id,
+          familyMemberId: posted.familyMemberId,
+          year: posted.year,
+          giftIdea: posted.giftIdea,
+          budgetAmount: posted.budgetAmount ?? null,
+          isPurchased: 0,
+          createdByUserId: "user-e2e",
+          createdAt: new Date().toISOString(),
+        },
+      ];
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ plans }) });
+      return;
+    }
+
+    await route.fallback();
+  });
+
+  await page.route("**/api/families/*/birthday-gift-plans/*", async (route) => {
+    const planId = new URL(route.request().url()).pathname.split("/")[5];
+    const method = route.request().method();
+
+    if (method === "PATCH") {
+      const patched = route.request().postDataJSON() as { isPurchased?: boolean };
+      plans = plans.map((plan) => (plan.id === planId ? { ...plan, ...patched } : plan));
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ plans }) });
+      return;
+    }
+
+    if (method === "DELETE") {
+      plans = plans.filter((plan) => plan.id !== planId);
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ plans }) });
+      return;
+    }
+
+    await route.fallback();
+  });
+
+  await page.goto("/settings");
+  await expect(page.getByText("Fødselsdage og gaver")).toBeVisible();
+
+  const billieRow = page.getByText("Billie", { exact: true }).locator("..");
+  await billieRow.getByPlaceholder("MM-DD").fill("06-15");
+  await billieRow.getByPlaceholder("MM-DD").blur();
+  await expect.poll(() => members.find((member) => member.id === "member-billie")?.birthday).toBe("06-15");
+
+  // Genindlæs siden for at bevise fødselsdagen rent faktisk blev sendt og
+  // gemt — ikke kun opdateret i lokal komponent-state.
+  await page.reload();
+  await expect(page.getByPlaceholder("MM-DD").nth(2)).toHaveValue("06-15");
+
+  await page.getByRole("button", { name: "Gaveideer til Billie" }).click();
+  const dialog = page.getByRole("dialog", { name: "Gaveideer til Billie" });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByText("Ingen gaveideer endnu.")).toBeVisible();
+
+  await dialog.getByLabel("Ny gaveide").fill("Cykelhjelm");
+  await dialog.getByLabel("Budget (kr.)").fill("300");
+  await dialog.getByRole("button", { name: "Tilføj" }).click();
+  await expect(dialog.getByText("Cykelhjelm")).toBeVisible();
+  await expect(dialog.getByText("300 kr.", { exact: false })).toBeVisible();
+
+  await dialog.getByRole("checkbox").click();
+  await expect.poll(() => plans[0]?.isPurchased).toBe(true);
+  await expect(dialog.getByRole("checkbox")).toBeChecked();
+
+  await dialog.getByRole("button", { name: "Slet Cykelhjelm" }).click();
+  await expect(dialog.getByText("Ingen gaveideer endnu.")).toBeVisible();
+
+  await dialog.getByRole("button", { name: "Luk" }).click();
+  await expect(dialog).not.toBeVisible();
+});
+
+// Sprint 41: et simpelt "hvem betalte/hvem skylder"-overblik mellem
+// forældre. Sektionen vises kun når mindst to medlemmer har en koblet
+// konto — standard-familien i mockAuthenticatedApi har kun Alex koblet,
+// så testen kobler Chris til også, for at gøre sektionen synlig.
+test("a family member can log a shared expense, see the split balance, and settle it in Settings", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  await mockAuthenticatedApi(page);
+
+  const members = [
+    { id: "member-e2e", name: "Alex", color: "#2F6B4F", relation: "Andet", isPlaceholderName: 0, linkedUserId: "user-e2e", birthday: null },
+    { id: "member-chris", name: "Chris", color: "#C97653", relation: "Andet", isPlaceholderName: 0, linkedUserId: "user-chris", birthday: null },
+    { id: "member-billie", name: "Billie", color: "#D19A2A", relation: "Barn", isPlaceholderName: 0, linkedUserId: null, birthday: null },
+  ];
+
+  let expenses: Array<Record<string, unknown>> = [];
+  let balances: Array<{ debtorMemberId: string; creditorMemberId: string; amount: number }> = [];
+  let nextExpenseId = 1;
+
+  await page.route("**/api/families/mine", async (route) => {
+    if (route.request().method() !== "GET") {
+      await route.fallback();
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ family, role: "owner", members, inviteCode: "TEST1234" }),
+    });
+  });
+
+  await page.route("**/api/families/*/shared-expenses", async (route) => {
+    if (route.request().method() === "GET") {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ expenses }) });
+      return;
+    }
+
+    if (route.request().method() === "POST") {
+      const posted = route.request().postDataJSON() as {
+        description: string;
+        amount: number;
+        paidByMemberId: string;
+        splitBetween: string[];
+        expenseDate: string;
+      };
+      expenses = [
+        ...expenses,
+        {
+          id: `expense-${nextExpenseId++}`,
+          familyId: family.id,
+          description: posted.description,
+          amount: posted.amount,
+          paidByMemberId: posted.paidByMemberId,
+          splitBetween: posted.splitBetween,
+          expenseDate: posted.expenseDate,
+          createdByUserId: "user-e2e",
+          createdAt: new Date().toISOString(),
+        },
+      ];
+
+      // Efterligner server-sidens ligelige deling (sharedExpenses.ts) —
+      // kun til visning i denne test, ikke selve produktionslogikken.
+      const other = posted.splitBetween.find((id) => id !== posted.paidByMemberId);
+      if (other) {
+        const share = Math.round(posted.amount / posted.splitBetween.length);
+        balances = [{ debtorMemberId: other, creditorMemberId: posted.paidByMemberId, amount: share }];
+      }
+
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ expenses }) });
+      return;
+    }
+
+    await route.fallback();
+  });
+
+  await page.route("**/api/families/*/shared-expense-balances", async (route) => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ balances }) });
+  });
+
+  await page.route("**/api/families/*/shared-expense-settlements", async (route) => {
+    if (route.request().method() !== "POST") {
+      await route.fallback();
+      return;
+    }
+    balances = [];
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ balances }) });
+  });
+
+  await page.goto("/settings");
+  await expect(page.getByText("Deleøkonomi")).toBeVisible();
+  await expect(page.getByText("Ingen udestående saldo.")).toBeVisible();
+
+  await page.getByLabel("Beskrivelse").fill("Fritidsaktivitet");
+  await page.getByLabel("Beløb (kr.)").fill("300");
+  await page.getByLabel("Betalt af").click();
+  await page.getByRole("option", { name: "Alex" }).click();
+  await page.getByRole("button", { name: "Tilføj udgift" }).click();
+
+  await expect(page.getByText("Fritidsaktivitet")).toBeVisible();
+  await expect(page.getByText("Chris skylder Alex 150 kr.")).toBeVisible();
+
+  await page.getByRole("button", { name: "Marker som afregnet" }).click();
+  await expect(page.getByText("Ingen udestående saldo.")).toBeVisible();
+});
+
+// Sprint 43: et skrivebeskyttet køkkenskærm-dashboard, uden for AppLayouts
+// sidemenu/navigation, men stadig bag login. Dagens aftale, opgave og
+// indkøbsvare skal alle sammen komme fra allerede eksisterende data — ingen
+// nyt backend-endpoint, kun en ny sammensætning.
+test("the kiosk dashboard shows today's agenda, tasks, and shopping list, without the app navigation", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  await mockAuthenticatedApi(page);
+
+  await page.route("**/api/calendar/status", (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ connected: true }) }),
+  );
+
+  const now = new Date();
+  const todayStart = new Date(now);
+  todayStart.setHours(15, 0, 0, 0);
+  const todayEnd = new Date(now);
+  todayEnd.setHours(16, 0, 0, 0);
+
+  await page.route("**/api/calendar/calendars/*/events*", async (route) => {
+    const calendarId = decodeURIComponent(new URL(route.request().url()).pathname.split("/")[4] ?? "");
+
+    if (calendarId !== "alex-calendar" || route.request().method() !== "GET") {
+      await route.fallback();
+      return;
+    }
+
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        items: [
+          {
+            id: "kiosk-event-1",
+            summary: "Fodboldtræning",
+            start: { dateTime: todayStart.toISOString() },
+            end: { dateTime: todayEnd.toISOString() },
+            status: "confirmed",
+          },
+        ],
+        nextSyncToken: "alex-calendar-sync-token",
+      }),
+    });
+  });
+
+  await page.route("**/api/families/*/tasks*", async (route) => {
+    if (route.request().method() !== "GET") {
+      await route.fallback();
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        tasks: [
+          {
+            id: "kiosk-task-1",
+            familyId: family.id,
+            name: "Fold vasketøj",
+            icon: "laundry",
+            assignedMemberId: "member-billie",
+            timeOfDay: null,
+            isDone: 0,
+            routineItemId: null,
+            taskDate: now.toISOString().slice(0, 10),
+            createdByUserId: "user-e2e",
+            createdAt: now.toISOString(),
+            doneAt: null,
+            rewardAmount: 0,
+          },
+        ],
+      }),
+    });
+  });
+
+  await page.route("**/api/families/*/shopping-lists", async (route) => {
+    if (route.request().method() !== "GET") {
+      await route.fallback();
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ lists: [{ id: "kiosk-list", familyId: family.id, name: "Indkøb", type: "groceries" }] }),
+    });
+  });
+
+  await page.route("**/api/families/*/shopping-lists/*/items", async (route) => {
+    if (route.request().method() !== "GET") {
+      await route.fallback();
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        items: [
+          { id: "kiosk-item-1", listId: "kiosk-list", name: "Mælk", category: "Køl", isChecked: 0, addedByUserId: "user-e2e", createdAt: now.toISOString(), checkedAt: null },
+        ],
+      }),
+    });
+  });
+
+  await page.goto("/kiosk");
+
+  await expect(page.getByText("Fodboldtræning")).toBeVisible();
+  await expect(page.getByText("Fold vasketøj")).toBeVisible();
+  await expect(page.getByText("Billie")).toBeVisible();
+  await expect(page.getByText("Mælk")).toBeVisible();
+
+  // Ingen af AppLayouts navigationselementer må være med — kiosk-siden
+  // ligger uden for den routing-gren, samme princip som /share/:token.
+  await expect(page.getByRole("navigation")).not.toBeVisible();
+  await expect(page.getByRole("button", { name: "Indstillinger" })).not.toBeVisible();
+});

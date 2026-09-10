@@ -3,6 +3,7 @@ import { Hono } from "hono";
 import type { Env } from "../env";
 import { getSessionUser } from "../lib/session";
 import { logError } from "../lib/structuredLog";
+import birthdayGiftPlans from "./familyRoutes/birthdayGiftPlans";
 import calendarMappings from "./familyRoutes/calendarMappings";
 import familyCore from "./familyRoutes/familyCore";
 import familyMembers from "./familyRoutes/familyMembers";
@@ -10,6 +11,7 @@ import familySettings from "./familyRoutes/familySettings";
 import type { Variables } from "./familyRoutes/familyQueries";
 import icsSubscriptions from "./familyRoutes/icsSubscriptions";
 import shareLinks from "./familyRoutes/shareLinks";
+import sharedExpenses from "./familyRoutes/sharedExpenses";
 
 const families = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -45,5 +47,7 @@ families.route("/", shareLinks);
 families.route("/", familySettings);
 families.route("/", calendarMappings);
 families.route("/", icsSubscriptions);
+families.route("/", birthdayGiftPlans);
+families.route("/", sharedExpenses);
 
 export default families;

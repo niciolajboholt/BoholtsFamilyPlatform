@@ -1,6 +1,7 @@
 # 42_Sprint42_Danske_Skoleferier_Plan
 
-> Status: Forslag — afventer godkendelse af scope/rækkefølge
+> Status: Research gennemført — afventer Nicolajs produktbeslutning (se
+> "Research-resultat" nedenfor). Ingen kode ændret i dette sprint.
 
 Version: 1.0
 
@@ -80,6 +81,105 @@ først, før noget kodes.
 - **Loft på 5 ICS-abonnementer pr. familie** (håndhævet i
   applikationslaget, se `0018`-migrationens kommentar) — en tilføjet
   skoleferie-feed tæller med i dette loft, ikke en undtagelse.
+
+---
+
+## Research-resultat (2026-09-09)
+
+Konklusionen fra dette punkts eget "Verificeret grundlag"-afsnit holder,
+men i den negative retning beskrevet i risikoafsnittets punkt 3: **der
+findes ikke én pålidelig, landsdækkende, offentlig ICS-feed for danske
+skoleferier.**
+
+- Skoleferier fastsættes af den enkelte kommune (98 kommuner) inden for
+  rammerne af folkeskoleloven — ikke centralt af UVM eller staten.
+- Kun sommerferiens start (sidste lørdag i juni) og efterårsferien
+  (uge 42) er reelt ensartede på tværs af landet. Vinterferie
+  (uge 7 eller 8, varierer pr. kommune), skolestart efter sommerferien
+  og øvrige fridage varierer fra kommune til kommune.
+- KL (Kommunernes Landsforening) og enkelte kommuner (fx Københavns
+  Kommune) publicerer en "vejledende ferieplan", men den er netop
+  vejledende — den enkelte kommune/skole kan afvige fra den, og der er
+  ikke fundet en ICS-feed knyttet til den vejledende plan.
+- Der findes eksempler på, at ENKELTE kommuner selv publicerer en
+  abonnerbar ICS/Google-kalenderfeed for deres egen skoleferieplan (fx
+  Aarhus Kommune). Det er præcis den risiko, plandokumentets eget
+  risikoafsnit advarer imod at bruge som en generel "dansk
+  skoleferie"-genvej: en sådan feed er kun korrekt for familier i netop
+  dén kommune, og ville vise forkerte feriedatoer for enhver anden
+  familie, der bruger appen — værre end slet ingen funktion for en
+  funktion, der handler om børns skolegang.
+
+**Derfor implementeres punkt 2 (en foruddefineret "Tilføj danske
+skoleferier"-genvejsknap) IKKE i dette sprint** — der er intet
+landsdækkende korrekt mål at pege den på. At gætte én kommunes feed som
+"standard" ville aktivt introducere forkert data for de fleste familier,
+hvilket plandokumentets eget punkt 3 udtrykkeligt beder om at undgå.
+
+**Hvad der stadig virker uden ny kode:** hvis en familie selv kender og
+har tillid til sin egen kommunes skoleferie-ICS-feed (fx fundet på
+kommunens hjemmeside, som Aarhus-eksemplet ovenfor), kan de allerede i
+dag tilføje den som en almindelig delt kalender under Indstillinger →
+Kalenderforbindelser → Delte kalendere, præcis som antaget i dette
+dokuments "Verificeret grundlag"-afsnit. Denne mulighed kræver ingen
+kodeændring og findes allerede.
+
+**Åben produktbeslutning til Nicolaj** (jf. risikoafsnittets punkt 3):
+skal appen i stedet vedligeholde sin egen, manuelt indtastede liste af
+skoleferiedatoer — enten for én bestemt kommune (Boholt-familiens egen)
+eller som et fritekst-felt familien selv udfylder — eller skal punktet
+lukkes uden yderligere kode, da den generiske ICS-import allerede dækker
+behovet for enhver familie, der selv finder sin kommunes feed? Dette er
+bevidst ikke besluttet autonomt her, da plandokumentet selv navngiver det
+som en beslutning, der kræver Nicolajs stillingtagen, ikke en rimelig
+standardantagelse.
+
+---
+
+## Opfølgende research: Aula (2026-09-10)
+
+Nicolaj bad om at undersøge, om Aula (den platform, danske
+skoler/daginstitutioner selv bruger til forældrekommunikation) kunne løse
+det, en landsdækkende feed ikke kan. Konklusion: **potentielt ja — men
+det er en per-familie/per-institution genvej, ikke en ny generel feed i
+appen**, og den kunne ikke 100 % bekræftes mod Aulas egen primærkilde
+(se forbehold nedenfor).
+
+- Aula har en indbygget, officiel kalendersynkroniseringsfunktion (ikke
+  det uofficielle, reverse-engineered `scaarup/aula`-API, som ville kræve
+  login-oplysninger i appen og ikke er en sanktioneret integration).
+  Adgang: Aulas kalendermodul → "Kalendersynkronisering" (de tre prikker
+  øverst til højre) → vælg institution → vælg hvilke hændelsestyper der
+  skal med (mødes/begivenheder, ferie/fri, fødselsdage m.fl.) → "Opret
+  kalenderlink". Der oprettes to links (års- og ugekalender), som begge
+  skal tilføjes.
+- Da lukkedage kræver forældre-tilmelding til alternativ pasning, er det
+  sandsynligt (flere uafhængige kilder — en kommunal vejledning, en
+  undervisnings-blog, Aulas egne hjælpesider — er enige om
+  mekanismen), at institutionens lukkedage indgår i "ferie/fri"-
+  kategorien, som netop kan vælges til synkronisering. Dette kunne dog
+  IKKE bekræftes ord-for-ord mod Aulas egen hjælpeside eller en officiel
+  PDF-vejledning — adgangen til `aulainfo.dk`, `aarhus.dk` og et par
+  andre kilder var spærret af dette miljøs netværksproxy under research,
+  så konklusionen hviler på konsistente tredjepartsbeskrivelser, ikke en
+  primærkilde-verifikation. **Bør bekræftes i praksis af en forælder med
+  et rigtigt Aula-login, før det anbefales videre.**
+- Fordelen frem for en national/kommunal feed: dette er PR-ÆKIST rigtigt
+  for netop den institution, barnet faktisk går på — ikke et gæt på
+  kommune-niveau. Det er præcis den type "familien kender og har tillid
+  til sin egen feed"-scenarie, som "Hvad der stadig virker uden ny kode"-
+  afsnittet ovenfor allerede forudsatte ville dække behovet uden
+  kodeændring.
+- Praktisk detalje: to links pr. institution tæller som to af appens
+  loft på fem ICS-abonnementer pr. familie — værd at nævne, hvis en
+  familie har børn i flere institutioner.
+
+**Foreslået lille tilføjelse (afventer Nicolajs godkendelse, ikke
+implementeret endnu):** et par linjers hjælpetekst i
+`IcsSubscriptionsDialog.tsx` ("Bruger I Aula? ..." med de fire trin
+ovenfor) — ren dokumentation i UI'et, ingen ny mekanisme, ingen gættet
+URL. Adskiller sig fra det tidligere afviste punkt 2 ved at pege på en
+reel, brugerspecifik funktion i stedet for at antage én fælles feed.
 
 ---
 

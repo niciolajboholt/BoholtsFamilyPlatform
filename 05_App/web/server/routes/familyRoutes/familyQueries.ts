@@ -40,6 +40,7 @@ export interface FamilyMemberRow {
   isPlaceholderName: number;
   linkedUserId: string | null;
   linkedUserEmail: string | null;
+  birthday: string | null;
 }
 
 // LEFT JOIN (ikke JOIN): et medlem uden koblet konto (fx et barn) skal
@@ -53,7 +54,8 @@ export async function listFamilyMembers(db: D1Database, familyId: string): Promi
               family_members.relation AS relation,
               family_members.is_placeholder_name AS isPlaceholderName,
               family_members.linked_user_id AS linkedUserId,
-              users.email AS linkedUserEmail
+              users.email AS linkedUserEmail,
+              family_members.birthday AS birthday
        FROM family_members
        LEFT JOIN users ON users.id = family_members.linked_user_id
        WHERE family_members.family_id = ? ORDER BY family_members.created_at ASC`,

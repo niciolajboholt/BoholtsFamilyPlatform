@@ -10,6 +10,9 @@ export interface FamilyMemberDto {
   isPlaceholderName: number;
   linkedUserId: string | null;
   linkedUserEmail: string | null;
+  // Sprint 40: "MM-DD", bevidst uden år (se
+  // 40_Sprint40_Foedselsdag_Gaveplanlaegning_Plan.md).
+  birthday: string | null;
 }
 
 export interface FamilyDto {
@@ -89,7 +92,7 @@ export function addFamilyMember(
 export function updateFamilyMember(
   familyId: string,
   memberId: string,
-  patch: { name?: string; color?: string; relation?: string | null },
+  patch: { name?: string; color?: string; relation?: string | null; birthday?: string | null },
 ) {
   return request<{ members?: FamilyMemberDto[]; error?: string }>(
     `/api/families/${familyId}/members/${memberId}`,
@@ -397,5 +400,112 @@ export function getIcsSubscriptionEvents(
     : "";
   return request<{ events?: IcsCalendarEventDto[]; error?: string }>(
     `/api/families/${familyId}/ics-subscriptions/${subscriptionId}/events${query}`,
+  );
+}
+
+// Sprint 40: en gaveplan for medlem X skjules server-side for X selv, hvis
+// X har en koblet konto (ADR-020) — svaret her viser derfor aldrig
+// brugerens egne planer, uanset hvem der spørger.
+export interface BirthdayGiftPlanDto {
+  id: string;
+  familyId: string;
+  familyMemberId: string;
+  year: number;
+  giftIdea: string;
+  budgetAmount: number | null;
+  isPurchased: number;
+  createdByUserId: string;
+  createdAt: string;
+}
+
+export function getBirthdayGiftPlans(familyId: string) {
+  return request<{ plans?: BirthdayGiftPlanDto[]; error?: string }>(
+    `/api/families/${familyId}/birthday-gift-plans`,
+  );
+}
+
+export function createBirthdayGiftPlan(
+  familyId: string,
+  plan: { familyMemberId: string; year: number; giftIdea: string; budgetAmount?: number | null },
+) {
+  return request<{ plans?: BirthdayGiftPlanDto[]; error?: string }>(
+    `/api/families/${familyId}/birthday-gift-plans`,
+    { method: "POST", body: JSON.stringify(plan) },
+  );
+}
+
+export function updateBirthdayGiftPlan(
+  familyId: string,
+  planId: string,
+  patch: { giftIdea?: string; budgetAmount?: number | null; isPurchased?: boolean },
+) {
+  return request<{ plans?: BirthdayGiftPlanDto[]; error?: string }>(
+    `/api/families/${familyId}/birthday-gift-plans/${planId}`,
+    { method: "PATCH", body: JSON.stringify(patch) },
+  );
+}
+
+export function deleteBirthdayGiftPlan(familyId: string, planId: string) {
+  return request<{ plans?: BirthdayGiftPlanDto[]; error?: string }>(
+    `/api/families/${familyId}/birthday-gift-plans/${planId}`,
+    { method: "DELETE" },
+  );
+}
+
+// Sprint 41: et simpelt "hvem betalte/hvem skylder"-overblik mellem
+// forældre, ikke fuld bogføring — se
+// 41_Sprint41_Deleoekonomi_Foraeldre_Plan.md. Kun medlemmer med en
+// tilknyttet konto (linkedUserId) kan betale/deltage.
+export interface SharedExpenseDto {
+  id: string;
+  familyId: string;
+  description: string;
+  amount: number;
+  paidByMemberId: string;
+  splitBetween: string[];
+  expenseDate: string;
+  createdByUserId: string;
+  createdAt: string;
+}
+
+export interface SharedExpenseBalanceDto {
+  debtorMemberId: string;
+  creditorMemberId: string;
+  amount: number;
+}
+
+export function getSharedExpenses(familyId: string) {
+  return request<{ expenses?: SharedExpenseDto[]; error?: string }>(
+    `/api/families/${familyId}/shared-expenses`,
+  );
+}
+
+export function getSharedExpenseBalances(familyId: string) {
+  return request<{ balances?: SharedExpenseBalanceDto[]; error?: string }>(
+    `/api/families/${familyId}/shared-expense-balances`,
+  );
+}
+
+export function createSharedExpense(
+  familyId: string,
+  expense: { description: string; amount: number; paidByMemberId: string; splitBetween: string[]; expenseDate: string },
+) {
+  return request<{ expenses?: SharedExpenseDto[]; error?: string }>(
+    `/api/families/${familyId}/shared-expenses`,
+    { method: "POST", body: JSON.stringify(expense) },
+  );
+}
+
+export function deleteSharedExpense(familyId: string, expenseId: string) {
+  return request<{ expenses?: SharedExpenseDto[]; error?: string }>(
+    `/api/families/${familyId}/shared-expenses/${expenseId}`,
+    { method: "DELETE" },
+  );
+}
+
+export function settleSharedExpenseBalance(familyId: string, memberIdA: string, memberIdB: string) {
+  return request<{ balances?: SharedExpenseBalanceDto[]; error?: string }>(
+    `/api/families/${familyId}/shared-expense-settlements`,
+    { method: "POST", body: JSON.stringify({ memberIdA, memberIdB }) },
   );
 }

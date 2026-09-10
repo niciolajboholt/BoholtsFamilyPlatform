@@ -58,6 +58,7 @@ function TasksPage() {
     members,
     tasks,
     routines,
+    balances,
     addNewTask,
     toggleDone,
     renameTask,
@@ -76,6 +77,7 @@ function TasksPage() {
   const [newTaskIcon, setNewTaskIcon] = useState<TaskIconKey>("fritid");
   const [newTaskAssignee, setNewTaskAssignee] = useState<string>("");
   const [newTaskTime, setNewTaskTime] = useState<string>("");
+  const [newTaskReward, setNewTaskReward] = useState<string>("");
   const [iconMenuAnchor, setIconMenuAnchor] = useState<HTMLElement | null>(null);
   const [isRoutineDialogOpen, setIsRoutineDialogOpen] = useState(false);
 
@@ -96,9 +98,16 @@ function TasksPage() {
       return;
     }
 
-    addNewTask(newTaskName, newTaskIcon, newTaskAssignee || null, newTaskTime || null);
+    // En belønning uden en tildelt person giver ikke mening (se
+    // 39_Sprint39-planen, beslutning 1) — parses derfor kun, når et
+    // familiemedlem rent faktisk er valgt, i stedet for at sende et
+    // serverafvist beløb.
+    const rewardAmount = newTaskAssignee && newTaskReward.trim() ? Number(newTaskReward) : undefined;
+
+    addNewTask(newTaskName, newTaskIcon, newTaskAssignee || null, newTaskTime || null, rewardAmount);
     setNewTaskName("");
     setNewTaskTime("");
+    setNewTaskReward("");
   }
 
   function memberName(memberId: string | null): string | null {
@@ -118,6 +127,19 @@ function TasksPage() {
           Engangsopgaver og faste rutiner for familien.
         </Typography>
       </Box>
+
+      {balances.length > 0 && (
+        <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mb: 2 }}>
+          {balances.map((balance) => (
+            <Chip
+              key={balance.familyMemberId}
+              label={`${memberName(balance.familyMemberId) ?? "Ukendt"}: ${balance.balanceAmount} kr.`}
+              color="secondary"
+              variant="outlined"
+            />
+          ))}
+        </Box>
+      )}
 
       <Tabs value={viewMode} onChange={(_event, value: ViewMode) => setViewMode(value)} sx={{ mb: 2 }}>
         <Tab value="mine" label="Min dag" />
@@ -183,6 +205,18 @@ function TasksPage() {
               onChange={setNewTaskTime}
               sx={{ minWidth: 130 }}
             />
+
+            {newTaskAssignee && (
+              <TextField
+                size="small"
+                type="number"
+                label="Belønning (kr.)"
+                slotProps={{ htmlInput: { min: 0, step: 1 } }}
+                value={newTaskReward}
+                onChange={(event) => setNewTaskReward(event.target.value)}
+                sx={{ width: 130 }}
+              />
+            )}
 
             <Button type="submit" variant="contained" disabled={!newTaskName.trim()}>
               Tilføj

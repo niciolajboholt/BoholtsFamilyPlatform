@@ -14,6 +14,7 @@ export interface TaskDto {
   createdByUserId: string;
   createdAt: string;
   doneAt: string | null;
+  rewardAmount: number;
 }
 
 export interface TaskRoutineItemDto {
@@ -70,6 +71,7 @@ export function addTask(
     date: string;
     assignedMemberId?: string | null;
     timeOfDay?: string | null;
+    rewardAmount?: number;
   },
 ) {
   return request<{ tasks?: TaskDto[]; error?: string }>(`/api/families/${familyId}/tasks`, {
@@ -100,6 +102,17 @@ export function clearDoneTasks(familyId: string, date: string) {
   return request<{ tasks?: TaskDto[]; error?: string }>(
     `/api/families/${familyId}/tasks/clear-done?date=${encodeURIComponent(date)}`,
     { method: "POST" },
+  );
+}
+
+export interface AllowanceBalanceDto {
+  familyMemberId: string;
+  balanceAmount: number;
+}
+
+export function getAllowanceBalances(familyId: string) {
+  return request<{ balances?: AllowanceBalanceDto[]; error?: string }>(
+    `/api/families/${familyId}/allowance-balances`,
   );
 }
 
