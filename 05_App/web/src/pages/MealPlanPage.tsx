@@ -3,10 +3,12 @@ import { useEffect, useState } from "react";
 import { ChevronLeftRounded, ChevronRightRounded, RestaurantMenuRounded, TodayRounded } from "@mui/icons-material";
 import { Box, Button, CircularProgress, IconButton, Typography } from "@mui/material";
 
+import { FeatureDisabledNotice } from "../components/FeatureDisabledNotice";
 import { GenerateShoppingDraftDialog } from "../features/mealPlan/components/GenerateShoppingDraftDialog";
 import { MealPlanWeekGrid } from "../features/mealPlan/components/MealPlanWeekGrid";
 import { useMealPlan } from "../features/mealPlan/hooks/useMealPlan";
 import { useFamilyId } from "../features/calendar/hooks/useFamilyId";
+import { useEnabledFeatures } from "../features/family/hooks/useEnabledFeatures";
 import { addShoppingListItem, getShoppingLists, type ShoppingListDto } from "../features/shoppingList/shoppingListApi";
 
 function MealPlanPage() {
@@ -56,6 +58,12 @@ function MealPlanPage() {
     const formatter = new Intl.DateTimeFormat("da-DK", { day: "numeric", month: "short" });
     return `${formatter.format(weekStart)} – ${formatter.format(end)}`;
   })();
+
+  const { isEnabled, isLoading: isFeatureLoading } = useEnabledFeatures();
+
+  if (!isFeatureLoading && !isEnabled("meal-plan")) {
+    return <FeatureDisabledNotice />;
+  }
 
   return (
     <Box sx={{ maxWidth: 700, mx: "auto", pb: 4 }}>

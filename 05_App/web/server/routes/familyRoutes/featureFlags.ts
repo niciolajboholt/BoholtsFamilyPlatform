@@ -16,6 +16,9 @@ import { parseJsonBody, type Variables } from "./familyQueries";
 const featureFlags = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 export const knownFeatureKeys = [
+  "shopping-list",
+  "tasks",
+  "routines",
   "meal-plan",
   "task-rewards",
   "birthdays",

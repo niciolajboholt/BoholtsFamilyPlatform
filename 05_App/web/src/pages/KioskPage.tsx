@@ -7,6 +7,7 @@ import {
 } from "@mui/icons-material";
 import { Avatar, Box, CircularProgress, Divider, Typography } from "@mui/material";
 
+import { FeatureDisabledNotice } from "../components/FeatureDisabledNotice";
 import { useSession } from "../features/auth/hooks/useSession";
 import { useCalendarEvents } from "../features/calendar/hooks/useCalendarEvents";
 import { useCalendarSources } from "../features/calendar/hooks/useCalendarSources";
@@ -17,6 +18,7 @@ import { getEventsForDate } from "../features/calendar/utils/getEventsForDate";
 import { redactCalendarEventForViewer } from "../features/calendar/utils/redactCalendarEventForViewer";
 import type { FamilyMemberDto } from "../features/family/familyApi";
 import { getMyFamily } from "../features/family/familyApi";
+import { useEnabledFeatures } from "../features/family/hooks/useEnabledFeatures";
 import { useShoppingList } from "../features/shoppingList/hooks/useShoppingList";
 import { useTasks } from "../features/tasks/hooks/useTasks";
 import LoginPage from "./LoginPage";
@@ -196,6 +198,7 @@ function KioskContent() {
 
 function KioskPage() {
   const { user, isLoading } = useSession();
+  const { isEnabled, isLoading: isFeatureLoading } = useEnabledFeatures();
   const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
@@ -203,7 +206,7 @@ function KioskPage() {
     return () => window.clearInterval(intervalId);
   }, []);
 
-  if (isLoading) {
+  if (isLoading || isFeatureLoading) {
     return (
       <Box sx={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
         <CircularProgress />
@@ -216,6 +219,14 @@ function KioskPage() {
   // plandokumentets kendte risici om session-levetid.
   if (!user) {
     return <LoginPage />;
+  }
+
+  if (!isEnabled("kiosk")) {
+    return (
+      <Box sx={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <FeatureDisabledNotice />
+      </Box>
+    );
   }
 
   return (

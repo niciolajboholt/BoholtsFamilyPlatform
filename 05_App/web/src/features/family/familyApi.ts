@@ -509,3 +509,33 @@ export function settleSharedExpenseBalance(familyId: string, memberIdA: string, 
     { method: "POST", body: JSON.stringify({ memberIdA, memberIdB }) },
   );
 }
+
+// "Flere funktioner" (Indstillinger → Hjælp og feedback): en familie kan
+// selv slå disse dele af appen til/fra, alt starter slået fra. Nøglelisten
+// er en duplikering af server/routes/familyRoutes/featureFlags.ts's
+// allow-list — samme duplikeringskonvention som resten af projektet.
+export const featureKeys = [
+  "shopping-list",
+  "tasks",
+  "routines",
+  "meal-plan",
+  "task-rewards",
+  "birthdays",
+  "shared-expenses",
+  "kiosk",
+] as const;
+
+export type FeatureKey = (typeof featureKeys)[number];
+
+export function getEnabledFeatures(familyId: string) {
+  return request<{ features?: FeatureKey[]; error?: string }>(
+    `/api/families/${familyId}/enabled-features`,
+  );
+}
+
+export function setFeatureEnabled(familyId: string, featureKey: FeatureKey, enabled: boolean) {
+  return request<{ features?: FeatureKey[]; error?: string }>(
+    `/api/families/${familyId}/enabled-features/${featureKey}`,
+    { method: "PUT", body: JSON.stringify({ enabled }) },
+  );
+}

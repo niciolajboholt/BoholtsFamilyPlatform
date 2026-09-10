@@ -6,6 +6,7 @@ import { Avatar, Box, Card, CardContent, Divider, IconButton, TextField, Typogra
 import { getInitials } from "../../calendar/utils/getInitials";
 import type { FamilyMemberDto } from "../../family/familyApi";
 import { getMyFamily, updateFamilyMember } from "../../family/familyApi";
+import { useEnabledFeatures } from "../../family/hooks/useEnabledFeatures";
 import { BirthdayGiftPlansDialog } from "./BirthdayGiftPlansDialog";
 import { SettingsSectionHeader } from "./SettingsPrimitives";
 
@@ -81,6 +82,7 @@ export function BirthdaysSection() {
   const [familyId, setFamilyId] = useState<string | null>(null);
   const [members, setMembers] = useState<FamilyMemberDto[]>([]);
   const [giftPlansMember, setGiftPlansMember] = useState<FamilyMemberDto | null>(null);
+  const { isEnabled } = useEnabledFeatures();
 
   useEffect(() => {
     let isCancelled = false;
@@ -105,7 +107,7 @@ export function BirthdaysSection() {
     );
   }
 
-  if (!familyId || members.length === 0) {
+  if (!familyId || members.length === 0 || !isEnabled("birthdays")) {
     return null;
   }
 

@@ -8,6 +8,7 @@ import calendarMappings from "./familyRoutes/calendarMappings";
 import familyCore from "./familyRoutes/familyCore";
 import familyMembers from "./familyRoutes/familyMembers";
 import familySettings from "./familyRoutes/familySettings";
+import featureFlags from "./familyRoutes/featureFlags";
 import type { Variables } from "./familyRoutes/familyQueries";
 import icsSubscriptions from "./familyRoutes/icsSubscriptions";
 import shareLinks from "./familyRoutes/shareLinks";
@@ -49,5 +50,6 @@ families.route("/", calendarMappings);
 families.route("/", icsSubscriptions);
 families.route("/", birthdayGiftPlans);
 families.route("/", sharedExpenses);
+families.route("/", featureFlags);
 
 export default families;

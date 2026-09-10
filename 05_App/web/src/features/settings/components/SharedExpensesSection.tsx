@@ -26,6 +26,7 @@ import {
   getSharedExpenses,
   settleSharedExpenseBalance,
 } from "../../family/familyApi";
+import { useEnabledFeatures } from "../../family/hooks/useEnabledFeatures";
 import { SettingsSectionHeader } from "./SettingsPrimitives";
 
 function todayIso(): string {
@@ -50,6 +51,7 @@ export function SharedExpensesSection() {
   const [paidByMemberId, setPaidByMemberId] = useState("");
   const [splitBetween, setSplitBetween] = useState<string[]>([]);
   const [expenseDate, setExpenseDate] = useState(todayIso());
+  const { isEnabled } = useEnabledFeatures();
 
   useEffect(() => {
     let isCancelled = false;
@@ -160,7 +162,7 @@ export function SharedExpensesSection() {
     });
   }
 
-  if (!familyId || linkedMembers.length < 2) {
+  if (!familyId || linkedMembers.length < 2 || !isEnabled("shared-expenses")) {
     return null;
   }
 

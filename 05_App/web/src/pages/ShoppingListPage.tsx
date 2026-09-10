@@ -1,5 +1,7 @@
 import { Alert, Box, Button, Card, CardContent, TextField, Typography } from "@mui/material";
 
+import { FeatureDisabledNotice } from "../components/FeatureDisabledNotice";
+import { useEnabledFeatures } from "../features/family/hooks/useEnabledFeatures";
 import { CreateListDialog } from "../features/shoppingList/components/CreateListDialog";
 import { EditListDialog } from "../features/shoppingList/components/EditListDialog";
 import { ShoppingListItems } from "../features/shoppingList/components/ShoppingListItems";
@@ -67,6 +69,12 @@ function ShoppingListPage() {
   } = controller;
 
   const isFlatList = selectedList?.type === "andet";
+
+  const { isEnabled, isLoading: isFeatureLoading } = useEnabledFeatures();
+
+  if (!isFeatureLoading && !isEnabled("shopping-list")) {
+    return <FeatureDisabledNotice />;
+  }
 
   return (
     <Box sx={{ maxWidth: 900, mx: "auto", pb: 4 }}>
