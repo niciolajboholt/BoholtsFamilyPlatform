@@ -2150,4 +2150,117 @@ describe("families routes", () => {
       expect(response.status).toBe(404);
     });
   });
+
+  describe("enabled features (Flere funktioner)", () => {
+    it("starts with no features enabled, and lets an owner enable and disable one", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader);
+
+      const initialResponse = await families.request(
+        `/${created.family.id}/enabled-features`,
+        { headers: { Cookie: owner.cookieHeader } },
+        env,
+      );
+      expect(initialResponse.status).toBe(200);
+      expect((await initialResponse.json()).features).toEqual([]);
+
+      const enableResponse = await families.request(
+        `/${created.family.id}/enabled-features/meal-plan`,
+        {
+          method: "PUT",
+          headers: { Cookie: owner.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({ enabled: true }),
+        },
+        env,
+      );
+      expect(enableResponse.status).toBe(200);
+      expect((await enableResponse.json()).features).toEqual(["meal-plan"]);
+
+      // Slår den samme funktion til igen — skal ikke fejle eller duplikere
+      // (ON CONFLICT DO NOTHING).
+      const enableAgainResponse = await families.request(
+        `/${created.family.id}/enabled-features/meal-plan`,
+        {
+          method: "PUT",
+          headers: { Cookie: owner.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({ enabled: true }),
+        },
+        env,
+      );
+      expect((await enableAgainResponse.json()).features).toEqual(["meal-plan"]);
+
+      const disableResponse = await families.request(
+        `/${created.family.id}/enabled-features/meal-plan`,
+        {
+          method: "PUT",
+          headers: { Cookie: owner.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({ enabled: false }),
+        },
+        env,
+      );
+      expect((await disableResponse.json()).features).toEqual([]);
+    });
+
+    it("rejects an unknown feature key and a request from a plain member", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader);
+
+      const unknownKeyResponse = await families.request(
+        `/${created.family.id}/enabled-features/not-a-real-feature`,
+        {
+          method: "PUT",
+          headers: { Cookie: owner.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({ enabled: true }),
+        },
+        env,
+      );
+      expect(unknownKeyResponse.status).toBe(400);
+
+      const member = await seedLoggedInUser(env.DB as never, { id: "plain-member" });
+      await families.request(
+        `/invites/${created.inviteCode}/accept`,
+        { method: "POST", headers: { Cookie: member.cookieHeader } },
+        env,
+      );
+
+      const memberToggleResponse = await families.request(
+        `/${created.family.id}/enabled-features/meal-plan`,
+        {
+          method: "PUT",
+          headers: { Cookie: member.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({ enabled: true }),
+        },
+        env,
+      );
+      expect(memberToggleResponse.status).toBe(403);
+    });
+
+    it("returns 404 for a non-member's GET, and 403 for a non-member's PUT (same as the wrong-role case)", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader);
+      const outsider = await seedLoggedInUser(env.DB as never, { id: "outsider" });
+
+      const getResponse = await families.request(
+        `/${created.family.id}/enabled-features`,
+        { headers: { Cookie: outsider.cookieHeader } },
+        env,
+      );
+      expect(getResponse.status).toBe(404);
+
+      // Samme mønster som calendarMappings.ts's PUT: en ikke-medlem og et
+      // medlem med forkert rolle rammer begge det ene 403-tjek, ikke et
+      // separat 404 for ikke-medlemmer — konsistent med resten af de
+      // ejer/admin-beskyttede skriveruter.
+      const putResponse = await families.request(
+        `/${created.family.id}/enabled-features/meal-plan`,
+        {
+          method: "PUT",
+          headers: { Cookie: outsider.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({ enabled: true }),
+        },
+        env,
+      );
+      expect(putResponse.status).toBe(403);
+    });
+  });
 });

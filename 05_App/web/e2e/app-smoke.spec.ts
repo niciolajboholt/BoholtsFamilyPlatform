@@ -92,6 +92,24 @@ async function mockAuthenticatedApi(page: Page): Promise<void> {
       body = { tasks: [] };
     } else if (path.endsWith("/shopping-lists")) {
       body = { lists: [] };
+    } else if (path.endsWith("/enabled-features")) {
+      // Alt slået til som standard for de øvrige e2e-tests, der ikke selv
+      // handler om "Flere funktioner" — ellers ville hvert eneste
+      // eksisterende nav-punkt/side, der kan slås fra, forsvinde fra alle
+      // andre tests. Testen for selve dialogen (se nedenfor) overstyrer
+      // denne default med sit eget, mere kontrollerede scenarie.
+      body = {
+        features: [
+          "shopping-list",
+          "tasks",
+          "routines",
+          "meal-plan",
+          "task-rewards",
+          "birthdays",
+          "shared-expenses",
+          "kiosk",
+        ],
+      };
     } else if (path === "/api/calendar/status") {
       body = { connected: false };
     } else if (path === "/api/calendar/calendars") {
@@ -3516,4 +3534,65 @@ test("the kiosk dashboard shows today's agenda, tasks, and shopping list, withou
   // ligger uden for den routing-gren, samme princip som /share/:token.
   await expect(page.getByRole("navigation")).not.toBeVisible();
   await expect(page.getByRole("button", { name: "Indstillinger" })).not.toBeVisible();
+});
+
+// "Flere funktioner": alt starter slået fra for en familie, der endnu ikke
+// har aktiveret noget — nav-punktet forsvinder, siden viser en besked i
+// stedet for at fejle, og et owner/admin-tryk i dialogen slår funktionen
+// til med det samme.
+test("a family with nothing enabled can turn on a feature via 'Flere funktioner', and it becomes visible", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  await mockAuthenticatedApi(page);
+
+  let enabledFeatures: string[] = [];
+
+  await page.route("**/api/families/*/enabled-features", async (route) => {
+    if (route.request().method() !== "GET") {
+      await route.fallback();
+      return;
+    }
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ features: enabledFeatures }) });
+  });
+
+  await page.route("**/api/families/*/enabled-features/*", async (route) => {
+    if (route.request().method() !== "PUT") {
+      await route.fallback();
+      return;
+    }
+    const featureKey = new URL(route.request().url()).pathname.split("/")[5];
+    const posted = route.request().postDataJSON() as { enabled: boolean };
+    enabledFeatures = posted.enabled
+      ? [...new Set([...enabledFeatures, featureKey])]
+      : enabledFeatures.filter((key) => key !== featureKey);
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ features: enabledFeatures }) });
+  });
+
+  await page.goto("/settings");
+
+  // Nav-punktet for Måltider er skjult, da intet er slået til endnu.
+  await expect(page.getByRole("button", { name: "Måltider" })).not.toBeVisible();
+
+  await page.getByRole("button", { name: "Åbn", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Flere funktioner" });
+  await expect(dialog).toBeVisible();
+
+  const mealPlanSwitch = dialog.getByRole("switch", { name: "Slå Måltidsplanlægning til eller fra" });
+  await expect(mealPlanSwitch).not.toBeChecked();
+  await mealPlanSwitch.click();
+  await expect.poll(() => enabledFeatures).toEqual(["meal-plan"]);
+  await expect(mealPlanSwitch).toBeChecked();
+
+  await dialog.getByRole("button", { name: "Luk" }).click();
+  await expect(dialog).not.toBeVisible();
+
+  // Nav-punktet dukker op uden en sideindlæsning — AppLayout genbruger
+  // samme hook-instans som lige har fået det opdaterede svar.
+  await expect(page.getByRole("button", { name: "Måltider" })).toBeVisible();
+
+  // En stadig slået-fra funktion viser en besked i stedet for at fejle,
+  // hvis man navigerer direkte til den.
+  await page.goto("/tasks");
+  await expect(page.getByText("Denne funktion er ikke slået til")).toBeVisible();
 });
