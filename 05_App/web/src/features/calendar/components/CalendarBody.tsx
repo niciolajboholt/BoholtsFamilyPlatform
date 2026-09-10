@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+
 import { Alert, Box, Button, Card, CardContent, CircularProgress, Typography } from "@mui/material";
 
 import { CalendarViewSwitch } from "./CalendarViewSwitch";
@@ -31,6 +33,7 @@ type CalendarBodyProps = Pick<
   | "visibleCalendarSourceIds"
   | "showAllCalendarSources"
   | "refreshEvents"
+  | "refreshCalendarSources"
   | "eventsForSelectedDate"
 >;
 
@@ -46,11 +49,36 @@ export function CalendarBody({
   visibleEvents,
   showAllCalendarSources,
   refreshEvents,
+  refreshCalendarSources,
   eventsForSelectedDate,
   calendarView,
   ...viewSwitchProps
 }: CalendarBodyProps) {
-  if (isInitialLoading || isInitialSourceLoading) {
+  const isInitial = isInitialLoading || isInitialSourceLoading;
+
+  // En langsom/ustabil forbindelse (fx svagt mobilsignal) kan lade den
+  // indledende hentning tage lang tid — fetch() har ingen indbygget
+  // timeout, så uden dette ville "Indlæser kalender…" stå helt uden
+  // forklaring eller en måde at gøre noget ved det, indtil forbindelsen
+  // reelt kommer igennem. Rører ikke selve kaldet (det kan sagtens lykkes
+  // efter lang tid) — tilføjer kun en synlig forklaring og en manuel
+  // "Prøv igen", der starter et nyt kald.
+  const [isTakingLong, setIsTakingLong] = useState(false);
+
+  useEffect(() => {
+    // isInitial kan kun være true én gang pr. montering (hasLoadedEvents
+    // forbliver true resten af komponentens levetid, når først den er
+    // sat) — der er derfor ikke brug for at nulstille isTakingLong her,
+    // kun for at undgå at sætte den, mens der ikke er noget at vente på.
+    if (!isInitial) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => setIsTakingLong(true), 8000);
+    return () => window.clearTimeout(timeoutId);
+  }, [isInitial]);
+
+  if (isInitial) {
     return (
       <Card sx={{ mb: 2.5 }}>
         <CardContent>
@@ -67,6 +95,24 @@ export function CalendarBody({
           >
             <CircularProgress />
             <Typography>Indlæser kalender…</Typography>
+
+            {isTakingLong && (
+              <>
+                <Typography variant="body2" color="text.secondary" sx={{ textAlign: "center" }}>
+                  Dette tager længere end normalt — tjek din internetforbindelse.
+                </Typography>
+
+                <Button
+                  size="small"
+                  onClick={() => {
+                    void refreshEvents();
+                    void refreshCalendarSources();
+                  }}
+                >
+                  Prøv igen
+                </Button>
+              </>
+            )}
           </Box>
         </CardContent>
       </Card>
