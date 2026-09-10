@@ -3596,3 +3596,59 @@ test("a family with nothing enabled can turn on a feature via 'Flere funktioner'
   await page.goto("/tasks");
   await expect(page.getByText("Denne funktion er ikke slået til")).toBeVisible();
 });
+
+// Fundet ved fejlsøgning af en rigtig bruger-rapport om, at kalenderen blev
+// stående på "Indlæser kalender…" i lang tid på et svagt mobilsignal — den
+// kom til sidst igennem, men uden nogen forklaring eller mulighed for selv
+// at gøre noget undervejs. fetch() har ingen indbygget timeout, så en
+// langsom forbindelse ser identisk ud ude fra som en hængende/død en,
+// indtil den enten lykkes eller fejler helt.
+test("a slow calendar load shows an explanation and a manual retry after a while, not just an endless spinner", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  await mockAuthenticatedApi(page);
+  await page.route("**/api/calendar/status", (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ connected: true }) }),
+  );
+
+  // Siden genforsøger selv at hente aftaler nogle gange lige efter
+  // montering (bl.a. når medlems-tildelinger er blevet genindlæst) — kun
+  // den SENESTE af disse "generationer" tæller for useCalendarEvents
+  // (ældre, forældede svar ignoreres, se requestGenerationRef). Derfor skal
+  // ALLE kald være langsomme her, ikke kun det første — ellers vinder en
+  // hurtigere, senere generation kapløbet, og siden når aldrig at fremstå
+  // langsom, uanset hvor længe det første (nu forældede) kald venter.
+  let shouldDelay = true;
+
+  await page.route("**/api/calendar/calendars/*/events*", async (route) => {
+    if (route.request().method() !== "GET") {
+      await route.fallback();
+      return;
+    }
+
+    if (shouldDelay) {
+      await new Promise((resolve) => setTimeout(resolve, 12000));
+    }
+
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ items: [], nextSyncToken: "sync-token" }),
+    });
+  });
+
+  await page.goto("/calendar");
+
+  await expect(page.getByText("Indlæser kalender…")).toBeVisible();
+  await expect(page.getByText("Dette tager længere end normalt")).not.toBeVisible();
+
+  await expect(page.getByText("Dette tager længere end normalt")).toBeVisible({ timeout: 15000 });
+
+  // Herefter må nye kald gerne lykkes med det samme — "Prøv igen" skal
+  // rent faktisk virke, ikke bare gentage den samme ventetid for evigt.
+  shouldDelay = false;
+  await page.getByRole("button", { name: "Prøv igen" }).click();
+
+  await expect(page.getByText("Indlæser kalender…")).not.toBeVisible();
+});
