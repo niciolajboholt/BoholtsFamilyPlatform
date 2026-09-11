@@ -1,16 +1,18 @@
 import { useState } from "react";
 
-import { RateReviewRounded } from "@mui/icons-material";
-import { Avatar, Box, Button, Card, CardContent, Typography } from "@mui/material";
+import { RateReviewRounded, WidgetsRounded } from "@mui/icons-material";
+import { Avatar, Box, Button, Card, CardContent, Divider, Typography } from "@mui/material";
 
 import { FeedbackDialog } from "../../feedback/FeedbackDialog";
 import { FeedbackInboxCard } from "../../feedback/FeedbackInboxCard";
 import { useDeploymentVersion } from "../../system/useDeploymentVersion";
+import { FeatureFlagsDialog } from "./FeatureFlagsDialog";
 import { SettingsSectionHeader } from "./SettingsPrimitives";
 
 export function HelpFeedbackSection() {
   const deploymentVersion = useDeploymentVersion();
   const [isFeedbackDialogOpen, setIsFeedbackDialogOpen] = useState(false);
+  const [isFeatureFlagsDialogOpen, setIsFeatureFlagsDialogOpen] = useState(false);
 
   return (
     <>
@@ -18,6 +20,26 @@ export function HelpFeedbackSection() {
 
       <Card>
         <CardContent sx={{ p: 3 }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+            <Avatar sx={{ bgcolor: "text.secondary" }}>
+              <WidgetsRounded />
+            </Avatar>
+
+            <Box sx={{ flexGrow: 1 }}>
+              <Typography sx={{ fontWeight: 600 }}>Flere funktioner</Typography>
+
+              <Typography variant="body2" color="text.secondary">
+                Slå dele af appen til eller fra for hele familien
+              </Typography>
+            </Box>
+
+            <Button variant="outlined" onClick={() => setIsFeatureFlagsDialogOpen(true)}>
+              Åbn
+            </Button>
+          </Box>
+
+          <Divider sx={{ my: 2 }} />
+
           <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
             <Avatar sx={{ bgcolor: "secondary.main" }}>
               <RateReviewRounded />
@@ -47,6 +69,7 @@ export function HelpFeedbackSection() {
       )}
 
       <FeedbackDialog open={isFeedbackDialogOpen} onClose={() => setIsFeedbackDialogOpen(false)} />
+      <FeatureFlagsDialog open={isFeatureFlagsDialogOpen} onClose={() => setIsFeatureFlagsDialogOpen(false)} />
     </>
   );
 }

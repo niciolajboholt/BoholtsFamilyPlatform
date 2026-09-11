@@ -24,7 +24,10 @@ import {
 import type { CalendarEvent } from "../models/calendarEvent";
 import { isExternalCalendarEventSource } from "../models/calendarEvent";
 import type { CalendarSource } from "../models/calendarProvider";
-import { isExternalCalendarProviderType } from "../models/calendarProvider";
+import {
+  isExternalCalendarProviderType,
+  providerSupportsManualOwnerOverride,
+} from "../models/calendarProvider";
 import type { RecurrenceExceptionOverride } from "../preferences/recurrenceExceptionsStorage";
 import { useEventReminder } from "../eventReminders/useEventReminder";
 
@@ -38,7 +41,7 @@ export interface UseEditEventDialogControllerArgs {
   isSaving: boolean;
   onClose: () => void;
   onUpdate: (event: CalendarEvent) => Promise<void>;
-  onDelete: (eventId: string) => Promise<void>;
+  onDelete: (eventId: string, sourceId?: string) => Promise<void>;
   onUpdateOccurrence: (
     masterEventId: string,
     occurrenceStart: string,
@@ -104,11 +107,13 @@ export function useEditEventDialogController({
   onUpdateOccurrence,
   onDeleteOccurrence,
 }: UseEditEventDialogControllerArgs) {
-  // En udfoldet forekomst af en lokal gentagelsesrække (Sprint 16) — Google-
-  // forekomster har intet valg her, jf. planen: de redigeres/slettes altid
-  // som netop den ene Google-forekomst, uændret ift. eksisterende flow.
+  // En udfoldet forekomst af en lokal eller Google-baseret gentagelsesrække.
+  // Begge får et eksplicit valg mellem denne forekomst og hele rækken.
   const isRecurringLocalOccurrence =
     Boolean(event?.recurrenceMasterId) && event?.source === "internal";
+  const isRecurringGoogleOccurrence =
+    Boolean(event?.recurrenceMasterId) && event?.source === "google";
+  const isRecurringOccurrence = isRecurringLocalOccurrence || isRecurringGoogleOccurrence;
 
   const [editScope, setEditScope] = useState<EditScope>("occurrence");
 
@@ -119,7 +124,13 @@ export function useEditEventDialogController({
   const effectiveEvent =
     isRecurringLocalOccurrence && editScope === "series" ? masterEvent : event;
 
-  const canEditRecurrenceRule = !isRecurringLocalOccurrence || editScope === "series";
+  // En almindelig Google-aftale kan omdannes til en gentagen serie. Når
+  // Google allerede har udfoldet serien til forekomster, styrer appen kun
+  // om almindelige feltændringer gælder forekomsten eller hele rækken;
+  // selve RRULE-mønsteret ændres fortsat i Google Kalender.
+  const canEditRecurrenceRule = effectiveEvent?.source === "google"
+    ? !isRecurringGoogleOccurrence
+    : !isRecurringLocalOccurrence || editScope === "series";
 
   const initialFormState = useMemo(() => createInitialFormState(effectiveEvent), [effectiveEvent]);
 
@@ -142,6 +153,12 @@ export function useEditEventDialogController({
     ? calendarSources.find((source) => source.id === effectiveEvent.sourceId)
     : undefined;
   const isInternalEvent = eventSource?.isReadOnly === false && !effectiveEvent?.privacyRedacted;
+
+  // Sprint 36: kun Google — lader et familiemedlem uden egen konto/kalender
+  // (fx et barn) blive manuelt tilknyttet en enkelt Google-aftale, når
+  // hverken deltager- eller kalender-match kan finde vedkommende (se
+  // matchAttendeesToOwnerIds.ts).
+  const canOverrideOwners = providerSupportsManualOwnerOverride(eventSource?.providerType);
 
   // Kun Google-aftaler kan skifte kalender i dag (se
   // GoogleCalendarProvider.updateEvent — Googles "move"-handling har ingen
@@ -308,6 +325,14 @@ export function useEditEventDialogController({
 
     setSubmitError(null);
 
+    // Kun sat, når brugeren selv har rørt ejerkredsen i denne redigering —
+    // ellers ville hver eneste redigering af en Google-aftale (selv en
+    // titelrettelse) utilsigtet fastfryse det automatisk matchede ejerskab
+    // som en permanent overstyring, der siden går forud for et opdateret
+    // deltager-/kalender-match.
+    const ownerIdsChanged =
+      [...formState.ownerIds].sort().join(",") !== [...initialFormState.ownerIds].sort().join(",");
+
     const start = formState.allDay
       ? createAllDayDate(formState.startDate, false)
       : createDateTime(formState.startDate, formState.startTime);
@@ -346,6 +371,11 @@ export function useEditEventDialogController({
           recurrence: canEditRecurrenceRule
             ? recurrenceFormValueToRule(recurrence, start)
             : effectiveEvent.recurrence,
+          recurrenceEditScope: isRecurringGoogleOccurrence ? editScope : undefined,
+          recurrenceOriginalStart: isRecurringGoogleOccurrence ? event?.start : undefined,
+          recurrenceOriginalEnd: isRecurringGoogleOccurrence ? event?.end : undefined,
+          ownerIdsOverride:
+            canOverrideOwners && ownerIdsChanged ? [...formState.ownerIds] : undefined,
         };
 
         await onUpdate(updatedEvent);
@@ -373,7 +403,11 @@ export function useEditEventDialogController({
       ) {
         onDeleteOccurrence(event.recurrenceMasterId, event.recurrenceOccurrenceStart);
       } else {
-        await onDelete(effectiveEvent.id);
+        const targetEventId =
+          isRecurringGoogleOccurrence && editScope === "series" && event?.recurrenceMasterId
+            ? event.recurrenceMasterId
+            : effectiveEvent.id;
+        await onDelete(targetEventId, effectiveEvent.sourceId);
       }
 
       onClose();
@@ -384,6 +418,7 @@ export function useEditEventDialogController({
 
   return {
     isRecurringLocalOccurrence,
+    isRecurringOccurrence,
     editScope,
     setEditScope,
     effectiveEvent,
@@ -399,6 +434,7 @@ export function useEditEventDialogController({
     setIsMoreOptionsOpen,
     eventSource,
     isInternalEvent,
+    canOverrideOwners,
     canChangeCalendar,
     requestedSourceId,
     setRequestedSourceId,

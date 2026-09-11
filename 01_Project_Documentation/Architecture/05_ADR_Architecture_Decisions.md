@@ -758,3 +758,331 @@ Afvist: en JWT kan ikke tilbagekaldes før den udløber, hvilket er uforeneligt 
 * ADR-012 (lokal datamodel) — de dele der handler om lokale aftaler udfases i fase 5; storage-versionerings-princippet videreføres for de data, der forbliver lokale.
 * ADR-013 (Cloudflare Pages/Workers) — denne ADR realiserer den udvidelsesvej, ADR-013 forudså.
 * ADR-014 (Google-kalendere tildelt familiemedlemmer) — tildelingsmodellen videreføres, flytter fra `localStorage` til D1 i fase 4.
+
+# ADR-018: Det unavngivne miljø forbliver ubrugt; `env.beta` er den reelle produktion
+
+## Status
+
+Accepteret. Beslutningen blev reelt truffet med Nicolaj i Sprint 28
+(2026-08-19) og er siden fulgt i praksis (Sprint 29's plan nævner den
+allerede som "bevidst udeladt" derfra) — denne ADR formaliserer en
+eksisterende, allerede-implementeret beslutning, den introducerer ingen ny
+retning.
+
+## Kontekst
+
+`wrangler.jsonc` definerer to Cloudflare Worker-miljøer: et unavngivent
+(`name: "boholtsfamilyplatform"`, deployes uden `--env`-flag) og et
+navngivet `env.beta` (`name: "boholtsfamilyplatform-beta"`, deployes med
+`wrangler deploy --env beta`). Ved en gennemgang i Sprint 28 blev det
+bekræftet, at:
+
+* Familiens rigtige, daglige data (kalenderforbindelser, familiemedlemmer,
+  opgaver, indkøbslister) ligger i `env.beta`s D1-database
+  (`boholtsfamilyplatform-beta`), ikke i det unavngivne miljøs database
+  (`boholtsfamilyplatform`).
+* Nicolaj og Christines installerede PWA på hjemmeskærmen peger på
+  `env.beta`s URL, ikke det unavngivne miljøs.
+* Det unavngivne miljø har aldrig været i reel brug — det blev oprettet som
+  standardmiljøet, da Sprint 20 tilføjede backend'en, men selve
+  brugsmønsteret (login, PWA-installation, daglig brug) opstod på `beta`
+  under den efterfølgende udvikling og er aldrig flyttet.
+* Cloudflares Free-plan har en konto-bred grænse på 5 cron-triggers, på
+  tværs af alle Workers/miljøer. `env.beta` bruger allerede 3 (sessions-
+  oprydning, opgave-påmindelser, ugentligt AI-resumé). Det unavngivne miljø
+  har derfor bevidst `triggers.crons: []` — at give det egne cron-jobs ville
+  kræve at nedskalere `beta`s, som er dem, der reelt betjener familien.
+
+Et forsøg på at omdøbe det unavngivne miljø (2026-08-23, for en kortere
+URL) blev rullet tilbage: Cloudflare Workers Builds (Git-integrationen) er
+bundet til den eksisterende Worker-**ressource**, ikke til `name`-feltet i
+`wrangler.jsonc` — et ændret navn opretter ikke en ny Worker og
+omdirigerer intet ved deploy, det bliver bare ignoreret. En reel
+omlægning af, hvilket miljø der er "den rigtige app", kræver en helt ny
+Worker-ressource (egen Git-tilkobling, egne bindinger, og en engangs
+data-migrering af familiens data fra `beta`s D1-database) — vurderet som
+markant mere arbejde end en kosmetisk navngivningsforvirring er værd.
+
+## Beslutning
+
+Miljøstrukturen **forbliver som den er**:
+
+1. `env.beta` er, og forbliver, den reelle produktion — der er ingen plan
+   om at flytte familiens data eller PWA-installation til det unavngivne
+   miljø.
+2. Det unavngivne miljø forbliver deployet (Workeren kører, så et direkte
+   kald til den ikke fejler), men uden cron-triggers og uden reel
+   familiedata — det er reelt et ubrugt, tomt miljø, ikke en spejling af
+   produktion.
+3. Navnene ("unavngivet" / `beta`) ændres **ikke** — en omdøbning løser
+   ikke den bagvedliggende forvirring (jf. det mislykkede forsøg
+   2026-08-23) og kræver en ny Worker-ressource for at have nogen effekt.
+4. Denne asymmetri dokumenteres i stedet tydeligt, både i
+   `wrangler.jsonc`s egne kommentarer (allerede til stede) og her, så en
+   fremtidig bidragyder (menneske eller AI-agent) ikke fejlagtigt antager,
+   at det unavngivne miljø er det, familien bruger.
+
+## Alternativer overvejet
+
+### Omdøb miljøerne til noget mere sigende (fx `production`/`family`)
+
+Afvist for nu: kræver en ny Worker-ressource for reelt at ændre noget (se
+Kontekst), hvilket betyder en ny Git-tilkobling, nye bindinger og en
+engangs data-migrering — en markant større indsats end den kosmetiske
+forvirring retfærdiggør på nuværende tidspunkt. Genovervejes hvis appen
+når et punkt (fx offentlig lancering, jf. `30_Stabilization_Execution_Plan.md`),
+hvor en ny bruger/bidragyder reelt forveksler miljøerne i praksis, ikke kun
+i teorien.
+
+### Læg det unavngivne miljø helt ned
+
+Afvist: Workeren koster ikke noget ekstra at lade køre uden trafik, og en
+nedlæggelse (fjerne miljøet fra `wrangler.jsonc`, slette Worker-ressourcen
+i Cloudflare) er en uigenkaldelig, delt-infrastruktur-handling, der kræver
+Nicolajs eksplicitte godkendelse uden for denne plan, jf. Grænser-afsnittet
+i [06_Claude_Playbook](../AI_Knowledge_Base/06_Claude_Playbook.md). Ingen
+umiddelbar driftsmæssig gevinst ved at fjerne det retfærdiggør den risiko
+lige nu.
+
+## Konsekvenser
+
+### Positivt
+
+* Ingen kodeændring, ingen data-migrering, ingen deploy-risiko — beslutningen
+  bekræfter blot en allerede fungerende tilstand.
+* Fremtidige agenter/bidragydere kan slå denne ADR op i stedet for selv at
+  skulle udlede asymmetrien af `wrangler.jsonc`s kommentarer.
+
+### Negativt
+
+* Miljønavngivningen ("unavngivet" vs. "beta") forbliver forvirrende for en
+  ny bidragyder, indtil en reel omdøbning besluttes (se Alternativer).
+* Det unavngivne miljø er reelt dødt kode/infrastruktur — det giver ingen
+  værdi at lade det stå, ud over at undgå risikoen ved at fjerne det nu.
+
+## Relaterede dokumenter
+
+* `05_App/web/wrangler.jsonc` — de kommenterede `triggers`-sektioner for
+  begge miljøer.
+* `01_Project_Documentation/Development/28_Sprint28_AI_Ugeresume_Plan.md` —
+  hvor beslutningen om `beta` som reel produktion først blev bekræftet.
+* `01_Project_Documentation/Development/29_Sprint29_Sikkerhed_Privatliv_Drift_Plan.md`
+  — nævner beslutningen som allerede taget, "bevidst udeladt" derfra.
+* `01_Project_Documentation/Development/37_Sprint37_Sikkerhed_Kodekvalitet_Plan.md`
+  — sprintet, der formaliserede denne ADR.
+
+# ADR-019: SameSite=Lax uden separat CSRF-token er tilstrækkeligt
+
+## Status
+
+Accepteret.
+
+## Kontekst
+
+Appens session er en `HttpOnly`, `Secure` (betinget af protokol),
+`SameSite=Lax`-cookie (`server/lib/session.ts`, `server/routes/auth.ts`,
+jf. ADR-017 punkt 7). Der findes intet separat CSRF-token nogetsteds i
+kodebasen. `13_Release_And_Security_Baseline.md` har hidtil kun nævnt
+"Secure/HttpOnly/SameSite-sessioncookies" som kontrol, uden en eksplicit
+begrundelse for, hvorfor det er tilstrækkeligt.
+
+`SameSite=Lax` forhindrer browseren i at vedhæfte session-cookien på
+cross-site subresource-requests (fetch/XHR, `<img>`, formularer med
+`method="POST"` indlejret på et andet site) — det er præcis den
+angrebsvej, klassisk CSRF udnytter. Cookien vedhæftes dog stadig på en
+cross-site **top-level GET-navigation** (fx et link eller
+`window.location`-omdirigering fra et andet site). Beskyttelsen er derfor
+ikke universel — den afhænger af, at ingen tilstandsændrende handling kan
+udløses af en ren GET.
+
+**Verifikation udført som en del af denne ADR** (ikke antaget): samtlige
+rute-filer under `server/routes/` blev gennemgået for GET-handlers, der
+udfører `INSERT`/`UPDATE`/`DELETE` mod D1. Det gennemgående mønster i hele
+kodebasen (familier, medlemmer, opgaver, indkøbslister, ICS-abonnementer,
+kalendermappings, delelinks, feedback, push) er konsekvent: læsning sker
+via GET, enhver tilstandsændring sker via POST/PATCH/DELETE. To reelle
+undtagelser blev fundet:
+
+1. **`GET /api/families/:id/activity/since-last-visit`**
+   (`server/routes/activity.ts`, Sprint 33) opretter eller fremrykker
+   brugerens `user_activity_cursors`-række som et sideeffekt af selve
+   læsningen (både ved allerførste besøg, og når der ikke var nogen
+   aktivitet at vise). Det er teknisk et brud på "GET ændrer ikke
+   tilstand" — en cross-site top-level-navigation til dette endpoint ville
+   vedhæfte session-cookien og fremrykke cursoren.
+   
+   **Vurderet konsekvens ved misbrug:** ingen reel skade. Cursoren styrer
+   udelukkende, hvad DENNE bruger selv ser i sit eget "Siden sidst
+   du var her"-kort — der er ingen cross-user-effekt, ingen dataeksponering,
+   og ingen handling en angriber kan drage nytte af. Værste tilfælde er, at
+   brugeren går glip af en visning af egen, allerede synlig familiedata
+   (aftaler/opgaver/indkøb, som findes andetsteds i appen uafhængigt af
+   dette kort). Der findes allerede en separat, korrekt
+   `POST /api/families/:id/activity/acknowledge` til den tilsigtede
+   kvittering. Denne ADR accepterer bevidst GET-sideeffekten som den er,
+   fremfor at forcere en omlægning for en konsekvens uden reelt
+   skadepotentiale — genovervejes hvis endpointet nogensinde udvides til at
+   gøre mere end at flytte cursoren.
+2. **`GET /auth/google/callback`** (`server/routes/auth.ts`) opretter/
+   opdaterer en bruger og en session som en del af OAuth-flowet — dette er
+   en iboende egenskab af OAuth 2.0's redirect-baserede callback-mønster,
+   ikke en appspecifik designfejl. Det er allerede beskyttet af en
+   selvstændig, korrekt implementeret CSRF-mekanisme: et engangs `state`-
+   parameter, genereret server-side og bundet til en kortlivet, `HttpOnly`
+   flow-cookie (`oauth_flow`, 10 minutters levetid), som verificeres mod
+   den returnerede `state`, før noget skrives. En angriber, der ikke selv
+   har igangsat flowet (og dermed ikke ejer den matchende flow-cookie),
+   kan ikke få et gyldigt callback-kald igennem.
+
+Ingen af de to undtagelser giver en angriber mulighed for at ændre en
+anden brugers data, eskalere rettigheder, eller på anden vis opnå noget af
+værdi — det er den relevante målestok for, om SameSite=Lax reelt beskytter
+appen, ikke om enhver GET er formelt sideeffekt-fri.
+
+## Beslutning
+
+Appen forbliver uden et separat CSRF-token. `SameSite=Lax` (kombineret med
+`HttpOnly`/`Secure` og det konsekvente GET-læser/POST-skriver-mønster
+verificeret ovenfor) vurderes tilstrækkeligt til appens nuværende
+trusselsbillede: en familie-app uden tredjeparts-indlejring, uden
+cross-origin-formularer rettet mod den, og uden en angrebsflade, hvor en
+cross-site GET kan udrette reel skade.
+
+Beslutningen genovervejes, hvis en af følgende ændrer sig:
+
+* En fremtidig rute introducerer en reel tilstandsændring (ikke kun en
+  lav-konsekvens cursor-fremrykning) bag en GET.
+* Appen begynder at indlejre tredjepartsindhold eller blive indlejret selv
+  (iframe), hvilket kan komplicere SameSite-antagelser.
+* Cookie-baseret session erstattes af noget, der ikke naturligt nyder godt
+  af SameSite (fx en header-baseret token-model på tværs af subdomæner).
+
+## Alternativer overvejet
+
+### Implementér et eksplicit CSRF-token (dobbelt-submit eller synchronizer-token) på alle state-ændrende ruter
+
+Afvist for nu: ville tilføje kompleksitet (token-generering, -distribution
+til klienten, og -validering på hver af de ca. 40 POST/PATCH/DELETE-ruter)
+uden at lukke et hul, der reelt findes — den systematiske gennemgang
+ovenfor fandt ingen tilstandsændring af værdi bag en GET. Et sådant token
+ville være forsvarligt "belt and suspenders", men ikke en rettelse af en
+identificeret sårbarhed. Genovervejes, hvis trusselsbilledet ændrer sig
+(se Beslutning ovenfor).
+
+### Ret `since-last-visit`-endpointet til aldrig at skrive
+
+Overvejet, men vurderet unødvendigt: konsekvensen af den nuværende adfærd
+er beskrevet ovenfor som reelt skadesfri. At fjerne bootstrap-oprettelsen
+af cursoren ved første besøg ville kræve at flytte den logik til et andet,
+klient-initieret kald, uden nogen sikkerhedsmæssig gevinst, kun et ekstra
+rundt trip for en funktion, der allerede virker korrekt for den tilsigtede
+bruger.
+
+## Konsekvenser
+
+### Positivt
+
+* Ingen ny kompleksitet tilføjet (token-generering/-validering på hver
+  rute) for en trussel, der ikke reelt er til stede i appens nuværende
+  form.
+* Beslutningen er nu eksplicit og verificeret, i stedet for en implicit
+  antagelse, der aldrig blev efterprøvet mod den faktiske kode.
+
+### Negativt
+
+* Beslutningen skal genbesøges manuelt, hvis appens angrebsflade ændrer sig
+  (se Beslutning) — der er ingen automatiseret test, der fanger en
+  fremtidig GET-rute med reel skadevirkning, ud over kodegennemgang ved
+  nye PR'er.
+
+## Relaterede dokumenter
+
+* `server/lib/session.ts`, `server/routes/auth.ts` — cookie-konfiguration.
+* `server/routes/activity.ts` — den ene identificerede lav-konsekvens
+  GET-sideeffekt.
+* `01_Project_Documentation/AI_Knowledge_Base/13_Release_And_Security_Baseline.md`
+  — opdateret til at henvise til denne ADR i stedet for kun at nævne
+  SameSite uden begrundelse.
+* `01_Project_Documentation/Development/37_Sprint37_Sikkerhed_Kodekvalitet_Plan.md`
+  — sprintet, der formaliserede denne ADR.
+
+# ADR-020: Fødselsdagsgaveplaner skjules for den, planen er FOR — ikke rolle-baseret
+
+## Status
+
+Accepteret.
+
+## Kontekst
+
+Sprint 40 tilføjer gaveideer og budget knyttet til familiemedlemmers
+fødselsdage (`birthday_gift_plans`, se
+[40_Sprint40_Foedselsdag_Gaveplanlaegning_Plan.md](../Development/40_Sprint40_Foedselsdag_Gaveplanlaegning_Plan.md)).
+Al anden adgangskontrol i appen er rolle-baseret (ejer/admin/medlem,
+se ADR-017) — enhver, der er medlem af familien, ser den samme
+familiedata. En gaveplan er kvalitativt anderledes: formålet er netop,
+at DEN, planen handler om, ikke skal se den, mens alle ANDRE
+familiemedlemmer gerne må — en overraskelse, ikke en adgangsbegrænsning
+i sikkerhedsforstand.
+
+Dette er et nyt princip i appens datamodel: at skjule data for ét
+SPECIFIKT menneske, uafhængigt af rolle, i stedet for at afgøre synlighed
+ud fra hvem der er logget ind som hvilken rolle.
+
+## Beslutning
+
+`GET /:id/birthday-gift-plans` filtrerer server-side på, om den
+forespørgende brugers eget `user.id` matcher `family_members.linked_user_id`
+for den familiemedlem, planen er oprettet FOR — uanset hvem der oprettede
+planen, og uanset rolle (selv familiens ejer ser ikke sine egne planer).
+Et familiemedlem uden koblet konto (fx et barn, jf. ADR-017 punkt 5) har
+intet at skjule det for og optræder derfor aldrig i filtreringen.
+
+Filtreringen sker ved LÆSNING (i `listVisibleGiftPlans` i
+`server/routes/familyRoutes/birthdayGiftPlans.ts`), ikke ved oprettelse —
+en bruger kan stadig oprette en gaveplan for sig selv (giver ingen mening
+i praksis, men er ikke et sikkerhedsproblem: vedkommende kender jo allerede
+sin egen tekst), den vil blot være usynlig for dem selv ved næste opslag,
+ligesom for enhver anden.
+
+## Alternativer overvejet
+
+### Rolle-baseret adgang (kun ejer/admin må se gaveplaner)
+
+Afvist: løser ikke det egentlige problem. En admin, der selv er den
+fødselaren gælder, ville stadig kunne se sin egen overraskelse — og en
+almindelig medlem (fx en bedsteforælder uden admin-rolle), der IKKE er
+fødselaren, ville fejlagtigt blive udelukket fra at se og bidrage til
+planlægningen.
+
+### Klient-side skjulning (vis alle planer, filtrér kun i UI'et)
+
+Afvist: al anden privatlivsfølsom data i appen (private
+kalenderaftaler, jf. `13_Release_And_Security_Baseline.md`) redigeres
+server-side, aldrig kun i klienten — samme princip skal gælde her. En
+klient-side-filtrering ville sende de "hemmelige" gaveideer med i
+netværkssvaret til den, de skal overraske, og kun stole på, at UI'et
+ikke viser dem.
+
+## Konsekvenser
+
+### Positivt
+
+* Løser det egentlige formål (overraskelsen bevares) uafhængigt af rolle.
+* Data forlader aldrig serveren til den forkerte modtager — ikke kun en
+  UI-begrænsning.
+
+### Negativt
+
+* Et nyt, særskilt filtreringsprincip i kodebasen, adskilt fra den
+  ellers ensartede rolle-baserede model — en fremtidig udvikler skal
+  kende til og huske dette specifikke undtagelsesmønster, hvis flere
+  "skjul for én bestemt person"-funktioner tilføjes senere (fx en
+  fremtidig overraskelsesfest-planlægning).
+
+## Relaterede dokumenter
+
+* `server/routes/familyRoutes/birthdayGiftPlans.ts` —
+  `listVisibleGiftPlans`.
+* `01_Project_Documentation/Development/40_Sprint40_Foedselsdag_Gaveplanlaegning_Plan.md`
+  — sprintet, der formaliserede denne ADR.
+  — sprintet, der formaliserede denne ADR.

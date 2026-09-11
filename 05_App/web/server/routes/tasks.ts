@@ -10,6 +10,7 @@ import { Hono } from "hono";
 import type { Env } from "../env";
 import { getSessionUser } from "../lib/session";
 import { logError } from "../lib/structuredLog";
+import allowance from "./taskRoutes/allowance";
 import taskRoutines from "./taskRoutes/taskRoutines";
 import tasksCrud from "./taskRoutes/tasksCrud";
 import type { Variables } from "./taskRoutes/taskQueries";
@@ -43,5 +44,6 @@ tasks.use("*", async (c, next) => {
 // mønster som families.ts og shoppingLists.ts.
 tasks.route("/", tasksCrud);
 tasks.route("/", taskRoutines);
+tasks.route("/", allowance);
 
 export default tasks;

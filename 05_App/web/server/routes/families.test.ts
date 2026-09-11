@@ -22,6 +22,7 @@ interface FamilyMemberJson {
   isPlaceholderName: number;
   linkedUserId: string | null;
   linkedUserEmail: string | null;
+  birthday: string | null;
 }
 
 interface CreateFamilyResponse {
@@ -596,6 +597,216 @@ describe("families routes", () => {
       const body: { members: FamilyMemberJson[] } = await response.json();
 
       expect(body.members.some((m) => m.id === familyPseudoMember!.id)).toBe(true);
+    });
+
+    it("sets, rejects an invalid, and clears a member's birthday", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader);
+
+      const addResponse = await families.request(
+        `/${created.family.id}/members`,
+        {
+          method: "POST",
+          headers: { Cookie: owner.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({ name: "Billie", color: "#123456", relation: "Barn" }),
+        },
+        env,
+      );
+      const { members: afterAdd }: { members: FamilyMemberJson[] } = await addResponse.json();
+      const billie = afterAdd.find((m) => m.name === "Billie")!;
+
+      const invalidResponse = await families.request(
+        `/${created.family.id}/members/${billie.id}`,
+        {
+          method: "PATCH",
+          headers: { Cookie: owner.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({ birthday: "13-40" }),
+        },
+        env,
+      );
+      expect(invalidResponse.status).toBe(400);
+
+      const setResponse = await families.request(
+        `/${created.family.id}/members/${billie.id}`,
+        {
+          method: "PATCH",
+          headers: { Cookie: owner.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({ birthday: "06-15" }),
+        },
+        env,
+      );
+      const { members: afterSet }: { members: FamilyMemberJson[] } = await setResponse.json();
+      expect(afterSet.find((m) => m.id === billie.id)?.birthday).toBe("06-15");
+
+      const clearResponse = await families.request(
+        `/${created.family.id}/members/${billie.id}`,
+        {
+          method: "PATCH",
+          headers: { Cookie: owner.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({ birthday: null }),
+        },
+        env,
+      );
+      const { members: afterClear }: { members: FamilyMemberJson[] } = await clearResponse.json();
+      expect(afterClear.find((m) => m.id === billie.id)?.birthday).toBeNull();
+    });
+  });
+
+  describe("birthday gift plans", () => {
+    interface GiftPlanJson {
+      id: string;
+      familyMemberId: string;
+      year: number;
+      giftIdea: string;
+      budgetAmount: number | null;
+      isPurchased: number;
+    }
+
+    it("creates, edits, and deletes a gift plan", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader);
+      const addMemberResponse = await families.request(
+        `/${created.family.id}/members`,
+        {
+          method: "POST",
+          headers: { Cookie: owner.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({ name: "Billie", color: "#123456", relation: "Barn" }),
+        },
+        env,
+      );
+      const { members }: { members: FamilyMemberJson[] } = await addMemberResponse.json();
+      const billie = members.find((m) => m.name === "Billie")!;
+
+      const createResponse = await families.request(
+        `/${created.family.id}/birthday-gift-plans`,
+        {
+          method: "POST",
+          headers: { Cookie: owner.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            familyMemberId: billie.id,
+            year: 2026,
+            giftIdea: "Cykel",
+            budgetAmount: 2000,
+          }),
+        },
+        env,
+      );
+      const { plans: afterCreate }: { plans: GiftPlanJson[] } = await createResponse.json();
+      const plan = afterCreate.find((p) => p.giftIdea === "Cykel");
+      expect(plan).toBeDefined();
+      expect(plan?.budgetAmount).toBe(2000);
+      expect(plan?.isPurchased).toBe(0);
+
+      const editResponse = await families.request(
+        `/${created.family.id}/birthday-gift-plans/${plan!.id}`,
+        {
+          method: "PATCH",
+          headers: { Cookie: owner.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({ isPurchased: true }),
+        },
+        env,
+      );
+      const { plans: afterEdit }: { plans: GiftPlanJson[] } = await editResponse.json();
+      expect(afterEdit.find((p) => p.id === plan!.id)?.isPurchased).toBe(1);
+
+      const deleteResponse = await families.request(
+        `/${created.family.id}/birthday-gift-plans/${plan!.id}`,
+        { method: "DELETE", headers: { Cookie: owner.cookieHeader } },
+        env,
+      );
+      const { plans: afterDelete }: { plans: GiftPlanJson[] } = await deleteResponse.json();
+      expect(afterDelete.some((p) => p.id === plan!.id)).toBe(false);
+    });
+
+    it("rejects an unknown family member or an invalid year", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader);
+
+      const unknownMemberResponse = await families.request(
+        `/${created.family.id}/birthday-gift-plans`,
+        {
+          method: "POST",
+          headers: { Cookie: owner.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({ familyMemberId: "not-a-member", year: 2026, giftIdea: "Cykel" }),
+        },
+        env,
+      );
+      expect(unknownMemberResponse.status).toBe(400);
+
+      const familyPseudoMember = created.members.find((m) => m.relation === null)!;
+      const invalidYearResponse = await families.request(
+        `/${created.family.id}/birthday-gift-plans`,
+        {
+          method: "POST",
+          headers: { Cookie: owner.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            familyMemberId: familyPseudoMember.id,
+            year: 1500,
+            giftIdea: "Cykel",
+          }),
+        },
+        env,
+      );
+      expect(invalidYearResponse.status).toBe(400);
+    });
+
+    // ADR-020: en gaveplan skal ikke afsløre sig selv for den, planen er
+    // FOR, hvis vedkommende har en koblet konto — kun for andre.
+    it("hides a member's own gift plans from their own linked account, but shows them to other members", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader);
+      const partner = await seedLoggedInUser(env.DB as never, { id: "partner" });
+
+      // Koble partneren til et rigtigt medlem (ikke pseudomedlemmet) via
+      // det eksisterende link-me-selvbetjenings-flow.
+      const addMemberResponse = await families.request(
+        `/${created.family.id}/members`,
+        {
+          method: "POST",
+          headers: { Cookie: owner.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({ name: "Christine", color: "#654321", relation: "Andet" }),
+        },
+        env,
+      );
+      const { members }: { members: FamilyMemberJson[] } = await addMemberResponse.json();
+      const christineMember = members.find((m) => m.name === "Christine")!;
+
+      await families.request(
+        `/invites/${created.inviteCode}/accept`,
+        { method: "POST", headers: { Cookie: partner.cookieHeader } },
+        env,
+      );
+      await families.request(
+        `/${created.family.id}/members/${christineMember.id}/link-me`,
+        { method: "POST", headers: { Cookie: partner.cookieHeader } },
+        env,
+      );
+
+      await families.request(
+        `/${created.family.id}/birthday-gift-plans`,
+        {
+          method: "POST",
+          headers: { Cookie: owner.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({ familyMemberId: christineMember.id, year: 2026, giftIdea: "Halskæde" }),
+        },
+        env,
+      );
+
+      const ownerViewResponse = await families.request(
+        `/${created.family.id}/birthday-gift-plans`,
+        { headers: { Cookie: owner.cookieHeader } },
+        env,
+      );
+      const { plans: ownerView }: { plans: GiftPlanJson[] } = await ownerViewResponse.json();
+      expect(ownerView.some((p) => p.giftIdea === "Halskæde")).toBe(true);
+
+      const partnerViewResponse = await families.request(
+        `/${created.family.id}/birthday-gift-plans`,
+        { headers: { Cookie: partner.cookieHeader } },
+        env,
+      );
+      const { plans: partnerView }: { plans: GiftPlanJson[] } = await partnerViewResponse.json();
+      expect(partnerView.some((p) => p.giftIdea === "Halskæde")).toBe(false);
     });
   });
 
@@ -1742,6 +1953,314 @@ describe("families routes", () => {
         expect(response.status).toBe(404);
         expect(fetchMock).not.toHaveBeenCalled();
       });
+    });
+  });
+
+  describe("shared expenses (Sprint 41)", () => {
+    interface SharedExpenseJson {
+      id: string;
+      description: string;
+      amount: number;
+      paidByMemberId: string;
+      splitBetween: string[];
+      expenseDate: string;
+    }
+
+    interface BalanceJson {
+      debtorMemberId: string;
+      creditorMemberId: string;
+      amount: number;
+    }
+
+    // Kobler ejeren til "Far" og en anden bruger til "Mor" — de eneste to
+    // seedede medlemmer med en tilknyttet konto efter dette, jf.
+    // isLinkedMember()-kravet i sharedExpenses.ts (kun linkede medlemmer
+    // kan betale/deltage).
+    async function createFamilyWithTwoLinkedParents(): Promise<{
+      familyId: string;
+      ownerCookie: string;
+      partnerCookie: string;
+      farId: string;
+      morId: string;
+    }> {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader, "Boholt");
+      const farId = created.members.find((m) => m.name === "Far")!.id;
+      const morId = created.members.find((m) => m.name === "Mor")!.id;
+
+      await families.request(
+        `/${created.family.id}/members/${farId}/link-me`,
+        { method: "POST", headers: { Cookie: owner.cookieHeader } },
+        env,
+      );
+
+      const partner = await seedLoggedInUser(env.DB as never, { id: "partner" });
+      await families.request(
+        `/invites/${created.inviteCode}/accept`,
+        { method: "POST", headers: { Cookie: partner.cookieHeader } },
+        env,
+      );
+      await families.request(
+        `/${created.family.id}/members/${morId}/link-me`,
+        { method: "POST", headers: { Cookie: partner.cookieHeader } },
+        env,
+      );
+
+      return { familyId: created.family.id, ownerCookie: owner.cookieHeader, partnerCookie: partner.cookieHeader, farId, morId };
+    }
+
+    it("rejects an expense with an unlinked (child) participant", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader, "Boholt");
+      const farId = created.members.find((m) => m.name === "Far")!.id;
+      const barnId = created.members.find((m) => m.name === "Barn 1")!.id;
+
+      await families.request(
+        `/${created.family.id}/members/${farId}/link-me`,
+        { method: "POST", headers: { Cookie: owner.cookieHeader } },
+        env,
+      );
+
+      const response = await families.request(
+        `/${created.family.id}/shared-expenses`,
+        {
+          method: "POST",
+          headers: { Cookie: owner.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            description: "Fødselsdagsgave til Barn 1",
+            amount: 200,
+            paidByMemberId: farId,
+            splitBetween: [farId, barnId],
+            expenseDate: "2026-09-01",
+          }),
+        },
+        env,
+      );
+
+      expect(response.status).toBe(400);
+    });
+
+    it("splits an expense equally, computes the net balance, and lets the debtor settle it to zero", async () => {
+      const { familyId, ownerCookie, partnerCookie, farId, morId } = await createFamilyWithTwoLinkedParents();
+
+      const createResponse = await families.request(
+        `/${familyId}/shared-expenses`,
+        {
+          method: "POST",
+          headers: { Cookie: ownerCookie, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            description: "Fritidsaktivitet",
+            amount: 300,
+            paidByMemberId: farId,
+            splitBetween: [farId, morId],
+            expenseDate: "2026-09-01",
+          }),
+        },
+        env,
+      );
+      const { expenses }: { expenses: SharedExpenseJson[] } = await createResponse.json();
+      expect(expenses).toHaveLength(1);
+      expect(expenses[0].splitBetween.sort()).toEqual([farId, morId].sort());
+
+      const balancesResponse = await families.request(
+        `/${familyId}/shared-expense-balances`,
+        { headers: { Cookie: partnerCookie } },
+        env,
+      );
+      const { balances }: { balances: BalanceJson[] } = await balancesResponse.json();
+
+      // Far lagde 300 kr ud, delt ligeligt — Mor skylder derfor Far 150 kr.
+      expect(balances).toEqual([{ debtorMemberId: morId, creditorMemberId: farId, amount: 150 }]);
+
+      const settleResponse = await families.request(
+        `/${familyId}/shared-expense-settlements`,
+        {
+          method: "POST",
+          headers: { Cookie: partnerCookie, "Content-Type": "application/json" },
+          body: JSON.stringify({ memberIdA: farId, memberIdB: morId }),
+        },
+        env,
+      );
+      const { balances: afterSettle }: { balances: BalanceJson[] } = await settleResponse.json();
+      expect(afterSettle).toEqual([]);
+    });
+
+    it("rejects settling a pair with no outstanding balance", async () => {
+      const { familyId, ownerCookie, farId, morId } = await createFamilyWithTwoLinkedParents();
+
+      const response = await families.request(
+        `/${familyId}/shared-expense-settlements`,
+        {
+          method: "POST",
+          headers: { Cookie: ownerCookie, "Content-Type": "application/json" },
+          body: JSON.stringify({ memberIdA: farId, memberIdB: morId }),
+        },
+        env,
+      );
+
+      expect(response.status).toBe(400);
+    });
+
+    it("lets the payer delete an expense, removing it from the balance", async () => {
+      const { familyId, ownerCookie, farId, morId } = await createFamilyWithTwoLinkedParents();
+
+      const createResponse = await families.request(
+        `/${familyId}/shared-expenses`,
+        {
+          method: "POST",
+          headers: { Cookie: ownerCookie, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            description: "Fødselsdagsgave",
+            amount: 400,
+            paidByMemberId: farId,
+            splitBetween: [farId, morId],
+            expenseDate: "2026-09-01",
+          }),
+        },
+        env,
+      );
+      const { expenses }: { expenses: SharedExpenseJson[] } = await createResponse.json();
+
+      const deleteResponse = await families.request(
+        `/${familyId}/shared-expenses/${expenses[0].id}`,
+        { method: "DELETE", headers: { Cookie: ownerCookie } },
+        env,
+      );
+      expect(deleteResponse.status).toBe(200);
+      expect((await deleteResponse.json()).expenses).toEqual([]);
+
+      const balancesResponse = await families.request(
+        `/${familyId}/shared-expense-balances`,
+        { headers: { Cookie: ownerCookie } },
+        env,
+      );
+      expect((await balancesResponse.json()).balances).toEqual([]);
+    });
+
+    it("returns 404 for a non-member", async () => {
+      const { familyId } = await createFamilyWithTwoLinkedParents();
+      const outsider = await seedLoggedInUser(env.DB as never, { id: "outsider" });
+
+      const response = await families.request(
+        `/${familyId}/shared-expenses`,
+        { headers: { Cookie: outsider.cookieHeader } },
+        env,
+      );
+
+      expect(response.status).toBe(404);
+    });
+  });
+
+  describe("enabled features (Flere funktioner)", () => {
+    it("starts with no features enabled, and lets an owner enable and disable one", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader);
+
+      const initialResponse = await families.request(
+        `/${created.family.id}/enabled-features`,
+        { headers: { Cookie: owner.cookieHeader } },
+        env,
+      );
+      expect(initialResponse.status).toBe(200);
+      expect((await initialResponse.json()).features).toEqual([]);
+
+      const enableResponse = await families.request(
+        `/${created.family.id}/enabled-features/meal-plan`,
+        {
+          method: "PUT",
+          headers: { Cookie: owner.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({ enabled: true }),
+        },
+        env,
+      );
+      expect(enableResponse.status).toBe(200);
+      expect((await enableResponse.json()).features).toEqual(["meal-plan"]);
+
+      // Slår den samme funktion til igen — skal ikke fejle eller duplikere
+      // (ON CONFLICT DO NOTHING).
+      const enableAgainResponse = await families.request(
+        `/${created.family.id}/enabled-features/meal-plan`,
+        {
+          method: "PUT",
+          headers: { Cookie: owner.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({ enabled: true }),
+        },
+        env,
+      );
+      expect((await enableAgainResponse.json()).features).toEqual(["meal-plan"]);
+
+      const disableResponse = await families.request(
+        `/${created.family.id}/enabled-features/meal-plan`,
+        {
+          method: "PUT",
+          headers: { Cookie: owner.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({ enabled: false }),
+        },
+        env,
+      );
+      expect((await disableResponse.json()).features).toEqual([]);
+    });
+
+    it("rejects an unknown feature key and a request from a plain member", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader);
+
+      const unknownKeyResponse = await families.request(
+        `/${created.family.id}/enabled-features/not-a-real-feature`,
+        {
+          method: "PUT",
+          headers: { Cookie: owner.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({ enabled: true }),
+        },
+        env,
+      );
+      expect(unknownKeyResponse.status).toBe(400);
+
+      const member = await seedLoggedInUser(env.DB as never, { id: "plain-member" });
+      await families.request(
+        `/invites/${created.inviteCode}/accept`,
+        { method: "POST", headers: { Cookie: member.cookieHeader } },
+        env,
+      );
+
+      const memberToggleResponse = await families.request(
+        `/${created.family.id}/enabled-features/meal-plan`,
+        {
+          method: "PUT",
+          headers: { Cookie: member.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({ enabled: true }),
+        },
+        env,
+      );
+      expect(memberToggleResponse.status).toBe(403);
+    });
+
+    it("returns 404 for a non-member's GET, and 403 for a non-member's PUT (same as the wrong-role case)", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader);
+      const outsider = await seedLoggedInUser(env.DB as never, { id: "outsider" });
+
+      const getResponse = await families.request(
+        `/${created.family.id}/enabled-features`,
+        { headers: { Cookie: outsider.cookieHeader } },
+        env,
+      );
+      expect(getResponse.status).toBe(404);
+
+      // Samme mønster som calendarMappings.ts's PUT: en ikke-medlem og et
+      // medlem med forkert rolle rammer begge det ene 403-tjek, ikke et
+      // separat 404 for ikke-medlemmer — konsistent med resten af de
+      // ejer/admin-beskyttede skriveruter.
+      const putResponse = await families.request(
+        `/${created.family.id}/enabled-features/meal-plan`,
+        {
+          method: "PUT",
+          headers: { Cookie: outsider.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({ enabled: true }),
+        },
+        env,
+      );
+      expect(putResponse.status).toBe(403);
     });
   });
 });

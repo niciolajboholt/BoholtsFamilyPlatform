@@ -1,14 +1,14 @@
 # 33_Sprint33_Siden_Sidst_Plan
 
-> Status: Godkendt, kode gennemført — afventer manuel beta-test og merge
+> Status: Gennemført; synlig tom-tilstand til gennemgang
 
-Version: 2.0
+Version: 2.1
 
 Project:
 Boholts Family Platform
 
 Last Updated:
-2026-08-31
+2026-09-01
 
 Owner:
 Nicolaj Bach Boholt
@@ -91,10 +91,11 @@ relevant beslutning.
    (flyttet/aflyst aftale) før rent nyt (nye aftaler, fuldførte opgaver,
    indkøb). Den fulde liste er grupperet pr. kategori og afkortet med
    "+N flere" ved lange perioder, i stedet for at vise alt råt.
-9. **Vises kun, når der reelt er noget at vise** — samme "ærlig
-   tom-tilstand"-princip som resten af forsiden (Sprint 20/28). Ingen
-   cursor endnu (allerførste besøg) eller ingen ændringer siden sidst
-   betyder intet kort, ikke et tomt kort.
+9. **Funktionen er altid synlig, men dialogen åbnes kun ved aktivitet.**
+   Praktisk beta-test viste, at et helt skjult kort fik funktionen til at
+   ligne noget, der ikke fandtes. Første besøg viser derfor, at overblikket
+   er klar, og tom aktivitet viser "Du er helt ajour". Når der er nyt,
+   bliver kortet igen den klikbare teaser til dialogen.
 10. **Kortets "set"-tilstand er selve cursoren, ikke en separat
     lokal tilstand.** ~~v1.0 foreslog `localStorage` nøglet på
     sessionens id~~ — ikke implementérbart: session-cookien er bevidst
@@ -174,7 +175,7 @@ relevant beslutning.
      "ny aftale"-hændelser for hele kalenderen.
 - **`GET /api/families/:id/activity/since-last-visit`**:
   1. Slå brugerens cursor op i `user_activity_cursors` for familien. Ingen
-     cursor ⇒ tomt svar (kort vises ikke) — og cursoren oprettes med
+     cursor ⇒ tomt svar (kortet viser første-besøgs-tilstand) — og cursoren oprettes med
      `last_seen_at = nu`, så første besøg ikke senere fejlagtigt viser alt
      historik som "nyt".
   2. Slå op i `tasks`, `shopping_list_items`, `family_members` (nyere end
@@ -225,7 +226,8 @@ relevant beslutning.
    8 tests.
 5. ~~Frontend: teaser-kort (`ActivityCard`) + `ActivitySummaryDialog` +
    `ActivityFullListDialog`, indsat i `HomePage.tsx` mellem hilsenen og
-   den eksisterende to-kolonne-grid.~~ ✅ **Gennemført**, inkl. en ren
+   den eksisterende to-kolonne-grid.~~ ✅ **Gennemført**, inkl. en synlig
+   første-besøgs-/ajour-tilstand og en ren
    `buildActivityRows()`-funktion (6 tests) der bygger den prioriterede
    rækkefølge, delt af begge dialoger.
 6. ~~Retention: udvid det eksisterende daglige cleanup-cron til at rydde

@@ -14,4 +14,13 @@ export interface CreateCalendarEventInput {
   location?: string;
   recurrence?: RecurrenceRule;
   privacy?: "busy";
+
+  /**
+   * Kun relevant for Google (Sprint 36) — sætter et manuelt familiemedlem-
+   * ejerskab på den nye aftale via Googles extendedProperties, for et
+   * medlem uden egen konto/kalender (fx et barn), som deltager-/kalender-
+   * match ikke kan nå. Se ownerIdsOverride på CalendarEvent og
+   * googleCalendarWriteMapper.ts.
+   */
+  ownerIdsOverride?: CalendarOwnerId[];
 }

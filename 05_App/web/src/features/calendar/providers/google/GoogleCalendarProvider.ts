@@ -196,11 +196,28 @@ export class GoogleCalendarProvider implements CalendarProvider {
     if (event.source !== "google") throw new CalendarProviderError("validation", "Aftalen er ikke en Google-aftale.");
     await this.assertWritableSource(event.sourceId);
 
-    const { calendarId: originCalendarId, eventId } = decodeGoogleEventId(event.id);
+    const { calendarId: originCalendarId, eventId: occurrenceEventId } = decodeGoogleEventId(event.id);
     const targetCalendarId = decodeGoogleCalendarSourceId(event.sourceId);
+    const targetsSeries = event.recurrenceEditScope === "series" && Boolean(event.recurrenceMasterId);
+    const eventForWrite = targetsSeries
+      ? await this.createSeriesUpdateEvent(event, originCalendarId)
+      : event;
+    const { eventId } = decodeGoogleEventId(eventForWrite.id);
 
     if (originCalendarId === targetCalendarId) {
-      const updated = await this.api.updateEvent(originCalendarId, eventId, mapGoogleEventWriteRequest(event));
+      const updated = await this.api.updateEvent(
+        originCalendarId,
+        eventId,
+        mapGoogleEventWriteRequest(eventForWrite),
+      );
+      if (targetsSeries) {
+        return {
+          ...event,
+          recurrenceEditScope: undefined,
+          recurrenceOriginalStart: undefined,
+          recurrenceOriginalEnd: undefined,
+        };
+      }
       return await this.mapWrittenEvent(originCalendarId, updated);
     }
 
@@ -212,8 +229,65 @@ export class GoogleCalendarProvider implements CalendarProvider {
     // patches derfor separat, mod den flyttede aftale.
     await this.assertWritableSource(encodeGoogleCalendarSourceId(originCalendarId));
     const moved = await this.api.moveEvent(originCalendarId, eventId, targetCalendarId);
-    const updated = await this.api.updateEvent(targetCalendarId, moved.id ?? eventId, mapGoogleEventWriteRequest(event));
+    const updated = await this.api.updateEvent(
+      targetCalendarId,
+      moved.id ?? eventId,
+      mapGoogleEventWriteRequest(eventForWrite),
+    );
+    if (targetsSeries) {
+      return {
+        ...event,
+        id: encodeGoogleEventId(targetCalendarId, occurrenceEventId),
+        sourceId: encodeGoogleCalendarSourceId(targetCalendarId),
+        recurrenceMasterId: encodeGoogleEventId(targetCalendarId, moved.id ?? eventId),
+        recurrenceEditScope: undefined,
+        recurrenceOriginalStart: undefined,
+        recurrenceOriginalEnd: undefined,
+      };
+    }
     return await this.mapWrittenEvent(targetCalendarId, updated);
+  }
+
+  private async createSeriesUpdateEvent(
+    event: CalendarEvent,
+    originCalendarId: string,
+  ): Promise<CalendarEvent> {
+    if (!event.recurrenceMasterId) {
+      return event;
+    }
+
+    const masterIdentity = decodeGoogleEventId(event.recurrenceMasterId);
+    if (masterIdentity.calendarId !== originCalendarId) {
+      throw new CalendarProviderError("validation", "Den gentagne aftales serie tilhører en anden kalender.");
+    }
+
+    const rawMaster = await this.api.getEvent(originCalendarId, masterIdentity.eventId);
+    const master = mapGoogleCalendarEvent(originCalendarId, rawMaster);
+    if (!master) {
+      throw new CalendarProviderError("not-found", "Den gentagne aftales serie findes ikke længere.");
+    }
+
+    const originalOccurrenceStart = new Date(event.recurrenceOriginalStart ?? event.start);
+    const editedOccurrenceStart = new Date(event.start);
+    const editedOccurrenceEnd = new Date(event.end);
+    const masterStart = new Date(master.start);
+    if (
+      [originalOccurrenceStart, editedOccurrenceStart, editedOccurrenceEnd, masterStart]
+        .some((date) => Number.isNaN(date.getTime()))
+    ) {
+      throw new CalendarProviderError("validation", "Den gentagne aftales tidspunkter er ugyldige.");
+    }
+
+    const startShiftMs = editedOccurrenceStart.getTime() - originalOccurrenceStart.getTime();
+    const editedDurationMs = editedOccurrenceEnd.getTime() - editedOccurrenceStart.getTime();
+    const shiftedMasterStart = new Date(masterStart.getTime() + startShiftMs);
+
+    return {
+      ...event,
+      id: event.recurrenceMasterId,
+      start: shiftedMasterStart.toISOString(),
+      end: new Date(shiftedMasterStart.getTime() + editedDurationMs).toISOString(),
+    };
   }
 
   async deleteEvent(eventId: string, sourceId?: string): Promise<void> {

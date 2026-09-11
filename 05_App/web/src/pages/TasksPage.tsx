@@ -28,7 +28,9 @@ import {
 } from "@mui/material";
 
 import { DanishTimeField } from "../components/DanishDateTimeFields";
+import { FeatureDisabledNotice } from "../components/FeatureDisabledNotice";
 import { useCurrentMember } from "../features/calendar/hooks/useCurrentMember";
+import { useEnabledFeatures } from "../features/family/hooks/useEnabledFeatures";
 import { useTasks } from "../features/tasks/hooks/useTasks";
 import { taskIconComponents, taskIconLabels, taskIcons, type TaskIconKey } from "../features/tasks/taskIcons";
 import type { NewRoutineItemInput, RoutineDraft, TaskDto } from "../features/tasks/tasksApi";
@@ -58,6 +60,7 @@ function TasksPage() {
     members,
     tasks,
     routines,
+    balances,
     addNewTask,
     toggleDone,
     renameTask,
@@ -76,8 +79,13 @@ function TasksPage() {
   const [newTaskIcon, setNewTaskIcon] = useState<TaskIconKey>("fritid");
   const [newTaskAssignee, setNewTaskAssignee] = useState<string>("");
   const [newTaskTime, setNewTaskTime] = useState<string>("");
+  const [newTaskReward, setNewTaskReward] = useState<string>("");
   const [iconMenuAnchor, setIconMenuAnchor] = useState<HTMLElement | null>(null);
   const [isRoutineDialogOpen, setIsRoutineDialogOpen] = useState(false);
+
+  const { isEnabled, isLoading: isFeatureLoading } = useEnabledFeatures();
+  const areRewardsEnabled = isEnabled("task-rewards");
+  const areRoutinesEnabled = isEnabled("routines");
 
   const visibleTasks = tasks.filter((task) => {
     if (viewMode === "family") {
@@ -96,9 +104,17 @@ function TasksPage() {
       return;
     }
 
-    addNewTask(newTaskName, newTaskIcon, newTaskAssignee || null, newTaskTime || null);
+    // En belønning uden en tildelt person giver ikke mening (se
+    // 39_Sprint39-planen, beslutning 1) — parses derfor kun, når et
+    // familiemedlem rent faktisk er valgt, i stedet for at sende et
+    // serverafvist beløb.
+    const rewardAmount =
+      areRewardsEnabled && newTaskAssignee && newTaskReward.trim() ? Number(newTaskReward) : undefined;
+
+    addNewTask(newTaskName, newTaskIcon, newTaskAssignee || null, newTaskTime || null, rewardAmount);
     setNewTaskName("");
     setNewTaskTime("");
+    setNewTaskReward("");
   }
 
   function memberName(memberId: string | null): string | null {
@@ -107,6 +123,10 @@ function TasksPage() {
     }
 
     return members.find((member) => member.id === memberId)?.name ?? null;
+  }
+
+  if (!isFeatureLoading && !isEnabled("tasks")) {
+    return <FeatureDisabledNotice />;
   }
 
   return (
@@ -118,6 +138,19 @@ function TasksPage() {
           Engangsopgaver og faste rutiner for familien.
         </Typography>
       </Box>
+
+      {areRewardsEnabled && balances.length > 0 && (
+        <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mb: 2 }}>
+          {balances.map((balance) => (
+            <Chip
+              key={balance.familyMemberId}
+              label={`${memberName(balance.familyMemberId) ?? "Ukendt"}: ${balance.balanceAmount} kr.`}
+              color="secondary"
+              variant="outlined"
+            />
+          ))}
+        </Box>
+      )}
 
       <Tabs value={viewMode} onChange={(_event, value: ViewMode) => setViewMode(value)} sx={{ mb: 2 }}>
         <Tab value="mine" label="Min dag" />
@@ -184,6 +217,18 @@ function TasksPage() {
               sx={{ minWidth: 130 }}
             />
 
+            {areRewardsEnabled && newTaskAssignee && (
+              <TextField
+                size="small"
+                type="number"
+                label="Belønning (kr.)"
+                slotProps={{ htmlInput: { min: 0, step: 1 } }}
+                value={newTaskReward}
+                onChange={(event) => setNewTaskReward(event.target.value)}
+                sx={{ width: 130 }}
+              />
+            )}
+
             <Button type="submit" variant="contained" disabled={!newTaskName.trim()}>
               Tilføj
             </Button>
@@ -241,51 +286,53 @@ function TasksPage() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardContent sx={{ p: 3 }}>
-          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2 }}>
-            <Typography variant="h6">Rutiner</Typography>
+      {areRoutinesEnabled && (
+        <Card>
+          <CardContent sx={{ p: 3 }}>
+            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2 }}>
+              <Typography variant="h6">Rutiner</Typography>
 
-            <Button size="small" startIcon={<AddRounded />} onClick={() => setIsRoutineDialogOpen(true)}>
-              Opret rutine
-            </Button>
-          </Box>
+              <Button size="small" startIcon={<AddRounded />} onClick={() => setIsRoutineDialogOpen(true)}>
+                Opret rutine
+              </Button>
+            </Box>
 
-          {routines.length === 0 ? (
-            <Typography color="text.secondary">Ingen rutiner endnu.</Typography>
-          ) : (
-            routines.map((routine, index) => (
-              <Box key={routine.id}>
-                {index > 0 && <Divider sx={{ my: 1.5 }} />}
+            {routines.length === 0 ? (
+              <Typography color="text.secondary">Ingen rutiner endnu.</Typography>
+            ) : (
+              routines.map((routine, index) => (
+                <Box key={routine.id}>
+                  {index > 0 && <Divider sx={{ my: 1.5 }} />}
 
-                <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <Box>
-                    <Typography sx={{ fontWeight: 600 }}>{routine.name}</Typography>
-                    <Box sx={{ display: "flex", gap: 0.5, mt: 0.5, flexWrap: "wrap" }}>
-                      {weekdayLabels
-                        .filter((day) => routine.weekdays.includes(day.value))
-                        .map((day) => (
-                          <Chip key={day.value} label={day.label} size="small" />
-                        ))}
+                  <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <Box>
+                      <Typography sx={{ fontWeight: 600 }}>{routine.name}</Typography>
+                      <Box sx={{ display: "flex", gap: 0.5, mt: 0.5, flexWrap: "wrap" }}>
+                        {weekdayLabels
+                          .filter((day) => routine.weekdays.includes(day.value))
+                          .map((day) => (
+                            <Chip key={day.value} label={day.label} size="small" />
+                          ))}
+                      </Box>
                     </Box>
-                  </Box>
 
-                  <IconButton
-                    aria-label={`Slet ${routine.name}`}
-                    size="small"
-                    onClick={() => removeRoutine(routine.id)}
-                  >
-                    <DeleteOutlineRounded fontSize="small" />
-                  </IconButton>
+                    <IconButton
+                      aria-label={`Slet ${routine.name}`}
+                      size="small"
+                      onClick={() => removeRoutine(routine.id)}
+                    >
+                      <DeleteOutlineRounded fontSize="small" />
+                    </IconButton>
+                  </Box>
                 </Box>
-              </Box>
-            ))
-          )}
-        </CardContent>
-      </Card>
+              ))
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <RoutineCreateDialog
-        open={isRoutineDialogOpen}
+        open={areRoutinesEnabled && isRoutineDialogOpen}
         onClose={() => setIsRoutineDialogOpen(false)}
         members={members}
         onCreate={createRoutine}

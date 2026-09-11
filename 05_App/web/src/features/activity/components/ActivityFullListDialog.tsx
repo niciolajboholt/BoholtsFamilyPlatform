@@ -30,7 +30,7 @@ interface ActivityFullListDialogProps {
 }
 
 export function ActivityFullListDialog({ open, summary, onBack, onClose }: ActivityFullListDialogProps) {
-  const rows = buildActivityRows(summary);
+  const rows = buildActivityRows(summary, { expandCalendarCreated: true });
   const sections = sectionOrder
     .map((icon) => ({ icon, rows: rows.filter((row) => row.icon === icon) }))
     .filter((section) => section.rows.length > 0);

@@ -60,6 +60,62 @@ describe("buildActivityRows", () => {
     expect(rows[0]?.detail).toContain("Fødselsdag hos Mormor");
   });
 
+  it("lists each new calendar event on its own row when expandCalendarCreated is set", () => {
+    const summary = emptySummary({
+      calendar: {
+        moved: [],
+        cancelled: [],
+        created: [
+          { title: "Fødselsdag hos Mormor", start: "2026-09-06T10:00:00.000Z" },
+          { title: "Forældremøde", start: "2026-09-10T18:00:00.000Z" },
+        ],
+      },
+    });
+
+    const rows = buildActivityRows(summary, { expandCalendarCreated: true });
+
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toMatchObject({ icon: "calendar", title: "Fødselsdag hos Mormor" });
+    expect(rows[1]).toMatchObject({ icon: "calendar", title: "Forældremøde" });
+  });
+
+  it("appends the family member's name to the detail line when the calendar has one", () => {
+    const summary = emptySummary({
+      calendar: {
+        moved: [
+          {
+            title: "Svømning",
+            oldStart: "2026-08-28T14:00:00.000Z",
+            newStart: "2026-08-29T16:00:00.000Z",
+            memberName: "Jens",
+          },
+        ],
+        cancelled: [{ title: "Lægebesøg", oldStart: "2026-08-31T10:00:00.000Z", memberName: "Christine" }],
+        created: [{ title: "Håndbold", start: "2026-09-08T17:00:00.000Z", memberName: "Alfred" }],
+      },
+    });
+
+    const rows = buildActivityRows(summary, { expandCalendarCreated: true });
+
+    expect(rows[0]?.detail).toMatch(/Jens$/);
+    expect(rows[1]?.detail).toMatch(/Christine$/);
+    expect(rows[2]?.detail).toMatch(/Alfred$/);
+  });
+
+  it("omits the member name from the detail line when the calendar has no mapping", () => {
+    const summary = emptySummary({
+      calendar: {
+        moved: [],
+        cancelled: [],
+        created: [{ title: "Skolefest", start: "2026-09-09T10:00:00.000Z" }],
+      },
+    });
+
+    const rows = buildActivityRows(summary, { expandCalendarCreated: true });
+
+    expect(rows[0]?.detail).not.toContain("·");
+  });
+
   it("combines completed and created task counts into one row, omitting a zero side", () => {
     expect(buildActivityRows(emptySummary({ tasksCompletedCount: 3 }))).toEqual([
       { id: "tasks", attention: false, icon: "check", title: "3 opgaver fuldført" },

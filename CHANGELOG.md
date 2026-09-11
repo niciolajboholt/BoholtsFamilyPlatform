@@ -1,5 +1,25 @@
 # Changelog
 
+## Sprint 37 — Sikkerhed og kodekvalitet efter eksternt review
+
+- `ADMIN_EMAIL` flyttet fra klartekst i `wrangler.jsonc` til Cloudflares
+  Secrets Store, samme mønster som de øvrige fire secrets.
+  `wrangler.example.jsonc` tilføjet som public-facing skabelon med
+  placeholder-ressource-ID'er.
+- ADR-018: formaliserer den allerede trufne Sprint 28-beslutning om, at
+  `env.beta` er den reelle produktion, og det unavngivne miljø forbliver
+  ubrugt.
+- ADR-019: begrunder, hvorfor SameSite=Lax uden separat CSRF-token er
+  tilstrækkeligt, efter en systematisk gennemgang af samtlige GET-ruter
+  for utilsigtede tilstandsændringer.
+- 14 patch/minor-afhængigheder opdateret efter en `npm outdated`-gennemgang
+  (typescript/vite/eslint bekræftet reelt udgivne versioner, ikke
+  fejlskrevne, som reviewet ellers mistænkte).
+- `ShoppingListPage.tsx` (516 → 187 linjer) og `CalendarPage.tsx`
+  (475 → 98 linjer) opdelt efter ansvar, samme mønster som Fase 6.
+- Ny reel Playwright-E2E for Sprint 33's "Siden sidst du var her" — den
+  eneste nyere funktion uden dækning ved en kort revision af testsuiten.
+
 ## Sprint 33 — "Siden sidst du var her"
 
 - Nyt overblikskort på forsiden: et kompakt teaser-felt der ved tryk åbner

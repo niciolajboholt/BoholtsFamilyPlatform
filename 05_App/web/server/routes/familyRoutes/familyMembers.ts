@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 
 import type { Env } from "../../env";
+import { isValidMonthDay } from "../../lib/birthday";
 import { getMembershipForFamily } from "../../lib/familyMembership";
 import {
   getFamily,
@@ -83,6 +84,7 @@ familyMembers.patch("/:id/members/:memberId", async (c) => {
     name: string;
     color: string;
     relation: string | null;
+    birthday?: string | null;
   }>(c);
 
   const updates: string[] = [];
@@ -103,6 +105,18 @@ familyMembers.patch("/:id/members/:memberId", async (c) => {
   if (body.relation !== undefined && body.relation !== null) {
     updates.push("relation = ?");
     values.push(body.relation);
+  }
+
+  // Sprint 40: kun måned/dag, bevidst intet fødselsår (se
+  // 40_Sprint40-planen) — null tillades eksplicit for at kunne rydde et
+  // tidligere sat felt igen.
+  if (body.birthday !== undefined) {
+    if (body.birthday !== null && !isValidMonthDay(body.birthday)) {
+      return c.json({ error: "Ugyldig fødselsdag." }, 400);
+    }
+
+    updates.push("birthday = ?");
+    values.push(body.birthday);
   }
 
   if (updates.length > 0) {

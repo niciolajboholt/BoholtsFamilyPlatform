@@ -73,6 +73,12 @@ async function mockAuthenticatedApi(page: Page): Promise<void> {
       };
     } else if (path.endsWith("/weekly-summary")) {
       body = { summary: null };
+    } else if (path.endsWith("/activity/since-last-visit")) {
+      body = {
+        hasActivity: false,
+        since: "2026-08-31T08:00:00.000Z",
+        asOf: "2026-09-01T08:00:00.000Z",
+      };
     } else if (path.endsWith("/calendar-mappings")) {
       body = {
         mappings: [
@@ -86,6 +92,24 @@ async function mockAuthenticatedApi(page: Page): Promise<void> {
       body = { tasks: [] };
     } else if (path.endsWith("/shopping-lists")) {
       body = { lists: [] };
+    } else if (path.endsWith("/enabled-features")) {
+      // Alt slået til som standard for de øvrige e2e-tests, der ikke selv
+      // handler om "Flere funktioner" — ellers ville hvert eneste
+      // eksisterende nav-punkt/side, der kan slås fra, forsvinde fra alle
+      // andre tests. Testen for selve dialogen (se nedenfor) overstyrer
+      // denne default med sit eget, mere kontrollerede scenarie.
+      body = {
+        features: [
+          "shopping-list",
+          "tasks",
+          "routines",
+          "meal-plan",
+          "task-rewards",
+          "birthdays",
+          "shared-expenses",
+          "kiosk",
+        ],
+      };
     } else if (path === "/api/calendar/status") {
       body = { connected: false };
     } else if (path === "/api/calendar/calendars") {
@@ -214,6 +238,44 @@ test("authenticated family can open every primary area", async ({ page }) => {
   await expect(page.getByText("Version e2e-version-")).toBeVisible();
 });
 
+test("home keeps the since-last-visit feature visible when the family is up to date", async ({
+  page,
+}) => {
+  await mockAuthenticatedApi(page);
+
+  await page.goto("/");
+
+  await expect(page.getByRole("heading", { name: "Siden sidst du var her" })).toBeVisible();
+  await expect(
+    page.getByText("Du er helt ajour – der er ingen nye ændringer."),
+  ).toBeVisible();
+});
+
+// Forsidens "Næste aftale"/"Resten af dagen" hentede tidligere ALLE
+// aftaler uden at tage hensyn til "Vis kalendere"-fravalget fra Kalender-
+// siden — en kalender man havde skjult der (fx et arbejds- eller
+// skoleskema) dukkede alligevel op på forsiden. Sætter chris-calendar
+// skjult direkte i localStorage (samme lagringsnøgle som
+// calendarSourceVisibilityStorage.ts bruger) FØR appen monterer, så
+// useCalendarSources læser den skjulte tilstand ved første indlæsning.
+test("home page's next-appointment widgets respect a calendar hidden via 'Vis kalendere'", async ({
+  page,
+}) => {
+  await mockAuthenticatedApi(page);
+  await page.clock.setFixedTime(new Date("2026-08-26T09:00:00+02:00"));
+  await page.addInitScript(() => {
+    window.localStorage.setItem(
+      "boholts-family-calendar-source-visibility",
+      JSON.stringify(["google:chris-calendar"]),
+    );
+  });
+
+  await page.goto("/");
+
+  await expect(page.getByText("Tandlæge og efterfølgende kontrol")).toBeVisible();
+  await expect(page.getByText("Forældremøde på skolen")).not.toBeVisible();
+});
+
 // Refresh-knappen på "Ugens resumé" (svar på Nicolajs spørgsmål om, hvorfor
 // resuméet ikke var kommet endnu — cron'en kører kun søndag aften, så en
 // ejer/admin kan nu selv udløse et frisk resumé i stedet for at vente).
@@ -256,6 +318,87 @@ test("a family owner can generate and refresh the weekly summary from the home p
 
   await page.getByRole("button", { name: "Opdater ugens resumé" }).click();
   await expect(page.getByText("Resumé nummer 2.")).toBeVisible();
+});
+
+test("a family member can review \"Siden sidst du var her\" and it disappears once acknowledged", async ({
+  page,
+}) => {
+  await mockAuthenticatedApi(page);
+
+  // Sprint 33 tilføjede "Siden sidst du var her", men ingen Playwright-test
+  // dækkede den endnu (fundet ved gennemgang i Sprint 37, punkt 6) — det
+  // globale mockAuthenticatedApi-fald-tilbage (tomt objekt) gør, at kortet
+  // aldrig har vist sig i de øvrige tests, uden at nogen af dem har fejlet.
+  let hasBeenAcknowledged = false;
+  let acknowledgedAsOf: string | null = null;
+
+  const activitySummary = {
+    hasActivity: true,
+    since: "2026-08-30T08:00:00.000Z",
+    asOf: "2026-08-31T09:00:00.000Z",
+    calendar: { moved: [], cancelled: [], created: [] },
+    tasksCompletedCount: 2,
+    tasksCreatedCount: 0,
+    shoppingAddedCount: 3,
+    shoppingCheckedCount: 0,
+    newFamilyMembers: [],
+    totalCount: 5,
+  };
+
+  await page.route("**/api/families/*/activity/since-last-visit", async (route) => {
+    // Efter denne test blev skrevet, udvidede develop (parallelt) kortet til
+    // altid at blive stående i en ikke-klikbar "ajour"-tilstand i stedet for
+    // at forsvinde helt, når der intet er sket — se ActivityCard.tsx. `since`
+    // sat (ikke null) her matcher den optimistiske klient-tilstand lige efter
+    // kvittering, så teksten er den samme før og efter en genindlæsning.
+    const body = hasBeenAcknowledged
+      ? { hasActivity: false, since: acknowledgedAsOf, asOf: new Date().toISOString() }
+      : activitySummary;
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
+  });
+
+  await page.route("**/api/families/*/activity/acknowledge", async (route) => {
+    const requestBody = route.request().postDataJSON() as { asOf?: string };
+    acknowledgedAsOf = requestBody.asOf ?? null;
+    hasBeenAcknowledged = true;
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true }) });
+  });
+
+  await page.goto("/");
+
+  const activityCard = page.getByRole("button", { name: /Siden sidst du var her/ });
+  await expect(activityCard).toBeVisible();
+  await activityCard.click();
+
+  const summaryDialog = page.getByRole("dialog");
+  await expect(summaryDialog.getByText("Siden sidst du var her")).toBeVisible();
+  await expect(summaryDialog.getByText("2 opgaver fuldført")).toBeVisible();
+  await expect(summaryDialog.getByText("3 varer tilføjet")).toBeVisible();
+
+  await page.getByRole("button", { name: "Vis alt (5)" }).click();
+
+  const fullListDialog = page.getByRole("dialog");
+  await expect(fullListDialog.getByText("Alle ændringer")).toBeVisible();
+  await expect(fullListDialog.getByText("2 opgaver fuldført")).toBeVisible();
+  await expect(fullListDialog.getByText("3 varer tilføjet")).toBeVisible();
+
+  await page.getByRole("button", { name: "Luk" }).click();
+
+  // Kortet lukkes med det PRÆCISE asOf-tidspunkt, brugeren fik at se (ikke et
+  // nyt "nu") — server-cursoren må aldrig utilsigtet springe over aktivitet,
+  // der skete mens dialogen var åben.
+  expect(acknowledgedAsOf).toBe(activitySummary.asOf);
+
+  // Kortet forsvinder ikke helt, men går over i en ikke-klikbar
+  // "ajour"-tilstand (bevidst ændring, tilføjet parallelt i develop).
+  await expect(activityCard).not.toBeVisible();
+  await expect(page.getByText("Du er helt ajour")).toBeVisible();
+
+  // Genindlæsning efter kvittering viser stadig ajour-tilstanden, ikke det
+  // oprindelige klikbare kort, uden ny aktivitet.
+  await page.reload();
+  await expect(page.getByRole("button", { name: /Siden sidst du var her/ })).not.toBeVisible();
+  await expect(page.getByText("Du er helt ajour")).toBeVisible();
 });
 
 test("mobile family planner is a readable agenda without horizontal overflow", async ({
@@ -977,8 +1120,10 @@ test("a private calendar event is fully visible to its owner and redacted to 'Op
   // kolonne (getPlannerEventsForColumn) og ville derfor slet ikke vise en
   // enkeltpersons-aftale som denne. Månedsvisningen viser alle synlige
   // kalendres aftaler uafhængigt af den fordeling.
-  // Lås kalenderen til samme måned som den hardkodede aftale. Ellers
-  // begynder testen at fejle, når den virkelige dato passerer august 2026.
+  // Låser "nu" til samme uge som den hardkodede aftale (2026-08-27) — ellers
+  // driver månedsvisningen med tiden og viser en anden måned end den,
+  // aftalen faktisk ligger i (samme rodårsag som de øvrige page.clock-fix i
+  // denne fil).
   await page.clock.setFixedTime(new Date("2026-08-26T09:00:00+02:00"));
   await page.goto("/calendar");
   // useFamilyMembers() læser kun localStorage ÉN gang, ved sin egen mount —
@@ -1114,7 +1259,8 @@ test("editing an existing private event sends the updated fields, and turning pr
     });
   });
 
-  // Lås kalenderen til samme måned som den hardkodede aftale.
+  // Låser "nu" til samme uge som den hardkodede aftale (2026-08-27) — se
+  // samme fix ovenfor i den anden private-event-test.
   await page.clock.setFixedTime(new Date("2026-08-26T09:00:00+02:00"));
   await page.goto("/calendar");
   await page.waitForFunction(() => localStorage.getItem("boholts-family-members") !== null);
@@ -1368,11 +1514,8 @@ test("a family member can add and remove an ICS calendar subscription in Setting
 // flowet gennem den rigtige UI, ikke kun det isolerede opret-kald (allerede
 // dækket af "creating a private event..." ovenfor) eller det isolerede
 // redigér-kald (allerede dækket af "editing an existing private event...").
-// Bemærk: gentagne aftaler kan IKKE testes gennem UI'et her — hverken
-// "Ny aftale"-dialogens gentagelsesvalg eller redigér-dialogens "Kun denne
-// forekomst/Hele rækken"-valg vises for en Google-kalenderkilde (kun for en
-// "internal" kilde, som ikke længere findes i produktionskoden, jf.
-// ADR-017/CompositeCalendarProvider.ts) — se Fase 5's "Mangler".
+// Gentagelsesoprettelse og redigeringsomfang dækkes særskilt nedenfor, så
+// dette scenarie kan holde fokus på det almindelige CRUD-flow.
 test("a family member can create, edit, and delete a calendar event through the real UI", async ({
   page,
 }, testInfo) => {
@@ -1488,6 +1631,338 @@ test("a family member can create, edit, and delete a calendar event through the 
   await page.getByRole("button", { name: "Bekræft sletning" }).click();
 
   await expect(renamedEventButton).not.toBeVisible();
+});
+
+// Sprint 34: gentagne aftaler kan kun OPRETTES mod Google (se
+// providerSupportsRecurrenceCreation) — testen bekræfter, at gentagelses-
+// feltet rent faktisk når frem til POST-kaldet mod Google, gennem den
+// samme UI-flow som den almindelige opret-test ovenfor.
+test("a family member can create a recurring Google event through the real UI", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  await mockAuthenticatedApi(page);
+  await page.route("**/api/calendar/status", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ connected: true }),
+    }),
+  );
+
+  let postedEvent: Record<string, unknown> | null = null;
+
+  await page.route("**/api/calendar/calendars/*/events*", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    const calendarId = decodeURIComponent(path.split("/")[4] ?? "");
+
+    if (calendarId !== "alex-calendar") {
+      await route.fallback();
+      return;
+    }
+
+    if (route.request().method() === "GET") {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          items: postedEvent ? [postedEvent] : [],
+          nextSyncToken: "alex-calendar-sync-token",
+        }),
+      });
+      return;
+    }
+
+    if (route.request().method() === "POST") {
+      const posted = route.request().postDataJSON() as Record<string, unknown>;
+      postedEvent = {
+        id: "recurring-test-event",
+        summary: posted.summary,
+        start: posted.start,
+        end: posted.end,
+        status: "confirmed",
+      };
+      await route.fulfill({
+        status: 201,
+        contentType: "application/json",
+        body: JSON.stringify(postedEvent),
+      });
+      return;
+    }
+
+    await route.fallback();
+  });
+
+  await page.goto("/calendar");
+
+  await page.getByRole("button", { name: "Ny aftale" }).click();
+  await page.getByLabel("Hvem gælder aftalen for?").click();
+  await page.locator('[role="option"][data-value="google:alex-calendar"]').click();
+  await page.getByLabel("Titel").fill("Svømning");
+
+  await expect(page.getByLabel("Gentages")).toBeVisible();
+  await page.getByLabel("Gentages").click();
+  await page.getByRole("option", { name: "Hver uge" }).click();
+  await expect(page.getByText(/^Gentages hver/)).toBeVisible();
+
+  const [request] = await Promise.all([
+    page.waitForRequest(
+      (req) =>
+        /\/api\/calendar\/calendars\/.+\/events/.test(req.url()) &&
+        req.method() === "POST",
+    ),
+    page.getByRole("button", { name: "Opret aftale" }).click(),
+  ]);
+
+  const body = request.postDataJSON() as { recurrence?: string[] };
+  expect(body.recurrence).toHaveLength(1);
+  expect(body.recurrence?.[0]).toMatch(/^RRULE:FREQ=WEEKLY/);
+
+  await expect(
+    page.getByRole("button", { name: new RegExp(`^Rediger aftale: Svømning,`) }),
+  ).toBeVisible();
+});
+
+test("a family member can turn an existing Google event into a recurring series", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  await mockAuthenticatedApi(page);
+  await page.clock.setFixedTime(new Date("2026-08-26T09:00:00+02:00"));
+
+  let patchedRecurrence: string[] | undefined;
+  await page.route("**/api/calendar/calendars/alex-calendar/events/*", async (route) => {
+    if (route.request().method() !== "PATCH") {
+      await route.fallback();
+      return;
+    }
+
+    const patched = route.request().postDataJSON() as {
+      summary?: string;
+      start?: object;
+      end?: object;
+      recurrence?: string[];
+    };
+    patchedRecurrence = patched.recurrence;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        id: "alex-calendar-event",
+        summary: patched.summary,
+        start: patched.start,
+        end: patched.end,
+        recurrence: patched.recurrence,
+      }),
+    });
+  });
+
+  await page.goto("/calendar");
+  await page
+    .getByRole("button", {
+      name: /^Rediger aftale: Tandlæge og efterfølgende kontrol,/,
+    })
+    .click();
+
+  await expect(page.getByLabel("Gentages")).toBeVisible();
+  await page.getByLabel("Gentages").click();
+  await page.getByRole("option", { name: "Hver uge" }).click();
+  await page.getByRole("button", { name: "Gem ændringer" }).click();
+
+  await expect.poll(() => patchedRecurrence).toEqual([
+    expect.stringMatching(/^RRULE:FREQ=WEEKLY/),
+  ]);
+});
+
+test("a family member can choose one occurrence or the whole Google series", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  await mockAuthenticatedApi(page);
+  await page.clock.setFixedTime(new Date("2026-08-26T09:00:00+02:00"));
+  await page.route("**/api/calendar/status", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ connected: true }),
+    }),
+  );
+
+  await page.route("**/api/calendar/calendars/alex-calendar/events*", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (route.request().method() !== "GET" || !path.endsWith("/events")) {
+      await route.fallback();
+      return;
+    }
+
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        items: [
+          {
+            id: "series-1_20260827T070000Z",
+            recurringEventId: "series-1",
+            originalStartTime: { dateTime: "2026-08-27T07:00:00.000Z" },
+            summary: "Ugentlig svømning",
+            status: "confirmed",
+            start: { dateTime: "2026-08-27T07:00:00.000Z" },
+            end: { dateTime: "2026-08-27T08:00:00.000Z" },
+          },
+        ],
+        nextSyncToken: "recurring-series-token",
+      }),
+    });
+  });
+
+  let patchedEventId: string | null = null;
+  await page.route("**/api/calendar/calendars/alex-calendar/events/*", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    const eventId = decodeURIComponent(path.split("/").at(-1) ?? "");
+
+    if (route.request().method() === "GET") {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          id: "series-1",
+          summary: "Ugentlig svømning",
+          start: { dateTime: "2026-08-20T07:00:00.000Z" },
+          end: { dateTime: "2026-08-20T08:00:00.000Z" },
+          recurrence: ["RRULE:FREQ=WEEKLY"],
+        }),
+      });
+      return;
+    }
+
+    if (route.request().method() === "PATCH") {
+      patchedEventId = eventId;
+      const patched = route.request().postDataJSON() as Record<string, unknown>;
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ id: eventId, ...patched }),
+      });
+      return;
+    }
+
+    await route.fallback();
+  });
+
+  await page.goto("/calendar");
+  await page
+    .getByRole("button", { name: /^Rediger aftale: Ugentlig svømning,/ })
+    .click();
+
+  const scopeSelect = page.getByRole("combobox", { name: "Gælder for" });
+  await expect(scopeSelect).toContainText("Kun denne forekomst");
+  await scopeSelect.click();
+  await page.getByRole("option", { name: "Hele rækken" }).click();
+  await expect(
+    page.getByText("Ændringer og sletning gælder alle aftaler i den gentagne række."),
+  ).toBeVisible();
+
+  await page.getByLabel("Titel").fill("Ugentlig svømning – hele rækken");
+  await page.getByRole("button", { name: "Gem ændringer" }).click();
+
+  await expect.poll(() => patchedEventId).toBe("series-1");
+});
+
+// Sprint 36: et familiemedlem uden egen konto/kalender (fx et barn) kan
+// hverken matches via deltagere eller kalender-tildeling (se
+// matchAttendeesToOwnerIds.ts) — så "Hvem gælder aftalen for?" er nu
+// tilgængelig for Google-aftaler i redigér-dialogen, til at sætte den
+// tilknytning manuelt. Bekræfter det udgående PATCH-kald bærer valget som
+// Googles egen extendedProperties.
+test("a family member can manually assign an owner to a Google event through the real UI", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  await mockAuthenticatedApi(page);
+  await page.route("**/api/calendar/status", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ connected: true }),
+    }),
+  );
+
+  let patchedBody: Record<string, unknown> | undefined;
+
+  await page.route("**/api/calendar/calendars/alex-calendar/events/*", async (route) => {
+    if (route.request().method() !== "PATCH") {
+      await route.fallback();
+      return;
+    }
+
+    patchedBody = route.request().postDataJSON() as Record<string, unknown>;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ id: "alex-calendar-event", ...patchedBody }),
+    });
+  });
+
+  await page.clock.setFixedTime(new Date("2026-08-26T09:00:00+02:00"));
+  await page.goto("/calendar");
+  await page
+    .getByRole("button", { name: /^Rediger aftale: Tandlæge og efterfølgende kontrol,/ })
+    .click();
+  await page.getByRole("button", { name: "Flere muligheder" }).click();
+
+  // Alex er allerede automatisk tilknyttet via kalender-tildelingen —
+  // markerer også Billie, så begge indgår i den manuelle overstyring.
+  await page.getByRole("checkbox", { name: "Billie" }).check();
+  await page.getByRole("button", { name: "Gem ændringer" }).click();
+
+  await expect.poll(() => patchedBody?.extendedProperties).toEqual({
+    private: { boholtsOwnerIds: "member-e2e,member-billie" },
+  });
+});
+
+// Regressionstest: en almindelig redigering, der IKKE rører ejerkredsen,
+// må ikke utilsigtet fastfryse det automatisk matchede ejerskab som en
+// permanent Google-overstyring (se ownerIdsChanged-kommentaren i
+// useEditEventDialogController.ts).
+test("editing a Google event without touching ownership does not write an owner override", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  await mockAuthenticatedApi(page);
+  await page.route("**/api/calendar/status", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ connected: true }),
+    }),
+  );
+
+  let patchedBody: Record<string, unknown> | undefined;
+
+  await page.route("**/api/calendar/calendars/alex-calendar/events/*", async (route) => {
+    if (route.request().method() !== "PATCH") {
+      await route.fallback();
+      return;
+    }
+
+    patchedBody = route.request().postDataJSON() as Record<string, unknown>;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ id: "alex-calendar-event", ...patchedBody }),
+    });
+  });
+
+  await page.clock.setFixedTime(new Date("2026-08-26T09:00:00+02:00"));
+  await page.goto("/calendar");
+  await page
+    .getByRole("button", { name: /^Rediger aftale: Tandlæge og efterfølgende kontrol,/ })
+    .click();
+  await page.getByLabel("Titel").fill("Tandlæge, flyttet");
+  await page.getByRole("button", { name: "Gem ændringer" }).click();
+
+  await expect.poll(() => patchedBody?.summary).toBe("Tandlæge, flyttet");
+  expect(patchedBody?.extendedProperties).toBeUndefined();
 });
 
 // Fase 5: "Fuldt invitations-/rolleflow gennem UI'et" — del 1: en helt ny
@@ -1741,6 +2216,123 @@ test("an event with multiple matched family members shows their own colors, spli
   expect(accentImage).toContain(hexToRgb("#2F6B4F"));
   expect(accentImage).toContain(hexToRgb("#C97653"));
   expect(accentImage).not.toContain(hexToRgb("#6D597A")); // Familien-farven
+});
+
+// Månedsvisningens dagsceller viste tidligere op til 5 ejer-badges, der
+// brød om til flere rækker (flexWrap) — en dag med flere ejere blev derved
+// synligt højere end resten af ugens celler. DayCell.tsx genbruger nu
+// samme ét-linjes, overlappende badge-stil som selve aftalekortene
+// (EventOwnerBadges) — bekræfter her, at en dag med fire forskellige ejere
+// får præcis samme cellehøjde som en nabodag uden nogen aftaler.
+test("a month-view day cell with several owners is the same height as a day with none", async ({
+  page,
+}, testInfo) => {
+  // Mobil, ikke desktop: badge-rækken bryder kun om ved smalle cellebredder
+  // — en desktop-bred celle rummer allerede 3 badges på én linje uden fix.
+  test.skip(testInfo.project.name !== "mobile-chromium");
+
+  await page.route("**/api/**", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    let body: object = {};
+
+    if (path === "/api/me") {
+      body = { user: { id: "user-e2e", email: "familie@example.com", name: "Testbruger", pictureUrl: null } };
+    } else if (path === "/api/families/mine") {
+      body = {
+        family,
+        role: "owner",
+        members: [
+          { id: "member-e2e", name: "Alex", color: "#2F6B4F", relation: "Andet", isPlaceholderName: 0, linkedUserId: "user-e2e" },
+          { id: "member-chris", name: "Chris", color: "#C97653", relation: "Andet", isPlaceholderName: 0, linkedUserId: null },
+          { id: "member-billie", name: "Billie", color: "#D19A2A", relation: "Barn", isPlaceholderName: 0, linkedUserId: null },
+          { id: "member-dana", name: "Dana", color: "#6B4FC9", relation: "Andet", isPlaceholderName: 0, linkedUserId: null },
+          { id: "member-eli", name: "Eli", color: "#4F8AC9", relation: "Barn", isPlaceholderName: 0, linkedUserId: null },
+        ],
+        inviteCode: "TEST1234",
+      };
+    } else if (path.endsWith("/weekly-summary")) {
+      body = { summary: null };
+    } else if (path.endsWith("/calendar-mappings")) {
+      body = {
+        mappings: [
+          { googleCalendarId: "alex-calendar", familyMemberId: "member-e2e" },
+          { googleCalendarId: "chris-calendar", familyMemberId: "member-chris" },
+          { googleCalendarId: "billie-calendar", familyMemberId: "member-billie" },
+          { googleCalendarId: "dana-calendar", familyMemberId: "member-dana" },
+          { googleCalendarId: "eli-calendar", familyMemberId: "member-eli" },
+        ],
+      };
+    } else if (path.endsWith("/routines")) {
+      body = { routines: [] };
+    } else if (path.endsWith("/tasks")) {
+      body = { tasks: [] };
+    } else if (path.endsWith("/shopping-lists")) {
+      body = { lists: [] };
+    } else if (path === "/api/calendar/status") {
+      body = { connected: true };
+    } else if (path === "/api/calendar/calendars") {
+      body = {
+        items: [
+          { id: "alex-calendar", summary: "Alex", accessRole: "owner" },
+          { id: "chris-calendar", summary: "Chris", accessRole: "owner" },
+          { id: "billie-calendar", summary: "Billie", accessRole: "owner" },
+          { id: "dana-calendar", summary: "Dana", accessRole: "owner" },
+          { id: "eli-calendar", summary: "Eli", accessRole: "owner" },
+        ],
+      };
+    } else if (path.includes("/api/calendar/calendars/") && path.endsWith("/events")) {
+      const calendarId = decodeURIComponent(path.split("/")[4]);
+      // Alle fem kalendre har en aftale på SAMME dag (26/8) — de øvrige
+      // dage i ugen har ingen aftaler, så deres celler er referencen.
+      body = {
+        items: [{
+          id: `${calendarId}-event`,
+          summary: `${calendarId} aftale`,
+          status: "confirmed",
+          start: { dateTime: "2026-08-26T08:00:00+02:00" },
+          end: { dateTime: "2026-08-26T09:00:00+02:00" },
+        }],
+        nextSyncToken: `${calendarId}-token`,
+      };
+    } else if (path === "/api/health") {
+      body = { status: "ok", version: { id: "e2e-version-123456" } };
+    } else if (path.includes("/activity/")) {
+      body = { hasActivity: false, since: null, asOf: new Date().toISOString() };
+    }
+
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
+  });
+
+  await page.clock.setFixedTime(new Date("2026-08-26T09:00:00+02:00"));
+  await page.goto("/calendar");
+  await page.getByRole("button", { name: "Måned", exact: true }).click();
+
+  // Sammenligner bevidst på tværs af UGE-rækker, ikke to dage i samme
+  // uge: CSS Grid strækker allerede alle celler i samme række til rækkens
+  // højeste celle, så et wrap ville gøre HELE ugens række højere end
+  // ugerne omkring den — ikke kun den ene dags celle. Det er præcis den
+  // synlige forskel fra skærmbilledet (én ugerække tydeligt højere end
+  // resten), som fixet skal fjerne.
+  const busyDay = page.locator('button[aria-label*="26. august"]');
+  const emptyDay = page.locator('button[aria-label*="2. september"]');
+  await expect(busyDay).toBeVisible();
+  await expect(emptyDay).toBeVisible();
+
+  const busyBox = await busyDay.boundingBox();
+  const emptyBox = await emptyDay.boundingBox();
+  expect(busyBox).not.toBeNull();
+  expect(emptyBox).not.toBeNull();
+  expect(busyBox!.height).toBeCloseTo(emptyBox!.height, 0);
+
+  // Dagscellens 2×2-gitter viser højst 4 ejer-badges — den femte skal ikke
+  // bare forsvinde sporløst, men vises som "+2" (3 badges + tallet, samme
+  // "+X flere"-mønster som aftalelisten under kalenderen bruger). "+2"
+  // sidder som en visuel søskende til selve knappen (den dækker kun
+  // klik-laget, jf. DayCell.tsx), så tjekket går via den fælles
+  // dagscelle-beholder, ikke knappen selv.
+  await expect(
+    busyDay.locator("xpath=..").getByText("+2", { exact: true }),
+  ).toBeVisible();
 });
 
 // Fase 1-følgeret (PR #148-opfølgning): et ICS-abonnement UDEN
@@ -2328,4 +2920,735 @@ test("a genuine server error while online shows a visible error message instead 
   // Fejlen efterlader ikke varen tilføjet, og siden er stadig fuldt brugbar.
   await expect(page.getByText("Mælk", { exact: true })).not.toBeVisible();
   await expect(addItemInput).toBeEditable();
+});
+
+test("a family member can plan a week's dishes and generate a deduplicated shopping draft", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  await mockAuthenticatedApi(page);
+
+  const lists = [
+    {
+      id: "list-groceries",
+      familyId: family.id,
+      name: "Dagligvarer",
+      type: "dagligvarer",
+      createdAt: "2026-08-20T00:00:00.000Z",
+    },
+  ];
+  const dishesByDate: Record<string, string> = {};
+  const addedItemNames: string[] = [];
+
+  await page.route("**/api/families/*/shopping-lists", async (route) => {
+    if (route.request().method() !== "GET") {
+      await route.fallback();
+      return;
+    }
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ lists }) });
+  });
+
+  await page.route("**/api/families/*/shopping-lists/*/items", async (route) => {
+    const method = route.request().method();
+
+    if (method === "GET") {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ items: [] }) });
+      return;
+    }
+
+    if (method === "POST") {
+      const posted = route.request().postDataJSON() as { name: string };
+      addedItemNames.push(posted.name);
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ items: [] }) });
+      return;
+    }
+
+    await route.fallback();
+  });
+
+  function entriesInRange(startDate: string, endDate: string): { date: string; dishName: string }[] {
+    return Object.entries(dishesByDate)
+      .filter(([date]) => date >= startDate && date <= endDate)
+      .map(([date, dishName]) => ({ date, dishName }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+  }
+
+  // Ét enkelt glob-jokertegn ("*") krydser ikke "/" i Playwrights
+  // mønster-matching — et trailing "**" er derfor nødvendigt her for at
+  // ramme både GET .../meal-plan?startDate=... (query-streng, intet ekstra
+  // sti-segment), PUT .../meal-plan/2026-09-07 og POST
+  // .../meal-plan/generate-ingredients-draft?... (begge med et ekstra
+  // sti-segment) i samme registrering.
+  await page.route("**/api/families/*/meal-plan**", async (route) => {
+    const url = new URL(route.request().url());
+    const segments = url.pathname.split("/");
+    const method = route.request().method();
+    const lastSegment = segments[segments.length - 1];
+
+    if (lastSegment === "meal-plan" && method === "GET") {
+      const startDate = url.searchParams.get("startDate")!;
+      const endDate = url.searchParams.get("endDate")!;
+
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ entries: entriesInRange(startDate, endDate) }),
+      });
+      return;
+    }
+
+    if (lastSegment === "generate-ingredients-draft" && method === "POST") {
+      // To retter (Spaghetti bolognese, Løgsuppe), begge bruger "Løg" —
+      // beviser at serveren de-duplikerer på tværs af retter, ikke kun at
+      // klienten viser, hvad den fik.
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          items: [
+            { name: "Hakket oksekød", category: "Kød" },
+            { name: "Løg", category: "Frugt & grønt" },
+            { name: "Bouillon", category: "Andet" },
+          ],
+        }),
+      });
+      return;
+    }
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(lastSegment ?? "") && method === "PUT") {
+      const date = lastSegment!;
+      const posted = route.request().postDataJSON() as { dishName: string };
+
+      if (posted.dishName.trim()) {
+        dishesByDate[date] = posted.dishName.trim();
+      } else {
+        delete dishesByDate[date];
+      }
+
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ entries: [{ date, dishName: dishesByDate[date] ?? "" }].filter((e) => e.dishName) }),
+      });
+      return;
+    }
+
+    await route.fallback();
+  });
+
+  await page.goto("/meal-plan");
+
+  await expect(page.getByRole("heading", { name: "Måltidsplan" })).toBeVisible();
+
+  const dishInputs = page.getByPlaceholder("Ingen ret planlagt");
+  await expect(dishInputs.first()).toBeVisible();
+
+  const firstSaved = page.waitForResponse(
+    (response) => /\/meal-plan\/\d{4}-\d{2}-\d{2}$/.test(response.url()) && response.request().method() === "PUT",
+  );
+  await dishInputs.nth(0).fill("Spaghetti bolognese");
+  await dishInputs.nth(0).blur();
+  await firstSaved;
+
+  const secondSaved = page.waitForResponse(
+    (response) => /\/meal-plan\/\d{4}-\d{2}-\d{2}$/.test(response.url()) && response.request().method() === "PUT",
+  );
+  await dishInputs.nth(1).fill("Løgsuppe");
+  await dishInputs.nth(1).blur();
+  await secondSaved;
+
+  // Retten er reelt gemt, ikke kun vist lokalt — en genindlæsning viser den
+  // stadig.
+  await page.reload();
+  await expect(page.getByPlaceholder("Ingen ret planlagt").first()).toHaveValue("Spaghetti bolognese");
+
+  await page.getByRole("button", { name: "Foreslå indkøb" }).click();
+  await page.getByRole("button", { name: "Generér forslag" }).click();
+
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByText("Hakket oksekød")).toBeVisible();
+  await expect(dialog.getByText("Løg", { exact: true })).toBeVisible();
+  await expect(dialog.getByText("Bouillon")).toBeVisible();
+
+  await dialog.getByRole("button", { name: "Tilføj valgte" }).click();
+
+  await expect(dialog).not.toBeVisible();
+  expect(addedItemNames.sort()).toEqual(["Bouillon", "Hakket oksekød", "Løg"].sort());
+});
+
+test("completing a rewarded task books an allowance, and unchecking it reverses the booking", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  await mockAuthenticatedApi(page);
+
+  let tasksList: Array<Record<string, unknown>> = [];
+  let ledgerAmount = 0;
+
+  await page.route("**/api/families/*/tasks", async (route) => {
+    const method = route.request().method();
+
+    if (method === "GET") {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ tasks: tasksList }) });
+      return;
+    }
+
+    if (method === "POST") {
+      const posted = route.request().postDataJSON() as {
+        name: string;
+        icon: string;
+        assignedMemberId?: string | null;
+        rewardAmount?: number;
+      };
+      tasksList = [
+        ...tasksList,
+        {
+          id: "task-1",
+          familyId: family.id,
+          name: posted.name,
+          icon: posted.icon,
+          assignedMemberId: posted.assignedMemberId ?? null,
+          timeOfDay: null,
+          isDone: 0,
+          routineItemId: null,
+          taskDate: new Date().toISOString().slice(0, 10),
+          createdByUserId: "user-e2e",
+          createdAt: new Date().toISOString(),
+          doneAt: null,
+          rewardAmount: posted.rewardAmount ?? 0,
+        },
+      ];
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ tasks: tasksList }) });
+      return;
+    }
+
+    await route.fallback();
+  });
+
+  await page.route("**/api/families/*/tasks/*", async (route) => {
+    const url = new URL(route.request().url());
+    const taskId = url.pathname.split("/")[5];
+    const method = route.request().method();
+
+    if (method === "PATCH") {
+      const patched = route.request().postDataJSON() as { isDone?: boolean };
+      const task = tasksList.find((existing) => existing.id === taskId);
+
+      // Efterligner server-sidens bogføring/fortryd, som sker sammen med
+      // selve isDone-skiftet (se tasksCrud.ts) — ikke et separat kald.
+      if (patched.isDone !== undefined && task) {
+        const reward = Number(task.rewardAmount ?? 0);
+        ledgerAmount = patched.isDone ? ledgerAmount + reward : Math.max(0, ledgerAmount - reward);
+      }
+
+      tasksList = tasksList.map((existing) => (existing.id === taskId ? { ...existing, ...patched } : existing));
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ tasks: tasksList }) });
+      return;
+    }
+
+    await route.fallback();
+  });
+
+  await page.route("**/api/families/*/allowance-balances", async (route) => {
+    const balances = ledgerAmount > 0 ? [{ familyMemberId: "member-billie", balanceAmount: ledgerAmount }] : [];
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ balances }) });
+  });
+
+  await page.goto("/tasks");
+
+  // "Min dag" (standardfanen) viser kun egne og familie-rettede opgaver —
+  // en opgave tildelt Billie (ikke den loggede bruger) kræver "Familien"-
+  // fanen, samme som en rigtig bruger ville opleve det.
+  await page.getByRole("tab", { name: "Familien" }).click();
+
+  await page.getByLabel("Opgave", { exact: true }).fill("Fold vasketøj");
+  await page.getByRole("combobox", { name: "Tildel til" }).click();
+  await page.getByRole("option", { name: "Billie" }).click();
+  await page.getByLabel("Belønning (kr.)").fill("10");
+  await page.getByRole("button", { name: "Tilføj" }).click();
+  await expect(page.getByText("Fold vasketøj", { exact: true })).toBeVisible();
+
+  // Ingen saldo-chip endnu — opgaven er ikke fuldført.
+  await expect(page.getByText("Billie: 10 kr.")).not.toBeVisible();
+
+  await page.getByRole("checkbox").click();
+  await expect(page.getByText("Billie: 10 kr.")).toBeVisible();
+
+  await page.getByRole("checkbox").click();
+  await expect(page.getByText("Billie: 10 kr.")).not.toBeVisible();
+});
+
+// Sprint 40: fødselsdag pr. medlem (MM-DD) og en tilhørende gaveplan-liste.
+// Dækker både at fødselsdagen rent faktisk gemmes (overlever genindlæsning)
+// og ADR-020-privatlivsreglen på klientniveau: en gaveplan oprettet til
+// Billie skal kunne ses og redigeres, uafhængigt af hvem der er logget ind
+// som — den egentlige skjul-for-modtageren-logik ligger server-side og er
+// dækket af families.test.ts, men UI'en skal i det mindste vise, hvad
+// serveren returnerer, uden selv at filtrere forkert.
+test("a family member can set a birthday and collect gift ideas in Settings", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  await mockAuthenticatedApi(page);
+
+  let members: Array<Record<string, unknown>> = [
+    { id: "member-e2e", name: "Alex", color: "#2F6B4F", relation: "Andet", isPlaceholderName: 0, linkedUserId: "user-e2e", birthday: null },
+    { id: "member-chris", name: "Chris", color: "#C97653", relation: "Andet", isPlaceholderName: 0, linkedUserId: null, birthday: null },
+    { id: "member-billie", name: "Billie", color: "#D19A2A", relation: "Barn", isPlaceholderName: 0, linkedUserId: null, birthday: null },
+  ];
+  let plans: Array<Record<string, unknown>> = [];
+  let nextPlanId = 1;
+
+  await page.route("**/api/families/mine", async (route) => {
+    if (route.request().method() !== "GET") {
+      await route.fallback();
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ family, role: "owner", members, inviteCode: "TEST1234" }),
+    });
+  });
+
+  await page.route("**/api/families/*/members/*", async (route) => {
+    if (route.request().method() !== "PATCH") {
+      await route.fallback();
+      return;
+    }
+    const memberId = new URL(route.request().url()).pathname.split("/")[5];
+    const patched = route.request().postDataJSON() as { birthday?: string | null };
+    members = members.map((member) =>
+      member.id === memberId ? { ...member, birthday: patched.birthday ?? null } : member,
+    );
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ members }) });
+  });
+
+  await page.route("**/api/families/*/birthday-gift-plans", async (route) => {
+    if (route.request().method() === "GET") {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ plans }) });
+      return;
+    }
+
+    if (route.request().method() === "POST") {
+      const posted = route.request().postDataJSON() as {
+        familyMemberId: string;
+        year: number;
+        giftIdea: string;
+        budgetAmount?: number | null;
+      };
+      plans = [
+        ...plans,
+        {
+          id: `plan-${nextPlanId++}`,
+          familyId: family.id,
+          familyMemberId: posted.familyMemberId,
+          year: posted.year,
+          giftIdea: posted.giftIdea,
+          budgetAmount: posted.budgetAmount ?? null,
+          isPurchased: 0,
+          createdByUserId: "user-e2e",
+          createdAt: new Date().toISOString(),
+        },
+      ];
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ plans }) });
+      return;
+    }
+
+    await route.fallback();
+  });
+
+  await page.route("**/api/families/*/birthday-gift-plans/*", async (route) => {
+    const planId = new URL(route.request().url()).pathname.split("/")[5];
+    const method = route.request().method();
+
+    if (method === "PATCH") {
+      const patched = route.request().postDataJSON() as { isPurchased?: boolean };
+      plans = plans.map((plan) => (plan.id === planId ? { ...plan, ...patched } : plan));
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ plans }) });
+      return;
+    }
+
+    if (method === "DELETE") {
+      plans = plans.filter((plan) => plan.id !== planId);
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ plans }) });
+      return;
+    }
+
+    await route.fallback();
+  });
+
+  await page.goto("/settings");
+  await expect(page.getByText("Fødselsdage og gaver")).toBeVisible();
+
+  const billieRow = page.getByText("Billie", { exact: true }).locator("..");
+  await billieRow.getByPlaceholder("MM-DD").fill("06-15");
+  await billieRow.getByPlaceholder("MM-DD").blur();
+  await expect.poll(() => members.find((member) => member.id === "member-billie")?.birthday).toBe("06-15");
+
+  // Genindlæs siden for at bevise fødselsdagen rent faktisk blev sendt og
+  // gemt — ikke kun opdateret i lokal komponent-state.
+  await page.reload();
+  await expect(page.getByPlaceholder("MM-DD").nth(2)).toHaveValue("06-15");
+
+  await page.getByRole("button", { name: "Gaveideer til Billie" }).click();
+  const dialog = page.getByRole("dialog", { name: "Gaveideer til Billie" });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByText("Ingen gaveideer endnu.")).toBeVisible();
+
+  await dialog.getByLabel("Ny gaveide").fill("Cykelhjelm");
+  await dialog.getByLabel("Budget (kr.)").fill("300");
+  await dialog.getByRole("button", { name: "Tilføj" }).click();
+  await expect(dialog.getByText("Cykelhjelm")).toBeVisible();
+  await expect(dialog.getByText("300 kr.", { exact: false })).toBeVisible();
+
+  await dialog.getByRole("checkbox").click();
+  await expect.poll(() => plans[0]?.isPurchased).toBe(true);
+  await expect(dialog.getByRole("checkbox")).toBeChecked();
+
+  await dialog.getByRole("button", { name: "Slet Cykelhjelm" }).click();
+  await expect(dialog.getByText("Ingen gaveideer endnu.")).toBeVisible();
+
+  await dialog.getByRole("button", { name: "Luk" }).click();
+  await expect(dialog).not.toBeVisible();
+});
+
+// Sprint 41: et simpelt "hvem betalte/hvem skylder"-overblik mellem
+// forældre. Sektionen vises kun når mindst to medlemmer har en koblet
+// konto — standard-familien i mockAuthenticatedApi har kun Alex koblet,
+// så testen kobler Chris til også, for at gøre sektionen synlig.
+test("a family member can log a shared expense, see the split balance, and settle it in Settings", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  await mockAuthenticatedApi(page);
+
+  const members = [
+    { id: "member-e2e", name: "Alex", color: "#2F6B4F", relation: "Andet", isPlaceholderName: 0, linkedUserId: "user-e2e", birthday: null },
+    { id: "member-chris", name: "Chris", color: "#C97653", relation: "Andet", isPlaceholderName: 0, linkedUserId: "user-chris", birthday: null },
+    { id: "member-billie", name: "Billie", color: "#D19A2A", relation: "Barn", isPlaceholderName: 0, linkedUserId: null, birthday: null },
+  ];
+
+  let expenses: Array<Record<string, unknown>> = [];
+  let balances: Array<{ debtorMemberId: string; creditorMemberId: string; amount: number }> = [];
+  let nextExpenseId = 1;
+
+  await page.route("**/api/families/mine", async (route) => {
+    if (route.request().method() !== "GET") {
+      await route.fallback();
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ family, role: "owner", members, inviteCode: "TEST1234" }),
+    });
+  });
+
+  await page.route("**/api/families/*/shared-expenses", async (route) => {
+    if (route.request().method() === "GET") {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ expenses }) });
+      return;
+    }
+
+    if (route.request().method() === "POST") {
+      const posted = route.request().postDataJSON() as {
+        description: string;
+        amount: number;
+        paidByMemberId: string;
+        splitBetween: string[];
+        expenseDate: string;
+      };
+      expenses = [
+        ...expenses,
+        {
+          id: `expense-${nextExpenseId++}`,
+          familyId: family.id,
+          description: posted.description,
+          amount: posted.amount,
+          paidByMemberId: posted.paidByMemberId,
+          splitBetween: posted.splitBetween,
+          expenseDate: posted.expenseDate,
+          createdByUserId: "user-e2e",
+          createdAt: new Date().toISOString(),
+        },
+      ];
+
+      // Efterligner server-sidens ligelige deling (sharedExpenses.ts) —
+      // kun til visning i denne test, ikke selve produktionslogikken.
+      const other = posted.splitBetween.find((id) => id !== posted.paidByMemberId);
+      if (other) {
+        const share = Math.round(posted.amount / posted.splitBetween.length);
+        balances = [{ debtorMemberId: other, creditorMemberId: posted.paidByMemberId, amount: share }];
+      }
+
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ expenses }) });
+      return;
+    }
+
+    await route.fallback();
+  });
+
+  await page.route("**/api/families/*/shared-expense-balances", async (route) => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ balances }) });
+  });
+
+  await page.route("**/api/families/*/shared-expense-settlements", async (route) => {
+    if (route.request().method() !== "POST") {
+      await route.fallback();
+      return;
+    }
+    balances = [];
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ balances }) });
+  });
+
+  await page.goto("/settings");
+  await expect(page.getByText("Deleøkonomi")).toBeVisible();
+  await expect(page.getByText("Ingen udestående saldo.")).toBeVisible();
+
+  await page.getByLabel("Beskrivelse").fill("Fritidsaktivitet");
+  await page.getByLabel("Beløb (kr.)").fill("300");
+  await page.getByLabel("Betalt af").click();
+  await page.getByRole("option", { name: "Alex" }).click();
+  await page.getByRole("button", { name: "Tilføj udgift" }).click();
+
+  await expect(page.getByText("Fritidsaktivitet")).toBeVisible();
+  await expect(page.getByText("Chris skylder Alex 150 kr.")).toBeVisible();
+
+  await page.getByRole("button", { name: "Marker som afregnet" }).click();
+  await expect(page.getByText("Ingen udestående saldo.")).toBeVisible();
+});
+
+// Sprint 43: et skrivebeskyttet køkkenskærm-dashboard, uden for AppLayouts
+// sidemenu/navigation, men stadig bag login. Dagens aftale, opgave og
+// indkøbsvare skal alle sammen komme fra allerede eksisterende data — ingen
+// nyt backend-endpoint, kun en ny sammensætning.
+test("the kiosk dashboard shows today's agenda, tasks, and shopping list, without the app navigation", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  await mockAuthenticatedApi(page);
+
+  await page.route("**/api/calendar/status", (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ connected: true }) }),
+  );
+
+  const now = new Date();
+  const todayStart = new Date(now);
+  todayStart.setHours(15, 0, 0, 0);
+  const todayEnd = new Date(now);
+  todayEnd.setHours(16, 0, 0, 0);
+
+  await page.route("**/api/calendar/calendars/*/events*", async (route) => {
+    const calendarId = decodeURIComponent(new URL(route.request().url()).pathname.split("/")[4] ?? "");
+
+    if (calendarId !== "alex-calendar" || route.request().method() !== "GET") {
+      await route.fallback();
+      return;
+    }
+
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        items: [
+          {
+            id: "kiosk-event-1",
+            summary: "Fodboldtræning",
+            start: { dateTime: todayStart.toISOString() },
+            end: { dateTime: todayEnd.toISOString() },
+            status: "confirmed",
+          },
+        ],
+        nextSyncToken: "alex-calendar-sync-token",
+      }),
+    });
+  });
+
+  await page.route("**/api/families/*/tasks*", async (route) => {
+    if (route.request().method() !== "GET") {
+      await route.fallback();
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        tasks: [
+          {
+            id: "kiosk-task-1",
+            familyId: family.id,
+            name: "Fold vasketøj",
+            icon: "laundry",
+            assignedMemberId: "member-billie",
+            timeOfDay: null,
+            isDone: 0,
+            routineItemId: null,
+            taskDate: now.toISOString().slice(0, 10),
+            createdByUserId: "user-e2e",
+            createdAt: now.toISOString(),
+            doneAt: null,
+            rewardAmount: 0,
+          },
+        ],
+      }),
+    });
+  });
+
+  await page.route("**/api/families/*/shopping-lists", async (route) => {
+    if (route.request().method() !== "GET") {
+      await route.fallback();
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ lists: [{ id: "kiosk-list", familyId: family.id, name: "Indkøb", type: "groceries" }] }),
+    });
+  });
+
+  await page.route("**/api/families/*/shopping-lists/*/items", async (route) => {
+    if (route.request().method() !== "GET") {
+      await route.fallback();
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        items: [
+          { id: "kiosk-item-1", listId: "kiosk-list", name: "Mælk", category: "Køl", isChecked: 0, addedByUserId: "user-e2e", createdAt: now.toISOString(), checkedAt: null },
+        ],
+      }),
+    });
+  });
+
+  await page.goto("/kiosk");
+
+  await expect(page.getByText("Fodboldtræning")).toBeVisible();
+  await expect(page.getByText("Fold vasketøj")).toBeVisible();
+  await expect(page.getByText("Billie")).toBeVisible();
+  await expect(page.getByText("Mælk")).toBeVisible();
+
+  // Ingen af AppLayouts navigationselementer må være med — kiosk-siden
+  // ligger uden for den routing-gren, samme princip som /share/:token.
+  await expect(page.getByRole("navigation")).not.toBeVisible();
+  await expect(page.getByRole("button", { name: "Indstillinger" })).not.toBeVisible();
+});
+
+// "Flere funktioner": alt starter slået fra for en familie, der endnu ikke
+// har aktiveret noget — nav-punktet forsvinder, siden viser en besked i
+// stedet for at fejle, og et owner/admin-tryk i dialogen slår funktionen
+// til med det samme.
+test("a family with nothing enabled can turn on a feature via 'Flere funktioner', and it becomes visible", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  await mockAuthenticatedApi(page);
+
+  let enabledFeatures: string[] = [];
+
+  await page.route("**/api/families/*/enabled-features", async (route) => {
+    if (route.request().method() !== "GET") {
+      await route.fallback();
+      return;
+    }
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ features: enabledFeatures }) });
+  });
+
+  await page.route("**/api/families/*/enabled-features/*", async (route) => {
+    if (route.request().method() !== "PUT") {
+      await route.fallback();
+      return;
+    }
+    const featureKey = new URL(route.request().url()).pathname.split("/")[5];
+    const posted = route.request().postDataJSON() as { enabled: boolean };
+    enabledFeatures = posted.enabled
+      ? [...new Set([...enabledFeatures, featureKey])]
+      : enabledFeatures.filter((key) => key !== featureKey);
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ features: enabledFeatures }) });
+  });
+
+  await page.goto("/settings");
+
+  // Nav-punktet for Måltider er skjult, da intet er slået til endnu.
+  await expect(page.getByRole("button", { name: "Måltider" })).not.toBeVisible();
+
+  await page.getByRole("button", { name: "Åbn", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Flere funktioner" });
+  await expect(dialog).toBeVisible();
+
+  const mealPlanSwitch = dialog.getByRole("switch", { name: "Slå Måltidsplanlægning til eller fra" });
+  await expect(mealPlanSwitch).not.toBeChecked();
+  await mealPlanSwitch.click();
+  await expect.poll(() => enabledFeatures).toEqual(["meal-plan"]);
+  await expect(mealPlanSwitch).toBeChecked();
+
+  await dialog.getByRole("button", { name: "Luk" }).click();
+  await expect(dialog).not.toBeVisible();
+
+  // Nav-punktet dukker op uden en sideindlæsning — AppLayout genbruger
+  // samme hook-instans som lige har fået det opdaterede svar.
+  await expect(page.getByRole("button", { name: "Måltider" })).toBeVisible();
+
+  // En stadig slået-fra funktion viser en besked i stedet for at fejle,
+  // hvis man navigerer direkte til den.
+  await page.goto("/tasks");
+  await expect(page.getByText("Denne funktion er ikke slået til")).toBeVisible();
+});
+
+// Fundet ved fejlsøgning af en rigtig bruger-rapport om, at kalenderen blev
+// stående på "Indlæser kalender…" i lang tid på et svagt mobilsignal — den
+// kom til sidst igennem, men uden nogen forklaring eller mulighed for selv
+// at gøre noget undervejs. fetch() har ingen indbygget timeout, så en
+// langsom forbindelse ser identisk ud ude fra som en hængende/død en,
+// indtil den enten lykkes eller fejler helt.
+test("a slow calendar load shows an explanation and a manual retry after a while, not just an endless spinner", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  await mockAuthenticatedApi(page);
+  await page.route("**/api/calendar/status", (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ connected: true }) }),
+  );
+
+  // Siden genforsøger selv at hente aftaler nogle gange lige efter
+  // montering (bl.a. når medlems-tildelinger er blevet genindlæst) — kun
+  // den SENESTE af disse "generationer" tæller for useCalendarEvents
+  // (ældre, forældede svar ignoreres, se requestGenerationRef). Derfor skal
+  // ALLE kald være langsomme her, ikke kun det første — ellers vinder en
+  // hurtigere, senere generation kapløbet, og siden når aldrig at fremstå
+  // langsom, uanset hvor længe det første (nu forældede) kald venter.
+  let shouldDelay = true;
+
+  await page.route("**/api/calendar/calendars/*/events*", async (route) => {
+    if (route.request().method() !== "GET") {
+      await route.fallback();
+      return;
+    }
+
+    if (shouldDelay) {
+      await new Promise((resolve) => setTimeout(resolve, 12000));
+    }
+
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ items: [], nextSyncToken: "sync-token" }),
+    });
+  });
+
+  await page.goto("/calendar");
+
+  await expect(page.getByText("Indlæser kalender…")).toBeVisible();
+  await expect(page.getByText("Dette tager længere end normalt")).not.toBeVisible();
+
+  await expect(page.getByText("Dette tager længere end normalt")).toBeVisible({ timeout: 15000 });
+
+  // Herefter må nye kald gerne lykkes med det samme — "Prøv igen" skal
+  // rent faktisk virke, ikke bare gentage den samme ventetid for evigt.
+  shouldDelay = false;
+  await page.getByRole("button", { name: "Prøv igen" }).click();
+
+  await expect(page.getByText("Indlæser kalender…")).not.toBeVisible();
 });

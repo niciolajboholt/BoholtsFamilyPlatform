@@ -1,7 +1,7 @@
 import { useState } from "react";
 
-import { ChevronRightRounded, HistoryRounded } from "@mui/icons-material";
-import { Avatar, Box, Card, CardActionArea, Typography } from "@mui/material";
+import { CheckRounded, ChevronRightRounded, HistoryRounded } from "@mui/icons-material";
+import { Avatar, Box, Card, CardActionArea, CardContent, Typography } from "@mui/material";
 
 import { ActivityFullListDialog } from "./components/ActivityFullListDialog";
 import { ActivitySummaryDialog } from "./components/ActivitySummaryDialog";
@@ -19,16 +19,37 @@ function formatRelativeSince(sinceIso: string): string {
   return diffDays === 1 ? "1 dag siden" : `${diffDays} dage siden`;
 }
 
-// Sprint 33: kompakt teaser-kort på forsiden — selve indholdet ligger i
-// dialogerne, der åbnes ved tryk (se planens beslutning 8). Vises kun når
-// useActivitySummary rent faktisk har noget at vise (ærlig
-// tom-tilstand, samme princip som WeeklySummaryCard).
+// Sprint 33: kompakt teaser-kort på forsiden — selve aktivitetsindholdet
+// ligger i dialogerne, der åbnes ved tryk (se planens beslutning 8). Kortet
+// bliver stående med en tydelig ajour-tilstand, når der ikke er nyt, så
+// funktionen også er synlig på første besøg og mellem ændringer.
 export function ActivityCard() {
-  const { isLoading, summary, acknowledge } = useActivitySummary();
+  const { isLoading, summary, empty, acknowledge } = useActivitySummary();
   const [view, setView] = useState<DialogView>("closed");
 
-  if (isLoading || !summary) {
+  if (isLoading || (!summary && !empty)) {
     return null;
+  }
+
+  if (!summary) {
+    return (
+      <Card sx={{ mb: 2.5 }}>
+        <CardContent sx={{ p: 3, display: "flex", alignItems: "center", gap: 1.5 }}>
+          <Avatar sx={{ bgcolor: "success.light", color: "success.dark" }}>
+            <CheckRounded />
+          </Avatar>
+
+          <Box sx={{ minWidth: 0 }}>
+            <Typography variant="h6">Siden sidst du var her</Typography>
+            <Typography variant="body2" color="text.secondary">
+              {empty?.since
+                ? "Du er helt ajour – der er ingen nye ændringer."
+                : "Overblikket er klar. Nye ændringer vises her næste gang."}
+            </Typography>
+          </Box>
+        </CardContent>
+      </Card>
+    );
   }
 
   // Lukkes kortet — uanset om det sker direkte, eller efter "Vis alt" er

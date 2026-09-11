@@ -18,6 +18,7 @@ export interface TaskRow {
   taskDate: string | null;
   createdByUserId: string;
   createdAt: string;
+  rewardAmount: number;
   doneAt: string | null;
 }
 
@@ -76,7 +77,7 @@ export async function listTasksForDate(db: D1Database, familyId: string, date: s
       `SELECT id, family_id AS familyId, name, icon, assigned_member_id AS assignedMemberId,
               time_of_day AS timeOfDay, is_done AS isDone, routine_item_id AS routineItemId,
               task_date AS taskDate, created_by_user_id AS createdByUserId,
-              created_at AS createdAt, done_at AS doneAt
+              created_at AS createdAt, done_at AS doneAt, reward_amount AS rewardAmount
        FROM tasks
        WHERE family_id = ? AND task_date = ?
        ORDER BY is_done ASC, (time_of_day IS NULL) ASC, time_of_day ASC, created_at ASC`,

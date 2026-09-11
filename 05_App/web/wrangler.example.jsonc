@@ -1,0 +1,170 @@
+{
+  // Skabelon/reference til `wrangler.jsonc`, til et fork eller en ny
+  // installation af projektet — udfyld dine egne Cloudflare-ressource-ID'er
+  // i din egen `wrangler.jsonc`. Dette projekts faktiske `wrangler.jsonc`
+  // forbliver tracked i git med sine rigtige database_id/store_id, fordi
+  // GitHub Actions' `wrangler deploy` kræver dem direkte i filen (wrangler
+  // har ingen indbygget miljøvariabel-interpolation for disse felter i
+  // .jsonc); se ADR-018 og 37_Sprint37_Sikkerhed_Kodekvalitet_Plan.md.
+  // Ingen af felterne nedenfor er selv hemmeligheder — de kræver ikke
+  // separat autentifikation for at bruges — men de er unødvendig
+  // recon-information i klartekst i et offentligt repo, derfor placeholders
+  // her.
+  "name": "your-worker-name",
+  "compatibility_date": "2026-07-30",
+  "main": "./server/index.ts",
+  "vars": {
+    "GOOGLE_CLIENT_ID": "your-google-oauth-client-id.apps.googleusercontent.com",
+    "VAPID_PUBLIC_KEY": "your-vapid-public-key",
+    "VAPID_SUBJECT": "mailto:you@example.com"
+  },
+  // Hemmelige værdier ligger i Cloudflare Secrets Store, ikke her.
+  // `store_id` identificerer din egen Secrets Store-instans (findes i
+  // Cloudflare-dashboardet under Workers → Secrets Store) — opret hver
+  // `secret_name` dér (eller via `wrangler secrets-store secret create`)
+  // før første deploy.
+  "secrets_store_secrets": [
+    {
+      "binding": "GOOGLE_CLIENT_SECRET",
+      "store_id": "your-secrets-store-id",
+      "secret_name": "google-client-secret"
+    },
+    {
+      "binding": "GOOGLE_TOKEN_ENCRYPTION_KEY",
+      "store_id": "your-secrets-store-id",
+      "secret_name": "google-token-encryption-key"
+    },
+    {
+      "binding": "VAPID_PRIVATE_KEY",
+      "store_id": "your-secrets-store-id",
+      "secret_name": "vapid-private-key"
+    },
+    {
+      "binding": "RESEND_API_KEY",
+      "store_id": "your-secrets-store-id",
+      "secret_name": "resend-api-key"
+    },
+    {
+      "binding": "ADMIN_EMAIL",
+      "store_id": "your-secrets-store-id",
+      "secret_name": "admin-email"
+    }
+  ],
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/auth/*", "/api/*"]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "your-database-name",
+      "database_id": "your-d1-database-id",
+      "migrations_dir": "./server/migrations"
+    }
+  ],
+  "ai": {
+    "binding": "AI"
+  },
+  "version_metadata": {
+    "binding": "CF_VERSION_METADATA"
+  },
+  "triggers": {
+    "crons": []
+  },
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1,
+    "logs": {
+      "enabled": true,
+      "head_sampling_rate": 1,
+      "persist": true,
+      "invocation_logs": true
+    },
+    "traces": {
+      "enabled": false,
+      "persist": true,
+      "head_sampling_rate": 1
+    }
+  },
+  // Valgfrit navngivet miljø til test/staging før produktion, samme mønster
+  // som `env.beta` i dette projekt — se ADR-018 for baggrunden for at
+  // adskille et navngivet test-/beta-miljø fra det unavngivne miljø.
+  "env": {
+    "beta": {
+      "name": "your-worker-name-beta",
+      "main": "./server/index.ts",
+      "vars": {
+        "GOOGLE_CLIENT_ID": "your-google-oauth-client-id.apps.googleusercontent.com",
+        "VAPID_PUBLIC_KEY": "your-vapid-public-key",
+        "VAPID_SUBJECT": "mailto:you@example.com"
+      },
+      "secrets_store_secrets": [
+        {
+          "binding": "GOOGLE_CLIENT_SECRET",
+          "store_id": "your-secrets-store-id",
+          "secret_name": "google-client-secret"
+        },
+        {
+          "binding": "GOOGLE_TOKEN_ENCRYPTION_KEY",
+          "store_id": "your-secrets-store-id",
+          "secret_name": "google-token-encryption-key"
+        },
+        {
+          "binding": "VAPID_PRIVATE_KEY",
+          "store_id": "your-secrets-store-id",
+          "secret_name": "vapid-private-key"
+        },
+        {
+          "binding": "RESEND_API_KEY",
+          "store_id": "your-secrets-store-id",
+          "secret_name": "resend-api-key"
+        },
+        {
+          "binding": "ADMIN_EMAIL",
+          "store_id": "your-secrets-store-id",
+          "secret_name": "admin-email"
+        }
+      ],
+      "assets": {
+        "directory": "./dist",
+        "binding": "ASSETS",
+        "not_found_handling": "single-page-application",
+        "run_worker_first": ["/auth/*", "/api/*"]
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "your-database-name-beta",
+          "database_id": "your-beta-d1-database-id",
+          "migrations_dir": "./server/migrations"
+        }
+      ],
+      "ai": {
+        "binding": "AI"
+      },
+      "version_metadata": {
+        "binding": "CF_VERSION_METADATA"
+      },
+      "triggers": {
+        "crons": ["0 4 * * *", "*/5 * * * *", "0 17 * * SUN"]
+      },
+      "observability": {
+        "enabled": true,
+        "head_sampling_rate": 1,
+        "logs": {
+          "enabled": true,
+          "head_sampling_rate": 1,
+          "persist": true,
+          "invocation_logs": true
+        },
+        "traces": {
+          "enabled": false,
+          "persist": true,
+          "head_sampling_rate": 1
+        }
+      }
+    }
+  }
+}

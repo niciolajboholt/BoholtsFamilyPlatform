@@ -211,4 +211,22 @@ export interface CalendarEvent {
    * forekomstens faktiske tid efterfølgende er ændret.
    */
   recurrenceOccurrenceStart?: string;
+
+  /**
+   * Midlertidig skriveinstruks fra redigér-dialogen. Bruges kun, når en
+   * Google-forekomst gemmes mod hele den bagvedliggende serie.
+   */
+  recurrenceEditScope?: "occurrence" | "series";
+  recurrenceOriginalStart?: string;
+  recurrenceOriginalEnd?: string;
+
+  /**
+   * Midlertidig skriveinstruks fra redigér-dialogen (Sprint 36) — sat kun
+   * når brugeren selv har ændret ejerkredsen på en Google-aftale, ikke ved
+   * en almindelig redigering af andre felter. `undefined` betyder "rør
+   * ikke ejerskabet"; en tom liste rydder en tidligere sat overstyring
+   * (falder tilbage til automatisk deltager-/kalender-match). Skrives til
+   * Googles extendedProperties — se googleCalendarWriteMapper.ts.
+   */
+  ownerIdsOverride?: CalendarOwnerId[];
 }

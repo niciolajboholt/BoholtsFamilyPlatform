@@ -4,6 +4,7 @@ import {
   CalendarMonthRounded,
   CheckCircleOutlineRounded,
   HomeRounded,
+  RestaurantMenuRounded,
   SettingsRounded,
   ShoppingCartOutlined,
 } from "@mui/icons-material";
@@ -35,8 +36,10 @@ import {
   getFamilyMembers,
   hasCompletedFamilySetup,
 } from "../features/calendar/preferences/familyMembersStorage";
+import type { FeatureKey } from "../features/family/familyApi";
 import { getMyFamily } from "../features/family/familyApi";
 import { syncFamilyMembersFromServer } from "../features/family/familyMembersSync";
+import { useEnabledFeatures } from "../features/family/hooks/useEnabledFeatures";
 import LoginPage from "../pages/LoginPage";
 import { OfflineStatusBanner } from "../components/OfflineStatusBanner";
 
@@ -44,17 +47,20 @@ interface NavItem {
   path: string;
   label: string;
   icon: ReactNode;
+  // Kun sat for punkter, der kan slås fra under Indstillinger → Flere
+  // funktioner (se useEnabledFeatures.ts) — "Overblik", "Kalender" og
+  // "Indstillinger" er kernefunktioner og har ingen nøgle her.
+  featureKey?: FeatureKey;
 }
 
 const navItems: NavItem[] = [
   { path: "/", label: "Overblik", icon: <HomeRounded /> },
   { path: "/calendar", label: "Kalender", icon: <CalendarMonthRounded /> },
-  { path: "/shopping-list", label: "Indkøb", icon: <ShoppingCartOutlined /> },
-  { path: "/tasks", label: "Opgaver", icon: <CheckCircleOutlineRounded /> },
+  { path: "/shopping-list", label: "Indkøb", icon: <ShoppingCartOutlined />, featureKey: "shopping-list" },
+  { path: "/meal-plan", label: "Måltider", icon: <RestaurantMenuRounded />, featureKey: "meal-plan" },
+  { path: "/tasks", label: "Opgaver", icon: <CheckCircleOutlineRounded />, featureKey: "tasks" },
   { path: "/settings", label: "Indstillinger", icon: <SettingsRounded /> },
 ];
-
-const routes = navItems.map((item) => item.path);
 
 const sidebarWidth = 220;
 
@@ -70,6 +76,12 @@ function AppLayout() {
   const navigate = useNavigate();
 
   const { user, isLoading: isSessionLoading } = useSession();
+  const { isEnabled } = useEnabledFeatures();
+
+  const visibleNavItems = navItems.filter(
+    (item) => !item.featureKey || isEnabled(item.featureKey),
+  );
+  const routes = visibleNavItems.map((item) => item.path);
 
   const [isFirstLaunch, setIsFirstLaunch] = useState(
     () => !hasCompletedFamilySetup(),
@@ -320,7 +332,7 @@ function AppLayout() {
           }}
         >
           <List sx={{ px: 1.5 }}>
-            {navItems.map((item, index) => {
+            {visibleNavItems.map((item, index) => {
               const isSelected = index === currentIndex;
 
               return (
@@ -416,7 +428,7 @@ function AppLayout() {
             },
           }}
         >
-          {navItems.map((item) => (
+          {visibleNavItems.map((item) => (
             <BottomNavigationAction
               key={item.path}
               label={item.label}

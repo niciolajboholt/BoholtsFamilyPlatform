@@ -101,8 +101,12 @@ VITE_OUTLOOK_CLIENT_ID=your-azure-ad-application-client-id
 ```
 
 Serverens egne hemmeligheder (Google OAuth client secret, token-krypterings-
-nøgle, VAPID privat nøgle) ligger i Cloudflare Secrets Store og bindes via
-`05_App/web/wrangler.jsonc` — de committes aldrig.
+nøgle, VAPID privat nøgle, Resend API-nøgle, admin-e-mail) ligger i
+Cloudflare Secrets Store og bindes via `05_App/web/wrangler.jsonc` — de
+committes aldrig. Et nyt fork eller en ny installation kan bruge
+`05_App/web/wrangler.example.jsonc` som udgangspunkt for sin egen
+`wrangler.jsonc`, med placeholder-værdier i stedet for dette projekts
+rigtige Cloudflare-ressource-ID'er.
 
 ## Deployment
 
