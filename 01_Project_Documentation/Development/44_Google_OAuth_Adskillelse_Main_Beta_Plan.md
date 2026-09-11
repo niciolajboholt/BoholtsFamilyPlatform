@@ -1,8 +1,11 @@
 # 44_Google_OAuth_Adskillelse_Main_Beta_Plan
 
-> Status: Forslag — venter på at Nicolaj udfører trinnene i Google Cloud
-> Console (uden for denne sessions adgang) og bekræfter de åbne
-> spørgsmål nedenfor.
+> Status: Trin 1-5 udført af Nicolaj (2026-09-11) — nyt Google Cloud-
+> projekt `boholts-family-platform-main` og ny OAuth-klient oprettet,
+> `wrangler.jsonc` opdateret til at bruge den for `main`. Afventer:
+> trin 6 (send til verificering) og trin 7 (læg
+> `google-client-secret-main` i Cloudflares Secrets Store — uden det
+> fejler login på `main` ved næste deploy).
 
 Version: 1.0
 
