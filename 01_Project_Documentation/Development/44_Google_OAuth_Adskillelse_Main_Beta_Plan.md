@@ -88,39 +88,122 @@ helhed eller kan sættes op flere gange pr. projekt.
 
 ---
 
-## Trin (i Google Cloud Console — kræver din egen adgang, ikke noget denne session kan udføre)
+## Navngivning (til at kopiere undervejs)
 
-1. **Omdøb den eksisterende OAuth-klient** (den `beta` i dag bruger) til
-   noget tydeligt, fx "Boholts Familieplatform — Beta". Kosmetisk kun —
-   Client ID og Secret forbliver uændrede, `beta` kræver ingen
-   kodeændring.
-2. **Opret et nyt Google Cloud-projekt** (se forbeholdet ovenfor — ikke
-   blot en ny klient i det eksisterende projekt), dedikeret til `main`.
-   - Aktivér Google Calendar API (og øvrige APIs, appen bruger — samme
-     som det eksisterende projekt) i det nye projekt.
-   - Opret en ny OAuth 2.0 Client ID (Web application) i det nye
-     projekt, fx navngivet "Boholts Familieplatform — Main".
-   - Autoriseret redirect-URI: `https://<main-domænet>/auth/google/callback`
-     — den faktiske URL for produktionsmiljøet (se åbent spørgsmål
-     nedenfor, jeg kender ikke denne værdi).
-3. **Udfyld OAuth-samtykkeskærmen** i det nye projekt fuldt ud:
-   appnavn, logo, support-e-mail, autoriseret domæne, link til
-   `/privacy` og `/terms`.
-4. **Skift samtykkeskærmens udgivelsesstatus** fra "Testing" til
-   "Forbered til verificering" ("Publish app" → "Prepare for
-   verification"). Calendar-scopes regnes typisk som "sensitive" —
-   Google beder ofte om en kort demo-video, der viser præcis hvordan
-   scopet bruges i appen. Kan tage fra dage til flere uger.
-5. **Opret et NYT secret i Cloudflares Secrets Store** med den nye
-   klients Client Secret, under et NYT navn (fx
-   `google-client-secret-main`), i samme store
-   (`2bc6325a385d4ca3bc555d66f5453a21`). Genbrug IKKE det eksisterende
-   `google-client-secret`-navn — `beta` skal blive ved med at pege på
-   det uændret.
+Konsekvent med den engelske stil, resten af projektet allerede bruger
+(`boholtsfamilyplatform`, `boholtsfamilyplatform-beta`) — Google
+Cloud-projekt-ID'er tillader alligevel ikke danske bogstaver (æ/ø/å).
+
+| Ting | Navn/værdi |
+| --- | --- |
+| Eksisterende OAuth-klient (omdøbes) | `Boholts Family Platform — Beta` |
+| Nyt Google Cloud-projekt, visningsnavn | `Boholts Family Platform — Main` |
+| Nyt Google Cloud-projekt, projekt-ID (forslag — Google tilføjer selv et tal, hvis det er optaget) | `boholts-family-platform` |
+| Ny OAuth-klient i det nye projekt | `Boholts Family Platform — Main` |
+| Nyt secret-navn i Cloudflares Secrets Store | `google-client-secret-main` |
+
+Projekt-ID'et kan IKKE ændres bagefter — visningsnavnet kan derimod
+altid rettes senere, så det er ikke kritisk at ramme det perfekt her.
 
 ---
 
-## Det jeg selv kan gøre, når trin 1-5 er udført
+## Trin (i Google Cloud Console — kræver din egen adgang, ikke noget denne session kan udføre)
+
+### 1. Omdøb den eksisterende OAuth-klient (bliver `beta`s)
+
+1. Gå til [console.cloud.google.com](https://console.cloud.google.com)
+   og sørg for at det EKSISTERENDE projekt er valgt (projekt-vælgeren
+   øverst til venstre, ved siden af "Google Cloud"-logoet).
+2. I venstremenuen: **APIs & Services → Credentials**.
+3. Under "OAuth 2.0 Client IDs" finder du den klient, hvis Client ID
+   matcher `621931405628-lc7afq5qp0ejmdks5hl9c6b7uclskiie...` — klik på
+   navnet/blyant-ikonet for at redigere.
+4. Skift feltet **Name** til `Boholts Family Platform — Beta` → **Save**.
+   Client ID og Client Secret ændres IKKE af dette — kun navnet, der
+   kun er synligt for dig i konsollen.
+
+### 2. Opret det nye Google Cloud-projekt (til `main`)
+
+1. Klik på projekt-vælgeren øverst → **New Project**.
+2. **Project name**: `Boholts Family Platform — Main`.
+3. **Project ID**: ret det til noget i stil med `boholts-family-platform`
+   (Google foreslår selv noget, hvis dit ønskede navn er optaget — det
+   er kun synligt for dig, ikke et problem hvis det bliver grimt).
+4. **Create** → vent til projektet er oprettet, og skift til det via
+   projekt-vælgeren (det skifter ikke automatisk).
+
+### 3. Aktivér Google Calendar API i det nye projekt
+
+1. Med det NYE projekt valgt: venstremenu → **APIs & Services → Library**.
+2. Søg efter **Google Calendar API** → klik på resultatet → **Enable**.
+   (Appen beder kun om `calendar.events` og
+   `calendar.calendarlist.readonly` — begge dækkes af denne ene API,
+   ingen andre APIs skal aktiveres.)
+
+### 4. Sæt OAuth-samtykkeskærmen op i det nye projekt
+
+1. Venstremenu → **APIs & Services → OAuth consent screen**.
+2. **User Type**: **External** (samme som det eksisterende projekt
+   formentlig allerede bruger, da familien logger ind med almindelige
+   private Google-konti, ikke et Google Workspace-domæne).
+3. Udfyld:
+   - **App name**: `Boholts Family Platform`
+   - **User support email**: din egen e-mail
+   - **App logo**: valgfrit, men anbefales — Google ser mere seriøst på
+     ansøgninger med et rigtigt logo
+   - **App domain → Application home page**: main's faktiske URL (se
+     åbent spørgsmål nedenfor)
+   - **Application privacy policy link**: `https://<main-domænet>/privacy`
+   - **Application terms of service link**: `https://<main-domænet>/terms`
+   - **Authorized domains**: main's domæne uden `https://` og uden sti
+     (fx `boholtsfamilyplatform.dk` eller `<noget>.workers.dev`, alt
+     efter hvad den faktiske URL er)
+   - **Developer contact information**: din egen e-mail
+4. **Save and continue** gennem "Scopes"-siden: tilføj `.../auth/calendar.events`
+   og `.../auth/calendar.calendarlist.readonly` (openid/email/profile
+   er allerede med som standard) — samme scopes som det eksisterende
+   projekt.
+5. **Save and continue** gennem "Test users": tilføj din egen konto
+   (og evt. andre, der skal kunne teste `main`, før Google godkender).
+
+### 5. Opret den nye OAuth-klient (til `main`)
+
+1. Venstremenu → **APIs & Services → Credentials → + Create Credentials
+   → OAuth client ID**.
+2. **Application type**: **Web application**.
+3. **Name**: `Boholts Family Platform — Main`.
+4. **Authorized redirect URIs → + Add URI**:
+   `https://<main-domænet>/auth/google/callback` (den faktiske URL for
+   produktionsmiljøet — se åbent spørgsmål nedenfor, jeg kender ikke
+   denne værdi).
+5. **Create** → et vindue viser det nye **Client ID** og **Client
+   Secret**. Kopiér begge — Client Secret vises kun denne ene gang (du
+   kan altid se Client ID senere, men skal generere et nyt Secret, hvis
+   du mister det).
+
+### 6. Send til verificering
+
+1. Stadig på **OAuth consent screen**-siden: klik **Publish App**, som
+   flytter appen fra "Testing" til "In production" — dette udløser
+   Googles krav om verificering, fordi appen beder om sensitive scopes
+   (Calendar).
+2. Følg guiden Google viser dig herfra — den beder typisk om en kort
+   skærmoptagelse, der viser præcis hvordan appen bruger
+   kalender-adgangen. Kan tage fra dage til flere uger.
+
+### 7. Læg det nye secret i Cloudflares Secrets Store
+
+1. I Cloudflare-dashboardet: **Workers & Pages → Secrets Store** (eller
+   under det relevante account-niveau, afhængig af hvor
+   `2bc6325a385d4ca3bc555d66f5453a21`-storen ligger).
+2. Opret et nyt secret med navnet `google-client-secret-main` og
+   værdien = det Client Secret, du kopierede i trin 5.
+3. Rør IKKE det eksisterende `google-client-secret` — `beta` skal
+   blive ved med at pege på det uændret.
+
+---
+
+## Det jeg selv kan gøre, når trin 1-7 er udført
 
 - Opdatere `wrangler.jsonc`'s øverste (main/unavngivne) `vars.GOOGLE_CLIENT_ID`
   til den nye klients ID.
@@ -161,7 +244,7 @@ helhed eller kan sættes op flere gange pr. projekt.
 
 ## Kvalitetsgate
 
-Ingen kodeændring før Nicolaj har gennemført trin 1-5. Når secret og
+Ingen kodeændring før Nicolaj har gennemført trin 1-7. Når secret og
 Client ID er klar: `npx tsc -b`, `npm run build` grønne efter
 `wrangler.jsonc`-opdateringen — ingen ny migration, ingen e2e-relevans
 (rent driftskonfiguration).
