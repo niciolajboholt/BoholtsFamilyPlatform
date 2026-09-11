@@ -1,11 +1,11 @@
 # 44_Google_OAuth_Adskillelse_Main_Beta_Plan
 
-> Status: Trin 1-5 udført af Nicolaj (2026-09-11) — nyt Google Cloud-
-> projekt `boholts-family-platform-main` og ny OAuth-klient oprettet,
-> `wrangler.jsonc` opdateret til at bruge den for `main`. Afventer:
-> trin 6 (send til verificering) og trin 7 (læg
-> `google-client-secret-main` i Cloudflares Secrets Store — uden det
-> fejler login på `main` ved næste deploy).
+> Status: Trin 1-5 udført af Nicolaj (2026-09-11). Første
+> verificeringsforsøg (trin 6) blev afvist af Google med fire punkter —
+> tre rettet i koden (forside, privatlivspolitik, noscript-fallback).
+> Afventer: trin 7 (`google-client-secret-main` i Cloudflares Secrets
+> Store — uden det fejler login på `main` ved næste deploy) og trin 8
+> (domæneverificering i Google Search Console, i gang).
 
 Version: 1.0
 
@@ -254,6 +254,42 @@ men her er den mest udførlige vej, jeg kan give dig:
     eller `wrangler deploy` uden `--env`-flag), tager den nye
     `GOOGLE_CLIENT_ID` og det nye secret i brug automatisk — ingen
     yderligere handling nødvendig fra din side.
+
+### 8. Verificér ejerskab af domænet i Google Search Console
+
+Googles første verificeringsforsøg af `main` blev afvist med fire
+punkter (2026-09-11) — tre er rettet i koden (se
+`git log` for commit "Ret tre af Googles fire verificeringsindsigelser
+mod main"). Det fjerde ("home page URL is not registered to you")
+kræver dette trin.
+
+Da `main` kører på en `workers.dev`-subdomæne, ikke et domæne du selv
+har DNS-kontrol over, er **DNS-baseret verificering ikke en mulighed**
+— brug i stedet **HTML tag**-metoden, som kun kræver at du kan redigere
+sidens `<head>` (det kan jeg gøre for dig, når du har koden fra Google).
+
+1. Åbn **[search.google.com/search-console](https://search.google.com/search-console)**
+   og log ind med den samme Google-konto, du bruger til Google Cloud
+   Console.
+2. Klik **Add property** (eller **Tilføj egenskab**, hvis konsollen
+   viser dansk).
+3. Vælg fanen **URL prefix** (IKKE "Domain" — den kræver DNS-kontrol,
+   som du ikke har over `workers.dev`).
+4. Indtast præcis: `https://boholtsfamilyplatform.nicolajbach12.workers.dev/`
+   → **Continue**.
+5. Google viser flere verificeringsmetoder — vælg **HTML tag**
+   (udfold den, hvis den er skjult under "Other verification methods").
+6. Kopiér den `<meta name="google-site-verification" content="...">`-tag,
+   Google viser dig.
+7. **Send mig indholdet af `content="..."`-værdien** (kun selve koden,
+   ikke nødvendigvis hele tagget) — jeg lægger den ind i `index.html`s
+   `<head>`, committer og pusher. Når `main` er deployet med ændringen
+   (Git-udløst deploy, eller bed mig bekræfte at den er i produktion),
+   går du tilbage til Search Console og klikker **Verify**.
+8. Når Search Console viser ejerskabet som bekræftet, gå tilbage til
+   OAuth-samtykkeskærmens **Branding**-side (trin 4's link) og bekræft
+   at hjemmesiden nu er markeret som verificeret der også — herefter
+   kan du gentage trin 6 (Publish App / anmod om ny gennemgang).
 
 ---
 
