@@ -1,11 +1,25 @@
 # 44_Google_OAuth_Adskillelse_Main_Beta_Plan
 
-> Status: Trin 1-5 udført af Nicolaj (2026-09-11). Første
-> verificeringsforsøg (trin 6) blev afvist af Google med fire punkter —
-> tre rettet i koden (forside, privatlivspolitik, noscript-fallback).
-> Afventer: trin 7 (`google-client-secret-main` i Cloudflares Secrets
-> Store — uden det fejler login på `main` ved næste deploy) og trin 8
-> (domæneverificering i Google Search Console, i gang).
+> Status (2026-09-11): Trin 1-7 udført. Første verificeringsforsøg
+> (trin 6) blev afvist af Google med fire punkter — tre rettet i koden
+> (forside, privatlivspolitik, noscript-fallback), alle nu live i
+> produktion (`main`). Trin 7 (`google-client-secret-main`) er oprettet
+> i Cloudflares Secrets Store — Google-login på `main` virker. Trin 8
+> (domæneverificering i Google Search Console) er gennemført af
+> Nicolaj — det løser Googles fjerde afvisningspunkt.
+>
+> Efter branding blev genindsendt til verificering, fandt Google en
+> femte, ny uoverensstemmelse: OAuth-samtykkeskærmens **App name**-felt
+> stod som "Boholts Family Platform" (det interne Google Cloud-
+> projektnavn), mens appens faktiske, synlige navn er "Boholts
+> Familieapp" (forside, `<title>`, noscript-fallback). Rettet ved at
+> ændre App name-feltet i Google Cloud Console (Branding-siden) til
+> "Boholts Familieapp" — ingen kodeændring nødvendig. Branding er nu
+> verificeret ("Your branding has been verified and is being shown to
+> users").
+>
+> Afventer: Googles fulde gennemgang af selve OAuth-samtykkeskærmen
+> (sensitive scopes) efter genindsendelse — kan tage fra dage til uger.
 
 Version: 1.0
 
