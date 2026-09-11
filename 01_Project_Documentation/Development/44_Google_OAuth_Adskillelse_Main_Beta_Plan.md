@@ -36,8 +36,8 @@ bruger dagligt, mens verificeringen (typisk dage til uger) står på.
 
 - `main` (det unavngivne miljø) og `beta` deler i dag **nøjagtig samme**
   Google OAuth-klient:
-  - Samme `GOOGLE_CLIENT_ID`
-    (`621931405628-lc7afq5qp0ejmdks5hl9c6b7uclskiie.apps.googleusercontent.com`)
+  - Samme `GOOGLE_CLIENT_ID` (se `wrangler.jsonc`s `vars`-blok — ikke
+    gentaget her, for at undgå at have identifikatorer liggende dobbelt)
     i begge `vars`-blokke.
   - Samme `GOOGLE_CLIENT_SECRET`, hentet fra samme
     `secret_name: "google-client-secret"` i samme Secrets Store
@@ -186,27 +186,74 @@ altid rettes senere, så det er ikke kritisk at ramme det perfekt her.
 
 ### 6. Send til verificering
 
-1. Tilbage på **[console.cloud.google.com/apis/credentials/consent](https://console.cloud.google.com/apis/credentials/consent)**
-   (samme side som trin 4): klik **Publish App**, som
-   flytter appen fra "Testing" til "In production" — dette udløser
-   Googles krav om verificering, fordi appen beder om sensitive scopes
-   (Calendar).
-2. Følg guiden Google viser dig herfra — den beder typisk om en kort
-   skærmoptagelse, der viser præcis hvordan appen bruger
-   kalender-adgangen. Kan tage fra dage til flere uger.
+**Anbefalet rækkefølge: gør trin 7 (secret i Cloudflare) FØRST** — så
+virker `main`s login med det samme, næste gang koden deployes, uanset
+hvor lang tid trin 6 (Googles review) tager. Trin 6 kan roligt vente,
+uden det bremser noget andet.
+
+1. Åbn **[console.cloud.google.com/apis/credentials/consent](https://console.cloud.google.com/apis/credentials/consent)**
+   — sørg for at det NYE projekt (`boholts-family-platform-main`) er
+   valgt i projekt-vælgeren øverst.
+2. Klik knappen **Publish App** (normalt øverst i "Publishing status"-
+   sektionen). Der kommer en bekræftelsesdialog, der fortæller at appen
+   flytter fra "Testing" til "In production", og at Google vil kigge
+   appens brug af sensitive scopes igennem — bekræft.
+3. Da appen beder om Calendar-scopes (`calendar.events`,
+   `calendar.calendarlist.readonly` — klassificeret som "sensitive",
+   ikke "restricted", så ingen betalt sikkerhedsvurdering er nødvendig),
+   viser Google typisk et ekstra trin/link til selve
+   verificeringsansøgningen. Følg det, og forbered:
+   - En kort skærmoptagelse (fx med telefonens eller computerens
+     indbyggede skærmoptager), der viser: log ind med Google i appen →
+     samtykkeskærmen → en kalenderhandling i appen (fx opret en aftale,
+     og vis den derefter i selve Google Kalender for at bevise
+     synkroniseringen).
+   - En kort skriftlig begrundelse for hvorfor appen har brug for
+     kalender-adgang (én-to sætninger er ofte nok: "Appen er en
+     familiekalender, der læser og skriver aftaler til brugerens Google
+     Kalender, så familien kan se og planlægge fælles aftaler ét sted.").
+4. Indsend. Herfra er det udelukkende Google, der arbejder — kan tage
+   fra få dage til flere uger. Du får besked på den e-mail, der står som
+   "Developer contact information" på samtykkeskærmen.
 
 ### 7. Læg det nye secret i Cloudflares Secrets Store
 
-1. Åbn **[dash.cloudflare.com](https://dash.cloudflare.com)** — jeg kan
-   ikke give et direkte deep-link hertil, da det kræver din
-   konto-specifikke account-ID, som jeg ikke kender. Naviger til
-   **Workers & Pages → Secrets Store** (eller det relevante
-   account-niveau, afhængig af hvor `2bc6325a385d4ca3bc555d66f5453a21`-
-   storen ligger).
-2. Opret et nyt secret med navnet `google-client-secret-main` og
-   værdien = det Client Secret, du kopierede i trin 5.
-3. Rør IKKE det eksisterende `google-client-secret` — `beta` skal
+Jeg kan ikke give et præcist deep-link til selve Secrets Store-siden,
+da den kræver dit konto-specifikke account-ID, som jeg ikke kender —
+men her er den mest udførlige vej, jeg kan give dig:
+
+1. Åbn **[dash.cloudflare.com](https://dash.cloudflare.com/)** og log
+   ind, hvis du ikke allerede er det.
+2. Er du medlem af mere end én Cloudflare-konto, skal du sikre dig, at
+   du står i den rigtige (kontovælgeren står typisk øverst til venstre,
+   ved siden af Cloudflare-logoet).
+3. Cloudflares dashboard flytter til tider rundt på Secrets Store i
+   venstremenuen — den mest robuste måde at finde den på er
+   søgefeltet/kommando-paletten øverst i dashboardet (et forstørrelsesglas-
+   ikon, eller genvejstasten **⌘K**/**Ctrl+K**): skriv **"Secrets
+   Store"** og vælg resultatet. Alternativt: kig i venstremenuen efter
+   enten en selvstændig **"Secrets Store"**-post, eller under
+   **"Workers & Pages"**.
+4. På Secrets Store-siden ser du en liste over dine "stores" (bokse med
+   secrets). Find den, hvis ID matcher `2bc6325a385d4ca3bc555d66f5453a21`
+   — det kan være den eneste, du har, eller den kan have et navn i
+   stedet for at vise ID'et direkte; klik ind på den, der allerede
+   indeholder secrets som `google-client-secret`,
+   `google-token-encryption-key` osv. (du kan se listen over
+   eksisterende secret-navne for at bekræfte, det er den rigtige).
+5. Klik **+ Add secret** (eller tilsvarende "opret ny"-knap).
+6. **Secret name**: `google-client-secret-main` (præcis denne
+   stavning — det er det navn, `wrangler.jsonc` allerede henviser til).
+7. **Value**: indsæt Client Secret'en fra den JSON-fil, Google lod dig
+   downloade i trin 5 (feltet `client_secret`) — den gengives bevidst
+   ikke her i dokumentet.
+8. Gem/opret secret'en.
+9. Rør IKKE det eksisterende `google-client-secret` — `beta` skal
    blive ved med at pege på det uændret.
+10. Næste gang `main` deployes (fx via et Git-udløst Workers Build,
+    eller `wrangler deploy` uden `--env`-flag), tager den nye
+    `GOOGLE_CLIENT_ID` og det nye secret i brug automatisk — ingen
+    yderligere handling nødvendig fra din side.
 
 ---
 
