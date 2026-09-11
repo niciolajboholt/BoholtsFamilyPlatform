@@ -18,8 +18,24 @@
 > verificeret ("Your branding has been verified and is being shown to
 > users").
 >
-> Afventer: Googles fulde gennemgang af selve OAuth-samtykkeskærmen
-> (sensitive scopes) efter genindsendelse — kan tage fra dage til uger.
+> Data Access-siden på det nye main-projekt manglede desuden helt at
+> deklarere de sensitive Calendar-scopes, appens kode faktisk beder om
+> (`calendar.events`, `calendar.calendarlist.readonly` — se
+> `server/lib/googleOAuth.ts`) — det var den egentlige årsag til, at
+> alle brugere (ikke kun uverificerede) fik "Google har ikke
+> verificeret denne app"-skærmen. Tilføjet på Data Access-siden med en
+> skriftlig begrundelse, en demo-video (skærmoptagelse af login →
+> samtykke → kalenderhandling i appen → samme aftale set i Google
+> Kalender) og verifikationsspørgeskemaet besvaret (ikke "personal use
+> only", da appen skal kunne godkendes til produktion, ikke forblive i
+> Testing-tilstand).
+>
+> **2026-09-11: Sendt til Googles fulde verificering (trin 6).** Herfra
+> er det udelukkende Google, der arbejder — kan tage fra få dage til
+> flere uger. Besked kommer på nicolajbach12@gmail.com. Indtil da vil
+> alle brugere (undtagen tilføjede "test users") fortsat se
+> uverificeret-advarslen ved login på `main` — det er forventet, ikke
+> en fejl.
 
 Version: 1.0
 
