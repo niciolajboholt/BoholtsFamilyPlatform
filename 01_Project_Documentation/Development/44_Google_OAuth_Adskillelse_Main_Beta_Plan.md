@@ -111,11 +111,11 @@ altid rettes senere, så det er ikke kritisk at ramme det perfekt her.
 
 ### 1. Omdøb den eksisterende OAuth-klient (bliver `beta`s)
 
-1. Gå til [console.cloud.google.com](https://console.cloud.google.com)
-   og sørg for at det EKSISTERENDE projekt er valgt (projekt-vælgeren
-   øverst til venstre, ved siden af "Google Cloud"-logoet).
-2. I venstremenuen: **APIs & Services → Credentials**.
-3. Under "OAuth 2.0 Client IDs" finder du den klient, hvis Client ID
+1. Åbn direkte: **[console.cloud.google.com/apis/credentials](https://console.cloud.google.com/apis/credentials)**
+   — sørg for at det EKSISTERENDE projekt er valgt (projekt-vælgeren
+   øverst til venstre, ved siden af "Google Cloud"-logoet), hvis linket
+   ikke selv rammer det rigtige.
+2. Under "OAuth 2.0 Client IDs" finder du den klient, hvis Client ID
    matcher `621931405628-lc7afq5qp0ejmdks5hl9c6b7uclskiie...` — klik på
    navnet/blyant-ikonet for at redigere.
 4. Skift feltet **Name** til `Boholts Family Platform — Beta` → **Save**.
@@ -124,7 +124,7 @@ altid rettes senere, så det er ikke kritisk at ramme det perfekt her.
 
 ### 2. Opret det nye Google Cloud-projekt (til `main`)
 
-1. Klik på projekt-vælgeren øverst → **New Project**.
+1. Åbn direkte: **[console.cloud.google.com/projectcreate](https://console.cloud.google.com/projectcreate)**
 2. **Project name**: `Boholts Family Platform — Main`.
 3. **Project ID**: ret det til noget i stil med `boholts-family-platform`
    (Google foreslår selv noget, hvis dit ønskede navn er optaget — det
@@ -134,15 +134,15 @@ altid rettes senere, så det er ikke kritisk at ramme det perfekt her.
 
 ### 3. Aktivér Google Calendar API i det nye projekt
 
-1. Med det NYE projekt valgt: venstremenu → **APIs & Services → Library**.
-2. Søg efter **Google Calendar API** → klik på resultatet → **Enable**.
-   (Appen beder kun om `calendar.events` og
+1. Med det NYE projekt valgt (skift via projekt-vælgeren først), åbn
+   direkte: **[console.cloud.google.com/apis/library/calendar-json.googleapis.com](https://console.cloud.google.com/apis/library/calendar-json.googleapis.com)**
+2. Klik **Enable**. (Appen beder kun om `calendar.events` og
    `calendar.calendarlist.readonly` — begge dækkes af denne ene API,
    ingen andre APIs skal aktiveres.)
 
 ### 4. Sæt OAuth-samtykkeskærmen op i det nye projekt
 
-1. Venstremenu → **APIs & Services → OAuth consent screen**.
+1. Åbn direkte (med det NYE projekt valgt): **[console.cloud.google.com/apis/credentials/consent](https://console.cloud.google.com/apis/credentials/consent)**
 2. **User Type**: **External** (samme som det eksisterende projekt
    formentlig allerede bruger, da familien logger ind med almindelige
    private Google-konti, ikke et Google Workspace-domæne).
@@ -168,8 +168,8 @@ altid rettes senere, så det er ikke kritisk at ramme det perfekt her.
 
 ### 5. Opret den nye OAuth-klient (til `main`)
 
-1. Venstremenu → **APIs & Services → Credentials → + Create Credentials
-   → OAuth client ID**.
+1. Åbn direkte (med det NYE projekt valgt): **[console.cloud.google.com/apis/credentials](https://console.cloud.google.com/apis/credentials)**
+   → **+ Create Credentials → OAuth client ID**.
 2. **Application type**: **Web application**.
 3. **Name**: `Boholts Family Platform — Main`.
 4. **Authorized redirect URIs → + Add URI**:
@@ -183,7 +183,8 @@ altid rettes senere, så det er ikke kritisk at ramme det perfekt her.
 
 ### 6. Send til verificering
 
-1. Stadig på **OAuth consent screen**-siden: klik **Publish App**, som
+1. Tilbage på **[console.cloud.google.com/apis/credentials/consent](https://console.cloud.google.com/apis/credentials/consent)**
+   (samme side som trin 4): klik **Publish App**, som
    flytter appen fra "Testing" til "In production" — dette udløser
    Googles krav om verificering, fordi appen beder om sensitive scopes
    (Calendar).
@@ -193,9 +194,12 @@ altid rettes senere, så det er ikke kritisk at ramme det perfekt her.
 
 ### 7. Læg det nye secret i Cloudflares Secrets Store
 
-1. I Cloudflare-dashboardet: **Workers & Pages → Secrets Store** (eller
-   under det relevante account-niveau, afhængig af hvor
-   `2bc6325a385d4ca3bc555d66f5453a21`-storen ligger).
+1. Åbn **[dash.cloudflare.com](https://dash.cloudflare.com)** — jeg kan
+   ikke give et direkte deep-link hertil, da det kræver din
+   konto-specifikke account-ID, som jeg ikke kender. Naviger til
+   **Workers & Pages → Secrets Store** (eller det relevante
+   account-niveau, afhængig af hvor `2bc6325a385d4ca3bc555d66f5453a21`-
+   storen ligger).
 2. Opret et nyt secret med navnet `google-client-secret-main` og
    værdien = det Client Secret, du kopierede i trin 5.
 3. Rør IKKE det eksisterende `google-client-secret` — `beta` skal
