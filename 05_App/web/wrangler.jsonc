@@ -18,20 +18,30 @@
   // viste sig at ende som "undefined" efter deploy-kommandoen fik
   // "--env beta" tilføjet, formentlig fordi den er bundet til Workerens
   // ikke-navngivne (produktions-)miljø, ikke det navngivne "beta"-miljø.
+  //
+  // Google-publicering: eget OAuth-klient-id til produktion, fra Google
+  // Cloud-projektet "boholts-family-platform-main" (adskilt fra betas
+  // klient) — parret med secret'en "google-client-secret-main" nedenfor.
+  // Redirect-URI'en https://boholtsfamilyplatform.nicolajbach12.workers.dev/auth/google/callback
+  // skal stå under klientens "Authorized redirect URIs" i Google Cloud
+  // Console, ellers fejler login med redirect_uri_mismatch.
   "vars": {
-    "GOOGLE_CLIENT_ID": "621931405628-lc7afq5qp0ejmdks5hl9c6b7uclskiie.apps.googleusercontent.com",
+    "GOOGLE_CLIENT_ID": "963313515948-vo20q69rbdvkk8ul6ng5o005616q36fq.apps.googleusercontent.com",
     // Sprint 21, Del A: ikke-hemmelig VAPID-nøgle (klienten henter den via
     // /api/push/public-key for at abonnere) — se 21_Sprint21-planen.
     "VAPID_PUBLIC_KEY": "BHVSXcjfORTKBlCSOyokP1Iq9Jwgnuetorda-TEqjEUjvK4hZjp-PE1p4qDJ7Tgq3dywzervtXgt0VKzMxfJZG8",
     "VAPID_SUBJECT": "mailto:nicolajbach12@gmail.com"
   },
-  // Bekræftet identisk med beta i Cloudflare-dashboardets Bindings-fane
+  // GOOGLE_CLIENT_SECRET peger på sit eget produktions-secret
+  // ("google-client-secret-main") — produktionen bruger et andet
+  // Google OAuth-klient-id/secret-par end beta, i forbindelse med
+  // Google-publiceringen. De øvrige secrets er stadig fælles med beta
   // (Sprint 24, 2026-08-18) — samme secret-navne, samme store_id.
   "secrets_store_secrets": [
     {
       "binding": "GOOGLE_CLIENT_SECRET",
       "store_id": "2bc6325a385d4ca3bc555d66f5453a21",
-      "secret_name": "google-client-secret"
+      "secret_name": "google-client-secret-main"
     },
     {
       "binding": "GOOGLE_TOKEN_ENCRYPTION_KEY",
@@ -70,11 +80,20 @@
     // samme, så /auth/*-ruterne aldrig blev nået.
     "run_worker_first": ["/auth/*", "/api/*"]
   },
+  // Oprettet 2026-09-11 i forbindelse med Google-publiceringen — den
+  // tidligere database_id her pegede på en D1-database, der aldrig var
+  // blevet oprettet i Cloudflare (deploy af dette miljø ville derfor have
+  // fejlet). Skemaet er kørt i orden (0001-0027, samme som beta), og
+  // familiens data fra beta er kopieret over — se samtalen om
+  // Google-publicering for detaljer om hvad der bevidst IKKE blev
+  // kopieret (sessions, google_connections, push_subscriptions:
+  // credential-lignende data, der alligevel skal genoprettes ved login/
+  // reconnect under produktionens eget OAuth-klient-id).
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "boholtsfamilyplatform",
-      "database_id": "9de10d3f-3178-4b63-838f-0d7377b0df1b",
+      "database_id": "052a1416-1329-4096-b75c-01119e9c62a9",
       "migrations_dir": "./server/migrations"
     }
   ],
