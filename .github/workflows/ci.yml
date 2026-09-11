@@ -193,14 +193,17 @@ jobs:
           HEALTH_URL: https://boholtsfamilyplatform.nicolajbach12.workers.dev/api/health
         run: |
           for attempt in {1..12}; do
-            response="$(curl --fail --silent --show-error "$HEALTH_URL" || true)"
-            if HEALTH_JSON="$response" node -e '
+            http_code="$(curl --silent --show-error --output /tmp/health_response.txt --write-out '%{http_code}' "$HEALTH_URL" || echo "000")"
+            echo "Attempt $attempt: HTTP $http_code"
+            cat /tmp/health_response.txt
+            echo
+            if HEALTH_JSON="$(cat /tmp/health_response.txt)" node -e '
               const health = JSON.parse(process.env.HEALTH_JSON || "{}");
               if (health.status !== "ok" || health.db !== true || health.migrations?.ok !== true) {
                 process.exit(1);
               }
               console.log(`Production healthy; version ${health.version?.id ?? "unknown"}`);
-            '; then
+            ' 2>&1; then
               exit 0
             fi
             sleep 5
