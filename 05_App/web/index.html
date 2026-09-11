@@ -11,6 +11,19 @@
   </head>
   <body>
     <div id="root"></div>
+    <!-- Sprint 44 (Google OAuth-verificering): en ren beskrivelse af
+         appens formål, synlig selv uden JavaScript — appen er ellers en
+         ren client-side SPA uden nogen server-renderet erstatning. -->
+    <noscript>
+      <div style="max-width: 640px; margin: 40px auto; padding: 0 16px; font-family: sans-serif;">
+        <h1>Boholts Familieapp</h1>
+        <p>
+          En fælles platform for familien: kalender, opgaver, indkøbslister
+          og måltidsplanlægning samlet ét sted. Aktivér JavaScript for at
+          bruge appen.
+        </p>
+      </div>
+    </noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

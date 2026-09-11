@@ -18,20 +18,30 @@
   // viste sig at ende som "undefined" efter deploy-kommandoen fik
   // "--env beta" tilføjet, formentlig fordi den er bundet til Workerens
   // ikke-navngivne (produktions-)miljø, ikke det navngivne "beta"-miljø.
+  //
+  // 44_Google_OAuth_Adskillelse_Main_Beta_Plan.md (2026-09-11): main har
+  // nu sin EGEN Google Cloud-klient/-projekt ("boholts-family-platform-
+  // main"), adskilt fra beta's — sendt til Googles verificering, så
+  // familiens daglige beta-brug ikke påvirkes undervejs. beta beholder
+  // bevidst den oprindelige, delte klient (kun omdøbt i Google Cloud
+  // Console) for at undgå at hele familien skal gentilslutte deres
+  // Google-konti.
   "vars": {
-    "GOOGLE_CLIENT_ID": "621931405628-lc7afq5qp0ejmdks5hl9c6b7uclskiie.apps.googleusercontent.com",
+    "GOOGLE_CLIENT_ID": "963313515948-vo20q69rbdvkk8ul6ng5o005616q36fq.apps.googleusercontent.com",
     // Sprint 21, Del A: ikke-hemmelig VAPID-nøgle (klienten henter den via
     // /api/push/public-key for at abonnere) — se 21_Sprint21-planen.
     "VAPID_PUBLIC_KEY": "BHVSXcjfORTKBlCSOyokP1Iq9Jwgnuetorda-TEqjEUjvK4hZjp-PE1p4qDJ7Tgq3dywzervtXgt0VKzMxfJZG8",
     "VAPID_SUBJECT": "mailto:nicolajbach12@gmail.com"
   },
-  // Bekræftet identisk med beta i Cloudflare-dashboardets Bindings-fane
-  // (Sprint 24, 2026-08-18) — samme secret-navne, samme store_id.
+  // GOOGLE_CLIENT_SECRET peger her (main) på et EGET secret-navn,
+  // forskelligt fra beta's — se 44_Google_OAuth_Adskillelse_Main_Beta_Plan.md.
+  // Kræver at secret'en "google-client-secret-main" er oprettet i
+  // Cloudflares Secrets Store (samme store_id som beta) FØR næste deploy.
   "secrets_store_secrets": [
     {
       "binding": "GOOGLE_CLIENT_SECRET",
       "store_id": "2bc6325a385d4ca3bc555d66f5453a21",
-      "secret_name": "google-client-secret"
+      "secret_name": "google-client-secret-main"
     },
     {
       "binding": "GOOGLE_TOKEN_ENCRYPTION_KEY",
@@ -68,7 +78,14 @@
     // Worker-script overhovedet får chancen — enhver rigtig sidenavigation
     // (ikke fetch/XHR) til en ukendt sti fik den cachede index.html med det
     // samme, så /auth/*-ruterne aldrig blev nået.
-    "run_worker_first": ["/auth/*", "/api/*"]
+    "run_worker_first": ["/auth/*", "/api/*"],
+    // Standard ("auto-trailing-slash") omdirigerer fx /fil.html -> /fil.
+    // Googles Search Console-filverificering afviser den slags omdirigering
+    // ("redirigerer til en ikke-tilladt placering") — "none" slår det fra,
+    // så statiske filer (som google-site-verification-filen) serveres
+    // direkte uden omdirigering. Appens egen SPA-routing bruger ikke
+    // .html-endelser, så det påvirker ikke normal navigation.
+    "html_handling": "none"
   },
   "d1_databases": [
     {
@@ -176,7 +193,10 @@
         // Worker-script overhovedet får chancen — enhver rigtig
         // sidenavigation (ikke fetch/XHR) til en ukendt sti fik den cachede
         // index.html med det samme, så /auth/*-ruterne aldrig blev nået.
-        "run_worker_first": ["/auth/*", "/api/*"]
+        "run_worker_first": ["/auth/*", "/api/*"],
+        // Samme rettelse som main: slår Cloudflares automatiske
+        // .html-omdirigering fra (se kommentar i main-blokken ovenfor).
+        "html_handling": "none"
       },
       "d1_databases": [
         {
