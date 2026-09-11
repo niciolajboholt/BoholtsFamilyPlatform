@@ -19,12 +19,14 @@
   // "--env beta" tilføjet, formentlig fordi den er bundet til Workerens
   // ikke-navngivne (produktions-)miljø, ikke det navngivne "beta"-miljø.
   //
-  // TODO (Google-publicering): GOOGLE_CLIENT_ID herunder er stadig betas —
-  // produktionen skal have sit eget, verificerede OAuth-klient-id (parret
-  // med "google-client-secret-main" nedenfor), før dette miljø kan
-  // deployes og bruges. Se samtalen om Google-publicering.
+  // Google-publicering: eget OAuth-klient-id til produktion, fra Google
+  // Cloud-projektet "boholts-family-platform-main" (adskilt fra betas
+  // klient) — parret med secret'en "google-client-secret-main" nedenfor.
+  // Redirect-URI'en https://boholtsfamilyplatform.nicolajbach12.workers.dev/auth/google/callback
+  // skal stå under klientens "Authorized redirect URIs" i Google Cloud
+  // Console, ellers fejler login med redirect_uri_mismatch.
   "vars": {
-    "GOOGLE_CLIENT_ID": "621931405628-lc7afq5qp0ejmdks5hl9c6b7uclskiie.apps.googleusercontent.com",
+    "GOOGLE_CLIENT_ID": "963313515948-vo20q69rbdvkk8ul6ng5o005616q36fq.apps.googleusercontent.com",
     // Sprint 21, Del A: ikke-hemmelig VAPID-nøgle (klienten henter den via
     // /api/push/public-key for at abonnere) — se 21_Sprint21-planen.
     "VAPID_PUBLIC_KEY": "BHVSXcjfORTKBlCSOyokP1Iq9Jwgnuetorda-TEqjEUjvK4hZjp-PE1p4qDJ7Tgq3dywzervtXgt0VKzMxfJZG8",
