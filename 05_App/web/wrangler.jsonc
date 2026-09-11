@@ -25,7 +25,10 @@
   // familiens daglige beta-brug ikke påvirkes undervejs. beta beholder
   // bevidst den oprindelige, delte klient (kun omdøbt i Google Cloud
   // Console) for at undgå at hele familien skal gentilslutte deres
-  // Google-konti.
+  // Google-konti. Redirect-URI'en
+  // https://boholtsfamilyplatform.nicolajbach12.workers.dev/auth/google/callback
+  // skal stå under klientens "Authorized redirect URIs" i Google Cloud
+  // Console, ellers fejler login med redirect_uri_mismatch.
   "vars": {
     "GOOGLE_CLIENT_ID": "963313515948-vo20q69rbdvkk8ul6ng5o005616q36fq.apps.googleusercontent.com",
     // Sprint 21, Del A: ikke-hemmelig VAPID-nøgle (klienten henter den via
@@ -37,6 +40,8 @@
   // forskelligt fra beta's — se 44_Google_OAuth_Adskillelse_Main_Beta_Plan.md.
   // Kræver at secret'en "google-client-secret-main" er oprettet i
   // Cloudflares Secrets Store (samme store_id som beta) FØR næste deploy.
+  // De øvrige secrets er fortsat fælles med beta (Sprint 24, 2026-08-18) —
+  // samme secret-navne, samme store_id.
   "secrets_store_secrets": [
     {
       "binding": "GOOGLE_CLIENT_SECRET",
@@ -87,11 +92,20 @@
     // .html-endelser, så det påvirker ikke normal navigation.
     "html_handling": "none"
   },
+  // Oprettet 2026-09-11 i forbindelse med Google-publiceringen — den
+  // tidligere database_id her pegede på en D1-database, der aldrig var
+  // blevet oprettet i Cloudflare (deploy af dette miljø ville derfor have
+  // fejlet). Skemaet er kørt i orden (0001-0027, samme som beta), og
+  // familiens data fra beta er kopieret over — se samtalen om
+  // Google-publicering for detaljer om hvad der bevidst IKKE blev
+  // kopieret (sessions, google_connections, push_subscriptions:
+  // credential-lignende data, der alligevel skal genoprettes ved login/
+  // reconnect under produktionens eget OAuth-klient-id).
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "boholtsfamilyplatform",
-      "database_id": "9de10d3f-3178-4b63-838f-0d7377b0df1b",
+      "database_id": "052a1416-1329-4096-b75c-01119e9c62a9",
       "migrations_dir": "./server/migrations"
     }
   ],
