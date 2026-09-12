@@ -1,6 +1,6 @@
 # 47_Sprint47_iCloud_Kalender_CalDAV_Plan
 
-Version: 1.0
+Version: 1.1
 
 Project:
 Boholts Family Platform
@@ -115,10 +115,15 @@ CREATE TABLE icloud_calendar_sync_state (
 );
 ```
 
-(Nøjagtig udformning afklares, når arbejdet startes — fx om en familie
-kan forbinde iCloud for flere medlemmer samtidig, ligesom Google i dag
-kun har én ejer pr. familie, se `eventReminders.ts`/`weeklySummary.ts`s
-mønster.)
+**Besluttet (Nicolaj, 2026-09-12)**: flere familiemedlemmer skal hver
+kunne forbinde deres EGEN iCloud-konto — ikke kun én ejer-forbindelse
+pr. familie, som Googles nuværende model (`eventReminders.ts`/
+`weeklySummary.ts` bruger udelukkende `family.ownerUserId`s
+Google-forbindelse). `family_member_id` ovenfor er derfor ikke
+valgfri i praksis, men reelt hvordan hver forbindelse knyttes til det
+familiemedlem, der ejer den — samme mønster som
+`ics_calendar_subscriptions` allerede bruger, snarere end Googles
+enkelt-ejer-model.
 
 ---
 
@@ -141,27 +146,30 @@ Foreslået: genbrug det eksisterende 5-minutters cron-tick
 
 ---
 
-## Skrivning: hvor tæt på Google-niveau i v1?
+## Skrivning: samme niveau som Google
 
-To realistiske niveauer — **ikke besluttet endnu**:
+**Besluttet (Nicolaj, 2026-09-12)**: fuldt Google-niveau fra start —
+læs, skriv, redigér og slet, ikke kun ICS-sporets skrivebeskyttede
+model. Det betyder:
 
-- **v1 (mindre omfang)**: kun læsning, ligesom ICS-sporet i dag — hurtigere
-  at bygge, ingen konflikthåndtering (ETag) nødvendig endnu.
-- **v2 (fuldt Google-niveau)**: læs OG skriv — kræver ETag-håndtering
-  ved skrivning (undgå at overskrive en ændring foretaget fra en anden
-  enhed/app i mellemtiden) og en beslutning om, hvordan appens egne
-  UI-flows (opret/redigér aftale) vælger, hvilken kalender-kilde en ny
-  aftale skal skrives til, når familien har både Google og iCloud
-  forbundet.
+- ETag-håndtering ved skrivning er en del af selve v1, ikke en senere
+  udvidelse — undgår at overskrive en ændring foretaget fra en anden
+  enhed/app i mellemtiden.
+- En beslutning skal træffes, når arbejdet startes, om hvordan appens
+  egne UI-flows (opret/redigér aftale) vælger, hvilken kalender-kilde
+  en ny aftale skal skrives til, når familien har både Google og
+  iCloud forbundet.
 
 ---
 
+## Besluttet (Nicolaj, 2026-09-12)
+
+- Flere familiemedlemmer skal hver kunne forbinde deres egen iCloud-konto.
+- Fuldt Google-niveau: læs, skriv, redigér og slet — ikke kun læsning.
+
 ## Ikke besluttet endnu
 
-- Skal en familie kunne forbinde iCloud for flere medlemmer samtidig
-  (som ICS), eller kun ét sæt legitimationsoplysninger pr. familie
-  (som Googles nuværende ejer-model)?
-- v1-omfang: kun læsning (hurtigere) eller læs+skriv med det samme
-  (tættere på det, Nicolaj efterspurgte)?
+- Hvordan appens opret/redigér-flows vælger målkalender, når en familie
+  har både Google og iCloud forbundet (se "Skrivning" ovenfor).
 - Skal denne funktion udvikles og testes på `beta` som normalt, uden
   relation til `46_iOS_AppStore_Plan.md`s faser?
