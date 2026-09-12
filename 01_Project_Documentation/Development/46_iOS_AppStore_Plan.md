@@ -1,6 +1,6 @@
 # 46_iOS_AppStore_Plan
 
-Version: 1.0
+Version: 1.1
 
 Project:
 Boholts Family Platform
@@ -27,6 +27,26 @@ frem for en fuld native genskrivning. Dette dokument lister, hvad der
 konkret mangler ud over selve build-processen på en Mac (som Nicolaj
 allerede er fortrolig med).
 
+**Opdatering (2026-09-12, Nicolajs beslutning):** arbejdet deles i to
+faser, så det kan påbegyndes uden at betale for et Apple Developer-
+medlemskab endnu — se "Faseinddeling" nedenfor.
+
+---
+
+## Forudsætning at tjekke FØRST: Xcode kræver en tilstrækkeligt ny macOS-version
+
+Xcode kører kun på macOS, og en given Xcode-version har et minimums-
+krav til macOS (nyere Xcode → nyere iOS SDK → nyere macOS-krav). Er
+Nicolajs Mac på en ældre macOS-version end det, den nyeste Xcode
+kræver, er der to muligheder: opdatér macOS gratis (hvis hardwaren
+understøtter den nyere version), eller — hvis hardwaren er for
+gammel til at kunne opdateres — er en nyere/anden Mac nødvendig, før
+Fase 1 kan gå i gang.
+
+**Ikke afklaret endnu**: hvilken macOS-version Nicolajs Mac kører, og
+om den er tilstrækkelig. Bør tjekkes (Apple-menu → "Om denne Mac") FØR
+Fase 1 påbegyndes.
+
 ---
 
 ## Nuværende opsætning (relevant for denne plan)
@@ -46,13 +66,39 @@ allerede er fortrolig med).
 
 ---
 
-## Blokerende punkt: "Sign in with Apple" (Apple-retningslinje 4.8)
+## Faseinddeling: hvad kræver et betalt Apple Developer-medlemskab, og hvad ikke
+
+En gratis Apple ID rækker til at bygge og køre appen på egen telefon
+via Xcode (selvsignering, "personal team") — men appen udløber efter 7
+dage og skal gensignes, og der er INGEN adgang til TestFlight, App
+Store-indsendelse, eller et "Services ID" (kræves til den web-baserede
+"Sign in with Apple"-opsætning, se Fase 2). Det betalte Apple Developer
+Program (~800 kr/år) er først nødvendigt, når I rammer de grænser.
+
+### Fase 1 — kan startes nu, uden at betale
+1. **Native indpakning (Capacitor)** — se trin 2 nedenfor
+2. **Apple Kalender (EventKit)** — se trin 4 nedenfor. Ren
+   enheds-funktion (læs/skriv iOS' egen kalender), kræver hverken
+   Apples servere eller distribution — kan bygges og testes direkte på
+   Nicolajs egen telefon
+
+### Fase 2 — kræver det betalte medlemskab (når I skal gå rigtigt live)
+1. **"Sign in with Apple"** i den fulde udgave — web/server-flowet
+   (Services ID) er en betalt funktion
+2. **Native push (APNs)** — kræver et Apple Push-nøglepar fra
+   udvikler-portalen
+3. **TestFlight og App Store-indsendelse**
+
+---
+
+## Blokerende punkt (gælder Fase 2): "Sign in with Apple" (Apple-retningslinje 4.8)
 
 Apples App Review-retningslinjer kræver, at en app, der tilbyder login
 via en tredjeparts-/social udbyder (her: Google), **også** tilbyder
 "Sign in with Apple" som et ligeværdigt alternativ. Uden det er der
-reel risiko for afvisning i review — dette bør derfor løses FØR resten
-af arbejdet, ikke som en eftertanke.
+reel risiko for afvisning i review. Dette er ikke en blokering for
+Fase 1 (I distribuerer ikke endnu), men skal løses, før App Store-
+indsendelse.
 
 Kræver:
 - Ny kolonne (fx `apple_sub`) på `users`, parallelt med det
@@ -70,22 +116,23 @@ Kræver:
 
 ---
 
-## Trin (foreslået rækkefølge)
+## Trin (foreslået rækkefølge — Fase 1/2 markeret)
 
-### 1. "Sign in with Apple" (se ovenfor)
+### 1. "Sign in with Apple" — Fase 2
 Blokerende for App Store-godkendelse, uafhængig af resten — kan i
 princippet bygges og testes i browseren på `beta`, før nogen native
 indpakning rører ved den.
 
-### 2. Native indpakning (Capacitor)
+### 2. Native indpakning (Capacitor) — Fase 1
 - Sæt [Capacitor](https://capacitorjs.com/) op omkring den
   eksisterende Vite/React-build (`05_App/web`) — genbruger frontend
   1:1, ingen omskrivning af selve appen
 - Konfigurér iOS-projektet (app-ikon, launch screen, bundle-id)
-- Kræver en Apple Developer-konto (til signering og TestFlight)
-- Mål: en kørende, indlogget app i iOS-simulatoren
+- Mål: en kørende, indlogget app i iOS-simulatoren/på egen telefon —
+  login sker stadig via Google i denne fase, da Sign in with Apple er
+  Fase 2
 
-### 3. Native push (APNs)
+### 3. Native push (APNs) — Fase 2
 - Web Push (VAPID) virker ikke i en native iOS-app — skal
   suppleres/erstattes af Apples eget push-system for iOS-brugere
 - Capacitors Push Notifications-plugin håndterer klient-siden; server
@@ -93,7 +140,7 @@ indpakning rører ved den.
   nuværende `push_subscriptions`-rækker
 - Kræver et Apple Push-nøglepar (oprettes i Apple Developer-portalen)
 
-### 4. Apple Kalender (EventKit)
+### 4. Apple Kalender (EventKit) — Fase 1
 - Ny native plugin (Swift) til at bede om kalender-tilladelse og
   læse/skrive iOS' egen kalender (inkl. iCloud-kalendere) via
   Apples EventKit-framework — kan ikke laves fra ren web/JS-kode
@@ -107,7 +154,7 @@ indpakning rører ved den.
   (retningslinje 4.2) — en ren indpakning af en hjemmeside uden nogen
   nativ integration risikerer afvisning
 
-### 5. Klar til App Store
+### 5. Klar til App Store — Fase 2
 - Privacy-oplysninger ("nutrition label" — hvilke data appen
   indsamler, jf. `/privacy`-sidens indhold)
 - Skærmbilleder, app-beskrivelse, ikon i fuld opløsning
@@ -117,6 +164,7 @@ indpakning rører ved den.
 
 ## Ikke besluttet endnu
 
+- Nicolajs Macs macOS-version — se "Forudsætning at tjekke FØRST" ovenfor.
 - Skal iOS-varianten pege på `beta` eller `main` (production)? Givet
   `main` er den, der går gennem Googles verificering til bredere brug
   (se `44_Google_OAuth_Adskillelse_Main_Beta_Plan.md`), er `main`
