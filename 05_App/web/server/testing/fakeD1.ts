@@ -36,6 +36,7 @@ const migrationFiles = [
   "0025_birthday_gift_plans.sql",
   "0026_shared_expenses.sql",
   "0027_feature_flags.sql",
+  "0029_icloud_calendar_connections.sql",
 ];
 
 function loadMigrations(db: DatabaseSync): void {
