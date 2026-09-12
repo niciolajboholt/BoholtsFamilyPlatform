@@ -1,11 +1,41 @@
 # 44_Google_OAuth_Adskillelse_Main_Beta_Plan
 
-> Status: Trin 1-5 udført af Nicolaj (2026-09-11). Første
-> verificeringsforsøg (trin 6) blev afvist af Google med fire punkter —
-> tre rettet i koden (forside, privatlivspolitik, noscript-fallback).
-> Afventer: trin 7 (`google-client-secret-main` i Cloudflares Secrets
-> Store — uden det fejler login på `main` ved næste deploy) og trin 8
-> (domæneverificering i Google Search Console, i gang).
+> Status (2026-09-11): Trin 1-7 udført. Første verificeringsforsøg
+> (trin 6) blev afvist af Google med fire punkter — tre rettet i koden
+> (forside, privatlivspolitik, noscript-fallback), alle nu live i
+> produktion (`main`). Trin 7 (`google-client-secret-main`) er oprettet
+> i Cloudflares Secrets Store — Google-login på `main` virker. Trin 8
+> (domæneverificering i Google Search Console) er gennemført af
+> Nicolaj — det løser Googles fjerde afvisningspunkt.
+>
+> Efter branding blev genindsendt til verificering, fandt Google en
+> femte, ny uoverensstemmelse: OAuth-samtykkeskærmens **App name**-felt
+> stod som "Boholts Family Platform" (det interne Google Cloud-
+> projektnavn), mens appens faktiske, synlige navn er "Boholts
+> Familieapp" (forside, `<title>`, noscript-fallback). Rettet ved at
+> ændre App name-feltet i Google Cloud Console (Branding-siden) til
+> "Boholts Familieapp" — ingen kodeændring nødvendig. Branding er nu
+> verificeret ("Your branding has been verified and is being shown to
+> users").
+>
+> Data Access-siden på det nye main-projekt manglede desuden helt at
+> deklarere de sensitive Calendar-scopes, appens kode faktisk beder om
+> (`calendar.events`, `calendar.calendarlist.readonly` — se
+> `server/lib/googleOAuth.ts`) — det var den egentlige årsag til, at
+> alle brugere (ikke kun uverificerede) fik "Google har ikke
+> verificeret denne app"-skærmen. Tilføjet på Data Access-siden med en
+> skriftlig begrundelse, en demo-video (skærmoptagelse af login →
+> samtykke → kalenderhandling i appen → samme aftale set i Google
+> Kalender) og verifikationsspørgeskemaet besvaret (ikke "personal use
+> only", da appen skal kunne godkendes til produktion, ikke forblive i
+> Testing-tilstand).
+>
+> **2026-09-11: Sendt til Googles fulde verificering (trin 6).** Herfra
+> er det udelukkende Google, der arbejder — kan tage fra få dage til
+> flere uger. Besked kommer på nicolajbach12@gmail.com. Indtil da vil
+> alle brugere (undtagen tilføjede "test users") fortsat se
+> uverificeret-advarslen ved login på `main` — det er forventet, ikke
+> en fejl.
 
 Version: 1.0
 

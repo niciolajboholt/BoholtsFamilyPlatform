@@ -424,32 +424,55 @@ function NewEventDialog({
             pt: 1,
           }}
         >
-          <TextField
-            select
-            label="Hvem gælder aftalen for?"
-            value={sourceId}
-            onChange={(event) => setRequestedSourceId(event.target.value)}
-            disabled={isSaving}
-            fullWidth
-          >
-            {calendarSources.map((source) => (
-              <MenuItem key={source.id} value={source.id} disabled={source.isReadOnly}>
-                <Box
-                  component="span"
-                  sx={{
-                    display: "inline-block",
-                    width: 10,
-                    height: 10,
-                    borderRadius: "50%",
-                    bgcolor: source.color,
-                    mr: 1.25,
-                    flexShrink: 0,
-                  }}
-                />
-                {source.name}{source.isReadOnly ? " (skrivebeskyttet)" : ""}
-              </MenuItem>
-            ))}
-          </TextField>
+          {/* Sprint 45: kun vist når der reelt er noget at vælge imellem
+              (fx et familiemedlems tilkoblede Google-kalender ved siden af
+              den lokale familiekalender) — ellers virkede den som en
+              forvirrende duplikat af deltager-valget nedenfor, med samme
+              label men kun ét muligt valg. */}
+          {calendarSources.length > 1 && (
+            <TextField
+              select
+              label="Gem i kalender"
+              value={sourceId}
+              onChange={(event) => setRequestedSourceId(event.target.value)}
+              disabled={isSaving}
+              fullWidth
+            >
+              {calendarSources.map((source) => (
+                <MenuItem key={source.id} value={source.id} disabled={source.isReadOnly}>
+                  <Box
+                    component="span"
+                    sx={{
+                      display: "inline-block",
+                      width: 10,
+                      height: 10,
+                      borderRadius: "50%",
+                      bgcolor: source.color,
+                      mr: 1.25,
+                      flexShrink: 0,
+                    }}
+                  />
+                  {source.name}{source.isReadOnly ? " (skrivebeskyttet)" : ""}
+                </MenuItem>
+              ))}
+            </TextField>
+          )}
+
+          {(!isExternalCalendarProviderType(selectedSource?.providerType) ||
+            providerSupportsManualOwnerOverride(selectedSource?.providerType)) && (
+            <EventParticipantsSection
+              ownerIds={form.ownerIds}
+              members={members}
+              disabled={isSaving}
+              onToggleOwner={(ownerId) => {
+                toggleParticipant(ownerId);
+                markFieldTouched("ownerIds");
+              }}
+              title="Hvem gælder aftalen for?"
+              errorText={getVisibleErrorMessage("ownerIds")}
+            />
+          )}
+
           {submitError && (
             <Alert severity="error">
               {submitError}
@@ -563,22 +586,6 @@ function NewEventDialog({
 
           <Collapse in={isMoreOptionsOpen} timeout="auto">
             <Box sx={{ display: "grid", gap: 2 }}>
-              {(!isExternalCalendarProviderType(selectedSource?.providerType) ||
-                providerSupportsManualOwnerOverride(selectedSource?.providerType)) && (
-                <EventParticipantsSection
-                  ownerIds={form.ownerIds}
-                  members={members}
-                  disabled={isSaving}
-                  onToggleOwner={(ownerId) => {
-                    toggleParticipant(ownerId);
-                    markFieldTouched("ownerIds");
-                  }}
-                  title="Hvem gælder aftalen for?"
-                  variant="chips"
-                  errorText={getVisibleErrorMessage("ownerIds")}
-                />
-              )}
-
               {canSetReminder && (
                 <TextField
                   select
