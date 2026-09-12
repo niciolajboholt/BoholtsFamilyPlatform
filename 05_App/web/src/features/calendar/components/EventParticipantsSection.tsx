@@ -1,9 +1,7 @@
 import { CheckRounded } from "@mui/icons-material";
 import {
   Box,
-  Checkbox,
   Chip,
-  FormControlLabel,
   Typography,
 } from "@mui/material";
 
@@ -16,7 +14,6 @@ interface EventParticipantsSectionProps {
   disabled: boolean;
   onToggleOwner: (ownerId: CalendarOwnerId) => void;
   title: string;
-  variant: "chips" | "checkboxes";
   errorText?: string | null;
 }
 
@@ -26,7 +23,6 @@ export function EventParticipantsSection({
   disabled,
   onToggleOwner,
   title,
-  variant,
   errorText,
 }: EventParticipantsSectionProps) {
   return (
@@ -34,69 +30,53 @@ export function EventParticipantsSection({
       <Typography
         variant="subtitle2"
         sx={{
-          mb: variant === "chips" ? 1 : 0.5,
+          mb: 1,
         }}
       >
         {title}
       </Typography>
 
-      {variant === "chips" ? (
-        <Box
-          sx={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: 1,
-          }}
-        >
-          {members.map(
-            (owner) => {
-              const isSelected = ownerIds.includes(owner.id);
+      <Box
+        sx={{
+          display: "flex",
+          flexWrap: "wrap",
+          gap: 1,
+        }}
+      >
+        {members.map(
+          (owner) => {
+            const isSelected = ownerIds.includes(owner.id);
 
-              return (
-                <Chip
-                  key={owner.id}
-                  label={owner.name}
-                  clickable={!disabled}
-                  disabled={disabled}
-                  onClick={() => onToggleOwner(owner.id)}
-                  variant={
-                    isSelected ? "filled" : "outlined"
-                  }
-                  icon={
-                    isSelected ? (
-                      <CheckRounded sx={{ color: "#ffffff !important" }} />
-                    ) : undefined
-                  }
-                  sx={{
-                    borderColor: owner.color,
-                    backgroundColor: isSelected
-                      ? owner.color
-                      : "transparent",
-                    color: isSelected
-                      ? "#ffffff"
-                      : owner.color,
-                    fontWeight: 600,
-                  }}
-                />
-              );
-            },
-          )}
-        </Box>
-      ) : (
-        members.map((owner) => (
-          <FormControlLabel
-            key={owner.id}
-            control={
-              <Checkbox
-                checked={ownerIds.includes(owner.id)}
+            return (
+              <Chip
+                key={owner.id}
+                label={owner.name}
+                clickable={!disabled}
                 disabled={disabled}
-                onChange={() => onToggleOwner(owner.id)}
+                onClick={() => onToggleOwner(owner.id)}
+                variant={
+                  isSelected ? "filled" : "outlined"
+                }
+                icon={
+                  isSelected ? (
+                    <CheckRounded sx={{ color: "#ffffff !important" }} />
+                  ) : undefined
+                }
+                sx={{
+                  borderColor: owner.color,
+                  backgroundColor: isSelected
+                    ? owner.color
+                    : "transparent",
+                  color: isSelected
+                    ? "#ffffff"
+                    : owner.color,
+                  fontWeight: 600,
+                }}
               />
-            }
-            label={owner.name}
-          />
-        ))
-      )}
+            );
+          },
+        )}
+      </Box>
 
       {errorText && (
         <Typography

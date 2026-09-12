@@ -538,7 +538,7 @@ test("creating a private event writes provider privacy without exposing extra fi
 
   await page.goto("/calendar");
   await page.getByRole("button", { name: "Ny aftale" }).click();
-  await page.getByLabel("Hvem gælder aftalen for?").click();
+  await page.getByLabel("Gem i kalender").click();
   await page.locator('[role="option"][data-value="google:alex-calendar"]').click();
   await page.getByLabel("Titel").fill("Fortrolig behandling");
   await page.getByRole("button", { name: "Flere muligheder" }).click();
@@ -1601,7 +1601,7 @@ test("a family member can create, edit, and delete a calendar event through the 
 
   // Opret.
   await page.getByRole("button", { name: "Ny aftale" }).click();
-  await page.getByLabel("Hvem gælder aftalen for?").click();
+  await page.getByLabel("Gem i kalender").click();
   await page.locator('[role="option"][data-value="google:alex-calendar"]').click();
   await page.getByLabel("Titel").fill(originalTitle);
   await page.getByRole("button", { name: "Opret aftale" }).click();
@@ -1696,7 +1696,7 @@ test("a family member can create a recurring Google event through the real UI", 
   await page.goto("/calendar");
 
   await page.getByRole("button", { name: "Ny aftale" }).click();
-  await page.getByLabel("Hvem gælder aftalen for?").click();
+  await page.getByLabel("Gem i kalender").click();
   await page.locator('[role="option"][data-value="google:alex-calendar"]').click();
   await page.getByLabel("Titel").fill("Svømning");
 
@@ -1908,11 +1908,12 @@ test("a family member can manually assign an owner to a Google event through the
   await page
     .getByRole("button", { name: /^Rediger aftale: Tandlæge og efterfølgende kontrol,/ })
     .click();
-  await page.getByRole("button", { name: "Flere muligheder" }).click();
 
   // Alex er allerede automatisk tilknyttet via kalender-tildelingen —
-  // markerer også Billie, så begge indgår i den manuelle overstyring.
-  await page.getByRole("checkbox", { name: "Billie" }).check();
+  // markerer også Billie, så begge indgår i den manuelle overstyring. Sprint
+  // 45: deltager-valget er nu altid synligt (chips) i stedet for gemt bag
+  // "Flere muligheder" (checkbokse).
+  await page.getByRole("button", { name: "Billie" }).click();
   await page.getByRole("button", { name: "Gem ændringer" }).click();
 
   await expect.poll(() => patchedBody?.extendedProperties).toEqual({

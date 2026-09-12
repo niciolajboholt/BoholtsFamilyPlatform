@@ -161,7 +161,7 @@ function EditEventDialog({
             {canChangeCalendar && (
               <TextField
                 select
-                label="Hvem gælder aftalen for?"
+                label="Gem i kalender"
                 value={requestedSourceId}
                 disabled={isSaving}
                 fullWidth
@@ -188,6 +188,20 @@ function EditEventDialog({
                     </MenuItem>
                   ))}
               </TextField>
+            )}
+
+            {(!isExternalCalendarProviderType(eventSource?.providerType) || canOverrideOwners) && (
+              <EventParticipantsSection
+                ownerIds={formState.ownerIds}
+                members={members}
+                disabled={!isInternalEvent || isSaving}
+                onToggleOwner={(ownerId) => {
+                  toggleParticipant(ownerId);
+                  markFieldTouched("ownerIds");
+                }}
+                title="Hvem gælder aftalen for?"
+                errorText={getVisibleErrorMessage("ownerIds")}
+              />
             )}
 
             {submitError && <Alert severity="error">{submitError}</Alert>}
@@ -268,22 +282,6 @@ function EditEventDialog({
 
             <Collapse in={isMoreOptionsOpen} timeout="auto">
               <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                {(!isExternalCalendarProviderType(eventSource?.providerType) ||
-                  canOverrideOwners) && (
-                  <EventParticipantsSection
-                    ownerIds={formState.ownerIds}
-                    members={members}
-                    disabled={!isInternalEvent || isSaving}
-                    onToggleOwner={(ownerId) => {
-                      toggleParticipant(ownerId);
-                      markFieldTouched("ownerIds");
-                    }}
-                    title="Hvem gælder aftalen for?"
-                    variant="checkboxes"
-                    errorText={getVisibleErrorMessage("ownerIds")}
-                  />
-                )}
-
                 {canSetReminder && (
                   <TextField
                     select
