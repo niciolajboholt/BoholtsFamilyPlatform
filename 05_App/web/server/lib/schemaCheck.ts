@@ -49,6 +49,8 @@ const expectedColumns = [
   { table: "families", column: "ai_weekly_summary_enabled" },
   { table: "calendar_event_snapshots", column: "recurring_event_id" },
   { table: "calendar_activity_log", column: "google_calendar_id" },
+  { table: "google_connections", column: "cached_access_token" },
+  { table: "google_connections", column: "access_token_expires_at" },
 ] as const;
 
 export interface SchemaCheckResult {

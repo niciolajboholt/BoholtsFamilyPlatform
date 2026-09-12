@@ -63,6 +63,47 @@ describe("getGoogleAccessToken", () => {
     expect(row?.lastRefreshedAt).not.toBeNull();
   });
 
+  it("reuses a cached access token instead of calling Google again", async () => {
+    const env = createFakeEnv();
+    await seedUser(env.DB as never, { id: "user-1" });
+    await seedConnection(env, "user-1");
+
+    await env.DB.prepare(
+      "UPDATE google_connections SET cached_access_token = ?, access_token_expires_at = ? WHERE user_id = ?",
+    )
+      .bind("still-fresh-token", new Date(Date.now() + 30 * 60 * 1000).toISOString(), "user-1")
+      .run();
+
+    const accessToken = await getGoogleAccessToken(env, "user-1");
+
+    expect(accessToken).toBe("still-fresh-token");
+    expect(refreshGoogleAccessTokenMock).not.toHaveBeenCalled();
+  });
+
+  it("refreshes when the cached access token is about to expire", async () => {
+    const env = createFakeEnv();
+    await seedUser(env.DB as never, { id: "user-1" });
+    await seedConnection(env, "user-1");
+
+    await env.DB.prepare(
+      "UPDATE google_connections SET cached_access_token = ?, access_token_expires_at = ? WHERE user_id = ?",
+    )
+      .bind("about-to-expire-token", new Date(Date.now() + 60 * 1000).toISOString(), "user-1")
+      .run();
+
+    refreshGoogleAccessTokenMock.mockResolvedValue({
+      access_token: "fresh-access-token",
+      expires_in: 3600,
+      scope: "calendar.events",
+      token_type: "Bearer",
+    });
+
+    const accessToken = await getGoogleAccessToken(env, "user-1");
+
+    expect(accessToken).toBe("fresh-access-token");
+    expect(refreshGoogleAccessTokenMock).toHaveBeenCalledTimes(1);
+  });
+
   it("clears the connection and throws GoogleNotConnectedError when the refresh token was revoked", async () => {
     const env = createFakeEnv();
     await seedUser(env.DB as never, { id: "user-1" });
