@@ -81,10 +81,21 @@ function PrivacyContent() {
       <Section title="AI-funktioner">
         Når AI-funktioner i appen bruges (fx forslag til rutiner, indkøb eller et
         ugeresumé), kan relevante aftaletitler, åbne opgaver og indkøbsvarer
-        behandles af Cloudflare Workers AI for at danne netop det forslag eller
-        resumé, du selv har bedt om. Data fra din Google-konto bruges ikke til
-        at træne generelle AI-modeller, og deles ikke med andre tredjeparter end
-        Cloudflare, som driver appens serverinfrastruktur.
+        behandles af{" "}
+        <Box component="a" href="https://developers.cloudflare.com/workers-ai/" sx={{ color: "inherit" }}>
+          Cloudflare Workers AI
+        </Box>{" "}
+        (modellen GLM-4.7-flash fra Zhipu AI/Z.ai, kørende på Cloudflares egen
+        infrastruktur) for at danne netop det forslag eller resumé, du selv har
+        bedt om. Ifølge{" "}
+        <Box component="a" href="https://developers.cloudflare.com/workers-ai/platform/data-usage/" sx={{ color: "inherit" }}>
+          Cloudflares egen databehandlingspolitik
+        </Box>
+        {" "}bruger Cloudflare ikke denne data til at træne AI-modeller eller
+        forbedre egne eller tredjeparters tjenester, medmindre der udtrykkeligt
+        er givet samtykke til det — det har vi ikke givet. Data fra din
+        Google-konto forlader ikke Cloudflares infrastruktur og deles ikke med
+        Zhipu AI/Z.ai eller andre tredjeparter.
       </Section>
       <Section title="Deling">
         Et offentligt kalenderlink viser kun de familiemedlemmer og felter, familien
