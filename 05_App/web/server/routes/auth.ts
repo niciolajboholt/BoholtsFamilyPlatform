@@ -4,12 +4,19 @@ import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import type { Env } from "../env";
 import {
   buildGoogleAuthorizeUrl,
-  derivePkceChallenge,
   exchangeGoogleAuthorizationCode,
   fetchGoogleUserInfo,
+} from "../lib/googleOAuth";
+import {
+  buildMicrosoftAuthorizeUrl,
+  exchangeMicrosoftAuthorizationCode,
+  fetchMicrosoftUserInfo,
+} from "../lib/microsoftOAuth";
+import {
+  derivePkceChallenge,
   generateOAuthState,
   generatePkceVerifier,
-} from "../lib/googleOAuth";
+} from "../lib/oauthPkce";
 import { createSession, destroySession } from "../lib/session";
 import { encryptRefreshToken } from "../lib/tokenEncryption";
 import { logError } from "../lib/structuredLog";
@@ -142,6 +149,110 @@ auth.get("/google/callback", async (c) => {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     logError("Google OAuth callback fejlede", message);
+    return c.text("Login fejlede. Prøv igen.", 500);
+  }
+});
+
+// Samme mønster som /google/begin — se dens kommentar for "begin" vs.
+// "start"-navngivningen (workers.dev-cache).
+auth.get("/microsoft/begin", async (c) => {
+  const state = generateOAuthState();
+  const verifier = generatePkceVerifier();
+  const challenge = await derivePkceChallenge(verifier);
+
+  setCookie(c, oauthFlowCookieName, `${state}.${verifier}`, {
+    httpOnly: true,
+    secure: isSecureRequest(c.req.url),
+    sameSite: "Lax",
+    path: "/auth/microsoft",
+    maxAge: oauthFlowMaxAgeSeconds,
+  });
+
+  const redirectUri = `${new URL(c.req.url).origin}/auth/microsoft/callback`;
+
+  const authorizeUrl = buildMicrosoftAuthorizeUrl({
+    clientId: c.env.MICROSOFT_CLIENT_ID,
+    redirectUri,
+    state,
+    codeChallenge: challenge,
+  });
+
+  return c.redirect(authorizeUrl);
+});
+
+auth.get("/microsoft/callback", async (c) => {
+  const code = c.req.query("code");
+  const returnedState = c.req.query("state");
+  const flowCookie = getCookie(c, oauthFlowCookieName);
+
+  deleteCookie(c, oauthFlowCookieName, { path: "/auth/microsoft" });
+
+  if (!code || !returnedState || !flowCookie) {
+    return c.text("Login mangler nødvendige parametre. Prøv igen.", 400);
+  }
+
+  const [expectedState, verifier] = flowCookie.split(".");
+
+  if (!expectedState || !verifier || expectedState !== returnedState) {
+    return c.text("Login kunne ikke bekræftes (forkert state). Prøv igen.", 400);
+  }
+
+  const redirectUri = `${new URL(c.req.url).origin}/auth/microsoft/callback`;
+
+  try {
+    const tokens = await exchangeMicrosoftAuthorizationCode({
+      clientId: c.env.MICROSOFT_CLIENT_ID,
+      clientSecret: await c.env.MICROSOFT_CLIENT_SECRET.get(),
+      redirectUri,
+      code,
+      codeVerifier: verifier,
+    });
+
+    const userInfo = await fetchMicrosoftUserInfo(tokens.access_token);
+    const now = new Date().toISOString();
+
+    const existing = await c.env.DB.prepare(
+      "SELECT id FROM users WHERE microsoft_sub = ?",
+    )
+      .bind(userInfo.sub)
+      .first<{ id: string }>();
+
+    const userId = existing?.id ?? crypto.randomUUID();
+
+    if (existing) {
+      await c.env.DB.prepare(
+        "UPDATE users SET email = ?, name = ?, picture_url = ? WHERE id = ?",
+      )
+        .bind(userInfo.email, userInfo.name, userInfo.picture ?? null, userId)
+        .run();
+    } else {
+      // google_sub er NOT NULL (se 0030_microsoft_login.sql for hvorfor det
+      // bevidst ikke blev lavet nullable) — en "ms:"-præfikset placeholder,
+      // afledt af microsoft_sub, opfylder UNIQUE NOT NULL uden nogensinde at
+      // kunne kollidere med en ægte, rent numerisk Google-sub. Intet andet
+      // sted i koden læser google_sub som "har forbundet Google" (det gør
+      // google_connections-tabellen), så placeholderen er ufarlig.
+      await c.env.DB.prepare(
+        "INSERT INTO users (id, google_sub, microsoft_sub, email, name, picture_url, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      )
+        .bind(
+          userId,
+          `ms:${userInfo.sub}`,
+          userInfo.sub,
+          userInfo.email,
+          userInfo.name,
+          userInfo.picture ?? null,
+          now,
+        )
+        .run();
+    }
+
+    await createSession(c, userId);
+
+    return c.redirect("/");
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logError("Microsoft OAuth callback fejlede", message);
     return c.text("Login fejlede. Prøv igen.", 500);
   }
 });

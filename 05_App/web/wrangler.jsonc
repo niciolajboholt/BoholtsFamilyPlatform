@@ -34,7 +34,13 @@
     // Sprint 21, Del A: ikke-hemmelig VAPID-nøgle (klienten henter den via
     // /api/push/public-key for at abonnere) — se 21_Sprint21-planen.
     "VAPID_PUBLIC_KEY": "BHVSXcjfORTKBlCSOyokP1Iq9Jwgnuetorda-TEqjEUjvK4hZjp-PE1p4qDJ7Tgq3dywzervtXgt0VKzMxfJZG8",
-    "VAPID_SUBJECT": "mailto:nicolajbach12@gmail.com"
+    "VAPID_SUBJECT": "mailto:nicolajbach12@gmail.com",
+    // Sprint 48: PLACEHOLDER indtil Nicolaj har oprettet den nye, personlige
+    // Azure-app-registrering (se 48_Sprint48_...Plan.md) — én app-
+    // registrering dækker både main og beta (Microsoft tillader flere
+    // redirect-URI'er på samme app, i modsætning til Googles
+    // verificeringsproces), så samme klient-id bruges begge steder.
+    "MICROSOFT_CLIENT_ID": "TODO-erstat-med-rigtigt-client-id-fra-azure"
   },
   // GOOGLE_CLIENT_SECRET peger her (main) på et EGET secret-navn,
   // forskelligt fra beta's — se 44_Google_OAuth_Adskillelse_Main_Beta_Plan.md.
@@ -73,6 +79,15 @@
       "binding": "ADMIN_EMAIL",
       "store_id": "2bc6325a385d4ca3bc555d66f5453a21",
       "secret_name": "admin-email"
+    },
+    // Sprint 48: fælles secret-navn med beta (samme mønster som de fleste
+    // andre hemmeligheder ovenfor) — én Azure-app-registrering dækker begge
+    // miljøer. Kræver at secret'en "microsoft-client-secret" er oprettet i
+    // Cloudflares Secrets Store FØR næste deploy.
+    {
+      "binding": "MICROSOFT_CLIENT_SECRET",
+      "store_id": "2bc6325a385d4ca3bc555d66f5453a21",
+      "secret_name": "microsoft-client-secret"
     }
   ],
   "assets": {
@@ -164,7 +179,10 @@
       "vars": {
         "GOOGLE_CLIENT_ID": "621931405628-lc7afq5qp0ejmdks5hl9c6b7uclskiie.apps.googleusercontent.com",
         "VAPID_PUBLIC_KEY": "BHVSXcjfORTKBlCSOyokP1Iq9Jwgnuetorda-TEqjEUjvK4hZjp-PE1p4qDJ7Tgq3dywzervtXgt0VKzMxfJZG8",
-        "VAPID_SUBJECT": "mailto:nicolajbach12@gmail.com"
+        "VAPID_SUBJECT": "mailto:nicolajbach12@gmail.com",
+        // Sprint 48: samme klient-id som main — se kommentaren i
+        // main-blokken ovenfor.
+        "MICROSOFT_CLIENT_ID": "TODO-erstat-med-rigtigt-client-id-fra-azure"
       },
       // Ligesom "vars" ovenfor: bindinger tilføjet kun via dashboardets
       // Bindings-fane forsvinder ved næste Git-udløste deploy ("Cannot read
@@ -197,6 +215,13 @@
           "binding": "ADMIN_EMAIL",
           "store_id": "2bc6325a385d4ca3bc555d66f5453a21",
           "secret_name": "admin-email"
+        },
+        // Sprint 48: samme secret-navn som main — se kommentaren i
+        // main-blokken ovenfor.
+        {
+          "binding": "MICROSOFT_CLIENT_SECRET",
+          "store_id": "2bc6325a385d4ca3bc555d66f5453a21",
+          "secret_name": "microsoft-client-secret"
         }
       ],
       "assets": {

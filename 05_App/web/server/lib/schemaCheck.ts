@@ -53,6 +53,7 @@ const expectedColumns = [
   { table: "calendar_activity_log", column: "google_calendar_id" },
   { table: "google_connections", column: "cached_access_token" },
   { table: "google_connections", column: "access_token_expires_at" },
+  { table: "users", column: "microsoft_sub" },
 ] as const;
 
 export interface SchemaCheckResult {

@@ -32,6 +32,10 @@ export function createFakeEnv(overrides: Partial<Env> = {}): Env {
       get: async () => testVapidPrivateKey,
     } as unknown as Env["VAPID_PRIVATE_KEY"],
     VAPID_SUBJECT: "mailto:test@example.com",
+    MICROSOFT_CLIENT_ID: "test-microsoft-client-id",
+    MICROSOFT_CLIENT_SECRET: {
+      get: async () => "test-microsoft-client-secret",
+    } as unknown as Env["MICROSOFT_CLIENT_SECRET"],
     ADMIN_EMAIL: {
       get: async () => "admin@example.com",
     } as unknown as Env["ADMIN_EMAIL"],

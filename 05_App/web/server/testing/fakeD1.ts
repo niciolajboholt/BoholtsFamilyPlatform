@@ -38,6 +38,7 @@ const migrationFiles = [
   "0027_feature_flags.sql",
   "0028_google_access_token_cache.sql",
   "0029_icloud_calendar_connections.sql",
+  "0030_microsoft_login.sql",
 ];
 
 function loadMigrations(db: DatabaseSync): void {
@@ -103,6 +104,7 @@ export function createFakeD1(): FakeD1 {
 interface SeedUserOptions {
   id: string;
   googleSub?: string;
+  microsoftSub?: string | null;
   email?: string;
   name?: string;
   pictureUrl?: string | null;
@@ -111,11 +113,12 @@ interface SeedUserOptions {
 export async function seedUser(db: FakeD1, options: SeedUserOptions): Promise<void> {
   await db
     .prepare(
-      "INSERT INTO users (id, google_sub, email, name, picture_url, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+      "INSERT INTO users (id, google_sub, microsoft_sub, email, name, picture_url, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
     )
     .bind(
       options.id,
       options.googleSub ?? `google-${options.id}`,
+      options.microsoftSub ?? null,
       options.email ?? `${options.id}@example.com`,
       options.name ?? options.id,
       options.pictureUrl ?? null,

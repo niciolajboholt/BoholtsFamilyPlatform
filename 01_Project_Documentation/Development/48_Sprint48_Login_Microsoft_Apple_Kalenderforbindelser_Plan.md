@@ -15,7 +15,11 @@ Maintained by:
 Claude
 
 Status:
-Idé-/planlægningsstadie — intet af nedenstående er påbegyndt endnu.
+Del A (Microsoft-login) implementeret lokalt (kode + migration +
+tests grønne) — afventer PR/Beta-deploy samt at Nicolaj opretter den nye
+Azure-app-registrering og indsætter det rigtige klient-id/-hemmelighed
+(wrangler.jsonc har placeholder-værdier indtil da). Del B og C er endnu
+ikke påbegyndt.
 
 ---
 
@@ -87,9 +91,25 @@ udenfor denne plans omfang og kræver sin egen beslutning fra Nicolaj.
   (bevidst IKKE `Calendars.*` — login er adskilt fra
   kalenderintegrationen, som i forvejen er sin egen, separate
   MSAL-browser-baserede funktion).
-- `users`-tabellen: ny nullable kolonne `microsoft_sub`, samme mønster som
-  `google_sub` — én bruger-række kan i praksis kun have ét udbyder-id
-  udfyldt (den udbyder, personen først loggede ind med).
+- `users`-tabellen: ny kolonne `microsoft_sub` (nullable, unik) —
+  tilføjet via en almindelig `ALTER TABLE ADD COLUMN` (0030_microsoft_login.sql).
+  **`google_sub` forbliver bevidst `NOT NULL`, uændret**: SQLite/D1 kan ikke
+  ændre en NOT NULL-begrænsning uden at genskabe hele tabellen, og "users"
+  er usædvanligt centralt refereret (~15 andre tabeller har en FK til
+  `users(id)`). D1 håndhæver fremmednøgler og kører hver migrationsfil i
+  én implicit transaktion, hvilket gør både `PRAGMA foreign_keys=OFF` og
+  `PRAGMA defer_foreign_keys` virkningsløse for netop denne slags
+  genopbygning (bekræftet ved lokal afprøvning mod samme SQLite-motor som
+  D1 bruger, og i Cloudflares egne GitHub-issues, fx
+  cloudflare/workers-sdk#5438) — en reel genopbygning ville kræve at
+  kopiere alle ~15 relaterede tabellers data ud, genskabe "users", og
+  indsætte dem igen, hvilket er uforholdsmæssigt risikabelt for denne
+  opgave. I stedet får en Microsoft-only bruger en deterministisk,
+  garanteret unik "ms:"-præfikset placeholder-værdi i `google_sub`
+  (afledt af `microsoft_sub`, kan aldrig kollidere med en ægte,
+  rent numerisk Google-sub) — se `auth.ts`'s `/microsoft/callback`. Ingen
+  andre steder i koden fortolker `google_sub` som "har forbundet Google"
+  (det gør den separate `google_connections`-tabel), så dette er trygt.
 - Nye hemmeligheder i Secrets Store (beta + main):
   `MICROSOFT_CLIENT_ID`, `MICROSOFT_CLIENT_SECRET`.
 - `LoginPage.tsx`: erstat den nuværende ene "Log ind med Google"-knap med
