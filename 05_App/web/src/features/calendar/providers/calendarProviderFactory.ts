@@ -3,6 +3,7 @@ import type {
 } from "../models/calendarProvider";
 import { CompositeCalendarProvider } from "./CompositeCalendarProvider";
 import type { ExternalCalendarProvider } from "./CompositeCalendarProvider";
+import { IcloudCalendarProvider } from "./apple/IcloudCalendarProvider";
 import { GoogleCalendarProvider } from "./google/GoogleCalendarProvider";
 import { decodeGoogleCalendarSourceId } from "./google/googleCalendarIds";
 import { IcsCalendarProvider } from "./ics/IcsCalendarProvider";
@@ -41,6 +42,11 @@ const outlookCalendarProvider =
 // en bruger uden delte kalendere.
 const icsCalendarProvider = new IcsCalendarProvider();
 
+// Sprint 47: ligesom ICS ovenfor altid til stede — forbindelserne er
+// familiedata (server-CRUD, se familyApi.ts), ikke en enkelt OAuth-session
+// som Google/Outlook, så der er intet globalt "er iCloud konfigureret"-tjek.
+const icloudCalendarProvider = new IcloudCalendarProvider();
+
 const externalProviders: ExternalCalendarProvider[] = [
   {
     providerId: "google" as const,
@@ -54,6 +60,11 @@ const externalProviders: ExternalCalendarProvider[] = [
         sourceIdPrefix: "outlook:",
       }]
     : []),
+  {
+    providerId: "apple" as const,
+    provider: icloudCalendarProvider,
+    sourceIdPrefix: "icloud:",
+  },
   {
     providerId: "ics" as const,
     provider: icsCalendarProvider,

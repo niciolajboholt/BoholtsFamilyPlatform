@@ -9,6 +9,7 @@ export type CalendarEventSource =
   | "internal"
   | "google"
   | "outlook"
+  | "apple"
   | "ics";
 
 // Mirrors isExternalCalendarProviderType (models/calendarProvider.ts) at the
@@ -17,7 +18,12 @@ export type CalendarEventSource =
 export function isExternalCalendarEventSource(
   source: CalendarEventSource,
 ): boolean {
-  return source === "google" || source === "outlook" || source === "ics";
+  return (
+    source === "google" ||
+    source === "outlook" ||
+    source === "apple" ||
+    source === "ics"
+  );
 }
 
 export type CalendarSourceId = string;
