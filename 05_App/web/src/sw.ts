@@ -13,8 +13,8 @@ precacheAndRoute(self.__WB_MANIFEST);
 
 // Samme undtagelse som den tidligere navigateFallbackDenylist: /auth og
 // /api er ikke SPA-sider — uden denne fanger navigations-fallbacket også
-// et klik på "Log ind med Google" og server den cachede index.html i
-// stedet for at lade browseren ramme den rigtige /auth/google/start-rute.
+// et klik på fx "Fortsæt med Google" og server den cachede index.html i
+// stedet for at lade browseren ramme den rigtige /auth/google/begin-rute.
 registerRoute(
   new NavigationRoute(createHandlerBoundToURL("index.html"), {
     denylist: [/^\/auth\//, /^\/api\//],
