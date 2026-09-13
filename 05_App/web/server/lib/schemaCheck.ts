@@ -36,6 +36,8 @@ const expectedTables = [
   "calendar_sync_state",
   "calendar_event_snapshots",
   "calendar_activity_log",
+  "icloud_calendar_connections",
+  "icloud_calendar_sync_state",
 ] as const;
 
 // Kolonner tilføjet via ALTER TABLE på en allerede eksisterende tabel —
