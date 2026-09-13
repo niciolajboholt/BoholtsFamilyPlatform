@@ -1,7 +1,7 @@
 import { useState } from "react";
 
 import { CalendarMonthRounded } from "@mui/icons-material";
-import { Alert, Button, Card, CardContent, Dialog, DialogActions, DialogContent, DialogTitle, Divider, Typography } from "@mui/material";
+import { Alert, Box, Button, Card, CardContent, Dialog, DialogActions, DialogContent, DialogTitle, Divider, Typography } from "@mui/material";
 
 import { ProviderConnectionRow } from "../../calendar/components/ProviderConnectionRow";
 import { useGoogleCalendarConnection } from "../../calendar/hooks/useGoogleCalendarConnection";
@@ -9,8 +9,10 @@ import { useOutlookCalendarConnection } from "../../calendar/hooks/useOutlookCal
 import { clearCalendarMemberMappings } from "../../calendar/preferences/calendarMemberMappingStorage";
 import { clearExcludedOutlookCalendars } from "../../calendar/providers/outlook/outlookCalendarExclusionStorage";
 import { getProviderConnectionStatusText } from "../utils/getProviderConnectionStatusText";
+import { GoogleCalendarSelectionDialog } from "./GoogleCalendarSelectionDialog";
 import { IcloudConnectionsDialog } from "./IcloudConnectionsDialog";
 import { IcsSubscriptionsDialog } from "./IcsSubscriptionsDialog";
+import { OutlookCalendarSelectionDialog } from "./OutlookCalendarSelectionDialog";
 import { SettingsLinkRow, SettingsSectionHeader } from "./SettingsPrimitives";
 
 export function CalendarConnectionsSection() {
@@ -18,6 +20,8 @@ export function CalendarConnectionsSection() {
   const [isOutlookCalendarBusy, setIsOutlookCalendarBusy] = useState(false);
   const [isIcsDialogOpen, setIsIcsDialogOpen] = useState(false);
   const [isIcloudDialogOpen, setIsIcloudDialogOpen] = useState(false);
+  const [isGoogleCalendarSelectionDialogOpen, setIsGoogleCalendarSelectionDialogOpen] = useState(false);
+  const [isOutlookCalendarSelectionDialogOpen, setIsOutlookCalendarSelectionDialogOpen] = useState(false);
 
   const { isConnected: isGoogleCalendarConnected, reconnect: reconnectGoogleCalendar } =
     useGoogleCalendarConnection();
@@ -46,8 +50,9 @@ export function CalendarConnectionsSection() {
     try {
       // Navigerer væk fra appen ved succes (Outlook bruger redirect, ikke
       // pop-up, jf. ADR-016) — koden efter connectOutlookCalendar() når
-      // normalt ikke at køre. Efter login skal brugeren selv trykke
-      // synk-ikonet for at vælge kalendere.
+      // normalt ikke at køre. Efter login kan brugeren selv trykke
+      // "Vælg kalendere" (vises først, når forbindelsen er aktiv) for at
+      // fravælge konkrete kalendere.
       await connectOutlookCalendar();
     } catch {
       // Fejlen undlader blot at markere som forbundet — Kalender-siden
@@ -118,6 +123,14 @@ export function CalendarConnectionsSection() {
             </Alert>
           )}
 
+          {isGoogleCalendarConnected && (
+            <Box sx={{ display: "flex", justifyContent: "flex-end", mt: -1 }}>
+              <Button size="small" onClick={() => setIsGoogleCalendarSelectionDialogOpen(true)}>
+                Vælg kalendere
+              </Button>
+            </Box>
+          )}
+
           <Divider sx={{ my: 1.5 }} />
 
           <ProviderConnectionRow
@@ -136,6 +149,14 @@ export function CalendarConnectionsSection() {
             <Alert severity="warning" sx={{ mt: 1.5 }}>
               {outlookRedirectDiagnostic}
             </Alert>
+          )}
+
+          {isOutlookCalendarConnected && (
+            <Box sx={{ display: "flex", justifyContent: "flex-end", mt: -1 }}>
+              <Button size="small" onClick={() => setIsOutlookCalendarSelectionDialogOpen(true)}>
+                Vælg kalendere
+              </Button>
+            </Box>
           )}
 
           <Divider sx={{ my: 1.5 }} />
@@ -172,6 +193,14 @@ export function CalendarConnectionsSection() {
 
       <IcloudConnectionsDialog open={isIcloudDialogOpen} onClose={() => setIsIcloudDialogOpen(false)} />
       <IcsSubscriptionsDialog open={isIcsDialogOpen} onClose={() => setIsIcsDialogOpen(false)} />
+      <GoogleCalendarSelectionDialog
+        open={isGoogleCalendarSelectionDialogOpen}
+        onClose={() => setIsGoogleCalendarSelectionDialogOpen(false)}
+      />
+      <OutlookCalendarSelectionDialog
+        open={isOutlookCalendarSelectionDialogOpen}
+        onClose={() => setIsOutlookCalendarSelectionDialogOpen(false)}
+      />
     </>
   );
 }
