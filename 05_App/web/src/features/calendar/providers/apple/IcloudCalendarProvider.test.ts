@@ -2,6 +2,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { CalendarProviderError } from "../calendarProviderErrors";
+import { setExcludedIcloudCalendars } from "./icloudCalendarExclusionStorage";
 import { encodeIcloudCalendarSourceId, encodeIcloudEventId } from "./icloudCalendarIds";
 import { IcloudCalendarProvider } from "./IcloudCalendarProvider";
 
@@ -31,6 +32,7 @@ describe("IcloudCalendarProvider", () => {
   let provider: IcloudCalendarProvider;
 
   beforeEach(() => {
+    window.localStorage.clear();
     provider = new IcloudCalendarProvider();
     getMyFamily.mockReset().mockResolvedValue({ ok: true, data: { family: { id: familyId } } });
     getIcloudConnections.mockReset().mockResolvedValue({
@@ -57,6 +59,14 @@ describe("IcloudCalendarProvider", () => {
 
     it("isolates a failing connection instead of failing the whole call", async () => {
       getIcloudCalendars.mockRejectedValueOnce(new Error("network down"));
+
+      const sources = await provider.getCalendars();
+
+      expect(sources).toEqual([]);
+    });
+
+    it("excludes a calendar the user has fravalgt, without an extra network call", async () => {
+      setExcludedIcloudCalendars([encodeIcloudCalendarSourceId(connectionId, calendarUrl)]);
 
       const sources = await provider.getCalendars();
 
@@ -90,6 +100,18 @@ describe("IcloudCalendarProvider", () => {
 
       expect(events).toHaveLength(1);
       expect(events[0]).toMatchObject({ source: "apple", title: "Tandlæge" });
+    });
+
+    it("skips the event fetch entirely for a calendar the user has fravalgt", async () => {
+      setExcludedIcloudCalendars([encodeIcloudCalendarSourceId(connectionId, calendarUrl)]);
+
+      const events = await provider.getEvents({
+        start: "2026-09-01T00:00:00.000Z",
+        end: "2026-11-01T00:00:00.000Z",
+      });
+
+      expect(events).toEqual([]);
+      expect(getIcloudCalendarEvents).not.toHaveBeenCalled();
     });
   });
 
