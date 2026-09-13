@@ -1,13 +1,17 @@
 import { useEffect, useState } from "react";
 
+import CalendarMonthOutlined from "@mui/icons-material/CalendarMonthOutlined";
 import DeleteOutlineRounded from "@mui/icons-material/DeleteOutlineRounded";
 import {
   Alert,
   Avatar,
   Box,
   Button,
+  Checkbox,
   CircularProgress,
   Divider,
+  FormControlLabel,
+  FormGroup,
   IconButton,
   Link,
   MenuItem,
@@ -15,13 +19,21 @@ import {
   Typography,
 } from "@mui/material";
 
+import {
+  clearExcludedIcloudCalendarsForConnection,
+  getExcludedIcloudCalendarSourceIds,
+  setExcludedIcloudCalendars,
+} from "../../calendar/providers/apple/icloudCalendarExclusionStorage";
+import { encodeIcloudCalendarSourceId } from "../../calendar/providers/apple/icloudCalendarIds";
 import { getInitials } from "../../calendar/utils/getInitials";
 import {
   createIcloudConnection,
   deleteIcloudConnection,
+  getIcloudCalendars,
   getIcloudConnections,
   getMyFamily,
   type FamilyMemberDto,
+  type IcloudCalendarInfoDto,
   type IcloudConnectionDto,
 } from "../../family/familyApi";
 
@@ -50,6 +62,23 @@ export function IcloudConnectionsPanel({ isOpen }: IcloudConnectionsPanelProps) 
   const [memberId, setMemberId] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Hvilke kalendere en forbindelse rent faktisk skal hente — en iCloud-konto
+  // kan sagtens indeholde mange kalendere (Hjem, Fødselsdage, delte
+  // familiekalendere, abonnerede helligdagskalendere osv.), og en fravalgt
+  // kalender her hentes slet ikke af IcloudCalendarProvider (hverken dens
+  // liste eller dens hændelser) — ikke kun skjult i visningen bagefter, se
+  // icloudCalendarExclusionStorage.ts.
+  const [excludedSourceIds, setExcludedSourceIdsState] = useState<string[]>(() =>
+    getExcludedIcloudCalendarSourceIds(),
+  );
+  const [expandedConnectionId, setExpandedConnectionId] = useState<string | null>(null);
+  const [calendarsByConnection, setCalendarsByConnection] = useState<
+    Record<string, IcloudCalendarInfoDto[]>
+  >({});
+  const [loadingCalendarsForConnectionId, setLoadingCalendarsForConnectionId] = useState<
+    string | null
+  >(null);
 
   useEffect(() => {
     if (!isOpen) {
@@ -125,7 +154,53 @@ export function IcloudConnectionsPanel({ isOpen }: IcloudConnectionsPanelProps) 
     const result = await deleteIcloudConnection(familyId, connectionId);
     if (result.ok && result.data.connections) {
       setConnections(result.data.connections);
+      clearExcludedIcloudCalendarsForConnection(connectionId);
+      setExcludedSourceIdsState(getExcludedIcloudCalendarSourceIds());
+      setCalendarsByConnection((previous) => {
+        const next = { ...previous };
+        delete next[connectionId];
+        return next;
+      });
+      if (expandedConnectionId === connectionId) {
+        setExpandedConnectionId(null);
+      }
     }
+  }
+
+  // Henter først forbindelsens kalenderliste, når brugeren rent faktisk
+  // åbner "Vælg kalendere" — ikke ved siden af selve forbindelseslisten,
+  // som ellers ville koste et ekstra PROPFIND-kald pr. forbindelse hver
+  // gang dialogen åbnes, uanset om brugeren nogensinde vil justere valget.
+  async function toggleCalendarPicker(connectionId: string) {
+    if (expandedConnectionId === connectionId) {
+      setExpandedConnectionId(null);
+      return;
+    }
+
+    setExpandedConnectionId(connectionId);
+    if (!familyId || calendarsByConnection[connectionId]) {
+      return;
+    }
+
+    setLoadingCalendarsForConnectionId(connectionId);
+    const result = await getIcloudCalendars(familyId, connectionId);
+    if (result.ok) {
+      setCalendarsByConnection((previous) => ({
+        ...previous,
+        [connectionId]: result.data.calendars ?? [],
+      }));
+    }
+    setLoadingCalendarsForConnectionId(null);
+  }
+
+  function handleToggleCalendar(connectionId: string, calendarUrl: string) {
+    const sourceId = encodeIcloudCalendarSourceId(connectionId, calendarUrl);
+    const next = excludedSourceIds.includes(sourceId)
+      ? excludedSourceIds.filter((id) => id !== sourceId)
+      : [...excludedSourceIds, sourceId];
+
+    setExcludedSourceIdsState(next);
+    setExcludedIcloudCalendars(next);
   }
 
   const atCap = connections.length >= maxConnections;
@@ -152,6 +227,11 @@ export function IcloudConnectionsPanel({ isOpen }: IcloudConnectionsPanelProps) 
 
           {connections.length > 0 && (
             <>
+              <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>
+                Tryk på kalender-ikonet for at vælge, hvilke af kontoens
+                kalendere der skal hentes.
+              </Typography>
+
               <Box sx={{ display: "flex", flexDirection: "column", mb: 1.5 }}>
                 {connections.map((connection, index) => (
                   <Box key={connection.id}>
@@ -179,12 +259,56 @@ export function IcloudConnectionsPanel({ isOpen }: IcloudConnectionsPanelProps) 
                       </Box>
 
                       <IconButton
+                        aria-label={`Vælg kalendere for ${connection.appleIdEmail}`}
+                        onClick={() => void toggleCalendarPicker(connection.id)}
+                      >
+                        <CalendarMonthOutlined fontSize="small" />
+                      </IconButton>
+
+                      <IconButton
                         aria-label={`Fjern ${connection.appleIdEmail}`}
                         onClick={() => void handleDelete(connection.id)}
                       >
                         <DeleteOutlineRounded fontSize="small" />
                       </IconButton>
                     </Box>
+
+                    {expandedConnectionId === connection.id && (
+                      <Box sx={{ pl: 1, pb: 1.5 }}>
+                        {loadingCalendarsForConnectionId === connection.id ? (
+                          <Box sx={{ display: "flex", justifyContent: "center", py: 1 }}>
+                            <CircularProgress size={18} />
+                          </Box>
+                        ) : (
+                          <FormGroup>
+                            {(calendarsByConnection[connection.id] ?? []).map((calendar) => {
+                              const sourceId = encodeIcloudCalendarSourceId(connection.id, calendar.url);
+                              return (
+                                <FormControlLabel
+                                  key={sourceId}
+                                  sx={{ ml: 0 }}
+                                  control={
+                                    <Checkbox
+                                      size="small"
+                                      checked={!excludedSourceIds.includes(sourceId)}
+                                      onChange={() => handleToggleCalendar(connection.id, calendar.url)}
+                                    />
+                                  }
+                                  label={
+                                    <Typography variant="body2">{calendar.displayName}</Typography>
+                                  }
+                                />
+                              );
+                            })}
+                            {(calendarsByConnection[connection.id] ?? []).length === 0 && (
+                              <Typography variant="body2" color="text.secondary">
+                                Ingen kalendere fundet på denne konto.
+                              </Typography>
+                            )}
+                          </FormGroup>
+                        )}
+                      </Box>
+                    )}
                     {index < connections.length - 1 && <Divider />}
                   </Box>
                 ))}

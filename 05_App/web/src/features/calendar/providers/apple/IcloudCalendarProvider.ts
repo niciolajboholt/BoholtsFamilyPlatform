@@ -19,7 +19,12 @@ import {
   getFamilyMembers,
   getFamilyPseudoMemberServerId,
 } from "../../preferences/familyMembersStorage";
-import { decodeIcloudCalendarSourceId, decodeIcloudEventId } from "./icloudCalendarIds";
+import { getExcludedIcloudCalendarSourceIds } from "./icloudCalendarExclusionStorage";
+import {
+  decodeIcloudCalendarSourceId,
+  decodeIcloudEventId,
+  encodeIcloudCalendarSourceId,
+} from "./icloudCalendarIds";
 import { mapIcloudCalendarEvent, mapIcloudCalendarSource } from "./icloudCalendarMapper";
 
 // Sprint 47: iCloud-kalender via CalDAV. I modsætning til Outlook (der taler
@@ -42,6 +47,7 @@ export class IcloudCalendarProvider implements CalendarProvider {
 
     const connections = await this.listConnections(familyId);
     const membersById = new Map(getFamilyMembers().map((member) => [member.id, member]));
+    const excludedIds = new Set(getExcludedIcloudCalendarSourceIds());
 
     const sourcesByConnection = await Promise.all(
       connections.map(async (connection) => {
@@ -50,13 +56,17 @@ export class IcloudCalendarProvider implements CalendarProvider {
           if (!calendarsResult.ok) return [];
 
           const ownerId = this.toLocalOwnerId(connection.familyMemberId);
-          return (calendarsResult.data.calendars ?? []).map((calendar) =>
-            mapIcloudCalendarSource(
-              connection.id,
-              calendar,
-              ownerId ? membersById.get(ownerId) : undefined,
-            ),
-          );
+          return (calendarsResult.data.calendars ?? [])
+            .filter(
+              (calendar) => !excludedIds.has(encodeIcloudCalendarSourceId(connection.id, calendar.url)),
+            )
+            .map((calendar) =>
+              mapIcloudCalendarSource(
+                connection.id,
+                calendar,
+                ownerId ? membersById.get(ownerId) : undefined,
+              ),
+            );
         } catch {
           // Isolerer fejl pr. forbindelse — én konto med udløbet adgangskode
           // må ikke skjule familiens øvrige iCloud-/Google-/Outlook-kalendere.
@@ -252,7 +262,14 @@ export class IcloudCalendarProvider implements CalendarProvider {
     if (!calendarsResult.ok) return [];
 
     const ownerId = this.toLocalOwnerId(connection.familyMemberId);
-    const calendars = calendarsResult.data.calendars ?? [];
+    const excludedIds = new Set(getExcludedIcloudCalendarSourceIds());
+    // Springer en fravalgt kalender helt over — intet REPORT-kald mod iCloud
+    // for den, i modsætning til den almindelige "Vis kalendere"-skjuling
+    // (calendarSourceVisibilityStorage), som stadig henter, men blot
+    // filtrerer selve visningen af en kalender, der allerede er hentet.
+    const calendars = (calendarsResult.data.calendars ?? []).filter(
+      (calendar) => !excludedIds.has(encodeIcloudCalendarSourceId(connection.id, calendar.url)),
+    );
 
     const eventsByCalendar = await Promise.all(
       calendars.map(async (calendar) => {
