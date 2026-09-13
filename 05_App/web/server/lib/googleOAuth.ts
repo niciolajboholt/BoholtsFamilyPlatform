@@ -2,10 +2,20 @@
 // tidligere klient-kun implicit-flow (GoogleCalendarSession.ts, fjernes i
 // Fase 3). Beder om identitet (openid/email/profile) og kalender-adgang i
 // samme samtykke-trin, per den bekræftede beslutning.
+//
+// De generiske PKCE/state-hjælpefunktioner ligger i oauthPkce.ts (delt med
+// microsoftOAuth.ts, Sprint 48) — reeksporteres herfra for at undgå at
+// ændre alle eksisterende kaldesteder i auth.ts.
 
 const authorizeEndpoint = "https://accounts.google.com/o/oauth2/v2/auth";
 const tokenEndpoint = "https://oauth2.googleapis.com/token";
 const userinfoEndpoint = "https://www.googleapis.com/oauth2/v3/userinfo";
+
+export {
+  generatePkceVerifier,
+  derivePkceChallenge,
+  generateOAuthState,
+} from "./oauthPkce";
 
 // Samme kalender-scopes som den hidtidige klient-flow (googleCalendarConfig.ts)
 // + openid/email/profile til selve login-identiteten.
@@ -16,40 +26,6 @@ export const googleOAuthScopes = [
   "https://www.googleapis.com/auth/calendar.events",
   "https://www.googleapis.com/auth/calendar.calendarlist.readonly",
 ].join(" ");
-
-function base64UrlEncode(bytes: ArrayBuffer | Uint8Array): string {
-  const array = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
-  let binary = "";
-
-  for (const byte of array) {
-    binary += String.fromCharCode(byte);
-  }
-
-  return btoa(binary)
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/, "");
-}
-
-export function generatePkceVerifier(): string {
-  const bytes = new Uint8Array(32);
-  crypto.getRandomValues(bytes);
-  return base64UrlEncode(bytes);
-}
-
-export async function derivePkceChallenge(verifier: string): Promise<string> {
-  const digest = await crypto.subtle.digest(
-    "SHA-256",
-    new TextEncoder().encode(verifier),
-  );
-  return base64UrlEncode(digest);
-}
-
-export function generateOAuthState(): string {
-  const bytes = new Uint8Array(24);
-  crypto.getRandomValues(bytes);
-  return base64UrlEncode(bytes);
-}
 
 interface BuildAuthorizeUrlOptions {
   clientId: string;
