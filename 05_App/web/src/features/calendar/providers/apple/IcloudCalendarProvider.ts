@@ -1,4 +1,3 @@
-import { familyPseudoMemberId } from "../../models/calendarEvent";
 import type { CalendarEvent, CalendarOwnerId } from "../../models/calendarEvent";
 import type { CreateCalendarEventInput } from "../../models/calendarEventInput";
 import type { CalendarEventRange, CalendarSource } from "../../models/calendarProvider";
@@ -16,9 +15,11 @@ import {
   type IcloudConnectionDto,
 } from "../../../family/familyApi";
 import {
-  getFamilyMembers,
-  getFamilyPseudoMemberServerId,
-} from "../../preferences/familyMembersStorage";
+  getCalendarMemberMappings,
+  getMappedOwnersByCalendarId,
+  refreshCalendarMemberMappingsFromServer,
+} from "../../preferences/calendarMemberMappingStorage";
+import { getFamilyMembers } from "../../preferences/familyMembersStorage";
 import { getExcludedIcloudCalendarSourceIds } from "./icloudCalendarExclusionStorage";
 import {
   decodeIcloudCalendarSourceId,
@@ -35,9 +36,11 @@ import { mapIcloudCalendarEvent, mapIcloudCalendarSource } from "./icloudCalenda
 // (familyApi.ts), som selv proxyer til iCloud (icloudConnections.ts).
 //
 // Flere familiemedlemmer forbinder hver deres egen iCloud-konto (Nicolajs
-// beslutning) — ejerskab kommer direkte fra forbindelsens familyMemberId,
-// ikke calendar_member_mappings (som kun Google/Outlook bruger, da de er
-// login-baserede énkonto-forbindelser).
+// beslutning). Sprint 48 ensrettede ejerskabet med Google/Outlook: hver
+// KALENDER kobles til et familiemedlem via calendar_member_mappings
+// (nøglet på kalenderens rå CalDAV-URL), i stedet for at hele forbindelsen
+// (og dermed alle dens kalendere) automatisk arvede ét medlem fra
+// forbindelsens egen family_member_id.
 export class IcloudCalendarProvider implements CalendarProvider {
   private familyId: string | null = null;
 
@@ -45,8 +48,9 @@ export class IcloudCalendarProvider implements CalendarProvider {
     const familyId = await this.resolveFamilyId();
     if (!familyId) return [];
 
+    await refreshCalendarMemberMappingsFromServer();
     const connections = await this.listConnections(familyId);
-    const membersById = new Map(getFamilyMembers().map((member) => [member.id, member]));
+    const mappedOwnersByCalendarId = getMappedOwnersByCalendarId(getFamilyMembers());
     const excludedIds = new Set(getExcludedIcloudCalendarSourceIds());
 
     const sourcesByConnection = await Promise.all(
@@ -55,7 +59,6 @@ export class IcloudCalendarProvider implements CalendarProvider {
           const calendarsResult = await getIcloudCalendars(familyId, connection.id);
           if (!calendarsResult.ok) return [];
 
-          const ownerId = this.toLocalOwnerId(connection.familyMemberId);
           return (calendarsResult.data.calendars ?? [])
             .filter(
               (calendar) => !excludedIds.has(encodeIcloudCalendarSourceId(connection.id, calendar.url)),
@@ -64,7 +67,7 @@ export class IcloudCalendarProvider implements CalendarProvider {
               mapIcloudCalendarSource(
                 connection.id,
                 calendar,
-                ownerId ? membersById.get(ownerId) : undefined,
+                mappedOwnersByCalendarId.get(calendar.url),
               ),
             );
         } catch {
@@ -78,16 +81,48 @@ export class IcloudCalendarProvider implements CalendarProvider {
     return sourcesByConnection.flat();
   }
 
-  async getEvents(range: CalendarEventRange): Promise<CalendarEvent[]> {
+  /**
+   * Alle kalendere fra ALLE iCloud-forbindelser, uanset eksklusionsvalg —
+   * mirror af GoogleCalendarProvider.listAllCalendars(), brugt af
+   * listAllMappableCalendars() (calendarProviderFactory.ts) til at fylde
+   * "Kalender"-dropdown'en under "Rediger familiemedlem".
+   */
+  async listAllCalendars(): Promise<CalendarSource[]> {
     const familyId = await this.resolveFamilyId();
     if (!familyId) return [];
 
     const connections = await this.listConnections(familyId);
 
+    const sourcesByConnection = await Promise.all(
+      connections.map(async (connection) => {
+        try {
+          const calendarsResult = await getIcloudCalendars(familyId, connection.id);
+          if (!calendarsResult.ok) return [];
+
+          return (calendarsResult.data.calendars ?? []).map((calendar) =>
+            mapIcloudCalendarSource(connection.id, calendar),
+          );
+        } catch {
+          return [];
+        }
+      }),
+    );
+
+    return sourcesByConnection.flat();
+  }
+
+  async getEvents(range: CalendarEventRange): Promise<CalendarEvent[]> {
+    const familyId = await this.resolveFamilyId();
+    if (!familyId) return [];
+
+    await refreshCalendarMemberMappingsFromServer();
+    const connections = await this.listConnections(familyId);
+    const mappings = getCalendarMemberMappings();
+
     const eventsByConnection = await Promise.all(
       connections.map(async (connection) => {
         try {
-          return await this.fetchConnectionEvents(familyId, connection, range);
+          return await this.fetchConnectionEvents(familyId, connection, range, mappings);
         } catch {
           return [];
         }
@@ -119,7 +154,7 @@ export class IcloudCalendarProvider implements CalendarProvider {
       );
     }
 
-    const ownerId = await this.resolveOwnerIdForConnection(familyId, connectionId);
+    const ownerId = await this.resolveOwnerIdForCalendar(calendarUrl);
     return mapIcloudCalendarEvent(
       connectionId,
       calendarUrl,
@@ -172,7 +207,7 @@ export class IcloudCalendarProvider implements CalendarProvider {
       );
     }
 
-    const ownerId = await this.resolveOwnerIdForConnection(familyId, connectionId);
+    const ownerId = await this.resolveOwnerIdForCalendar(calendarUrl);
     return mapIcloudCalendarEvent(
       connectionId,
       calendarUrl,
@@ -235,33 +270,20 @@ export class IcloudCalendarProvider implements CalendarProvider {
     return result.ok ? (result.data.connections ?? []) : [];
   }
 
-  private async resolveOwnerIdForConnection(
-    familyId: string,
-    connectionId: string,
-  ): Promise<CalendarOwnerId | undefined> {
-    const connections = await this.listConnections(familyId);
-    const connection = connections.find((entry) => entry.id === connectionId);
-    return this.toLocalOwnerId(connection?.familyMemberId ?? null);
-  }
-
-  // Mirror af calendarMemberMappingStorage.ts's private toLocalOwnerId —
-  // samme regel: kun familie-pseudomedlemmets server-id skal oversættes til
-  // det lokale "family", ethvert andet familymember-id er allerede lokalt.
-  private toLocalOwnerId(serverMemberId: string | null): CalendarOwnerId | undefined {
-    if (!serverMemberId) return undefined;
-    if (serverMemberId === getFamilyPseudoMemberServerId()) return familyPseudoMemberId;
-    return serverMemberId as CalendarOwnerId;
+  private async resolveOwnerIdForCalendar(calendarUrl: string): Promise<CalendarOwnerId | undefined> {
+    await refreshCalendarMemberMappingsFromServer();
+    return getCalendarMemberMappings()[calendarUrl];
   }
 
   private async fetchConnectionEvents(
     familyId: string,
     connection: IcloudConnectionDto,
     range: CalendarEventRange,
+    mappings: Record<string, CalendarOwnerId>,
   ): Promise<CalendarEvent[]> {
     const calendarsResult = await getIcloudCalendars(familyId, connection.id);
     if (!calendarsResult.ok) return [];
 
-    const ownerId = this.toLocalOwnerId(connection.familyMemberId);
     const excludedIds = new Set(getExcludedIcloudCalendarSourceIds());
     // Springer en fravalgt kalender helt over — intet REPORT-kald mod iCloud
     // for den, i modsætning til den almindelige "Vis kalendere"-skjuling
@@ -283,7 +305,7 @@ export class IcloudCalendarProvider implements CalendarProvider {
           if (!eventsResult.ok) return [];
 
           return (eventsResult.data.events ?? []).map((event) =>
-            mapIcloudCalendarEvent(connection.id, calendar.url, event, ownerId),
+            mapIcloudCalendarEvent(connection.id, calendar.url, event, mappings[calendar.url]),
           );
         } catch {
           // Isolerer fejl pr. kalender — samme princip som pr. forbindelse

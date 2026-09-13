@@ -4,6 +4,7 @@ import type {
 import { CompositeCalendarProvider } from "./CompositeCalendarProvider";
 import type { ExternalCalendarProvider } from "./CompositeCalendarProvider";
 import { IcloudCalendarProvider } from "./apple/IcloudCalendarProvider";
+import { decodeIcloudCalendarSourceId } from "./apple/icloudCalendarIds";
 import { GoogleCalendarProvider } from "./google/GoogleCalendarProvider";
 import { decodeGoogleCalendarSourceId } from "./google/googleCalendarIds";
 import { IcsCalendarProvider } from "./ics/IcsCalendarProvider";
@@ -104,6 +105,15 @@ export function listAllOutlookCalendars(): Promise<CalendarSource[]> {
     : Promise.resolve([]);
 }
 
+/**
+ * Mirror af listAllGoogleCalendars, for iCloud — samler kalendere fra ALLE
+ * familiens iCloud-forbindelser, ikke kun én konto (Sprint 47's
+ * flere-konti-model).
+ */
+export function listAllIcloudCalendars(): Promise<CalendarSource[]> {
+  return icloudCalendarProvider.listAllCalendars();
+}
+
 export interface MappableCalendarOption {
   // Det rå provider-kalender-id (ikke det kodede sourceId) — samme form som
   // calendarMemberMappingStorage.ts gemmer, så et valg her kan skrives
@@ -121,14 +131,15 @@ export interface MappableCalendarOption {
 export async function listAllMappableCalendars(): Promise<
   MappableCalendarOption[]
 > {
-  const [googleCalendars, outlookCalendars] = await Promise.all([
+  const [googleCalendars, outlookCalendars, icloudCalendars] = await Promise.all([
     listAllGoogleCalendars(),
     listAllOutlookCalendars(),
+    listAllIcloudCalendars(),
   ]);
 
   const options: MappableCalendarOption[] = [];
 
-  for (const source of [...googleCalendars, ...outlookCalendars]) {
+  for (const source of [...googleCalendars, ...outlookCalendars, ...icloudCalendars]) {
     try {
       if (source.providerType === "google") {
         options.push({
@@ -139,6 +150,14 @@ export async function listAllMappableCalendars(): Promise<
         options.push({
           rawCalendarId: decodeOutlookCalendarSourceId(source.id),
           label: `${source.name} (Outlook)`,
+        });
+      } else if (source.providerType === "apple") {
+        // Nøglet på den rå CalDAV-URL (ikke det kodede sourceId, som også
+        // rummer forbindelses-id'et) — matcher hvad
+        // IcloudCalendarProvider.ts selv slår op i calendar_member_mappings.
+        options.push({
+          rawCalendarId: decodeIcloudCalendarSourceId(source.id).calendarUrl,
+          label: `${source.name} (iCloud)`,
         });
       }
     } catch {

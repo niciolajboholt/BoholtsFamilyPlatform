@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { CalendarOwner } from "../../data/calendarOwners";
 import { CalendarProviderError } from "../calendarProviderErrors";
 import { setExcludedIcloudCalendars } from "./icloudCalendarExclusionStorage";
 import { encodeIcloudCalendarSourceId, encodeIcloudEventId } from "./icloudCalendarIds";
@@ -22,6 +23,27 @@ vi.mock("../../../family/familyApi", () => ({
   createIcloudCalendarEvent: (...args: unknown[]) => createIcloudCalendarEvent(...args),
   updateIcloudCalendarEvent: (...args: unknown[]) => updateIcloudCalendarEvent(...args),
   deleteIcloudCalendarEvent: (...args: unknown[]) => deleteIcloudCalendarEvent(...args),
+}));
+
+// Sprint 48: ejerskab kommer nu fra calendar_member_mappings, nøglet på
+// kalenderens rå CalDAV-URL — samme mock-mønster som GoogleCalendarProvider.test.ts.
+const refreshCalendarMemberMappingsFromServer = vi.fn().mockResolvedValue(undefined);
+const getCalendarMemberMappings = vi.fn<() => Record<string, string>>().mockReturnValue({});
+const getMappedOwnersByCalendarId = vi
+  .fn<() => Map<string, CalendarOwner>>()
+  .mockReturnValue(new Map());
+
+vi.mock("../../preferences/calendarMemberMappingStorage", () => ({
+  refreshCalendarMemberMappingsFromServer: (...args: unknown[]) =>
+    refreshCalendarMemberMappingsFromServer(...args),
+  getCalendarMemberMappings: (...args: unknown[]) => getCalendarMemberMappings(...args),
+  getMappedOwnersByCalendarId: (...args: unknown[]) => getMappedOwnersByCalendarId(...args),
+}));
+
+const getFamilyMembers = vi.fn<() => CalendarOwner[]>().mockReturnValue([]);
+
+vi.mock("../../preferences/familyMembersStorage", () => ({
+  getFamilyMembers: (...args: unknown[]) => getFamilyMembers(...args),
 }));
 
 const familyId = "family-1";
@@ -47,6 +69,10 @@ describe("IcloudCalendarProvider", () => {
     createIcloudCalendarEvent.mockReset();
     updateIcloudCalendarEvent.mockReset();
     deleteIcloudCalendarEvent.mockReset();
+    refreshCalendarMemberMappingsFromServer.mockReset().mockResolvedValue(undefined);
+    getCalendarMemberMappings.mockReset().mockReturnValue({});
+    getMappedOwnersByCalendarId.mockReset().mockReturnValue(new Map());
+    getFamilyMembers.mockReset().mockReturnValue([]);
   });
 
   describe("getCalendars", () => {
@@ -71,6 +97,17 @@ describe("IcloudCalendarProvider", () => {
       const sources = await provider.getCalendars();
 
       expect(sources).toEqual([]);
+    });
+
+    it("bruger calendar_member_mappings (nøglet på CalDAV-URL'en), ikke forbindelsens familyMemberId", async () => {
+      const owner: CalendarOwner = { id: "member-1", name: "Alfred", color: "#123456" };
+      getMappedOwnersByCalendarId.mockReturnValue(new Map([[calendarUrl, owner]]));
+
+      const sources = await provider.getCalendars();
+
+      expect(refreshCalendarMemberMappingsFromServer).toHaveBeenCalled();
+      expect(sources).toHaveLength(1);
+      expect(sources[0]).toMatchObject({ name: "Alfred", color: "#123456" });
     });
   });
 
@@ -100,6 +137,33 @@ describe("IcloudCalendarProvider", () => {
 
       expect(events).toHaveLength(1);
       expect(events[0]).toMatchObject({ source: "apple", title: "Tandlæge" });
+    });
+
+    it("sætter ownerIds fra calendar_member_mappings, nøglet på kalenderens URL", async () => {
+      getCalendarMemberMappings.mockReturnValue({ [calendarUrl]: "member-1" });
+      getIcloudCalendarEvents.mockResolvedValueOnce({
+        ok: true,
+        data: {
+          events: [
+            {
+              href: `${calendarUrl}event1.ics`,
+              etag: '"1"',
+              uid: "event1",
+              title: "Tandlæge",
+              start: "2026-10-01T10:00:00.000Z",
+              end: "2026-10-01T10:30:00.000Z",
+              allDay: false,
+            },
+          ],
+        },
+      });
+
+      const events = await provider.getEvents({
+        start: "2026-09-01T00:00:00.000Z",
+        end: "2026-11-01T00:00:00.000Z",
+      });
+
+      expect(events[0]?.ownerIds).toEqual(["member-1"]);
     });
 
     it("skips the event fetch entirely for a calendar the user has fravalgt", async () => {

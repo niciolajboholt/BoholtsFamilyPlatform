@@ -349,7 +349,7 @@ export function FamilyMemberDialog({
           <DialogContentText>
             Profilen fjernes fra familien. Aftaler i en kalender, der er
             tildelt {member?.name}, berøres ikke og forbliver i
-            Google/Outlook-kalenderen.
+            Google-/Outlook-/iCloud-kalenderen.
           </DialogContentText>
         </DialogContent>
 

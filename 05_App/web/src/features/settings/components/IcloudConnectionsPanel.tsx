@@ -14,7 +14,6 @@ import {
   FormGroup,
   IconButton,
   Link,
-  MenuItem,
   TextField,
   Typography,
 } from "@mui/material";
@@ -32,7 +31,6 @@ import {
   getIcloudCalendars,
   getIcloudConnections,
   getMyFamily,
-  type FamilyMemberDto,
   type IcloudCalendarInfoDto,
   type IcloudConnectionDto,
 } from "../../family/familyApi";
@@ -53,13 +51,11 @@ interface IcloudConnectionsPanelProps {
 // først ved næste kalenderhentning.
 export function IcloudConnectionsPanel({ isOpen }: IcloudConnectionsPanelProps) {
   const [familyId, setFamilyId] = useState<string | null>(null);
-  const [members, setMembers] = useState<FamilyMemberDto[]>([]);
   const [connections, setConnections] = useState<IcloudConnectionDto[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const [appleIdEmail, setAppleIdEmail] = useState("");
   const [appSpecificPassword, setAppSpecificPassword] = useState("");
-  const [memberId, setMemberId] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -97,7 +93,6 @@ export function IcloudConnectionsPanel({ isOpen }: IcloudConnectionsPanelProps) 
 
       const id = result.data.family.id;
       setFamilyId(id);
-      setMembers(result.data.members ?? []);
 
       const listResult = await getIcloudConnections(id);
       if (!isCancelled && listResult.ok) {
@@ -112,18 +107,6 @@ export function IcloudConnectionsPanel({ isOpen }: IcloudConnectionsPanelProps) 
     };
   }, [isOpen]);
 
-  function memberName(id: string | null): string | null {
-    if (!id) return null;
-    return members.find((member) => member.id === id)?.name ?? null;
-  }
-
-  function rowColor(connection: IcloudConnectionDto): string | undefined {
-    const assignedMember = connection.familyMemberId
-      ? members.find((member) => member.id === connection.familyMemberId)
-      : undefined;
-    return assignedMember?.color;
-  }
-
   async function handleAdd() {
     if (!familyId || !appleIdEmail.trim() || !appSpecificPassword.trim()) {
       return;
@@ -131,10 +114,12 @@ export function IcloudConnectionsPanel({ isOpen }: IcloudConnectionsPanelProps) 
 
     setIsSaving(true);
     setErrorMessage(null);
+    // Sprint 48: ingen familiemedlem-tildeling her længere — ensrettet med
+    // Google/Outlook, hvor det sker under "Rediger familiemedlem" (se
+    // FamilyMemberDialog.tsx), pr. kalender, ikke pr. forbindelse.
     const result = await createIcloudConnection(familyId, {
       appleIdEmail: appleIdEmail.trim(),
       appSpecificPassword: appSpecificPassword.trim(),
-      familyMemberId: memberId || null,
     });
     setIsSaving(false);
 
@@ -142,7 +127,6 @@ export function IcloudConnectionsPanel({ isOpen }: IcloudConnectionsPanelProps) 
       setConnections(result.data.connections);
       setAppleIdEmail("");
       setAppSpecificPassword("");
-      setMemberId("");
     } else {
       setErrorMessage(result.data.error ?? "Kunne ikke forbinde til iCloud.");
     }
@@ -229,7 +213,8 @@ export function IcloudConnectionsPanel({ isOpen }: IcloudConnectionsPanelProps) 
             <>
               <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>
                 Tryk på kalender-ikonet for at vælge, hvilke af kontoens
-                kalendere der skal hentes.
+                kalendere der skal hentes. Hvilket familiemedlem en kalender
+                tilhører, vælges under "Rediger familiemedlem".
               </Typography>
 
               <Box sx={{ display: "flex", flexDirection: "column", mb: 1.5 }}>
@@ -242,19 +227,16 @@ export function IcloudConnectionsPanel({ isOpen }: IcloudConnectionsPanelProps) 
                           height: 32,
                           fontSize: 14,
                           fontWeight: 700,
-                          bgcolor: rowColor(connection) ?? "secondary.main",
+                          bgcolor: "secondary.main",
                           mr: 1.5,
                         }}
                       >
-                        {getInitials(memberName(connection.familyMemberId) ?? connection.appleIdEmail)}
+                        {getInitials(connection.appleIdEmail)}
                       </Avatar>
 
                       <Box sx={{ flexGrow: 1, minWidth: 0 }}>
                         <Typography sx={{ fontWeight: 600 }} noWrap>
                           {connection.appleIdEmail}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary" noWrap component="div">
-                          {memberName(connection.familyMemberId) ?? "Ikke tildelt"}
                         </Typography>
                       </Box>
 
@@ -346,23 +328,6 @@ export function IcloudConnectionsPanel({ isOpen }: IcloudConnectionsPanelProps) 
                 fullWidth
                 size="small"
               />
-
-              <TextField
-                select
-                label="Tildel familiemedlem"
-                value={memberId}
-                onChange={(event) => setMemberId(event.target.value)}
-                fullWidth
-                size="small"
-                helperText="Denne konto er som udgangspunkt medlemmets egen kalender."
-              >
-                <MenuItem value="">Ikke tildelt</MenuItem>
-                {members.map((member) => (
-                  <MenuItem key={member.id} value={member.id}>
-                    {member.name}
-                  </MenuItem>
-                ))}
-              </TextField>
 
               {errorMessage && <Alert severity="error">{errorMessage}</Alert>}
 
