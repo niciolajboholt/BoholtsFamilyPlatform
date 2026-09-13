@@ -208,9 +208,13 @@ test("login links to public privacy and terms pages", async ({ page }) => {
   await page.goto("/");
 
   await expect(page.getByRole("heading", { name: "Boholts Familieapp" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Log ind med Google" })).toHaveAttribute(
+  await expect(page.getByRole("link", { name: "Fortsæt med Google" })).toHaveAttribute(
     "href",
     "/auth/google/begin",
+  );
+  await expect(page.getByRole("link", { name: "Fortsæt med Microsoft" })).toHaveAttribute(
+    "href",
+    "/auth/microsoft/begin",
   );
 
   await page.getByRole("link", { name: "privatlivspolitik" }).click();
@@ -2850,9 +2854,9 @@ test("logging out through the real UI clears the session and every locally cache
   // se kommentaren i useSession.ts. Uden genindlæsningen ville AppLayout's
   // egen, uafhængige useSession()-instans aldrig opdage logout'et.
   await page.waitForURL("/settings");
-  // LoginPage's "Log ind med Google" er et <Button href="…">, som MUI/browseren
+  // LoginPage's "Fortsæt med Google" er et <Button href="…">, som MUI/browseren
   // gengiver med role "link", ikke "button".
-  await expect(page.getByRole("link", { name: "Log ind med Google" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Fortsæt med Google" })).toBeVisible();
   await expect.poll(() => logoutCallCount).toBe(1);
 
   const remainingKeys = await page.evaluate(() =>
