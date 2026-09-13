@@ -9,6 +9,7 @@ import { useOutlookCalendarConnection } from "../../calendar/hooks/useOutlookCal
 import { clearCalendarMemberMappings } from "../../calendar/preferences/calendarMemberMappingStorage";
 import { clearExcludedOutlookCalendars } from "../../calendar/providers/outlook/outlookCalendarExclusionStorage";
 import { getProviderConnectionStatusText } from "../utils/getProviderConnectionStatusText";
+import { IcloudConnectionsDialog } from "./IcloudConnectionsDialog";
 import { IcsSubscriptionsDialog } from "./IcsSubscriptionsDialog";
 import { SettingsLinkRow, SettingsSectionHeader } from "./SettingsPrimitives";
 
@@ -16,6 +17,7 @@ export function CalendarConnectionsSection() {
   const [isCalendarDialogOpen, setIsCalendarDialogOpen] = useState(false);
   const [isOutlookCalendarBusy, setIsOutlookCalendarBusy] = useState(false);
   const [isIcsDialogOpen, setIsIcsDialogOpen] = useState(false);
+  const [isIcloudDialogOpen, setIsIcloudDialogOpen] = useState(false);
 
   const { isConnected: isGoogleCalendarConnected, reconnect: reconnectGoogleCalendar } =
     useGoogleCalendarConnection();
@@ -139,6 +141,19 @@ export function CalendarConnectionsSection() {
           <Divider sx={{ my: 1.5 }} />
 
           <ProviderConnectionRow
+            label="iCloud-kalender"
+            statusText="Hvert familiemedlem forbinder sin egen Apple-konto"
+            isConnected={false}
+            isConfigured
+            isBusy={false}
+            isAttemptingSilentReconnect={false}
+            onToggleConnection={() => setIsIcloudDialogOpen(true)}
+            actionAriaLabel="Administrér iCloud-kalendere"
+          />
+
+          <Divider sx={{ my: 1.5 }} />
+
+          <ProviderConnectionRow
             label="Delt kalender (ICS)"
             statusText="Skole-, idræts- eller andre delte kalendere via link"
             isConnected={false}
@@ -155,6 +170,7 @@ export function CalendarConnectionsSection() {
         </DialogActions>
       </Dialog>
 
+      <IcloudConnectionsDialog open={isIcloudDialogOpen} onClose={() => setIsIcloudDialogOpen(false)} />
       <IcsSubscriptionsDialog open={isIcsDialogOpen} onClose={() => setIsIcsDialogOpen(false)} />
     </>
   );

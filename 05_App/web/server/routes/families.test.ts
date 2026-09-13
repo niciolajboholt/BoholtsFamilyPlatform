@@ -14,6 +14,27 @@ vi.mock("../lib/aiAssistant", async (importOriginal) => {
 const { generateWeeklySummary } = await import("../lib/aiAssistant");
 const generateWeeklySummaryMock = vi.mocked(generateWeeklySummary);
 
+// Kun brugt af "iCloud-kalender via CalDAV (Sprint 47)"-blokken — resten af
+// filen rammer aldrig iCloud-koden. icloudCalendarService.ts's egen
+// DB-/krypteringslogik køres uændret (rigtig fakeD1); kun selve
+// netværkskaldet mod caldav.icloud.com er erstattet.
+vi.mock("../lib/icloudCalDav", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../lib/icloudCalDav")>();
+  return {
+    ...actual,
+    discoverCalendars: vi.fn(),
+    fetchCalendarEvents: vi.fn(),
+    putEvent: vi.fn(),
+    deleteEvent: vi.fn(),
+  };
+});
+const { discoverCalendars, fetchCalendarEvents, putEvent, deleteEvent, ICloudCalDavError } =
+  await import("../lib/icloudCalDav");
+const discoverCalendarsMock = vi.mocked(discoverCalendars);
+const fetchCalendarEventsMock = vi.mocked(fetchCalendarEvents);
+const putEventMock = vi.mocked(putEvent);
+const deleteEventMock = vi.mocked(deleteEvent);
+
 interface FamilyMemberJson {
   id: string;
   name: string;
@@ -55,6 +76,10 @@ describe("families routes", () => {
   beforeEach(() => {
     env = createFakeEnv();
     generateWeeklySummaryMock.mockReset().mockResolvedValue([{ name: "Fælles", text: "Ugens resumé (test)." }]);
+    discoverCalendarsMock.mockReset().mockResolvedValue([]);
+    fetchCalendarEventsMock.mockReset().mockResolvedValue([]);
+    putEventMock.mockReset();
+    deleteEventMock.mockReset();
   });
 
   it("rejects any request without a session cookie", async () => {
@@ -1952,6 +1977,419 @@ describe("families routes", () => {
 
         expect(response.status).toBe(404);
         expect(fetchMock).not.toHaveBeenCalled();
+      });
+    });
+  });
+
+  describe("iCloud-kalender via CalDAV (Sprint 47)", () => {
+    async function createConnection(
+      cookieHeader: string,
+      familyId: string,
+      overrides?: { appleIdEmail?: string; appSpecificPassword?: string; familyMemberId?: string | null },
+    ) {
+      return families.request(
+        `/${familyId}/icloud-connections`,
+        {
+          method: "POST",
+          headers: { Cookie: cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            appleIdEmail: overrides?.appleIdEmail ?? "nicolaj@icloud.com",
+            appSpecificPassword: overrides?.appSpecificPassword ?? "abcd-efgh-ijkl-mnop",
+            ...(overrides?.familyMemberId !== undefined ? { familyMemberId: overrides.familyMemberId } : {}),
+          }),
+        },
+        env,
+      );
+    }
+
+    it("returns an empty list for a new family", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader);
+
+      const response = await families.request(
+        `/${created.family.id}/icloud-connections`,
+        { headers: { Cookie: owner.cookieHeader } },
+        env,
+      );
+
+      expect(response.status).toBe(200);
+      expect((await response.json()).connections).toEqual([]);
+    });
+
+    it("lets the owner add a connection after verifying the credentials against iCloud", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader);
+      const memberId = created.members[0]!.id;
+
+      const response = await createConnection(owner.cookieHeader, created.family.id, {
+        familyMemberId: memberId,
+      });
+
+      expect(response.status).toBe(200);
+      const body = await response.json();
+      expect(body.connections).toHaveLength(1);
+      expect(body.connections[0]).toMatchObject({
+        appleIdEmail: "nicolaj@icloud.com",
+        familyMemberId: memberId,
+      });
+      expect(body.connections[0].encryptedAppSpecificPassword).toBeUndefined();
+
+      // Loginoplysningerne skal rundtures gennem kryptering/dekryptering
+      // uændret, før de sendes til den (mockede) CalDAV-klient.
+      expect(discoverCalendarsMock).toHaveBeenCalledWith({
+        appleIdEmail: "nicolaj@icloud.com",
+        appSpecificPassword: "abcd-efgh-ijkl-mnop",
+      });
+    });
+
+    it("rejects a plain member trying to add a connection", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader);
+      const member = await seedLoggedInUser(env.DB as never, { id: "member" });
+      await families.request(
+        `/invites/${created.inviteCode}/accept`,
+        { method: "POST", headers: { Cookie: member.cookieHeader } },
+        env,
+      );
+
+      const response = await createConnection(member.cookieHeader, created.family.id);
+
+      expect(response.status).toBe(403);
+    });
+
+    it("rejects an invalid Apple-ID email", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader);
+
+      const response = await createConnection(owner.cookieHeader, created.family.id, {
+        appleIdEmail: "not-an-email",
+      });
+
+      expect(response.status).toBe(400);
+      expect(discoverCalendarsMock).not.toHaveBeenCalled();
+    });
+
+    it("rejects a missing app-specific password", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader);
+
+      const response = await createConnection(owner.cookieHeader, created.family.id, {
+        appSpecificPassword: "",
+      });
+
+      expect(response.status).toBe(400);
+    });
+
+    it("does not persist a connection when iCloud rejects the credentials", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader);
+      discoverCalendarsMock.mockRejectedValueOnce(
+        new ICloudCalDavError("iCloud afviste loginoplysningerne.", "invalid-credentials"),
+      );
+
+      const response = await createConnection(owner.cookieHeader, created.family.id);
+      expect(response.status).toBe(401);
+
+      const listResponse = await families.request(
+        `/${created.family.id}/icloud-connections`,
+        { headers: { Cookie: owner.cookieHeader } },
+        env,
+      );
+      expect((await listResponse.json()).connections).toEqual([]);
+    });
+
+    it("rejects a familyMemberId that belongs to a different family", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader, "Boholt");
+      const otherOwner = await seedLoggedInUser(env.DB as never, { id: "other-owner" });
+      const otherFamily = await createFamily(env, otherOwner.cookieHeader, "Naboerne");
+
+      const response = await createConnection(owner.cookieHeader, created.family.id, {
+        familyMemberId: otherFamily.members[0]!.id,
+      });
+
+      expect(response.status).toBe(400);
+      expect(discoverCalendarsMock).not.toHaveBeenCalled();
+    });
+
+    it("enforces the 5-connection cap per family", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader);
+
+      for (let i = 0; i < 5; i++) {
+        const response = await createConnection(owner.cookieHeader, created.family.id, {
+          appleIdEmail: `nicolaj${i}@icloud.com`,
+        });
+        expect(response.status).toBe(200);
+      }
+
+      const sixth = await createConnection(owner.cookieHeader, created.family.id, {
+        appleIdEmail: "nicolaj6@icloud.com",
+      });
+
+      expect(sixth.status).toBe(409);
+    });
+
+    it("lets the owner remove a connection", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader);
+      const createResponse = await createConnection(owner.cookieHeader, created.family.id);
+      const connectionId = (await createResponse.json()).connections[0].id;
+
+      const deleteResponse = await families.request(
+        `/${created.family.id}/icloud-connections/${connectionId}`,
+        { method: "DELETE", headers: { Cookie: owner.cookieHeader } },
+        env,
+      );
+
+      expect(deleteResponse.status).toBe(200);
+      expect((await deleteResponse.json()).connections).toEqual([]);
+    });
+
+    it("rejects a plain member trying to remove a connection", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader);
+      const createResponse = await createConnection(owner.cookieHeader, created.family.id);
+      const connectionId = (await createResponse.json()).connections[0].id;
+
+      const member = await seedLoggedInUser(env.DB as never, { id: "member" });
+      await families.request(
+        `/invites/${created.inviteCode}/accept`,
+        { method: "POST", headers: { Cookie: member.cookieHeader } },
+        env,
+      );
+
+      const response = await families.request(
+        `/${created.family.id}/icloud-connections/${connectionId}`,
+        { method: "DELETE", headers: { Cookie: member.cookieHeader } },
+        env,
+      );
+
+      expect(response.status).toBe(403);
+    });
+
+    describe("calendars and events (any family member)", () => {
+      async function setUpConnection() {
+        const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+        const created = await createFamily(env, owner.cookieHeader);
+        const member = await seedLoggedInUser(env.DB as never, { id: "member" });
+        await families.request(
+          `/invites/${created.inviteCode}/accept`,
+          { method: "POST", headers: { Cookie: member.cookieHeader } },
+          env,
+        );
+        const createResponse = await createConnection(owner.cookieHeader, created.family.id);
+        const connectionId = (await createResponse.json()).connections[0].id;
+        return { owner, member, familyId: created.family.id as string, connectionId };
+      }
+
+      it("lets a plain member list the discovered calendars", async () => {
+        const { member, familyId, connectionId } = await setUpConnection();
+        discoverCalendarsMock.mockResolvedValueOnce([
+          { url: "https://caldav.icloud.com/123/calendars/home/", displayName: "Hjem", ctag: "abc" },
+        ]);
+
+        const response = await families.request(
+          `/${familyId}/icloud-connections/${connectionId}/calendars`,
+          { headers: { Cookie: member.cookieHeader } },
+          env,
+        );
+
+        expect(response.status).toBe(200);
+        expect((await response.json()).calendars).toEqual([
+          { url: "https://caldav.icloud.com/123/calendars/home/", displayName: "Hjem", ctag: "abc" },
+        ]);
+      });
+
+      it("requires a calendarUrl to fetch events", async () => {
+        const { member, familyId, connectionId } = await setUpConnection();
+
+        const response = await families.request(
+          `/${familyId}/icloud-connections/${connectionId}/events`,
+          { headers: { Cookie: member.cookieHeader } },
+          env,
+        );
+
+        expect(response.status).toBe(400);
+        expect(fetchCalendarEventsMock).not.toHaveBeenCalled();
+      });
+
+      it("lets a plain member fetch events for a calendar", async () => {
+        const { member, familyId, connectionId } = await setUpConnection();
+        const calendarUrl = "https://caldav.icloud.com/123/calendars/home/";
+        fetchCalendarEventsMock.mockResolvedValueOnce([
+          {
+            href: `${calendarUrl}event1.ics`,
+            etag: "\"1\"",
+            uid: "event1",
+            title: "Tandlæge",
+            start: "2026-10-01T10:00:00.000Z",
+            end: "2026-10-01T10:30:00.000Z",
+            allDay: false,
+          },
+        ]);
+
+        const response = await families.request(
+          `/${familyId}/icloud-connections/${connectionId}/events?calendarUrl=${encodeURIComponent(calendarUrl)}`,
+          { headers: { Cookie: member.cookieHeader } },
+          env,
+        );
+
+        expect(response.status).toBe(200);
+        const body = await response.json();
+        expect(body.events).toHaveLength(1);
+        expect(body.events[0]).toMatchObject({ uid: "event1", title: "Tandlæge" });
+      });
+
+      it("lets a plain member create an event", async () => {
+        const { member, familyId, connectionId } = await setUpConnection();
+        const calendarUrl = "https://caldav.icloud.com/123/calendars/home/";
+        putEventMock.mockResolvedValueOnce({ href: `${calendarUrl}new.ics`, etag: "\"1\"" });
+
+        const response = await families.request(
+          `/${familyId}/icloud-connections/${connectionId}/events`,
+          {
+            method: "POST",
+            headers: { Cookie: member.cookieHeader, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              calendarUrl,
+              title: "Fødselsdag",
+              start: "2026-10-05T18:00:00.000Z",
+              end: "2026-10-05T20:00:00.000Z",
+            }),
+          },
+          env,
+        );
+
+        expect(response.status).toBe(200);
+        const body = await response.json();
+        expect(body.href).toBe(`${calendarUrl}new.ics`);
+        expect(body.etag).toBe("\"1\"");
+        expect(putEventMock).toHaveBeenCalledWith(
+          calendarUrl,
+          expect.objectContaining({ title: "Fødselsdag" }),
+          expect.objectContaining({ appleIdEmail: "nicolaj@icloud.com" }),
+          null,
+        );
+      });
+
+      it("passes the etag through when updating an event", async () => {
+        const { member, familyId, connectionId } = await setUpConnection();
+        const calendarUrl = "https://caldav.icloud.com/123/calendars/home/";
+        putEventMock.mockResolvedValueOnce({ href: `${calendarUrl}event1.ics`, etag: "\"2\"" });
+
+        const response = await families.request(
+          `/${familyId}/icloud-connections/${connectionId}/events`,
+          {
+            method: "PATCH",
+            headers: { Cookie: member.cookieHeader, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              calendarUrl,
+              uid: "event1",
+              title: "Tandlæge (flyttet)",
+              start: "2026-10-01T11:00:00.000Z",
+              end: "2026-10-01T11:30:00.000Z",
+              etag: "\"1\"",
+            }),
+          },
+          env,
+        );
+
+        expect(response.status).toBe(200);
+        expect(putEventMock).toHaveBeenCalledWith(
+          calendarUrl,
+          expect.objectContaining({ uid: "event1", title: "Tandlæge (flyttet)" }),
+          expect.objectContaining({ appleIdEmail: "nicolaj@icloud.com" }),
+          "\"1\"",
+        );
+      });
+
+      it("maps a 412 conflict from iCloud to 409", async () => {
+        const { member, familyId, connectionId } = await setUpConnection();
+        putEventMock.mockRejectedValueOnce(
+          new ICloudCalDavError("Aftalen er blevet ændret et andet sted siden sidst.", "conflict"),
+        );
+
+        const response = await families.request(
+          `/${familyId}/icloud-connections/${connectionId}/events`,
+          {
+            method: "PATCH",
+            headers: { Cookie: member.cookieHeader, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              calendarUrl: "https://caldav.icloud.com/123/calendars/home/",
+              uid: "event1",
+              title: "Tandlæge",
+              start: "2026-10-01T10:00:00.000Z",
+              end: "2026-10-01T10:30:00.000Z",
+              etag: "\"stale\"",
+            }),
+          },
+          env,
+        );
+
+        expect(response.status).toBe(409);
+      });
+
+      it("lets a plain member delete an event", async () => {
+        const { member, familyId, connectionId } = await setUpConnection();
+        deleteEventMock.mockResolvedValueOnce(undefined);
+
+        const response = await families.request(
+          `/${familyId}/icloud-connections/${connectionId}/events`,
+          {
+            method: "DELETE",
+            headers: { Cookie: member.cookieHeader, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              eventHref: "https://caldav.icloud.com/123/calendars/home/event1.ics",
+              etag: "\"1\"",
+            }),
+          },
+          env,
+        );
+
+        expect(response.status).toBe(200);
+        expect(deleteEventMock).toHaveBeenCalledWith(
+          "https://caldav.icloud.com/123/calendars/home/event1.ics",
+          expect.objectContaining({ appleIdEmail: "nicolaj@icloud.com" }),
+          "\"1\"",
+        );
+      });
+
+      it("requires eventHref and etag to delete an event", async () => {
+        const { member, familyId, connectionId } = await setUpConnection();
+
+        const response = await families.request(
+          `/${familyId}/icloud-connections/${connectionId}/events`,
+          {
+            method: "DELETE",
+            headers: { Cookie: member.cookieHeader, "Content-Type": "application/json" },
+            body: JSON.stringify({}),
+          },
+          env,
+        );
+
+        expect(response.status).toBe(400);
+        expect(deleteEventMock).not.toHaveBeenCalled();
+      });
+
+      it("returns 404 for a connection that belongs to a different family", async () => {
+        const { familyId, connectionId } = await setUpConnection();
+        void familyId;
+        const otherOwner = await seedLoggedInUser(env.DB as never, { id: "other-owner-2" });
+        const otherFamily = await createFamily(env, otherOwner.cookieHeader, "Naboerne");
+        // setUpConnection() selv kalder discoverCalendars ved oprettelsen —
+        // kun selve dette kalds effekt (intet ekstra kald pga. 404) skal
+        // tælles.
+        discoverCalendarsMock.mockClear();
+
+        const response = await families.request(
+          `/${otherFamily.family.id}/icloud-connections/${connectionId}/calendars`,
+          { headers: { Cookie: otherOwner.cookieHeader } },
+          env,
+        );
+
+        expect(response.status).toBe(404);
+        expect(discoverCalendarsMock).not.toHaveBeenCalled();
       });
     });
   });

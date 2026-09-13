@@ -403,6 +403,123 @@ export function getIcsSubscriptionEvents(
   );
 }
 
+// Sprint 47: iCloud-kalender via CalDAV — flere familiemedlemmer kan hver
+// forbinde deres egen iCloud-konto (samme mønster som ICS ovenfor), men i
+// modsætning til ICS er forbindelsen fuldt læs/skriv/redigér/slet fra dag
+// ét, se icloudConnections.ts.
+export interface IcloudConnectionDto {
+  id: string;
+  familyId: string;
+  appleIdEmail: string;
+  familyMemberId: string | null;
+  createdAt: string;
+}
+
+export function getIcloudConnections(familyId: string) {
+  return request<{ connections?: IcloudConnectionDto[]; error?: string }>(
+    `/api/families/${familyId}/icloud-connections`,
+  );
+}
+
+export function createIcloudConnection(
+  familyId: string,
+  input: { appleIdEmail: string; appSpecificPassword: string; familyMemberId?: string | null },
+) {
+  return request<{ connections?: IcloudConnectionDto[]; error?: string }>(
+    `/api/families/${familyId}/icloud-connections`,
+    { method: "POST", body: JSON.stringify(input) },
+  );
+}
+
+export function deleteIcloudConnection(familyId: string, connectionId: string) {
+  return request<{ connections?: IcloudConnectionDto[]; error?: string }>(
+    `/api/families/${familyId}/icloud-connections/${connectionId}`,
+    { method: "DELETE" },
+  );
+}
+
+export interface IcloudCalendarInfoDto {
+  url: string;
+  displayName: string;
+  ctag: string | null;
+}
+
+export function getIcloudCalendars(familyId: string, connectionId: string) {
+  return request<{ calendars?: IcloudCalendarInfoDto[]; error?: string }>(
+    `/api/families/${familyId}/icloud-connections/${connectionId}/calendars`,
+  );
+}
+
+export interface IcloudCalendarEventDto {
+  href: string;
+  etag: string | null;
+  uid: string;
+  title: string;
+  start: string;
+  end: string;
+  allDay: boolean;
+  description?: string;
+  location?: string;
+}
+
+export function getIcloudCalendarEvents(
+  familyId: string,
+  connectionId: string,
+  calendarUrl: string,
+  range?: { start: string; end: string },
+) {
+  const query = new URLSearchParams({ calendarUrl });
+  if (range) {
+    query.set("start", range.start);
+    query.set("end", range.end);
+  }
+  return request<{ events?: IcloudCalendarEventDto[]; error?: string }>(
+    `/api/families/${familyId}/icloud-connections/${connectionId}/events?${query.toString()}`,
+  );
+}
+
+export interface IcloudEventWriteInput {
+  calendarUrl: string;
+  title: string;
+  start: string;
+  end: string;
+  description?: string;
+  location?: string;
+}
+
+export function createIcloudCalendarEvent(
+  familyId: string,
+  connectionId: string,
+  input: IcloudEventWriteInput,
+) {
+  return request<{ uid?: string; href?: string; etag?: string | null; error?: string }>(
+    `/api/families/${familyId}/icloud-connections/${connectionId}/events`,
+    { method: "POST", body: JSON.stringify(input) },
+  );
+}
+
+export function updateIcloudCalendarEvent(
+  familyId: string,
+  connectionId: string,
+  input: IcloudEventWriteInput & { uid: string; etag: string },
+) {
+  return request<{ uid?: string; href?: string; etag?: string | null; error?: string }>(
+    `/api/families/${familyId}/icloud-connections/${connectionId}/events`,
+    { method: "PATCH", body: JSON.stringify(input) },
+  );
+}
+
+export function deleteIcloudCalendarEvent(
+  familyId: string,
+  connectionId: string,
+  input: { eventHref: string; etag: string },
+) {
+  return request<{ ok?: boolean; error?: string }>(
+    `/api/families/${familyId}/icloud-connections/${connectionId}/events`,
+    { method: "DELETE", body: JSON.stringify(input) },
+  );
+}
+
 // Sprint 40: en gaveplan for medlem X skjules server-side for X selv, hvis
 // X har en koblet konto (ADR-020) — svaret her viser derfor aldrig
 // brugerens egne planer, uanset hvem der spørger.
