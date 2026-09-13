@@ -6,10 +6,10 @@ import { encodeIcloudCalendarSourceId, encodeIcloudEventId } from "./icloudCalen
 
 const fallbackColor = "#8E8E93";
 
-// Ejerskab kommer direkte fra forbindelsens family_member_id (samme princip
-// som ICS' subscription.familyMemberId), IKKE calendar_member_mappings —
-// hver iCloud-forbindelse ejes allerede af ét bestemt familiemedlem (Sprint
-// 47's beslutning: flere medlemmer forbinder hver deres egen konto).
+// Sprint 48: ejerskab kommer nu fra calendar_member_mappings (nøglet på
+// kalenderens rå CalDAV-URL), samme mekanisme som Google/Outlook — IKKE
+// længere forbindelsens egen family_member_id, som Sprint 47 brugte. Se
+// IcloudCalendarProvider.ts.
 export function mapIcloudCalendarSource(
   connectionId: string,
   calendar: IcloudCalendarInfoDto,
