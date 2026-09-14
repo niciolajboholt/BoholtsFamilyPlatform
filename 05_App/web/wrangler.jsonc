@@ -35,12 +35,12 @@
     // /api/push/public-key for at abonnere) — se 21_Sprint21-planen.
     "VAPID_PUBLIC_KEY": "BHVSXcjfORTKBlCSOyokP1Iq9Jwgnuetorda-TEqjEUjvK4hZjp-PE1p4qDJ7Tgq3dywzervtXgt0VKzMxfJZG8",
     "VAPID_SUBJECT": "mailto:nicolajbach12@gmail.com",
-    // Sprint 48: PLACEHOLDER indtil Nicolaj har oprettet den nye, personlige
-    // Azure-app-registrering (se 48_Sprint48_...Plan.md) — én app-
-    // registrering dækker både main og beta (Microsoft tillader flere
-    // redirect-URI'er på samme app, i modsætning til Googles
-    // verificeringsproces), så samme klient-id bruges begge steder.
-    "MICROSOFT_CLIENT_ID": "TODO-erstat-med-rigtigt-client-id-fra-azure"
+    // Sprint 48: Nicolajs personlige Azure-app-registrering (se
+    // 48_Sprint48_...Plan.md) — én app-registrering dækker både main og
+    // beta (Microsoft tillader flere redirect-URI'er på samme app, i
+    // modsætning til Googles verificeringsproces), så samme klient-id
+    // bruges begge steder.
+    "MICROSOFT_CLIENT_ID": "9f89bd38-3f50-4efc-80c6-83508b45609f"
   },
   // GOOGLE_CLIENT_SECRET peger her (main) på et EGET secret-navn,
   // forskelligt fra beta's — se 44_Google_OAuth_Adskillelse_Main_Beta_Plan.md.
@@ -182,7 +182,7 @@
         "VAPID_SUBJECT": "mailto:nicolajbach12@gmail.com",
         // Sprint 48: samme klient-id som main — se kommentaren i
         // main-blokken ovenfor.
-        "MICROSOFT_CLIENT_ID": "TODO-erstat-med-rigtigt-client-id-fra-azure"
+        "MICROSOFT_CLIENT_ID": "9f89bd38-3f50-4efc-80c6-83508b45609f"
       },
       // Ligesom "vars" ovenfor: bindinger tilføjet kun via dashboardets
       // Bindings-fane forsvinder ved næste Git-udløste deploy ("Cannot read
