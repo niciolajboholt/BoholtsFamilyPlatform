@@ -92,13 +92,13 @@ GitHub Actions kører de samme kontroller ved pull requests og pushes til
 ## Konfiguration
 
 Google-login og -kalender er server-ejet (Sprint 20) — klienten kræver ikke
-længere en Google Client ID. Kun Outlook-integrationen konfigureres
-klient-side. Kopiér `05_App/web/.env.example` til `05_App/web/.env.local`:
-
-```dotenv
-VITE_OUTLOOK_CALENDAR_ENABLED=false
-VITE_OUTLOOK_CLIENT_ID=your-azure-ad-application-client-id
-```
+længere en Google Client ID. Outlook-kalenderen bruger (Sprint 48) den
+samme delte, personlige Azure-app-registrering som Microsoft-login
+(`server/lib/microsoftOAuth.ts`), hardkodet i
+`outlookCalendarConfig.ts` — ingen `.env`-opsætning nødvendig for at bruge
+den. `VITE_OUTLOOK_CLIENT_ID` er kun til lokal test mod en ANDEN
+app-registrering; kopiér i så fald `05_App/web/.env.example` til
+`05_App/web/.env.local` og sæt den der.
 
 Serverens egne hemmeligheder (Google OAuth client secret, token-krypterings-
 nøgle, VAPID privat nøgle, Resend API-nøgle, admin-e-mail) ligger i
