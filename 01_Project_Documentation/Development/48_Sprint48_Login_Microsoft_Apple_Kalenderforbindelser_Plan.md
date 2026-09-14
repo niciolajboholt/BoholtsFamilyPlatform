@@ -132,8 +132,9 @@ Mål: samme mønster for alle tre — "Forbind konto" + "Vælg kalendere",
 
 - **Google** følger allerede dette mønster (ejerskab via
   `calendar_member_mappings`, redigeres under "Rediger familiemedlem").
-- **Microsoft/Outlook-kalenderen** (når den engang genaktiveres) følger
-  samme mønster som Google allerede i dag — ingen ændring nødvendig her.
+- **Microsoft/Outlook-kalenderen** følger allerede samme mønster som
+  Google (ejerskab via `calendar_member_mappings`) — ingen ændring
+  nødvendig her. Genaktiveret 2026-09-14, se "Besluttet undervejs" nedenfor.
 - **iCloud skal ændres:**
   - Fjern "Tildel familiemedlem"-feltet fra `IcloudConnectionsPanel`s
     tilføj-formular (Sprint 47 byggede dette bevidst anderledes end
@@ -156,13 +157,23 @@ Mål: samme mønster for alle tre — "Forbind konto" + "Vælg kalendere",
 
 ---
 
+## Besluttet undervejs (2026-09-14)
+
+- **Outlook-KALENDER-integrationen genaktiveres**, og genbruger den samme
+  personlige Azure-app-registrering som Microsoft-login (anbefalingen
+  ovenfor blev fulgt) — ikke P+P Arkitekters arbejdstenant-app, som
+  forbliver slået fra. Kun personlige konti kan forbinde (tenantId fastlåst
+  til `"consumers"` i `outlookCalendarConfig.ts`, ikke konfigurerbart).
+  Kræver to manuelle Azure-trin på den eksisterende app-registrering (se
+  `outlookCalendarConfig.ts`'s kommentar): en "Single-page application"-
+  platform med redirect-URI'erne
+  `https://boholtsfamilyplatform-beta.nicolajbach12.workers.dev` og
+  `https://boholtsfamilyplatform.nicolajbach12.workers.dev` (uden sti), samt
+  `Calendars.ReadWrite` under API permissions → Microsoft Graph → Delegated
+  permissions.
+
 ## Ikke besluttet endnu
 
-- Skal Outlook-KALENDER-integrationen forblive slået fra
-  (`isTemporarilyDisabled`), indtil P+P-tenant-blokeringen løses af deres
-  IT-afdeling, eller skal Nicolaj oprette en ny, personlig Azure-app til
-  kalenderdelen (evt. samme app som login-delen, se anbefalingen ovenfor)?
-  Udenfor denne plans omfang — kræver en selvstændig beslutning.
 - Præcis visning af "kommer senere" for Apple-knappen (deaktiveret med
   forklaring ved klik, vs. et synligt mærke direkte på knappen).
 
