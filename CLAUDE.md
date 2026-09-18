@@ -12,6 +12,16 @@ sikkerhedskritisk indgang, der peger videre til den fulde AI Knowledge Base.
 - [`01_Project_Documentation/AI_Knowledge_Base/06_Claude_Playbook.md`](01_Project_Documentation/AI_Knowledge_Base/06_Claude_Playbook.md) —
   den fulde arbejdsgang og mandat.
 
+## Arbejdsmodel: kun i skyen
+
+Der foregår **intet lokalt arbejde** på dette projekt. Al udvikling sker via
+Claude Code cloud-sessioner (ephemere containere, der kloner repoet frisk fra
+GitHub hver gang) og GitHub Actions (`.github/workflows/ci.yml`) til test og
+deploy til Cloudflare. Der er ingen vedvarende lokal maskine, og ingen
+lokal/OneDrive-synkroniseret arbejdsmappe i brug — punkterne om OneDrive i
+`09_Lessons_Learned.md` beskriver en tidligere, ikke længere gældende
+arbejdsform og skal ikke antages relevante for aktuelt arbejde.
+
 ## De regler der ikke må glemmes
 
 - **Commit/push/merge**: Kun efter Nicolaj har testet den konkrete ændring
