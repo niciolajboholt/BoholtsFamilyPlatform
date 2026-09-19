@@ -131,10 +131,19 @@ export interface MappableCalendarOption {
 export async function listAllMappableCalendars(): Promise<
   MappableCalendarOption[]
 > {
+  // Hver kildes kald fanges for sig selv, IKKE i ét fælles Promise.all —
+  // GoogleCalendarProvider.listAllCalendars() (i modsætning til iCloud- og
+  // Outlook-varianterne) kaster videre, hvis Google-API-kaldet fejler (fx et
+  // udløbet token, der endnu ikke er fornyet). Med et fælles Promise.all
+  // ville den ene fejlende kilde tømme HELE listen, inkl. kalendere fra
+  // kilder der rent faktisk svarede fint — set i praksis: "Kalender"-
+  // dropdown'en i "Rediger familiemedlem" viste kun "Ingen", selvom
+  // Google-forbindelsen var aktiv og "Vælg Google-kalendere" viste
+  // kalendere fint (den kalder API'et på et andet tidspunkt).
   const [googleCalendars, outlookCalendars, icloudCalendars] = await Promise.all([
-    listAllGoogleCalendars(),
-    listAllOutlookCalendars(),
-    listAllIcloudCalendars(),
+    listAllGoogleCalendars().catch(() => []),
+    listAllOutlookCalendars().catch(() => []),
+    listAllIcloudCalendars().catch(() => []),
   ]);
 
   const options: MappableCalendarOption[] = [];
