@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { CalendarMonthRounded } from "@mui/icons-material";
-import { Avatar, Box, Checkbox, Chip, Container, Typography } from "@mui/material";
+import { Alert, Avatar, Box, Checkbox, Chip, CircularProgress, Container, Typography } from "@mui/material";
 
 import { FeatureDisabledNotice } from "../components/FeatureDisabledNotice";
 import { useCalendarEvents } from "../features/calendar/hooks/useCalendarEvents";
@@ -10,9 +10,14 @@ import { useCurrentMember } from "../features/calendar/hooks/useCurrentMember";
 import { useRecurrenceExceptions } from "../features/calendar/hooks/useRecurrenceExceptions";
 import { expandRecurringEvents } from "../features/calendar/utils/expandRecurringEvents";
 import { getEventsForDate } from "../features/calendar/utils/getEventsForDate";
-import { getPlannerEventsForColumn } from "../features/calendar/utils/getPlannerEventsForColumn";
 import type { CalendarEvent } from "../features/calendar/models/calendarEvent";
 import { useEnabledFeatures } from "../features/family/hooks/useEnabledFeatures";
+import {
+  buildMitIDagPlan,
+  getMitIDagEvents,
+  getMitIDagTasks,
+  localDateKey,
+} from "../features/mitIDag/mitIDagUtils";
 import { useTasks } from "../features/tasks/hooks/useTasks";
 import type { TaskDto } from "../features/tasks/tasksApi";
 
@@ -68,7 +73,11 @@ function DayTaskRow({ task, onToggleDone }: DayTaskRowProps) {
       <Checkbox
         checked={isDone}
         onChange={(event) => onToggleDone(task.id, event.target.checked)}
-        slotProps={{ input: { "aria-label": isDone ? "Marker som ikke færdig" : "Marker som færdig" } }}
+        slotProps={{
+          input: {
+            "aria-label": `${task.name}: ${isDone ? "marker som ikke færdig" : "marker som færdig"}`,
+          },
+        }}
       />
       <Box sx={{ minWidth: 0 }}>
         <Typography
@@ -90,11 +99,26 @@ function DayTaskRow({ task, onToggleDone }: DayTaskRowProps) {
   );
 }
 
-function MitIDagContent() {
-  const { events } = useCalendarEvents();
+interface MitIDagContentProps {
+  now: Date;
+}
+
+function MitIDagContent({ now }: MitIDagContentProps) {
+  const {
+    events,
+    isLoading: areCalendarEventsLoading,
+    error: calendarError,
+  } = useCalendarEvents();
   const { visibleCalendarSourceIds } = useCalendarSources();
   const recurrenceExceptions = useRecurrenceExceptions();
-  const { members, tasks, toggleDone } = useTasks();
+  const {
+    members,
+    tasks,
+    toggleDone,
+    isLoading: areTasksLoading,
+    error: taskError,
+    pendingOfflineChangeCount,
+  } = useTasks();
   const { currentMember } = useCurrentMember();
 
   // Egen, lokal vælger-tilstand — bevidst IKKE useCurrentMember's
@@ -127,7 +151,6 @@ function MitIDagContent() {
   }, [selectedMemberId, currentMember, realMembers]);
 
   const todaysEvents = useMemo(() => {
-    const now = new Date();
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
     const startOfTomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0);
     const visibleSourceIds = new Set(visibleCalendarSourceIds);
@@ -139,33 +162,28 @@ function MitIDagContent() {
     );
 
     return getEventsForDate(expandedEvents, now);
-  }, [events, visibleCalendarSourceIds, recurrenceExceptions.exceptions]);
+  }, [events, visibleCalendarSourceIds, recurrenceExceptions.exceptions, now]);
 
   const memberEvents = useMemo(() => {
     if (!selectedMemberId) {
       return [];
     }
-    return getPlannerEventsForColumn(todaysEvents, selectedMemberId);
-  }, [todaysEvents, selectedMemberId]);
+    return getMitIDagEvents(todaysEvents, selectedMemberId, currentMember?.id);
+  }, [todaysEvents, selectedMemberId, currentMember?.id]);
 
   const memberTasks = useMemo(
-    () => tasks.filter((task) => task.assignedMemberId === selectedMemberId),
+    () => (selectedMemberId ? getMitIDagTasks(tasks, selectedMemberId) : []),
     [tasks, selectedMemberId],
   );
-
-  const now = new Date();
-  const upcomingEvents = memberEvents.filter((event) => new Date(event.end).getTime() >= now.getTime());
-  const undoneTasks = memberTasks.filter((task) => !task.isDone);
 
   // "Næste": den først kommende aftale, ellers den første ufærdige
   // opgave — ikke et fuldt kronologisk fletning af begge (opgavers
   // timeOfDay er en fritekst-påmindelse, ikke et pålideligt sorterbart
   // klokkeslæt, se plandokumentets teststrategi-afsnit).
-  const nextEvent = upcomingEvents[0] ?? null;
-  const nextTask = !nextEvent ? (undoneTasks[0] ?? null) : null;
-
-  const restOfDayEvents = nextEvent ? upcomingEvents.slice(1) : upcomingEvents;
-  const restOfDayTasks = nextTask ? memberTasks.filter((task) => task.id !== nextTask.id) : memberTasks;
+  const { nextEvent, nextTask, restOfDayEvents, restOfDayTasks } = useMemo(
+    () => buildMitIDagPlan(memberEvents, memberTasks, now),
+    [memberEvents, memberTasks, now],
+  );
 
   const selectedMember = realMembers.find((member) => member.id === selectedMemberId) ?? null;
 
@@ -175,11 +193,43 @@ function MitIDagContent() {
     month: "long",
   }).format(now);
 
+  if (areCalendarEventsLoading || areTasksLoading) {
+    return (
+      <Box
+        role="status"
+        sx={{ minHeight: 240, display: "flex", alignItems: "center", justifyContent: "center", gap: 2 }}
+      >
+        <CircularProgress size={28} />
+        <Typography color="text.secondary">Henter dagens aktiviteter…</Typography>
+      </Box>
+    );
+  }
+
   return (
     <Container maxWidth="sm" sx={{ py: { xs: 3, sm: 5 } }}>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
         {today.charAt(0).toUpperCase() + today.slice(1)}
       </Typography>
+
+      {calendarError && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          Kalenderaftalerne kunne ikke hentes. Opgaver vises stadig, hvis de er tilgængelige.
+        </Alert>
+      )}
+
+      {taskError && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {taskError}
+        </Alert>
+      )}
+
+      {pendingOfflineChangeCount > 0 && (
+        <Alert severity="info" role="status" sx={{ mb: 2 }}>
+          {pendingOfflineChangeCount === 1
+            ? "Én afkrydsning venter på at blive synkroniseret."
+            : `${pendingOfflineChangeCount} afkrydsninger venter på at blive synkroniseret.`}
+        </Alert>
+      )}
 
       <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap", mb: 3 }}>
         {realMembers.map((member) => (
@@ -187,6 +237,7 @@ function MitIDagContent() {
             key={member.id}
             clickable
             onClick={() => setSelectedMemberId(member.id)}
+            aria-pressed={member.id === selectedMemberId}
             label={member.name}
             avatar={
               <Avatar sx={{ bgcolor: member.color, color: "#FFFFFF !important" }}>
@@ -281,8 +332,20 @@ function MitIDagContent() {
   );
 }
 
+function useLiveNow(): Date {
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => setNow(new Date()), 30_000);
+    return () => window.clearInterval(intervalId);
+  }, []);
+
+  return now;
+}
+
 function MitIDagPage() {
   const { isEnabled, isLoading } = useEnabledFeatures();
+  const now = useLiveNow();
 
   if (isLoading) {
     return null;
@@ -296,7 +359,9 @@ function MitIDagPage() {
     );
   }
 
-  return <MitIDagContent />;
+  // En ny lokal dato remounter datakilderne, så useTasks() henter den nye
+  // dags rutiner/opgaver i stedet for at beholde gårsdagens mount-værdi.
+  return <MitIDagContent key={localDateKey(now)} now={now} />;
 }
 
 export default MitIDagPage;

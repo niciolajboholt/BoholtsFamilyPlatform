@@ -405,7 +405,13 @@ function AppLayout() {
           transform: "translateX(-50%)",
           width: "calc(100% - 24px)",
           borderRadius: 4,
-          overflow: "hidden",
+          // Flere valgfrie funktioner kan give mere end fem mobilpunkter.
+          // Bevar store trykflader og gør rækken vandret scrollbar i stedet
+          // for at mase etiketter/ikoner sammen på 320–430 px skærme.
+          overflowX: "auto",
+          overflowY: "hidden",
+          scrollbarWidth: "none",
+          "&::-webkit-scrollbar": { display: "none" },
           zIndex: 1200,
         }}
       >
@@ -417,8 +423,12 @@ function AppLayout() {
           }}
           sx={{
             height: 68,
+            width: "max-content",
+            minWidth: "100%",
+            justifyContent: "flex-start",
             "& .MuiBottomNavigationAction-root": {
-              minWidth: 0,
+              minWidth: 72,
+              flex: "0 0 72px",
               borderRadius: 2,
               mx: 0.5,
               "&.Mui-selected": {
