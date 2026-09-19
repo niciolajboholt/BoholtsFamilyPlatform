@@ -18,9 +18,10 @@ Status:
 Aktiv roadmap. Første afgrænsede leverance, **"Mit i dag" + "Se som
 barn"-forhåndsvisning**, blev implementeret i Sprint 52 og efterfølgende
 hardnet 2026-09-19. PIN-baseret børneadgang (Fase 3, se
-`53_Sprint53_Barn_Pinkode_Adgang_Plan.md`) blev implementeret 2026-09-19.
-De øvrige faser nedenfor er fortsat ikke implementeret. Arbejdstitel:
-**Barnets Hjemmecentral**.
+`53_Sprint53_Barn_Pinkode_Adgang_Plan.md`) og faste rutineskabeloner
+(Fase 4, se `54_Sprint54_Rutineskabeloner_Plan.md`) blev begge
+implementeret 2026-09-19. De øvrige faser nedenfor er fortsat ikke
+implementeret. Arbejdstitel: **Barnets Hjemmecentral**.
 
 ---
 
@@ -153,7 +154,9 @@ ikke antages eller påbegyndes uden en selvstændig, ny beslutning:
    link + en firecifret kode pr. barn, se
    `53_Sprint53_Barn_Pinkode_Adgang_Plan.md`. "Se som barn" (forælderens
    forhåndsvisning fra Sprint 52) findes fortsat separat, uændret.
-4. Skabeloner til faste rutiner (morgenrutine mv.).
+4. **Implementeret i Sprint 54:** faste skabeloner (morgenrutine,
+   skoletaske, tandbørstning, sengetid), der udfylder den eksisterende
+   rutine-editor — se `54_Sprint54_Rutineskabeloner_Plan.md`.
 5. Oplæsning (isoleret, lav risiko — kun klient-side Web Speech API).
 6. Valgfrit point-/mållag oven på lommepenge.
 7. Guidede eksterne kalenderforbindelser (Aula/DBU Kampklar/Holdsport) —

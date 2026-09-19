@@ -32,6 +32,7 @@ import { FeatureDisabledNotice } from "../components/FeatureDisabledNotice";
 import { useCurrentMember } from "../features/calendar/hooks/useCurrentMember";
 import { useEnabledFeatures } from "../features/family/hooks/useEnabledFeatures";
 import { useTasks } from "../features/tasks/hooks/useTasks";
+import { routineTemplates } from "../features/tasks/routineTemplates";
 import { taskIconComponents, taskIconLabels, taskIcons, type TaskIconKey } from "../features/tasks/taskIcons";
 import type { NewRoutineItemInput, RoutineDraft, TaskDto } from "../features/tasks/tasksApi";
 
@@ -529,6 +530,18 @@ function RoutineCreateDialog({ open, onClose, members, onCreate, onSuggest }: Ro
     onClose();
   }
 
+  // Sprint 54 (Fase 4): en skabelon udfylder navn/ugedage/opgaver ligesom
+  // AI-forslaget nedenfor gør — samme editor, ingen ny opret-vej. Brugeren
+  // kan frit redigere alle felter bagefter, ligesom efter et AI-forslag.
+  function handleUseTemplate(template: (typeof routineTemplates)[number]): void {
+    setName(template.routineName);
+    setWeekdays(template.defaultWeekdays);
+    setItems(
+      template.items.map((item) => ({ name: item.name, icon: item.icon, timeOfDay: item.timeOfDay ?? null })),
+    );
+    setSuggestError(null);
+  }
+
   function handleSuggest(): void {
     if (!aiDescription.trim()) {
       return;
@@ -577,6 +590,22 @@ function RoutineCreateDialog({ open, onClose, members, onCreate, onSuggest }: Ro
       <DialogTitle>Opret rutine</DialogTitle>
 
       <DialogContent sx={{ display: "grid", gap: 2 }}>
+        <Box>
+          <Typography variant="caption" color="text.secondary">
+            Skabeloner (valgfrit) — udfylder navn, ugedage og opgaver, som du kan justere bagefter
+          </Typography>
+          <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mt: 0.5 }}>
+            {routineTemplates.map((template) => (
+              <Chip
+                key={template.key}
+                label={template.label}
+                clickable
+                onClick={() => handleUseTemplate(template)}
+              />
+            ))}
+          </Box>
+        </Box>
+
         <Box>
           <Typography variant="caption" color="text.secondary">
             Beskriv rutinen, så foreslår AI'en opgaverne (valgfrit)
