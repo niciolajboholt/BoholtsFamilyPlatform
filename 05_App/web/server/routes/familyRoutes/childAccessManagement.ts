@@ -6,6 +6,7 @@
 import { Hono } from "hono";
 
 import type { Env } from "../../env";
+import { listChildSessions, revokeAllChildSessions, revokeChildSession } from "../../lib/childSession";
 import { getMembershipForFamily } from "../../lib/familyMembership";
 import { generateShareToken } from "../../lib/familySeed";
 import { hashPin, isValidPinFormat } from "../../lib/pinHashing";
@@ -181,6 +182,81 @@ childAccessManagement.delete("/:id/members/:memberId/child-access/pin", async (c
     c.env.DB.prepare("UPDATE family_members SET pin_hash = NULL, pin_set_at = NULL WHERE id = ?").bind(memberId),
     c.env.DB.prepare("DELETE FROM child_sessions WHERE family_member_id = ?").bind(memberId),
   ]);
+
+  return c.json({ ok: true });
+});
+
+// Sprint 55: sessionsoverblik — hvor mange enheder er logget ind, og hvornår
+// de sidst blev brugt (kun de to tidsstempler, se migration 0033's
+// kommentar for hvorfor der bevidst ikke gemmes mere end det).
+childAccessManagement.get("/:id/members/:memberId/child-access/sessions", async (c) => {
+  const user = c.get("user");
+  const familyId = c.req.param("id");
+  const memberId = c.req.param("memberId");
+  const membership = await getMembershipForFamily(c.env.DB, familyId, user.id);
+
+  if (!membership || (membership.role !== "owner" && membership.role !== "admin")) {
+    return c.json({ error: "Kun ejer eller admin kan se dette." }, 403);
+  }
+
+  const member = await requireOwnerOrAdminMember(c.env.DB, familyId, memberId);
+
+  if (!member) {
+    return c.json({ error: "Ukendt familiemedlem." }, 404);
+  }
+
+  return c.json({ sessions: await listChildSessions(c.env.DB, memberId) });
+});
+
+// "Log ud på alle enheder" — samme oprydning som allerede sker ved
+// rotation/fjernelse af link eller PIN ovenfor, nu også som en selvstændig
+// handling der IKKE kræver at ændre linket eller koden.
+childAccessManagement.delete("/:id/members/:memberId/child-access/sessions", async (c) => {
+  const user = c.get("user");
+  const familyId = c.req.param("id");
+  const memberId = c.req.param("memberId");
+  const membership = await getMembershipForFamily(c.env.DB, familyId, user.id);
+
+  if (!membership || (membership.role !== "owner" && membership.role !== "admin")) {
+    return c.json({ error: "Kun ejer eller admin kan logge enheder ud." }, 403);
+  }
+
+  const member = await requireOwnerOrAdminMember(c.env.DB, familyId, memberId);
+
+  if (!member) {
+    return c.json({ error: "Ukendt familiemedlem." }, 404);
+  }
+
+  await revokeAllChildSessions(c.env.DB, memberId);
+
+  return c.json({ ok: true });
+});
+
+// Log én bestemt enhed ud — 404 (ikke bare "ok: false") hvis sessions-id'et
+// ikke findes eller hører til et andet familiemedlem, samme
+// "afslør ikke eksistensen"-princip som resten af børneadgangs-API'et.
+childAccessManagement.delete("/:id/members/:memberId/child-access/sessions/:sessionId", async (c) => {
+  const user = c.get("user");
+  const familyId = c.req.param("id");
+  const memberId = c.req.param("memberId");
+  const sessionId = c.req.param("sessionId");
+  const membership = await getMembershipForFamily(c.env.DB, familyId, user.id);
+
+  if (!membership || (membership.role !== "owner" && membership.role !== "admin")) {
+    return c.json({ error: "Kun ejer eller admin kan logge en enhed ud." }, 403);
+  }
+
+  const member = await requireOwnerOrAdminMember(c.env.DB, familyId, memberId);
+
+  if (!member) {
+    return c.json({ error: "Ukendt familiemedlem." }, 404);
+  }
+
+  const revoked = await revokeChildSession(c.env.DB, memberId, sessionId);
+
+  if (!revoked) {
+    return c.json({ error: "Enheden findes ikke." }, 404);
+  }
 
   return c.json({ ok: true });
 });
