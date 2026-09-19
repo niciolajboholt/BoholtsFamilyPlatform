@@ -72,9 +72,15 @@ export function CalendarConnectionsSection() {
     outlookConfigurationError,
   );
 
-  const calendarConnectionsSummary = `Google ${
-    isGoogleCalendarConnected ? "forbundet" : "afbrudt"
-  } · Outlook ${isOutlookCalendarConnected ? "forbundet" : "fra"}`;
+  // Outlook udelades helt af opsummeringen, mens den er midlertidigt slået
+  // fra (isTemporarilyDisabled i outlookCalendarConfig.ts) — samme regel som
+  // CalendarConnectionBanners.tsx allerede følger: appen skal opføre sig som
+  // om Outlook slet ikke findes endnu, ikke vise en "ikke aktiv"-besked.
+  const calendarConnectionsSummary = isOutlookCalendarConfigured
+    ? `Google ${isGoogleCalendarConnected ? "forbundet" : "afbrudt"} · Outlook ${
+        isOutlookCalendarConnected ? "forbundet" : "fra"
+      }`
+    : `Google ${isGoogleCalendarConnected ? "forbundet" : "afbrudt"}`;
 
   return (
     <>
@@ -106,6 +112,8 @@ export function CalendarConnectionsSection() {
             isConfigured
             isBusy={false}
             isAttemptingSilentReconnect={false}
+            onToggleConnection={() => setIsGoogleCalendarSelectionDialogOpen(true)}
+            actionAriaLabel="Vælg Google-kalendere"
           />
 
           {!isGoogleCalendarConnected && (
@@ -123,40 +131,40 @@ export function CalendarConnectionsSection() {
             </Alert>
           )}
 
-          {isGoogleCalendarConnected && (
-            <Box sx={{ display: "flex", justifyContent: "flex-end", mt: -1 }}>
-              <Button size="small" onClick={() => setIsGoogleCalendarSelectionDialogOpen(true)}>
-                Vælg kalendere
-              </Button>
-            </Box>
-          )}
+          {/* Outlook udelades helt af listen, mens den er midlertidigt
+              slået fra — se kommentaren ved calendarConnectionsSummary
+              ovenfor. En deaktiveret, ikke-trykbar række ville se ud som en
+              fejl, ikke en bevidst pause. */}
+          {isOutlookCalendarConfigured && (
+            <>
+              <Divider sx={{ my: 1.5 }} />
 
-          <Divider sx={{ my: 1.5 }} />
+              <ProviderConnectionRow
+                label="Outlook Calendar"
+                statusText={outlookCalendarStatusText}
+                isConnected={isOutlookCalendarConnected}
+                isConfigured={isOutlookCalendarConfigured}
+                isBusy={isOutlookCalendarBusy}
+                isAttemptingSilentReconnect={isAttemptingOutlookSilentReconnect}
+                onToggleConnection={() => {
+                  void handleToggleOutlookCalendar();
+                }}
+              />
 
-          <ProviderConnectionRow
-            label="Outlook Calendar"
-            statusText={outlookCalendarStatusText}
-            isConnected={isOutlookCalendarConnected}
-            isConfigured={isOutlookCalendarConfigured}
-            isBusy={isOutlookCalendarBusy}
-            isAttemptingSilentReconnect={isAttemptingOutlookSilentReconnect}
-            onToggleConnection={() => {
-              void handleToggleOutlookCalendar();
-            }}
-          />
+              {outlookRedirectDiagnostic && (
+                <Alert severity="warning" sx={{ mt: 1.5 }}>
+                  {outlookRedirectDiagnostic}
+                </Alert>
+              )}
 
-          {outlookRedirectDiagnostic && (
-            <Alert severity="warning" sx={{ mt: 1.5 }}>
-              {outlookRedirectDiagnostic}
-            </Alert>
-          )}
-
-          {isOutlookCalendarConnected && (
-            <Box sx={{ display: "flex", justifyContent: "flex-end", mt: -1 }}>
-              <Button size="small" onClick={() => setIsOutlookCalendarSelectionDialogOpen(true)}>
-                Vælg kalendere
-              </Button>
-            </Box>
+              {isOutlookCalendarConnected && (
+                <Box sx={{ display: "flex", justifyContent: "flex-end", mt: -1 }}>
+                  <Button size="small" onClick={() => setIsOutlookCalendarSelectionDialogOpen(true)}>
+                    Vælg kalendere
+                  </Button>
+                </Box>
+              )}
+            </>
           )}
 
           <Divider sx={{ my: 1.5 }} />
