@@ -1,5 +1,84 @@
 # Changelog
 
+## Sprint 49 — Klargøring til Hjemmecentralen-lancering
+
+> Se `01_Project_Documentation/Development/49_Sprint49_Hjemmecentralen_Launch_Prep_Plan.md`
+> for den fulde verifikation og begrundelse bag disse ændringer.
+
+- **Implementeret:** privatlivspolitik og vilkår (`LegalPage.tsx`) genskrevet,
+  så de dækker Microsoft-login, den midlertidigt deaktiverede Outlook-
+  kalenderintegration, iCloud CalDAV, ICS-abonnementer, opgavebelønning,
+  fællesøkonomi, måltidsplaner, fødselsdage/gaver, push-abonnementer,
+  lokale caches og offentlige delelinks — samt en præcis beskrivelse af,
+  hvad den nuværende dataeksport faktisk indeholder (kun lokale data, ikke
+  serverdata) og at kontosletning kræver en manuel anmodning.
+- **Implementeret:** sikkerhedsheaders (CSP, `X-Content-Type-Options`,
+  `Referrer-Policy`) tilføjet til den statiske appskal via
+  `05_App/web/public/_headers` — hidtil satte Hono-middlewaren i
+  `server/index.ts` kun disse headers på `/api/*` og `/auth/*`, mens `/`,
+  `/privacy`, `/terms` og alle statiske filer blev serveret direkte af
+  Cloudflares Assets-binding (`run_worker_first`) uden nogen headers.
+- **Implementeret, mangler manuel verifikation:** en live `curl -I` mod
+  beta-URL'en efter deploy, der bekræfter at `_headers`-filen faktisk
+  anvendes af Cloudflare i produktion (kunne ikke verificeres fra
+  udviklingsmiljøet, se plandokumentet).
+- **Implementeret:** brugerrettet appnavn ændret fra "Boholts Familieapp"/
+  "Boholts Family Platform" til **Hjemmecentralen** i sidetitel, login-side,
+  PWA-manifest, fejlbeskeder, backup-filnavn og afsendernavn på
+  admin-notifikations-e-mails. Tekniske ressourcenavne (Worker, D1,
+  OAuth-klienter, repo, `localStorage`-nøglepræfiks) er bevidst uændrede.
+
+## Sprint 48 — Login med Microsoft og forberedelse til Apple, ensrettede kalenderforbindelser (2026-09-13)
+
+- Server-side Microsoft-login (authorization code + PKCE), migration 0030 —
+  et familiemedlem uden Google-konto kan nu selv logge ind.
+- Login-siden redesignet med tre knapper (Google/Microsoft/Apple) — Apple
+  er bevidst kun visuel ("Kommer senere"), ingen OAuth-integration endnu.
+- iCloud-kalenderforbindelser ensrettet med Google/Outlooks mønster
+  (forbind konto → vælg kalendere, medlem-tilknytning sker separat).
+- **Implementeret:** Del A (Microsoft-login) og login-siden er merget til
+  `main` (PR #229–#233). **Ikke implementeret:** Apple-login (Del B).
+
+## Sprint 47 — iCloud-kalender via CalDAV (2026-09-12–13)
+
+- CalDAV-klient og -service til iCloud-kalendere: app-specifik
+  adgangskode (krypteret server-side, samme metode som Google-tokens),
+  kalendervalg pr. familiemedlem, samme UI-mønster som Google/Outlook.
+- **Implementeret og merget til `main`** (PR #225/#226). Bemærk: plan-
+  dokumentet `47_Sprint47_iCloud_Kalender_CalDAV_Plan.md` havde indtil
+  denne opdatering stadig en forældet statuslinje, der sagde
+  "Idé-/planlægningsstadie" — rettet i dette sprint.
+
+## Sprint 38–43 — Måltidsplan, lommepenge, fødselsdage, fællesøkonomi, kiosk (2026-09-09)
+
+- **Sprint 38 — Implementeret:** måltidsplanlægning med AI-genererede
+  indkøbsforslag (migration 0023).
+- **Sprint 39 — Implementeret:** opgavebelønning/lommepenge med
+  saldo-overblik (migration 0024).
+- **Sprint 40 — Implementeret:** fødselsdage og gaveplanlægning
+  (migration 0025).
+- **Sprint 41 — Implementeret:** fællesøkonomi (delte udgifter) mellem
+  forældre (migration 0026).
+- **Sprint 42 — Ikke implementeret:** danske skoleferier — kun research
+  gennemført, ingen kode skrevet (commit `66767fa`: "research
+  gennemført, ingen kode").
+- **Sprint 43 — Implementeret:** kiosk-dashboard (`/kiosk`-ruten), en
+  navigationsfri visning af dagens aftaler, opgaver og indkøbsliste.
+
+## Sprint 44–46 — Google-produktion, omdøbningsforsøg, iOS-plan (2026-09-11)
+
+- **Sprint 44 — Implementeret:** produktion (det unavngivne
+  `wrangler.jsonc`-miljø) fik sin egen Google Cloud-klient, adskilt fra
+  beta, forud for Googles OAuth-verificering.
+- **Sprint 45 — Forsøgt, rullet tilbage:** et forsøg på at omdøbe
+  Worker-ressourcen (kortere URL, væk fra "Boholt") blev rullet tilbage,
+  fordi Cloudflare Workers Builds er bundet til den eksisterende
+  Worker-ressource, ikke `wrangler.jsonc`s `name`-felt — se
+  `wrangler.jsonc`s egen kommentar. En rigtig omdøbning kræver en ny
+  Worker-ressource og er ude af scope for en kosmetisk ændring.
+- **Sprint 46 — Planlagt, ikke påbegyndt:** en fremtidig native
+  iOS-app via App Store — kun en plan, intet Xcode-projekt.
+
 ## Sprint 37 — Sikkerhed og kodekvalitet efter eksternt review
 
 - `ADMIN_EMAIL` flyttet fra klartekst i `wrangler.jsonc` til Cloudflares

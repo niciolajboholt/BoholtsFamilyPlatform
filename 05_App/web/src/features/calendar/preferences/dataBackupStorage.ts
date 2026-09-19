@@ -60,7 +60,7 @@ export function createDataBackup(): DataBackup {
  */
 export function restoreDataBackup(backup: unknown): void {
   if (!isDataBackup(backup)) {
-    throw new Error("Filen er ikke en gyldig Boholts Familie-backup.");
+    throw new Error("Filen er ikke en gyldig Hjemmecentralen-backup.");
   }
 
   for (const [key, value] of Object.entries(backup.data)) {

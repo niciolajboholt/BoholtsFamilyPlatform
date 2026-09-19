@@ -207,7 +207,7 @@ test("login links to public privacy and terms pages", async ({ page }) => {
   );
   await page.goto("/");
 
-  await expect(page.getByRole("heading", { name: "Boholts Familieapp" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Hjemmecentralen" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Fortsæt med Google" })).toHaveAttribute(
     "href",
     "/auth/google/begin",

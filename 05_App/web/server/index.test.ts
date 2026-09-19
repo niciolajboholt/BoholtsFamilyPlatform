@@ -31,7 +31,15 @@ describe("index (top-level Worker)", () => {
     expect(text).toBe("not used in tests");
   });
 
-  it("sets security headers on every response", async () => {
+  // Sprint 49: dette dækker kun /api/* og /auth/* — de eneste stier
+  // "run_worker_first" (wrangler.jsonc) sender gennem dette Worker-script
+  // overhovedet. Den statiske SPA-appskal (/, /privacy, /terms, JS/CSS)
+  // serveres direkte af Cloudflares Assets-binding og når aldrig denne
+  // middleware; de samme headers sættes der i stedet af public/_headers,
+  // som Vitest ikke kan teste (det er Cloudflare-edge-adfærd, ikke
+  // Worker-kode) — verificér derfor med `curl -I` mod live-URL'en efter
+  // deploy, jf. 49_Sprint49_Hjemmecentralen_Launch_Prep_Plan.md.
+  it("sets security headers on every response the Worker itself handles", async () => {
     const response = await request("/api/health");
 
     expect(response.headers.get("X-Content-Type-Options")).toBe("nosniff");
