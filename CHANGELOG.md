@@ -21,10 +21,11 @@
   (`AccountDataSection.tsx`) til at downloade familiedata, anmode om
   kontosletning eller familiesletning, og fortryde en igangværende
   anmodning.
-- **Implementeret, mangler manuel verifikation:** en reel OAuth-
-  gen-autentificerings-roundtrip og en reel purge-kørsel mod beta-miljøet
-  (kunne ikke afprøves fra udviklingsmiljøet — kun automatiserede
-  enheds-/rutetests, se plandokumentets "Manuelt opfølgningspunkt").
+- **Verificeret manuelt i beta 2026-09-19:** en reel OAuth-
+  gen-autentificerings-roundtrip, kontosletning/fortrydelse og
+  dataeksport (kunne ikke afprøves fra udviklingsmiljøet, kun via
+  automatiserede enheds-/rutetests — se plandokumentets "Manuelt
+  opfølgningspunkt").
 
 ## Sprint 49 — Klargøring til Hjemmecentralen-lancering
 
