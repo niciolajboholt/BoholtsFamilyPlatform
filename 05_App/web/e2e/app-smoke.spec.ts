@@ -2809,6 +2809,80 @@ test("a family member can create and delete a routine through the real UI", asyn
   await expect(page.getByText("Ingen rutiner endnu.")).toBeVisible();
 });
 
+// Sprint 54 (Fase 4 af 51_Barnets_Hjemmecentral_Plan.md): faste
+// rutineskabeloner ét niveau over den generiske rutine-editor ovenfor —
+// en skabelon udfylder blot navn/ugedage/opgaver i den SAMME editor,
+// ligesom AI-forslaget allerede gør.
+test("picking a routine template pre-fills the routine editor", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  await mockAuthenticatedApi(page);
+
+  let routines: Array<Record<string, unknown>> = [];
+  const tasks: Array<Record<string, unknown>> = [];
+
+  await page.route("**/api/families/*/tasks", async (route) => {
+    if (route.request().method() !== "GET") {
+      await route.fallback();
+      return;
+    }
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ tasks }) });
+  });
+
+  await page.route("**/api/families/*/task-routines", async (route) => {
+    const method = route.request().method();
+
+    if (method === "GET") {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ routines }) });
+      return;
+    }
+
+    if (method === "POST") {
+      const posted = route.request().postDataJSON() as {
+        name: string;
+        weekdays: number[];
+        items: Array<{ name: string; icon: string; timeOfDay: string | null }>;
+      };
+      const newRoutine = {
+        id: `routine-${routines.length + 1}`,
+        familyId: family.id,
+        name: posted.name,
+        assignedMemberId: null,
+        weekdays: posted.weekdays,
+        createdAt: new Date().toISOString(),
+        items: posted.items.map((item, index) => ({
+          id: `routine-item-${index + 1}`,
+          routineId: `routine-${routines.length + 1}`,
+          name: item.name,
+          icon: item.icon,
+          timeOfDay: item.timeOfDay,
+          sortOrder: index,
+        })),
+      };
+      routines = [...routines, newRoutine];
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ routine: newRoutine }) });
+      return;
+    }
+
+    await route.fallback();
+  });
+
+  await page.goto("/tasks");
+
+  await page.getByRole("button", { name: "Opret rutine" }).click();
+  const routineDialog = page.getByRole("dialog", { name: "Opret rutine" });
+
+  await routineDialog.getByRole("button", { name: "Sengetid", exact: true }).click();
+
+  await expect(routineDialog.getByLabel("Rutinens navn")).toHaveValue("Sengetid");
+  await expect(routineDialog.getByLabel("Opgave 1", { exact: true })).toHaveValue("Tag pyjamas på");
+  await expect(routineDialog.getByLabel("Opgave 2", { exact: true })).toHaveValue("Børst tænder");
+
+  await routineDialog.getByRole("button", { name: "Opret", exact: true }).click();
+  await expect(routineDialog).not.toBeVisible();
+
+  await expect(page.getByText("Sengetid", { exact: true })).toBeVisible();
+});
+
 // Fase 5: logout og fuldstændig lokal oprydning. useSession().logout() (se
 // features/auth/hooks/useSession.ts) kalder POST /auth/logout, rydder al
 // localStorage prefixet "boholts-family-" (clearAllFamilyStorage(), bruges

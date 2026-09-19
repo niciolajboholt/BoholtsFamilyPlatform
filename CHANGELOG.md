@@ -1,5 +1,14 @@
 # Changelog
 
+## Sprint 54 — Rutineskabeloner (Fase 4)
+
+> Se `01_Project_Documentation/Development/54_Sprint54_Rutineskabeloner_Plan.md`.
+
+- **Implementeret:** fire faste skabeloner (morgenrutine, skoletaske,
+  tandbørstning, sengetid) i "Opret rutine"-dialogen — udfylder navn,
+  ugedage og opgaver i den eksisterende editor, samme mekanisme som
+  AI-forslaget allerede bruger. Ingen ny datamodel eller API-rute.
+
 ## Sprint 52 — Mit i dag / Se som barn
 
 - **Implementeret:** valgfri "Mit i dag"-side med medlemsvælger, næste
