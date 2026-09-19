@@ -22,9 +22,8 @@ const { sendPushNotificationToFamily } = await import("../lib/pushNotifications"
 const { generateWeeklySummary } = await import("./aiAssistant");
 const { fetchPublicFamilyCalendarEvents } = await import("./googleCalendarAggregation");
 const { GoogleNotConnectedError } = await import("./googleConnection");
-const { sendWeeklySummaries, generateWeeklySummaryForFamily, computeCurrentWeekStart } = await import(
-  "./weeklySummary"
-);
+const { sendWeeklySummaries, generateWeeklySummaryForFamily, computeCurrentWeekStart, getCopenhagenDayRangeUtc } =
+  await import("./weeklySummary");
 
 const sendPushNotificationToFamilyMock = vi.mocked(sendPushNotificationToFamily);
 const generateWeeklySummaryMock = vi.mocked(generateWeeklySummary);
@@ -361,5 +360,31 @@ describe("generateWeeklySummaryForFamily", () => {
       "SELECT content FROM family_weekly_summaries WHERE family_id = ? AND week_start = ?",
     ).bind("family-1", "2026-08-17").all<{ content: string }>();
     expect(rows.results).toEqual([{ content: JSON.stringify([{ name: "Fælles", text: "Et frisk resumé." }]) }]);
+  });
+});
+
+describe("getCopenhagenDayRangeUtc", () => {
+  it("returns local midnight-to-midnight as UTC instants during sommertid (CEST, UTC+2)", () => {
+    const range = getCopenhagenDayRangeUtc(new Date("2026-07-15T10:00:00.000Z"));
+
+    expect(range).toEqual({
+      start: "2026-07-14T22:00:00.000Z",
+      end: "2026-07-15T22:00:00.000Z",
+    });
+  });
+
+  it("returns local midnight-to-midnight as UTC instants during vintertid (CET, UTC+1)", () => {
+    const range = getCopenhagenDayRangeUtc(new Date("2026-01-15T10:00:00.000Z"));
+
+    expect(range).toEqual({
+      start: "2026-01-14T23:00:00.000Z",
+      end: "2026-01-15T23:00:00.000Z",
+    });
+  });
+
+  it("spans exactly 24 hours", () => {
+    const range = getCopenhagenDayRangeUtc(new Date());
+
+    expect(new Date(range.end).getTime() - new Date(range.start).getTime()).toBe(24 * 60 * 60 * 1000);
   });
 });

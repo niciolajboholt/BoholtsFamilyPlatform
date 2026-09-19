@@ -22,6 +22,36 @@ export function getCopenhagenDateString(now: Date): string {
   return `${get("year")}-${get("month")}-${get("day")}`;
 }
 
+// Generel "i dag, dansk tid" UTC-tidsrum-hjælper, colokeret med
+// getCopenhagenDateString ovenfor (samme princip) — bruges af Sprint 55's
+// børnekalendervisning (childAccess.ts), som ikke har en klient-browser at
+// spørge om "i dag" (i modsætning til den almindelige
+// /api/families/:id/tasks?date=...-rute).
+function getCopenhagenUtcOffsetMinutes(date: Date): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Europe/Copenhagen",
+    timeZoneName: "shortOffset",
+  }).formatToParts(date);
+
+  const offsetName = parts.find((part) => part.type === "timeZoneName")?.value ?? "GMT+0";
+  const match = /GMT([+-]\d+)(?::(\d+))?/.exec(offsetName);
+  const hours = match ? Number(match[1]) : 0;
+  const minutes = match?.[2] ? Number(match[2]) : 0;
+
+  return hours * 60 + (hours < 0 ? -minutes : minutes);
+}
+
+export function getCopenhagenDayRangeUtc(now: Date): { start: string; end: string } {
+  const dateString = getCopenhagenDateString(now);
+  const offsetMinutes = getCopenhagenUtcOffsetMinutes(now);
+  const startUtcMs = Date.parse(`${dateString}T00:00:00.000Z`) - offsetMinutes * 60_000;
+
+  return {
+    start: new Date(startUtcMs).toISOString(),
+    end: new Date(startUtcMs + 24 * 60 * 60 * 1000).toISOString(),
+  };
+}
+
 function addDays(dateString: string, days: number): string {
   const [year, month, day] = dateString.split("-").map(Number);
   const date = new Date(Date.UTC(year, month - 1, day));
