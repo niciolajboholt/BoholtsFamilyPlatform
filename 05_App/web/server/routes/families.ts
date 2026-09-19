@@ -6,6 +6,7 @@ import { logError } from "../lib/structuredLog";
 import birthdayGiftPlans from "./familyRoutes/birthdayGiftPlans";
 import calendarMappings from "./familyRoutes/calendarMappings";
 import familyCore from "./familyRoutes/familyCore";
+import familyDeletion from "./familyRoutes/familyDeletion";
 import familyMembers from "./familyRoutes/familyMembers";
 import familySettings from "./familyRoutes/familySettings";
 import featureFlags from "./familyRoutes/featureFlags";
@@ -53,5 +54,6 @@ families.route("/", icloudConnections);
 families.route("/", birthdayGiftPlans);
 families.route("/", sharedExpenses);
 families.route("/", featureFlags);
+families.route("/", familyDeletion);
 
 export default families;

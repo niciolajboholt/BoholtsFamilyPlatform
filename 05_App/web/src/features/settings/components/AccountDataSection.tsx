@@ -1,10 +1,11 @@
 import type { ChangeEvent } from "react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import {
   ChevronRightRounded,
   CloudDownloadRounded,
   CloudUploadRounded,
+  DeleteForeverRounded,
   LogoutRounded,
   PersonRounded,
   SaveRounded,
@@ -14,9 +15,38 @@ import { Alert, Box, Button, Card, CardContent, Dialog, DialogActions, DialogCon
 import { useSession } from "../../auth/hooks/useSession";
 import { CurrentMemberPickerDialog } from "../../calendar/components/CurrentMemberPickerDialog";
 import { useCurrentMember } from "../../calendar/hooks/useCurrentMember";
+import { useFamilyId } from "../../calendar/hooks/useFamilyId";
 import { useFamilyMembers } from "../../calendar/hooks/useFamilyMembers";
 import { createDataBackup, restoreDataBackup } from "../../calendar/preferences/dataBackupStorage";
+import { getMyFamily, type FamilyRole } from "../../family/familyApi";
+import {
+  beginReauth,
+  cancelAccountDeletion,
+  cancelFamilyDeletion,
+  downloadFamilyExport,
+  getAccountDeletionPreview,
+  getFamilyDeletionPreview,
+  requestAccountDeletion,
+  requestFamilyDeletion,
+  type AccountDeletionPreviewMembership,
+  type FamilyDeletionPreview,
+} from "../deletionApi";
 import { SettingsLinkRow, SettingsSectionHeader } from "./SettingsPrimitives";
+
+type DeletionStep = "review" | "reauth" | "confirm";
+
+// Sprint 50: hvilken af de to sletningsdialoger (konto/familie) der skal
+// genåbnes direkte på bekræftelses-trinnet, når brugeren lander tilbage
+// her efter en frisk OAuth-gen-autentificering (se auth.ts's
+// /reauth/google og /reauth/microsoft — returnTo peger tilbage hertil med
+// disse forespørgselsparametre, og callbacket tilføjer "&reauth=success").
+function readPendingDeletionReturn(): "account" | "family" | null {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("reauth") !== "success") return null;
+  if (params.get("accountDeletion") === "confirm") return "account";
+  if (params.get("familyDeletion") === "confirm") return "family";
+  return null;
+}
 
 export function AccountDataSection() {
   const { members } = useFamilyMembers();
@@ -34,6 +64,20 @@ export function AccountDataSection() {
   }
 
   const { user, logout } = useSession();
+  const familyId = useFamilyId();
+  const [familyRole, setFamilyRole] = useState<FamilyRole | null>(null);
+
+  useEffect(() => {
+    let isCancelled = false;
+    getMyFamily().then((result) => {
+      if (!isCancelled && result.ok) {
+        setFamilyRole(result.data.role ?? null);
+      }
+    });
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
 
   const [isBackupDialogOpen, setIsBackupDialogOpen] = useState(false);
   const importFileInputRef = useRef<HTMLInputElement | null>(null);
@@ -41,6 +85,150 @@ export function AccountDataSection() {
     severity: "success" | "error";
     message: string;
   } | null>(null);
+  const [exportFeedback, setExportFeedback] = useState<{
+    severity: "success" | "error";
+    message: string;
+  } | null>(null);
+
+  // ---------------------------------------------------------------------
+  // Sprint 50: kontosletning
+  // ---------------------------------------------------------------------
+  // Lazy useState-initializere (ikke en effekt) læser URL'en ved første
+  // render, så dialogen åbner direkte på bekræftelses-trinnet efter en
+  // gen-autentificerings-roundtrip, uden det ekstra render en
+  // effekt-baseret setState ville give.
+  const [isAccountDeletionOpen, setIsAccountDeletionOpen] = useState(
+    () => readPendingDeletionReturn() === "account",
+  );
+  const [accountDeletionStep, setAccountDeletionStep] = useState<DeletionStep>(() =>
+    readPendingDeletionReturn() === "account" ? "confirm" : "review",
+  );
+  const [accountDeletionPreview, setAccountDeletionPreview] = useState<
+    AccountDeletionPreviewMembership[] | null
+  >(null);
+  const [accountDeletionError, setAccountDeletionError] = useState<string | null>(null);
+  const [accountDeletionBusy, setAccountDeletionBusy] = useState(false);
+  const [cancelDeletionFeedback, setCancelDeletionFeedback] = useState<string | null>(null);
+
+  // Sprint 50: familiesletning (kun ejer)
+  const [isFamilyDeletionOpen, setIsFamilyDeletionOpen] = useState(
+    () => readPendingDeletionReturn() === "family",
+  );
+  const [familyDeletionStep, setFamilyDeletionStep] = useState<DeletionStep>(() =>
+    readPendingDeletionReturn() === "family" ? "confirm" : "review",
+  );
+  const [familyDeletionPreview, setFamilyDeletionPreview] = useState<FamilyDeletionPreview | null>(null);
+  const [familyDeletionError, setFamilyDeletionError] = useState<string | null>(null);
+  const [familyDeletionBusy, setFamilyDeletionBusy] = useState(false);
+
+  useEffect(() => {
+    // Fjerner forespørgselsparametrene med det samme, så et genindlæst
+    // faneblad ikke ved et uheld genåbner bekræftelses-trinnet igen —
+    // selve state'et er allerede sat af useState-initializerne ovenfor.
+    if (readPendingDeletionReturn()) {
+      const url = new URL(window.location.href);
+      url.search = "";
+      window.history.replaceState({}, "", url.toString());
+    }
+  }, []);
+
+  function openAccountDeletionDialog(): void {
+    setAccountDeletionError(null);
+    setAccountDeletionStep("review");
+    setIsAccountDeletionOpen(true);
+    getAccountDeletionPreview().then((result) => {
+      if (result.ok) {
+        setAccountDeletionPreview(result.data.memberships);
+      }
+    });
+  }
+
+  async function handleConfirmAccountDeletion(): Promise<void> {
+    setAccountDeletionBusy(true);
+    setAccountDeletionError(null);
+
+    const result = await requestAccountDeletion();
+
+    setAccountDeletionBusy(false);
+
+    if (!result.ok) {
+      if (result.status === 403) {
+        setAccountDeletionError("Bekræftelsen er udløbet. Bekræft din identitet igen.");
+        setAccountDeletionStep("reauth");
+      } else {
+        setAccountDeletionError(result.data.error ?? "Sletningen kunne ikke gennemføres. Prøv igen.");
+      }
+      return;
+    }
+
+    // Sessionen er slettet af selve anmodningen (se
+    // accountDeletion.ts's requestAccountDeletion) — brugeren er allerede
+    // logget ud på serveren, en fuld navigation viser det med det samme.
+    window.location.href = "/";
+  }
+
+  async function handleCancelAccountDeletion(): Promise<void> {
+    const result = await cancelAccountDeletion();
+    setCancelDeletionFeedback(
+      result.ok
+        ? "Sletningen er fortrudt. Din konto er fuldt genoprettet."
+        : (result.data.error ?? "Ingen igangværende sletningsanmodning fundet."),
+    );
+  }
+
+  function openFamilyDeletionDialog(): void {
+    if (!familyId) return;
+    setFamilyDeletionError(null);
+    setFamilyDeletionStep("review");
+    setIsFamilyDeletionOpen(true);
+    getFamilyDeletionPreview(familyId).then((result) => {
+      if (result.ok) {
+        setFamilyDeletionPreview(result.data);
+      }
+    });
+  }
+
+  async function handleConfirmFamilyDeletion(): Promise<void> {
+    if (!familyId) return;
+    setFamilyDeletionBusy(true);
+    setFamilyDeletionError(null);
+
+    const result = await requestFamilyDeletion(familyId);
+
+    setFamilyDeletionBusy(false);
+
+    if (!result.ok) {
+      if (result.status === 403) {
+        setFamilyDeletionError("Bekræftelsen er udløbet. Bekræft din identitet igen.");
+        setFamilyDeletionStep("reauth");
+      } else {
+        setFamilyDeletionError(result.data.error ?? "Sletningen kunne ikke gennemføres. Prøv igen.");
+      }
+      return;
+    }
+
+    window.location.href = "/";
+  }
+
+  async function handleCancelFamilyDeletion(): Promise<void> {
+    if (!familyId) return;
+    const result = await cancelFamilyDeletion(familyId);
+    setCancelDeletionFeedback(
+      result.ok
+        ? "Familiens sletning er fortrudt. Alt er fuldt genoprettet."
+        : (result.data.error ?? "Ingen igangværende sletningsanmodning fundet."),
+    );
+  }
+
+  async function handleDownloadServerExport(): Promise<void> {
+    if (!familyId) return;
+    const result = await downloadFamilyExport(familyId);
+    setExportFeedback(
+      result.ok
+        ? { severity: "success", message: "Familiedata downloadet." }
+        : { severity: "error", message: result.error ?? "Eksporten kunne ikke hentes." },
+    );
+  }
 
   function handleExportData() {
     const backup = createDataBackup();
@@ -168,6 +356,56 @@ export function AccountDataSection() {
             subtitle="Eksportér eller importér"
             onClick={() => setIsBackupDialogOpen(true)}
           />
+
+          {user && (
+            <>
+              <Divider />
+
+              <SettingsLinkRow
+                icon={<DeleteForeverRounded color="error" />}
+                title="Slet min konto"
+                subtitle="30 dages fortrydelsesperiode"
+                onClick={openAccountDeletionDialog}
+              />
+            </>
+          )}
+
+          {familyId && familyRole === "owner" && (
+            <>
+              <Divider />
+
+              <SettingsLinkRow
+                icon={<DeleteForeverRounded color="error" />}
+                title="Slet hele familien"
+                subtitle="Kun for ejeren — 30 dages fortrydelsesperiode"
+                onClick={openFamilyDeletionDialog}
+              />
+            </>
+          )}
+
+          {user && (
+            <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap", pt: 1.5 }}>
+              <Button size="small" onClick={() => void handleCancelAccountDeletion()}>
+                Fortryd tidligere kontosletning
+              </Button>
+
+              {familyId && familyRole === "owner" && (
+                <Button size="small" onClick={() => void handleCancelFamilyDeletion()}>
+                  Fortryd tidligere familiesletning
+                </Button>
+              )}
+            </Box>
+          )}
+
+          {cancelDeletionFeedback && (
+            <Alert
+              severity="info"
+              onClose={() => setCancelDeletionFeedback(null)}
+              sx={{ mt: 1.5 }}
+            >
+              {cancelDeletionFeedback}
+            </Alert>
+          )}
         </CardContent>
       </Card>
 
@@ -212,10 +450,218 @@ export function AccountDataSection() {
               onChange={handleImportFileSelected}
             />
           </Box>
+
+          {familyId && (
+            <>
+              <Divider sx={{ my: 2 }} />
+
+              <Typography sx={{ fontWeight: 600, mb: 0.5 }}>Familiedata (server)</Typography>
+              <Typography color="text.secondary" variant="body2" sx={{ mb: 1.5 }}>
+                {familyRole === "owner"
+                  ? "Som ejer får du en fuld kopi af familiens data, inkl. øvrige medlemmers navn og e-mail."
+                  : "Du får en kopi af din egen konto samt din kalender og dine opgaver."}
+              </Typography>
+
+              {exportFeedback && (
+                <Alert
+                  severity={exportFeedback.severity}
+                  onClose={() => setExportFeedback(null)}
+                  sx={{ mb: 1.5 }}
+                >
+                  {exportFeedback.message}
+                </Alert>
+              )}
+
+              <Button
+                variant="outlined"
+                startIcon={<CloudDownloadRounded />}
+                onClick={() => void handleDownloadServerExport()}
+              >
+                Download familiedata
+              </Button>
+            </>
+          )}
         </DialogContent>
 
         <DialogActions sx={{ px: 3, pb: 2.5 }}>
           <Button onClick={() => setIsBackupDialogOpen(false)}>Luk</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={isAccountDeletionOpen}
+        onClose={() => (accountDeletionBusy ? undefined : setIsAccountDeletionOpen(false))}
+        fullWidth
+        maxWidth="xs"
+      >
+        <DialogTitle>Slet min konto</DialogTitle>
+
+        <DialogContent>
+          {accountDeletionError && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {accountDeletionError}
+            </Alert>
+          )}
+
+          {accountDeletionStep === "review" && (
+            <>
+              <Typography color="text.secondary" sx={{ mb: 2 }}>
+                Din konto slettes efter 30 dage. Indtil da kan du fortryde
+                ved at logge ind igen. Opgaver og udgifter, du har
+                oprettet, bliver ikke slettet — de vises i stedet som
+                oprettet af &quot;Tidligere medlem&quot;.
+              </Typography>
+
+              {accountDeletionPreview && accountDeletionPreview.length > 0 && (
+                <Typography color="text.secondary" variant="body2" sx={{ mb: 2 }}>
+                  Du forlader samtidig{" "}
+                  {accountDeletionPreview.map((membership) => membership.familyName).join(", ")}.
+                </Typography>
+              )}
+            </>
+          )}
+
+          {accountDeletionStep === "reauth" && (
+            <>
+              <Typography color="text.secondary" sx={{ mb: 2 }}>
+                Bekræft din identitet igen, før kontoen kan slettes.
+              </Typography>
+
+              <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap" }}>
+                <Button
+                  variant="outlined"
+                  onClick={() => beginReauth("google", "/settings?accountDeletion=confirm")}
+                >
+                  Bekræft med Google
+                </Button>
+                <Button
+                  variant="outlined"
+                  onClick={() => beginReauth("microsoft", "/settings?accountDeletion=confirm")}
+                >
+                  Bekræft med Microsoft
+                </Button>
+              </Box>
+            </>
+          )}
+
+          {accountDeletionStep === "confirm" && (
+            <Typography color="text.secondary" sx={{ mb: 2 }}>
+              Din identitet er bekræftet. Tryk herunder for at slette din
+              konto permanent (efter 30 dages fortrydelsesperiode).
+            </Typography>
+          )}
+        </DialogContent>
+
+        <DialogActions sx={{ px: 3, pb: 2.5 }}>
+          <Button onClick={() => setIsAccountDeletionOpen(false)} disabled={accountDeletionBusy}>
+            Annullér
+          </Button>
+
+          {accountDeletionStep === "review" && (
+            <Button variant="contained" color="error" onClick={() => setAccountDeletionStep("reauth")}>
+              Fortsæt
+            </Button>
+          )}
+
+          {accountDeletionStep === "confirm" && (
+            <Button
+              variant="contained"
+              color="error"
+              disabled={accountDeletionBusy}
+              onClick={() => void handleConfirmAccountDeletion()}
+            >
+              Slet min konto
+            </Button>
+          )}
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={isFamilyDeletionOpen}
+        onClose={() => (familyDeletionBusy ? undefined : setIsFamilyDeletionOpen(false))}
+        fullWidth
+        maxWidth="xs"
+      >
+        <DialogTitle>Slet hele familien</DialogTitle>
+
+        <DialogContent>
+          {familyDeletionError && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {familyDeletionError}
+            </Alert>
+          )}
+
+          {familyDeletionStep === "review" && (
+            <>
+              <Typography color="text.secondary" sx={{ mb: 2 }}>
+                ALT familiens data slettes permanent efter 30 dage — alle
+                medlemmer, opgaver, indkøbslister, kalenderforbindelser og
+                mere. Familien forsvinder for alle medlemmer med det
+                samme. Du kan fortryde inden for 30 dage.
+              </Typography>
+
+              {familyDeletionPreview && (
+                <Typography color="text.secondary" variant="body2" sx={{ mb: 2 }}>
+                  {familyDeletionPreview.memberCount} medlemmer,{" "}
+                  {familyDeletionPreview.taskCount} opgaver,{" "}
+                  {familyDeletionPreview.shoppingListCount} indkøbslister.
+                </Typography>
+              )}
+            </>
+          )}
+
+          {familyDeletionStep === "reauth" && (
+            <>
+              <Typography color="text.secondary" sx={{ mb: 2 }}>
+                Bekræft din identitet igen, før hele familien kan slettes.
+              </Typography>
+
+              <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap" }}>
+                <Button
+                  variant="outlined"
+                  onClick={() => beginReauth("google", "/settings?familyDeletion=confirm")}
+                >
+                  Bekræft med Google
+                </Button>
+                <Button
+                  variant="outlined"
+                  onClick={() => beginReauth("microsoft", "/settings?familyDeletion=confirm")}
+                >
+                  Bekræft med Microsoft
+                </Button>
+              </Box>
+            </>
+          )}
+
+          {familyDeletionStep === "confirm" && (
+            <Typography color="text.secondary" sx={{ mb: 2 }}>
+              Din identitet er bekræftet. Tryk herunder for at slette hele
+              familien permanent (efter 30 dages fortrydelsesperiode).
+            </Typography>
+          )}
+        </DialogContent>
+
+        <DialogActions sx={{ px: 3, pb: 2.5 }}>
+          <Button onClick={() => setIsFamilyDeletionOpen(false)} disabled={familyDeletionBusy}>
+            Annullér
+          </Button>
+
+          {familyDeletionStep === "review" && (
+            <Button variant="contained" color="error" onClick={() => setFamilyDeletionStep("reauth")}>
+              Fortsæt
+            </Button>
+          )}
+
+          {familyDeletionStep === "confirm" && (
+            <Button
+              variant="contained"
+              color="error"
+              disabled={familyDeletionBusy}
+              onClick={() => void handleConfirmFamilyDeletion()}
+            >
+              Slet hele familien
+            </Button>
+          )}
         </DialogActions>
       </Dialog>
 

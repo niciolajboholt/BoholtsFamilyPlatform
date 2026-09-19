@@ -23,6 +23,12 @@ export interface SessionUser {
   email: string;
   name: string;
   pictureUrl: string | null;
+  // Sprint 50: hvornår DENNE session sidst gennemførte en frisk OAuth-
+  // roundtrip via /auth/reauth/... — null hvis aldrig. Bruges af
+  // accountDeletion.ts's isReauthFresh() til at kræve gen-autentificering
+  // (ikke bare en gyldig, evt. ugedes-gammel session-cookie) før en
+  // destruktiv handling som kontosletning.
+  reauthenticatedAt: string | null;
 }
 
 export async function createSession<E extends { Bindings: Env }>(
@@ -56,6 +62,7 @@ interface SessionRow {
   name: string;
   pictureUrl: string | null;
   expiresAt: string;
+  reauthenticatedAt: string | null;
 }
 
 export async function getSessionUser<E extends { Bindings: Env }>(
@@ -69,7 +76,8 @@ export async function getSessionUser<E extends { Bindings: Env }>(
 
   const row = await c.env.DB.prepare(
     `SELECT users.id AS id, users.email AS email, users.name AS name,
-            users.picture_url AS pictureUrl, sessions.expires_at AS expiresAt
+            users.picture_url AS pictureUrl, sessions.expires_at AS expiresAt,
+            sessions.reauthenticated_at AS reauthenticatedAt
      FROM sessions
      JOIN users ON users.id = sessions.user_id
      WHERE sessions.id = ?`,
@@ -91,7 +99,28 @@ export async function getSessionUser<E extends { Bindings: Env }>(
     email: row.email,
     name: row.name,
     pictureUrl: row.pictureUrl,
+    reauthenticatedAt: row.reauthenticatedAt,
   };
+}
+
+// Sprint 50: markerer DENNE session (ikke brugerens øvrige sessioner på
+// andre enheder) som lige nu gen-autentificeret — kaldes fra
+// auth.ts's /reauth/google og /reauth/microsoft-callbacks, aldrig direkte
+// fra en rute. Opdaterer bevidst den eksisterende sessionsrække i stedet
+// for at oprette en ny, så resten af sessionens tilstand (created_at,
+// expires_at) er uændret.
+export async function markSessionReauthenticated<E extends { Bindings: Env }>(
+  c: AppContext<E>,
+): Promise<void> {
+  const sessionId = getCookie(c, sessionCookieName);
+
+  if (!sessionId) {
+    return;
+  }
+
+  await c.env.DB.prepare("UPDATE sessions SET reauthenticated_at = ? WHERE id = ?")
+    .bind(new Date().toISOString(), sessionId)
+    .run();
 }
 
 export async function destroySession<E extends { Bindings: Env }>(

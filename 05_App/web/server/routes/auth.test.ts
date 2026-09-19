@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { createFakeEnv } from "../testing/fakeEnv";
-import { seedUser } from "../testing/fakeD1";
+import { seedLoggedInUser, seedUser } from "../testing/fakeD1";
 
 vi.mock("../lib/microsoftOAuth", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../lib/microsoftOAuth")>();
@@ -142,5 +142,143 @@ describe("/microsoft/callback", () => {
 
     expect(row?.id).toBe("existing-user");
     expect(row?.email).toBe("nyt@outlook.com");
+  });
+});
+
+// Sprint 50: gen-autentificering før kontosletning — se
+// server/lib/accountDeletion.ts's header-kommentar. Genbruger Microsoft-
+// mocken ovenfor (samme udbyder-uafhængige begin/callback-form som
+// /google og /microsoft).
+describe("/reauth/microsoft/begin", () => {
+  it("kræver en eksisterende session", async () => {
+    const env = createFakeEnv();
+    const response = await auth.request("/reauth/microsoft/begin", {}, env);
+    expect(response.status).toBe(401);
+  });
+
+  it("omdirigerer til Microsofts autoriserings-endpoint for en logget ind bruger", async () => {
+    const env = createFakeEnv();
+    const { cookieHeader } = await seedLoggedInUser(env.DB as never, {
+      id: "user-1",
+      microsoftSub: "ms-sub-1",
+    });
+
+    const response = await auth.request(
+      "/reauth/microsoft/begin",
+      { headers: { Cookie: cookieHeader } },
+      env,
+    );
+
+    expect(response.status).toBe(302);
+    expect(response.headers.get("set-cookie")).toContain("Path=/auth/reauth/microsoft");
+  });
+});
+
+describe("/reauth/microsoft/callback", () => {
+  it("markerer sessionen som gen-autentificeret, når identiteten matcher den nuværende bruger", async () => {
+    const env = createFakeEnv();
+    const { userId, cookieHeader } = await seedLoggedInUser(env.DB as never, {
+      id: "user-1",
+      microsoftSub: "ms-sub-1",
+    });
+
+    const beginResponse = await auth.request(
+      "/reauth/microsoft/begin",
+      { headers: { Cookie: cookieHeader } },
+      env,
+    );
+    const flowCookie = extractFlowCookie(beginResponse);
+    const state = new URL(beginResponse.headers.get("location")!).searchParams.get("state");
+
+    exchangeMock.mockResolvedValue({
+      access_token: "fake-access-token",
+      expires_in: 3600,
+      scope: "openid email profile",
+      token_type: "Bearer",
+    });
+    userInfoMock.mockResolvedValue({ sub: "ms-sub-1", email: "user1@example.com", name: "Bruger" });
+
+    const response = await auth.request(
+      `/reauth/microsoft/callback?code=fake-code&state=${state}`,
+      { headers: { Cookie: `${cookieHeader}; ${flowCookie}` } },
+      env,
+    );
+
+    expect(response.status).toBe(302);
+    expect(response.headers.get("location")).toBe("/settings?reauth=success");
+
+    const session = await env.DB.prepare(
+      "SELECT reauthenticated_at AS reauthenticatedAt FROM sessions WHERE user_id = ?",
+    )
+      .bind(userId)
+      .first<{ reauthenticatedAt: string | null }>();
+    expect(session?.reauthenticatedAt).not.toBeNull();
+  });
+
+  it("afviser og markerer IKKE sessionen, hvis den bekræftede identitet er en anden konto", async () => {
+    const env = createFakeEnv();
+    const { userId, cookieHeader } = await seedLoggedInUser(env.DB as never, {
+      id: "user-1",
+      microsoftSub: "ms-sub-1",
+    });
+    await seedUser(env.DB as never, { id: "other-user", microsoftSub: "ms-sub-other" });
+
+    const beginResponse = await auth.request(
+      "/reauth/microsoft/begin",
+      { headers: { Cookie: cookieHeader } },
+      env,
+    );
+    const flowCookie = extractFlowCookie(beginResponse);
+    const state = new URL(beginResponse.headers.get("location")!).searchParams.get("state");
+
+    exchangeMock.mockResolvedValue({
+      access_token: "fake-access-token",
+      expires_in: 3600,
+      scope: "openid email profile",
+      token_type: "Bearer",
+    });
+    // Brugeren bekræfter som en ANDEN konto end den, der er logget ind.
+    userInfoMock.mockResolvedValue({ sub: "ms-sub-other", email: "other@example.com", name: "Anden" });
+
+    const response = await auth.request(
+      `/reauth/microsoft/callback?code=fake-code&state=${state}`,
+      { headers: { Cookie: `${cookieHeader}; ${flowCookie}` } },
+      env,
+    );
+
+    expect(response.status).toBe(403);
+
+    const session = await env.DB.prepare(
+      "SELECT reauthenticated_at AS reauthenticatedAt FROM sessions WHERE user_id = ?",
+    )
+      .bind(userId)
+      .first<{ reauthenticatedAt: string | null }>();
+    expect(session?.reauthenticatedAt).toBeNull();
+  });
+
+  it("afviser hvis sessionen er væk, når callbacket rammer", async () => {
+    const env = createFakeEnv();
+    const { cookieHeader } = await seedLoggedInUser(env.DB as never, {
+      id: "user-1",
+      microsoftSub: "ms-sub-1",
+    });
+
+    const beginResponse = await auth.request(
+      "/reauth/microsoft/begin",
+      { headers: { Cookie: cookieHeader } },
+      env,
+    );
+    const flowCookie = extractFlowCookie(beginResponse);
+    const state = new URL(beginResponse.headers.get("location")!).searchParams.get("state");
+
+    await auth.request("/logout", { method: "POST", headers: { Cookie: cookieHeader } }, env);
+
+    const response = await auth.request(
+      `/reauth/microsoft/callback?code=fake-code&state=${state}`,
+      { headers: { Cookie: `${cookieHeader}; ${flowCookie}` } },
+      env,
+    );
+
+    expect(response.status).toBe(401);
   });
 });

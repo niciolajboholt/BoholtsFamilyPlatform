@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 
 import type { Env } from "./env";
+import accountRoutes from "./routes/account";
 import activityRoutes from "./routes/activity";
 import authRoutes from "./routes/auth";
 import apiRoutes from "./routes/api";
@@ -13,6 +14,7 @@ import publicCalendarRoutes from "./routes/publicCalendar";
 import pushRoutes from "./routes/push";
 import shoppingListsRoutes from "./routes/shoppingLists";
 import tasksRoutes from "./routes/tasks";
+import { purgeExpiredDeletions } from "./lib/accountDeletion";
 import { sendDueBirthdayReminders } from "./lib/birthdayReminders";
 import { cleanupOldCalendarActivity, syncCalendarActivity } from "./lib/calendarActivitySync";
 import { sendDueEventReminders } from "./lib/eventReminders";
@@ -66,6 +68,7 @@ app.use("/api/*", async (c, next) => {
 
 app.route("/auth", authRoutes);
 app.route("/api", apiRoutes);
+app.route("/api/account", accountRoutes);
 app.route("/api/families", familiesRoutes);
 app.route("/api/families", shoppingListsRoutes);
 app.route("/api/families", tasksRoutes);
@@ -114,18 +117,20 @@ app.get("*", (c) => c.env.ASSETS.fetch(c.req.raw));
 export default {
   fetch: app.fetch,
   // Tre Cron Triggers (se wrangler.jsonc's "triggers"), adskilt på
-  // controller.cron: den daglige (Sprint 24, udvidet Sprint 33 og 40)
+  // controller.cron: den daglige (Sprint 24, udvidet Sprint 33, 40 og 50)
   // rydder udløbne sessioner, gamle rate-limit-forsøg og gammel kalender-
-  // aktivitetslog op, og sender fødselsdagspåmindelser 7 dage før; hvert 5.
-  // minut (Sprint 27, udvidet Sprint 31 og 33) sender tidsbaserede opgave-
-  // OG aftale-påmindelser og synker kalender-aktivitet ("Siden sidst");
-  // ugentligt søndag (Sprint 28) sender et AI-genereret ugeresumé.
+  // aktivitetslog op, sender fødselsdagspåmindelser 7 dage før, og
+  // anonymiserer/sletter konti og familier, hvis fortrydelsesperiode er
+  // udløbet; hvert 5. minut (Sprint 27, udvidet Sprint 31 og 33) sender
+  // tidsbaserede opgave- OG aftale-påmindelser og synker kalender-aktivitet
+  // ("Siden sidst"); ugentligt søndag (Sprint 28) sender et AI-genereret
+  // ugeresumé.
   //
-  // Aftale-påmindelser, kalender-aktivitetssynk og fødselsdagspåmindelser
-  // er bevidst lagt på EKSISTERENDE cron-tick's frem for nye cron-
-  // triggers — kontoen har et loft på 5 cron-triggers i alt på tværs af
-  // alle Workers/miljøer (se wrangler.jsonc's kommentar), som allerede er
-  // i brug.
+  // Aftale-påmindelser, kalender-aktivitetssynk, fødselsdagspåmindelser og
+  // konto-/familie-purge er bevidst lagt på EKSISTERENDE cron-tick's frem
+  // for nye cron-triggers — kontoen har et loft på 5 cron-triggers i alt
+  // på tværs af alle Workers/miljøer (se wrangler.jsonc's kommentar), som
+  // allerede er i brug.
   async scheduled(controller, env, ctx) {
     if (controller.cron === "*/5 * * * *") {
       ctx.waitUntil(sendDueTaskReminders(env));
@@ -143,5 +148,9 @@ export default {
     ctx.waitUntil(cleanupOldRateLimitAttempts(env.DB));
     ctx.waitUntil(cleanupOldCalendarActivity(env.DB));
     ctx.waitUntil(sendDueBirthdayReminders(env));
+    // Sprint 50: permanent anonymisering/sletning af konti og familier,
+    // hvis 30 dages fortrydelsesperiode er udløbet — se
+    // lib/accountDeletion.ts's purgeExpiredDeletions().
+    ctx.waitUntil(purgeExpiredDeletions(env));
   },
 } satisfies ExportedHandler<Env>;

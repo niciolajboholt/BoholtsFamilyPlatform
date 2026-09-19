@@ -39,6 +39,7 @@ const migrationFiles = [
   "0028_google_access_token_cache.sql",
   "0029_icloud_calendar_connections.sql",
   "0030_microsoft_login.sql",
+  "0031_account_family_deletion.sql",
 ];
 
 function loadMigrations(db: DatabaseSync): void {

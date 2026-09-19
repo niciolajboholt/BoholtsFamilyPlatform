@@ -17,7 +17,7 @@ import {
   generateOAuthState,
   generatePkceVerifier,
 } from "../lib/oauthPkce";
-import { createSession, destroySession } from "../lib/session";
+import { createSession, destroySession, getSessionUser, markSessionReauthenticated } from "../lib/session";
 import { encryptRefreshToken } from "../lib/tokenEncryption";
 import { logError } from "../lib/structuredLog";
 
@@ -260,6 +260,233 @@ auth.get("/microsoft/callback", async (c) => {
 auth.post("/logout", async (c) => {
   await destroySession(c);
   return c.json({ ok: true });
+});
+
+// Sprint 50: gen-autentificering før en destruktiv handling (kontosletning)
+// — se accountDeletion.ts's header-kommentar for hvorfor en almindelig,
+// evt. ugedes-gammel session-cookie ikke er nok. Samme "begin -> udbyder ->
+// callback"-form som /google og /microsoft ovenfor, men: (1) kræver en
+// EKSISTERENDE gyldig session (kan ikke bruges til at logge ind), (2)
+// opdaterer den session i stedet for at oprette en ny, og (3) afviser hvis
+// den bekræftede identitet ikke er den samme konto, der allerede er logget
+// ind — man kan ikke "gen-bekræfte" som en anden bruger.
+const reauthReturnCookieName = "reauth_return_to";
+
+function safeReturnTo(value: string | undefined): string {
+  // Kun en relativ sti på samme origin — forhindrer et open redirect via en
+  // manipuleret returnTo-parameter.
+  if (!value || !value.startsWith("/") || value.startsWith("//")) {
+    return "/settings";
+  }
+  return value;
+}
+
+// returnTo kan selv indeholde en forespørgselsstreng (fx
+// "/settings?accountDeletion=confirm") — "?reauth=success" skal derfor
+// tilføjes med "&" i det tilfælde, ikke et andet "?".
+function appendReauthSuccess(returnTo: string): string {
+  return `${returnTo}${returnTo.includes("?") ? "&" : "?"}reauth=success`;
+}
+
+auth.get("/reauth/google/begin", async (c) => {
+  const user = await getSessionUser(c);
+
+  if (!user) {
+    return c.json({ error: "Ikke logget ind." }, 401);
+  }
+
+  const state = generateOAuthState();
+  const verifier = generatePkceVerifier();
+  const challenge = await derivePkceChallenge(verifier);
+
+  setCookie(c, oauthFlowCookieName, `${state}.${verifier}.${user.id}`, {
+    httpOnly: true,
+    secure: isSecureRequest(c.req.url),
+    sameSite: "Lax",
+    path: "/auth/reauth/google",
+    maxAge: oauthFlowMaxAgeSeconds,
+  });
+
+  setCookie(c, reauthReturnCookieName, safeReturnTo(c.req.query("returnTo")), {
+    httpOnly: true,
+    secure: isSecureRequest(c.req.url),
+    sameSite: "Lax",
+    path: "/auth/reauth/google",
+    maxAge: oauthFlowMaxAgeSeconds,
+  });
+
+  const redirectUri = `${new URL(c.req.url).origin}/auth/reauth/google/callback`;
+
+  const authorizeUrl = buildGoogleAuthorizeUrl({
+    clientId: c.env.GOOGLE_CLIENT_ID,
+    redirectUri,
+    state,
+    codeChallenge: challenge,
+  });
+
+  return c.redirect(authorizeUrl);
+});
+
+auth.get("/reauth/google/callback", async (c) => {
+  const code = c.req.query("code");
+  const returnedState = c.req.query("state");
+  const flowCookie = getCookie(c, oauthFlowCookieName);
+  const returnTo = safeReturnTo(getCookie(c, reauthReturnCookieName));
+
+  deleteCookie(c, oauthFlowCookieName, { path: "/auth/reauth/google" });
+  deleteCookie(c, reauthReturnCookieName, { path: "/auth/reauth/google" });
+
+  if (!code || !returnedState || !flowCookie) {
+    return c.text("Bekræftelse mangler nødvendige parametre. Prøv igen.", 400);
+  }
+
+  const [expectedState, verifier, expectedUserId] = flowCookie.split(".");
+
+  if (!expectedState || !verifier || !expectedUserId || expectedState !== returnedState) {
+    return c.text("Bekræftelse kunne ikke verificeres (forkert state). Prøv igen.", 400);
+  }
+
+  const sessionUser = await getSessionUser(c);
+
+  if (!sessionUser || sessionUser.id !== expectedUserId) {
+    return c.text("Sessionen udløb under bekræftelsen. Log ind igen, og prøv forfra.", 401);
+  }
+
+  const redirectUri = `${new URL(c.req.url).origin}/auth/reauth/google/callback`;
+
+  try {
+    const tokens = await exchangeGoogleAuthorizationCode({
+      clientId: c.env.GOOGLE_CLIENT_ID,
+      clientSecret: await c.env.GOOGLE_CLIENT_SECRET.get(),
+      redirectUri,
+      code,
+      codeVerifier: verifier,
+    });
+
+    const userInfo = await fetchGoogleUserInfo(tokens.access_token);
+
+    const matchedUser = await c.env.DB.prepare(
+      "SELECT id FROM users WHERE id = ? AND google_sub = ?",
+    )
+      .bind(expectedUserId, userInfo.sub)
+      .first<{ id: string }>();
+
+    if (!matchedUser) {
+      return c.text(
+        "Bekræftelsen var for en anden Google-konto end den, du er logget ind med.",
+        403,
+      );
+    }
+
+    await markSessionReauthenticated(c);
+
+    return c.redirect(appendReauthSuccess(returnTo));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logError("Google re-autentificering fejlede", message);
+    return c.text("Bekræftelse fejlede. Prøv igen.", 500);
+  }
+});
+
+// Samme mønster som /reauth/google ovenfor.
+auth.get("/reauth/microsoft/begin", async (c) => {
+  const user = await getSessionUser(c);
+
+  if (!user) {
+    return c.json({ error: "Ikke logget ind." }, 401);
+  }
+
+  const state = generateOAuthState();
+  const verifier = generatePkceVerifier();
+  const challenge = await derivePkceChallenge(verifier);
+
+  setCookie(c, oauthFlowCookieName, `${state}.${verifier}.${user.id}`, {
+    httpOnly: true,
+    secure: isSecureRequest(c.req.url),
+    sameSite: "Lax",
+    path: "/auth/reauth/microsoft",
+    maxAge: oauthFlowMaxAgeSeconds,
+  });
+
+  setCookie(c, reauthReturnCookieName, safeReturnTo(c.req.query("returnTo")), {
+    httpOnly: true,
+    secure: isSecureRequest(c.req.url),
+    sameSite: "Lax",
+    path: "/auth/reauth/microsoft",
+    maxAge: oauthFlowMaxAgeSeconds,
+  });
+
+  const redirectUri = `${new URL(c.req.url).origin}/auth/reauth/microsoft/callback`;
+
+  const authorizeUrl = buildMicrosoftAuthorizeUrl({
+    clientId: c.env.MICROSOFT_CLIENT_ID,
+    redirectUri,
+    state,
+    codeChallenge: challenge,
+  });
+
+  return c.redirect(authorizeUrl);
+});
+
+auth.get("/reauth/microsoft/callback", async (c) => {
+  const code = c.req.query("code");
+  const returnedState = c.req.query("state");
+  const flowCookie = getCookie(c, oauthFlowCookieName);
+  const returnTo = safeReturnTo(getCookie(c, reauthReturnCookieName));
+
+  deleteCookie(c, oauthFlowCookieName, { path: "/auth/reauth/microsoft" });
+  deleteCookie(c, reauthReturnCookieName, { path: "/auth/reauth/microsoft" });
+
+  if (!code || !returnedState || !flowCookie) {
+    return c.text("Bekræftelse mangler nødvendige parametre. Prøv igen.", 400);
+  }
+
+  const [expectedState, verifier, expectedUserId] = flowCookie.split(".");
+
+  if (!expectedState || !verifier || !expectedUserId || expectedState !== returnedState) {
+    return c.text("Bekræftelse kunne ikke verificeres (forkert state). Prøv igen.", 400);
+  }
+
+  const sessionUser = await getSessionUser(c);
+
+  if (!sessionUser || sessionUser.id !== expectedUserId) {
+    return c.text("Sessionen udløb under bekræftelsen. Log ind igen, og prøv forfra.", 401);
+  }
+
+  const redirectUri = `${new URL(c.req.url).origin}/auth/reauth/microsoft/callback`;
+
+  try {
+    const tokens = await exchangeMicrosoftAuthorizationCode({
+      clientId: c.env.MICROSOFT_CLIENT_ID,
+      clientSecret: await c.env.MICROSOFT_CLIENT_SECRET.get(),
+      redirectUri,
+      code,
+      codeVerifier: verifier,
+    });
+
+    const userInfo = await fetchMicrosoftUserInfo(tokens.access_token);
+
+    const matchedUser = await c.env.DB.prepare(
+      "SELECT id FROM users WHERE id = ? AND microsoft_sub = ?",
+    )
+      .bind(expectedUserId, userInfo.sub)
+      .first<{ id: string }>();
+
+    if (!matchedUser) {
+      return c.text(
+        "Bekræftelsen var for en anden Microsoft-konto end den, du er logget ind med.",
+        403,
+      );
+    }
+
+    await markSessionReauthenticated(c);
+
+    return c.redirect(appendReauthSuccess(returnTo));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logError("Microsoft re-autentificering fejlede", message);
+    return c.text("Bekræftelse fejlede. Prøv igen.", 500);
+  }
 });
 
 export default auth;
