@@ -1,6 +1,27 @@
 # Projektstatus
 
-Senest opdateret: 2026-09-09
+Senest opdateret: 2026-09-19
+
+> **Opdatering 2026-09-19 (Sprint 49):** "Aktuel fase" og "Leveret" nedenfor
+> er IKKE genskrevet siden 2026-09-09 og dækker derfor stadig kun til og med
+> Sprint 37 — de nævner hverken måltidsplan, lommepenge, fødselsdage/gaver,
+> fællesøkonomi, kiosk-dashboard, iCloud-kalender eller Microsoft-login,
+> selvom alle disse (undtagen danske skoleferier, se nedenfor) er
+> implementeret og merget til `main`. [CHANGELOG.md](CHANGELOG.md) ER
+> løbende ajourført til og med Sprint 49 og er den autoritative,
+> sprint-for-sprint kilde — brug den, ikke "Leveret"-listen nedenfor, ved
+> tvivl om hvad der reelt er bygget. Kort status pr. 2026-09-19:
+>
+> - **Implementeret og på `main`:** måltidsplan (Sprint 38), lommepenge/
+>   opgavebelønning (39), fødselsdage/gaveplaner (40), fællesøkonomi (41),
+>   kiosk-dashboard (43), iCloud CalDAV (47), Microsoft-login (48 Del A/C).
+> - **Ikke implementeret:** danske skoleferier (Sprint 42 — kun research,
+>   ingen kode), Apple-login (Sprint 48 Del B), native iOS-app (Sprint 46,
+>   kun plan).
+> - **Midlertidigt deaktiveret i produktion:** Outlook-kalenderintegration
+>   (koden findes, men er slået fra pga. en Azure-tenant-begrænsning).
+> - Se `01_Project_Documentation/Development/49_Sprint49_Hjemmecentralen_Launch_Prep_Plan.md`
+>   for den fulde verifikation bag disse punkter.
 
 > Den autoritative fase-for-fase-plan og levende status findes i
 > [`30_Stabilization_Execution_Plan.md`](01_Project_Documentation/Development/30_Stabilization_Execution_Plan.md).
@@ -10,7 +31,7 @@ Senest opdateret: 2026-09-09
 > [CHANGELOG.md](CHANGELOG.md) for den løbende, sprint-for-sprint-opdaterede
 > liste.
 
-## Aktuel fase
+## Aktuel fase (historisk — se opdateringsboksen ovenfor for nutidig status)
 
 Sprint 37 (se
 [37_Sprint37_Sikkerhed_Kodekvalitet_Plan.md](01_Project_Documentation/Development/37_Sprint37_Sikkerhed_Kodekvalitet_Plan.md))

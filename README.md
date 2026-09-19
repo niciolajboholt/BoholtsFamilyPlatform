@@ -1,16 +1,23 @@
-# Boholts Family Platform
+# Hjemmecentralen (kodenavn: Boholts Family Platform)
 
-Boholts Family Platform er en Apple-first familieplatform, som samler
-familiens aftaler, indkøbslister og opgaver i én mobilvenlig webapp — delt
-på tværs af familiemedlemmernes devices.
+Hjemmecentralen er en Apple-first familieplatform, som samler familiens
+aftaler, indkøbslister og opgaver i én mobilvenlig webapp — delt på tværs
+af familiemedlemmernes devices. "Boholts Family Platform" er det oprindelige
+interne navn — det lever videre i repositoryets navn, Cloudflare Worker- og
+D1-ressourcenavne og OAuth-konfiguration (se `05_App/web/wrangler.jsonc`),
+som ikke omdøbes uden en separat migrationsplan.
 
 ## Aktuel status
 
 Platformen er en Cloudflare Worker (Hono) med en D1-database og en
 React/TypeScript/Vite-klient (ADR-017, Sprint 20). Leveret indtil videre:
 
-- Server-ejet Google-login (PKCE, krypteret refresh token i D1) og
-  Outlook-kalenderintegration (MSAL, klient-side).
+- Server-ejet login med Google eller Microsoft (PKCE, krypterede tokens i
+  D1, Sprint 48). Outlook-KALENDER-integrationen (MSAL, klient-side) findes
+  i koden, men er for øjeblikket midlertidigt slået fra pga. en
+  Azure-tenant-begrænsning.
+- iCloud-kalender via CalDAV (app-specifik adgangskode, krypteret
+  server-side) og read-only ICS-kalenderabonnementer (Sprint 47).
 - Familier: oprettelse, invitationer, medlemskab (ejer/admin/medlem).
 - Måneds-, uge- og dagsvisning af kalenderaftaler — alle aftaler ejes af en
   ekstern kalender (Google/Outlook).
@@ -34,9 +41,20 @@ React/TypeScript/Vite-klient (ADR-017, Sprint 20). Leveret indtil videre:
   tidspunkt indtræffer (Sprint 27).
 - Et AI-genereret ugentligt familieresumé, sendt automatisk hver søndag
   (Sprint 28).
-- Sikkerhedshærdning: CSP og andre sikkerhedsheaders, rate-limiting på
-  AI-ruter/push-abonnement/delelinks, migrations-synlighed i `/api/health`,
-  global Error Boundary (Sprint 29).
+- Sikkerhedshærdning: CSP og andre sikkerhedsheaders (både på API'et via
+  Hono-middleware og på den statiske appskal via `public/_headers`),
+  rate-limiting på AI-ruter/push-abonnement/delelinks, migrations-synlighed
+  i `/api/health`, global Error Boundary (Sprint 29, udvidet Sprint 49).
+- Måltidsplanlægning med AI-genererede indkøbsforslag (Sprint 38).
+- Opgavebelønning/lommepenge med saldo-overblik pr. barn (Sprint 39).
+- Fødselsdage og gaveidé-planlægning (Sprint 40).
+- Fællesøkonomi (delte udgifter) mellem forældre (Sprint 41).
+- Kiosk-dashboard: en navigationsfri visning af dagens aftaler, opgaver og
+  indkøbsliste (Sprint 43).
+
+Danske skoleferier (Sprint 42) er kun research, ikke bygget. Native
+iOS-app (Sprint 46) og Apple-login findes kun som plan. Se
+[CHANGELOG.md](CHANGELOG.md) for den fulde, løbende sprint-for-sprint-liste.
 
 Se [AI Knowledge Base](01_Project_Documentation/AI_Knowledge_Base/00_README.md)
 for projektets historik, arkitektur og beslutninger, og

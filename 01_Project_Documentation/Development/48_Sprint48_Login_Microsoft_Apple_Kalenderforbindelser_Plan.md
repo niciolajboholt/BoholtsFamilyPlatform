@@ -15,11 +15,14 @@ Maintained by:
 Claude
 
 Status:
-Del A (Microsoft-login) implementeret lokalt (kode + migration +
-tests grønne) — afventer PR/Beta-deploy samt at Nicolaj opretter den nye
-Azure-app-registrering og indsætter det rigtige klient-id/-hemmelighed
-(wrangler.jsonc har placeholder-værdier indtil da). Del B og C er endnu
-ikke påbegyndt.
+**Del A (Microsoft-login) og Del C (ensrettede kalenderforbindelser) er
+implementeret og merget til `main`** (PR #229–#233, commits `56a3bdd`,
+`c78a753`, `67039d5`, `9d0e888`) — inklusive et rigtigt Microsoft-
+klient-id i `wrangler.jsonc` (ikke længere placeholder). **Del B
+(Apple-login) er ikke påbegyndt** — login-sidens Apple-knap er bevidst
+`disabled` med badge "Kommer senere". Denne statuslinje stod fejlagtigt
+som "afventer PR/Beta-deploy" indtil 2026-09-19 (Sprint 49-oprydning) —
+se `49_Sprint49_Hjemmecentralen_Launch_Prep_Plan.md`, afsnit A5.
 
 ---
 

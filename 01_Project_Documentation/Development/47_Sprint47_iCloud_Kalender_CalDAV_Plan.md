@@ -15,7 +15,11 @@ Maintained by:
 Claude
 
 Status:
-Idé-/planlægningsstadie — intet af nedenstående er påbegyndt endnu.
+**Implementeret og merget til `main`** (PR #225/#226, commits `1198a0c`,
+`f487086`, `fa51c46`, `dd6b34f`). Denne statuslinje stod fejlagtigt som
+"Idé-/planlægningsstadie" indtil 2026-09-19 (Sprint 49-oprydning), selvom
+funktionen var færdigbygget — se
+`49_Sprint49_Hjemmecentralen_Launch_Prep_Plan.md`, afsnit A5.
 
 ---
 
