@@ -1,5 +1,31 @@
 # Changelog
 
+## Sprint 50 — Fuld dataeksport og kontosletning
+
+> Se `01_Project_Documentation/Development/50_Sprint50_Fuld_Dataeksport_Kontosletning_Plan.md`
+> for den fulde plan, de fire produktbeslutninger og deres svar.
+
+- **Implementeret:** server-side dataeksport, `GET /api/families/:id/export`
+  — ejeren får en fuld kopi af familiens data (inkl. andre medlemmers
+  navn/e-mail), et almindeligt medlem kun sin egen konto plus egen
+  kalender/opgaver. Krypterede felter (OAuth-tokens, iCloud-appkodeord) er
+  aldrig med.
+- **Implementeret:** to-trins konto-/familiesletning med
+  gen-autentificering (`/auth/reauth/google` og `/auth/reauth/microsoft`,
+  migration 0031) og 30 dages fortrydelsesperiode, før noget rent faktisk
+  fjernes. En slettet brugers opgaver/udgifter bevares og vises som
+  "Tidligere medlem"; en ejer kan i stedet vælge at slette hele familien
+  (alt familiens data, permanent, efter fortrydelsesperioden). Purge kører
+  på den eksisterende daglige Cron Trigger — ingen ny cron oprettet.
+- **Implementeret:** UI i Indstillinger → Konto og data
+  (`AccountDataSection.tsx`) til at downloade familiedata, anmode om
+  kontosletning eller familiesletning, og fortryde en igangværende
+  anmodning.
+- **Implementeret, mangler manuel verifikation:** en reel OAuth-
+  gen-autentificerings-roundtrip og en reel purge-kørsel mod beta-miljøet
+  (kunne ikke afprøves fra udviklingsmiljøet — kun automatiserede
+  enheds-/rutetests, se plandokumentets "Manuelt opfølgningspunkt").
+
 ## Sprint 49 — Klargøring til Hjemmecentralen-lancering
 
 > Se `01_Project_Documentation/Development/49_Sprint49_Hjemmecentralen_Launch_Prep_Plan.md`

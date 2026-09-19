@@ -15,11 +15,16 @@ Maintained by:
 Claude
 
 Status:
-Idé-/planlægningsstadie — intet af nedenstående er påbegyndt. Skrevet som
-opfølgning på Sprint 49's privatlivspolitik-korrektion, som afdækkede at
-den nuværende "Eksportér data"-funktion kun dækker lokale enheds-data, og
-at der slet ikke findes en kontosletningsfunktion (se
-`49_Sprint49_Hjemmecentralen_Launch_Prep_Plan.md`, afsnit A2).
+Implementeret 2026-09-19. Nicolaj besvarede planens fire åbne
+produktbeslutninger (se afsnittet nedenfor, nu markeret med svar), og
+implementeringen fulgte den foreslåede tekniske tilgang uændret:
+server-side dataeksport (migration 0031, `server/lib/dataExport.ts`,
+`GET /api/families/:id/export`), og et to-trins konto-/familiesletnings-
+flow med gen-autentificering (`server/lib/accountDeletion.ts`,
+`POST /api/account/deletion/*` og `POST /api/families/:id/deletion/*`),
+30 dages fortrydelsesperiode (purge kører på den eksisterende daglige
+Cron Trigger) og UI i Indstillinger (`AccountDataSection.tsx`). Se
+`CHANGELOG.md` for commit-detaljer.
 
 ---
 
@@ -116,19 +121,28 @@ sletter sig selv.
 
 ---
 
-## Åbne produktbeslutninger (kræver Nicolajs svar før kodning)
+## Åbne produktbeslutninger — besvaret af Nicolaj 2026-09-19
 
 1. Hvad sker der med en opgave/udgift, en slettet bruger har oprettet, men
    som stadig er relevant for resten af familien — slettes den, eller
    forbliver den med brugeren vist som "Tidligere medlem"?
+   **Svar: forbliver, vises som "Tidligere medlem".** Implementeret ved at
+   `purgeExpiredDeletions()` anonymiserer (ikke sletter) `users`-rækken
+   ved purge — se `accountDeletion.ts`.
 2. Skal en ejer kunne slette hele familien (alle medlemmers data), eller
-   kun sig selv?
+   kun sig selv? **Svar: begge flows.** Begge er bygget — se
+   `requestAccountDeletion()`/`requestFamilyDeletion()`.
 3. Skal eksporten inkludere andre familiemedlemmers personoplysninger
    (navn, e-mail), eller kun den anmodende brugers egne data plus
    ikke-personhenførbar familiedata (opgavetekster, indkøbsvarer)?
+   **Svar: afhænger af rollen** — ejeren kan eksportere hele familien
+   (inkl. andre medlemmers navn/e-mail), et almindeligt medlem kun sin
+   egen konto plus egen kalender/opgaver. Se `dataExport.ts`'s
+   `buildFamilyExport()` vs. `buildMemberExport()`.
 4. Opbevaringsfrist: skal en slettet konto/familie kunne gendannes inden
    for en periode (fx 30 dage, som mange tjenester tilbyder), eller
-   slettes data øjeblikkeligt og permanent?
+   slettes data øjeblikkeligt og permanent? **Svar: 30 dage.** Se
+   `DELETION_RETENTION_DAYS` i `accountDeletion.ts`.
 
 ---
 
@@ -147,8 +161,15 @@ sletter sig selv.
 
 ---
 
-## Eksplicit ikke besluttet af dette dokument
+## Manuelt opfølgningspunkt
 
-Dette dokument anbefaler en tilgang, men træffer IKKE selv beslutningen om
-at bygge den. Implementering afventer Nicolajs godkendelse af omfanget og
-svar på de åbne produktbeslutninger ovenfor.
+Live header-/flow-verifikation mod beta-miljøet (rigtig OAuth-roundtrip
+for gen-autentificering, rigtig purge via den daglige Cron Trigger) kunne
+ikke køres fra denne sandbox — kun automatiserede enheds-/rutetests (17 +
+8 + 8 nye tests, se `server/lib/accountDeletion.test.ts`,
+`server/routes/account.test.ts`,
+`server/routes/familyRoutes/familyDeletion.test.ts`). Anbefalet manuelt
+tjek efter deploy: opret en testfamilie i beta, bed om kontosletning,
+bekræft at man logges ud og kan fortryde ved login, og at
+`/api/families/:id/export` giver et brugbart JSON-svar for både ejer og
+medlem.
