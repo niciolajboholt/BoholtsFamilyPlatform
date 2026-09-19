@@ -7,6 +7,7 @@ import {
   RestaurantMenuRounded,
   SettingsRounded,
   ShoppingCartOutlined,
+  WbSunnyRounded,
 } from "@mui/icons-material";
 import {
   AppBar,
@@ -59,6 +60,7 @@ const navItems: NavItem[] = [
   { path: "/shopping-list", label: "Indkøb", icon: <ShoppingCartOutlined />, featureKey: "shopping-list" },
   { path: "/meal-plan", label: "Måltider", icon: <RestaurantMenuRounded />, featureKey: "meal-plan" },
   { path: "/tasks", label: "Opgaver", icon: <CheckCircleOutlineRounded />, featureKey: "tasks" },
+  { path: "/mit-i-dag", label: "Mit i dag", icon: <WbSunnyRounded />, featureKey: "mit-i-dag" },
   { path: "/settings", label: "Indstillinger", icon: <SettingsRounded /> },
 ];
 

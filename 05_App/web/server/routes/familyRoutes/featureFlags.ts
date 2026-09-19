@@ -24,6 +24,7 @@ export const knownFeatureKeys = [
   "birthdays",
   "shared-expenses",
   "kiosk",
+  "mit-i-dag",
 ] as const;
 
 export type FeatureKey = (typeof knownFeatureKeys)[number];
