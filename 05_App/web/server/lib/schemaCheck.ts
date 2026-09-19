@@ -38,6 +38,7 @@ const expectedTables = [
   "calendar_activity_log",
   "icloud_calendar_connections",
   "icloud_calendar_sync_state",
+  "deletion_requests",
 ] as const;
 
 // Kolonner tilføjet via ALTER TABLE på en allerede eksisterende tabel —
@@ -54,6 +55,9 @@ const expectedColumns = [
   { table: "google_connections", column: "cached_access_token" },
   { table: "google_connections", column: "access_token_expires_at" },
   { table: "users", column: "microsoft_sub" },
+  { table: "users", column: "deleted_at" },
+  { table: "families", column: "deleted_at" },
+  { table: "sessions", column: "reauthenticated_at" },
 ] as const;
 
 export interface SchemaCheckResult {

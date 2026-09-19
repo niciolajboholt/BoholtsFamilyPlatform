@@ -42,4 +42,28 @@ describe("checkSchema", () => {
     expect(result.missingTables).toContain("tasks");
     expect(result.missingColumns).toEqual([]);
   });
+
+  it("detects a missing Sprint 50 deletion_requests table", async () => {
+    const env = createFakeEnv();
+    await env.DB.prepare("DROP TABLE deletion_requests").run();
+
+    const result = await checkSchema(env.DB);
+
+    expect(result.ok).toBe(false);
+    expect(result.missingTables).toContain("deletion_requests");
+  });
+
+  it.each([
+    ["users", "deleted_at"],
+    ["families", "deleted_at"],
+    ["sessions", "reauthenticated_at"],
+  ])("detects a missing Sprint 50 column %s.%s", async (table, column) => {
+    const env = createFakeEnv();
+    await env.DB.prepare(`ALTER TABLE ${table} DROP COLUMN ${column}`).run();
+
+    const result = await checkSchema(env.DB);
+
+    expect(result.ok).toBe(false);
+    expect(result.missingColumns).toContain(`${table}.${column}`);
+  });
 });

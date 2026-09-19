@@ -175,13 +175,14 @@ function PrivacyContent() {
         Du kan downloade en lokal sikkerhedskopi fra Indstillinger
         ("Data & backup"). Den indeholder de indstillinger og den
         kalender-cache, der ligger på din egen enhed (se "Lokale caches og
-        offline-data" ovenfor) — ikke familiens data i appens database
-        (opgaver, indkøbslister, måltidsplaner, fødselsdage, fællesøkonomi
-        med videre). Der findes i dag ingen selvbetjent funktion til at
-        eksportere eller slette denne serverdata. Ønsker du en fuld kopi af
-        dine data, eller ønsker du dem slettet, kan du kontakte os som
-        beskrevet under "Kontakt" — vi behandler og bekræfter sådanne
-        anmodninger manuelt.
+        offline-data" ovenfor). Samme sted kan et familiemedlem downloade
+        en maskinlæsbar kopi af sine egne serverdata. Familiens ejer kan
+        downloade familiens delte data, inklusive medlemmernes navn og
+        e-mail. Eksporten indeholder ikke adgangstokens, adgangskoder,
+        sessionsdata, aktive delelinktokens eller fulde hemmelige
+        kalenderabonnements-links; for forbindelser medtages kun sikker
+        metadata. Du kan også kontakte os som beskrevet under "Kontakt",
+        hvis du har spørgsmål til eller brug for hjælp med en eksport.
       </Section>
       <Section title="Dine valg og sletning">
         Du kan til enhver tid afbryde appens adgang til din Google- eller
@@ -198,8 +199,17 @@ function PrivacyContent() {
         ICS-kalenderforbindelse, og tilbagekalde delelinks — alt sammen fra
         Indstillinger. At fjerne en kalenderforbindelse sletter kun appens
         egen kobling (token/mapping); selve kalenderdata hos Google,
-        Microsoft eller Apple berøres ikke. Ønsker du dine data i appens
-        database slettet, se "Eksport af data" ovenfor.
+        Microsoft eller Apple berøres ikke. Fra Indstillinger kan du også
+        anmode om at få din konto slettet. Det kræver en frisk bekræftelse
+        af din Google- eller Microsoft-identitet og en eksplicit
+        bekræftelsestekst. Ejer du en aktiv familie, skal du først overdrage
+        ejerskabet eller vælge det særskilte flow til at slette hele
+        familien. Kontoen eller familien skjules med det samme, men kan
+        gendannes i 30 dage; derefter anonymiseres kontoen eller familiens
+        data slettes permanent. Historiske opgaver og udgifter, som andre
+        familiemedlemmer fortsat bruger, bevares med afsenderen vist som
+        "Tidligere medlem". Sletning i Hjemmecentralen ændrer ikke dine
+        kalenderdata hos Google, Microsoft eller Apple.
       </Section>
       <Section title="Overholdelse af Googles krav">
         Hjemmecentralens (tidligere Boholts Family Platforms) brug og
@@ -245,9 +255,12 @@ function TermsContent() {
       </Section>
       <Section title="Dataeksport og -sletning">
         Du kan downloade en lokal sikkerhedskopi af dine enheds-indstillinger
-        fra Indstillinger. En selvbetjent eksport eller sletning af familiens
-        data i appens database findes endnu ikke — se privatlivspolitikkens
-        afsnit "Eksport af data" for, hvordan du i stedet anmoder om det.
+        samt en rollebegrænset eksport af serverdata fra Indstillinger. Du
+        kan samme sted anmode om sletning af din konto, og familiens ejer kan
+        anmode om sletning af hele familien. Destruktive handlinger kræver
+        frisk genautentificering og eksplicit bekræftelse og har 30 dages
+        fortrydelsesperiode. Se privatlivspolitikkens afsnit "Eksport af
+        data" og "Dine valg og sletning" for omfang og undtagelser.
       </Section>
       <Section title="Begrænsning">
         Appen leveres som et praktisk familie-værktøj. Kritiske aftaler og
