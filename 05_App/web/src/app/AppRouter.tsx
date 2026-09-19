@@ -13,6 +13,7 @@ const CalendarPage = lazy(() => import('../pages/CalendarPage'))
 const ShoppingListPage = lazy(() => import('../pages/ShoppingListPage'))
 const MealPlanPage = lazy(() => import('../pages/MealPlanPage'))
 const TasksPage = lazy(() => import('../pages/TasksPage'))
+const MitIDagPage = lazy(() => import('../pages/MitIDagPage'))
 const SettingsPage = lazy(() => import('../pages/SettingsPage'))
 const PublicSharedCalendarPage = lazy(() => import('../pages/PublicSharedCalendarPage'))
 const KioskPage = lazy(() => import('../pages/KioskPage'))
@@ -48,6 +49,7 @@ export function AppRouter() {
             <Route path="shopping-list" element={<ShoppingListPage />} />
             <Route path="meal-plan" element={<MealPlanPage />} />
             <Route path="tasks" element={<TasksPage />} />
+            <Route path="mit-i-dag" element={<MitIDagPage />} />
             <Route path="settings" element={<SettingsPage />} />
           </Route>
 

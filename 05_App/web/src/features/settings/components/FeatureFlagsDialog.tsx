@@ -7,6 +7,7 @@ import {
   SavingsRounded,
   ShoppingCartOutlined,
   TvRounded,
+  WbSunnyRounded,
 } from "@mui/icons-material";
 import {
   Avatar,
@@ -90,6 +91,13 @@ const features: FeatureDefinition[] = [
     description: "En skrivebeskyttet oversigt til en fast skærm i køkkenet.",
     color: "#5E6B78",
     icon: <TvRounded />,
+  },
+  {
+    key: "mit-i-dag",
+    title: "Mit i dag",
+    description: "Et enkelt dagsoverblik pr. familiemedlem — næste aktivitet og dagens opgaver.",
+    color: "#D9944F",
+    icon: <WbSunnyRounded />,
   },
 ];
 
