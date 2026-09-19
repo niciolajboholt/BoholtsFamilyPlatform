@@ -15,8 +15,10 @@ Maintained by:
 Claude
 
 Status:
-Idé-/planlægningsstadie — intet af nedenstående er påbegyndt. Arbejdstitel:
-**Barnets Hjemmecentral**.
+Aktiv roadmap. Første afgrænsede leverance, **"Mit i dag" + "Se som
+barn"-forhåndsvisning**, blev implementeret i Sprint 52 og efterfølgende
+hardnet 2026-09-19. PIN-baseret børneadgang og de øvrige faser nedenfor er
+fortsat ikke implementeret. Arbejdstitel: **Barnets Hjemmecentral**.
 
 ---
 
@@ -29,7 +31,9 @@ overblik, en tryg og enkel adgangsmodel for et barn, og en guidet vej til
 at forbinde eksterne, børnerelevante kalendere (skole/fritid), uden at
 kopiere andre produkters konkrete design eller kode.
 
-Dette dokument er KUN en plan. Ingen kode er skrevet.
+Dette dokument er den overordnede roadmap. Implementerede dele beskrives i
+egne sprintplaner; se
+`52_Sprint52_Mit_I_Dag_Se_Som_Barn_Plan.md` for første leverance.
 
 ---
 
@@ -140,10 +144,12 @@ ikke antages eller påbegyndes uden en selvstændig, ny beslutning:
 1. Produktafklaring af de åbne spørgsmål ovenfor (adgangsmodel for børn,
    besked-omfang, hvor meget er konfigurerbart pr. barn) — kræver
    Nicolajs beslutning, ikke en teknisk plan.
-2. "Mit i dag" + næste aktivitet, som ren visning oven på eksisterende
-   data (laveste risiko — ingen ny skrive-adgang, kun et nyt filter/UI).
-3. Sikker børneadgang ("Se som barn" til forældre bygges typisk først,
-   som et internt værktøj, før et selvstændigt barne-login).
+2. **Implementeret i Sprint 52:** "Mit i dag" + næste aktivitet oven på
+   eksisterende data. Nicolaj godkendte i den særskilte sprintplan, at
+   egne/fælles opgaver må afkrydses fra siden; ingen øvrig skriveadgang.
+3. **Delvist implementeret:** "Se som barn" findes som forhåndsvisning for
+   en allerede logget ind voksen. Sikker, selvstændig børneadgang med en
+   firecifret kode pr. barn er fortsat en senere, selvstændig sprint.
 4. Skabeloner til faste rutiner (morgenrutine mv.).
 5. Oplæsning (isoleret, lav risiko — kun klient-side Web Speech API).
 6. Valgfrit point-/mållag oven på lommepenge.

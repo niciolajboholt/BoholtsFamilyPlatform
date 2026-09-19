@@ -19,6 +19,11 @@ Implementeret 2026-09-19. Første konkrete skridt af
 `51_Barnets_Hjemmecentral_Plan.md`s fase 2 ("Mit i dag") og fase 3's
 anbefalede rækkefølge ("Se som barn" bygges før et rigtigt barne-login) —
 se "Beslutninger" nedenfor for hvordan Nicolaj skar omfanget til.
+Hardening-gennemgang samme dag lukkede privatlivs-, datadæknings- og
+driftsproblemer: private aftaler følger nu appens eksisterende
+"Optaget"-regel, fælles/multi-person-aktiviteter indgår, visningen
+opdaterer tiden og dagen automatisk, og siden har målrettede unit-/E2E-
+og tilgængelighedstests.
 
 ---
 
@@ -101,11 +106,14 @@ medlems-pillevælger) lavet og vist frem. Nicolajs svar:
 
 ## Teststrategi
 
-- Ingen sider i `src/pages/` har i dag en `.test.tsx`-modstykke (kun
-  TypeScript + ESLint + Playwright-e2e-smoke dækker dem) — "Mit i dag"
-  følger samme, eksisterende konvention, ingen ny testkonvention indført.
-- `npx tsc -b --force` og `npm run lint` skal være rene (samme bar som
-  alle tidligere sprints).
+- `mitIDagUtils.test.ts` dækker egne, fælles og flerpersoners aftaler,
+  privatlivsredigering ud fra den faktiske seer, familieopgaver, udløbne
+  aftaler og datonøgle til midnatsopdatering.
+- Playwright-smoke dækker "Mit i dag" som primær side: opgaveafkrydsning,
+  fællesopgaver, privat aftaletitel, navngivne kontroller, WCAG 2.0/2.1
+  A/AA, tastaturadgang og den understøttede mobile breddematrix.
+- `npm test`, `npm run lint`, `npm run build` og
+  `npm run worker:types:check` skal være rene.
 - Manuel verifikation anbefalet: slå "Mit i dag" til under Indstillinger
   → Flere funktioner, åbn siden, skift mellem mindst to medlemmer, afkryds
   en opgave og genindlæs siden for at bekræfte den forbliver afkrydset
