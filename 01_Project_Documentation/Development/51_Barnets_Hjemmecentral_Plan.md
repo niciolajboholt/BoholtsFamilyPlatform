@@ -17,9 +17,10 @@ Claude
 Status:
 Aktiv roadmap. Første afgrænsede leverance, **"Mit i dag" + "Se som
 barn"-forhåndsvisning**, blev implementeret i Sprint 52 og efterfølgende
-hardnet 2026-09-19. Faste rutineskabeloner (Fase 4, se
-`54_Sprint54_Rutineskabeloner_Plan.md`) blev implementeret 2026-09-19.
-PIN-baseret børneadgang og de øvrige faser nedenfor er fortsat ikke
+hardnet 2026-09-19. PIN-baseret børneadgang (Fase 3, se
+`53_Sprint53_Barn_Pinkode_Adgang_Plan.md`) og faste rutineskabeloner
+(Fase 4, se `54_Sprint54_Rutineskabeloner_Plan.md`) blev begge
+implementeret 2026-09-19. De øvrige faser nedenfor er fortsat ikke
 implementeret. Arbejdstitel: **Barnets Hjemmecentral**.
 
 ---
@@ -149,9 +150,10 @@ ikke antages eller påbegyndes uden en selvstændig, ny beslutning:
 2. **Implementeret i Sprint 52:** "Mit i dag" + næste aktivitet oven på
    eksisterende data. Nicolaj godkendte i den særskilte sprintplan, at
    egne/fælles opgaver må afkrydses fra siden; ingen øvrig skriveadgang.
-3. **Delvist implementeret:** "Se som barn" findes som forhåndsvisning for
-   en allerede logget ind voksen. Sikker, selvstændig børneadgang med en
-   firecifret kode pr. barn er fortsat en senere, selvstændig sprint.
+3. **Implementeret i Sprint 53:** sikker, selvstændig børneadgang med et
+   link + en firecifret kode pr. barn, se
+   `53_Sprint53_Barn_Pinkode_Adgang_Plan.md`. "Se som barn" (forælderens
+   forhåndsvisning fra Sprint 52) findes fortsat separat, uændret.
 4. **Implementeret i Sprint 54:** faste skabeloner (morgenrutine,
    skoletaske, tandbørstning, sengetid), der udfylder den eksisterende
    rutine-editor — se `54_Sprint54_Rutineskabeloner_Plan.md`.

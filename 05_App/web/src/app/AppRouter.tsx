@@ -17,6 +17,7 @@ const MitIDagPage = lazy(() => import('../pages/MitIDagPage'))
 const SettingsPage = lazy(() => import('../pages/SettingsPage'))
 const PublicSharedCalendarPage = lazy(() => import('../pages/PublicSharedCalendarPage'))
 const KioskPage = lazy(() => import('../pages/KioskPage'))
+const ChildAccessPage = lazy(() => import('../pages/ChildAccessPage'))
 const LegalPage = lazy(() => import('../pages/LegalPage'))
 
 function RouteLoadingFallback() {
@@ -40,6 +41,10 @@ export function AppRouter() {
               (useSession) og forbliver bag login, i modsætning til
               delelinket ovenfor. */}
           <Route path="kiosk" element={<KioskPage />} />
+          {/* Sprint 53: børneadgang på en ikke-logget-ind enhed — egen
+              child_session-cookie (lib/childSession.ts), intet med
+              AppLayouts users/sessions-login-gate at gøre. */}
+          <Route path="barn/:token" element={<ChildAccessPage />} />
           <Route path="privacy" element={<LegalPage kind="privacy" />} />
           <Route path="terms" element={<LegalPage kind="terms" />} />
 

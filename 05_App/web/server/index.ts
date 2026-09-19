@@ -6,6 +6,7 @@ import activityRoutes from "./routes/activity";
 import authRoutes from "./routes/auth";
 import apiRoutes from "./routes/api";
 import calendarRoutes from "./routes/calendar";
+import childAccessRoutes from "./routes/childAccess";
 import eventRemindersRoutes from "./routes/eventReminders";
 import feedbackRoutes from "./routes/feedback";
 import familiesRoutes from "./routes/families";
@@ -17,6 +18,7 @@ import tasksRoutes from "./routes/tasks";
 import { purgeExpiredDeletions } from "./lib/accountDeletion";
 import { sendDueBirthdayReminders } from "./lib/birthdayReminders";
 import { cleanupOldCalendarActivity, syncCalendarActivity } from "./lib/calendarActivitySync";
+import { cleanupExpiredChildSessions } from "./lib/childSession";
 import { sendDueEventReminders } from "./lib/eventReminders";
 import { cleanupOldRateLimitAttempts } from "./lib/rateLimit";
 import { checkSchema } from "./lib/schemaCheck";
@@ -81,6 +83,10 @@ app.route("/api/feedback", feedbackRoutes);
 // Sprint 26: bevidst UDEN FOR /api/families's session-krav — se
 // publicCalendar.ts's egen kommentar. Eneste uautentificerede API-rute.
 app.route("/api/public", publicCalendarRoutes);
+// Sprint 53: børneadgang på en ikke-logget-ind enhed — egen auth-model
+// (child_session-cookie), derfor uden for /api/families's users/sessions-
+// krav. Se routes/childAccess.ts's egen kommentar for detaljer.
+app.route("/api/child", childAccessRoutes);
 
 // Beviser at Worker + D1 hænger rigtigt sammen efter en deploy (Fase 0) —
 // resten af familie/kalender-ruterne kommer i senere faser.
@@ -145,6 +151,7 @@ export default {
     }
 
     ctx.waitUntil(cleanupExpiredSessions(env));
+    ctx.waitUntil(cleanupExpiredChildSessions(env));
     ctx.waitUntil(cleanupOldRateLimitAttempts(env.DB));
     ctx.waitUntil(cleanupOldCalendarActivity(env.DB));
     ctx.waitUntil(sendDueBirthdayReminders(env));

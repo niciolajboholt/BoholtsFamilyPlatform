@@ -56,6 +56,11 @@ export const FAMILY_EXPORT_POLICY = {
     "calendar_event_snapshots",
     "icloud_calendar_sync_state",
     "deletion_requests",
+    // Sprint 53: en aktiv børneadgangs-login-session (child_sessions) er
+    // regenererbar driftsdata på samme måde som "sessions" nedenfor, ikke
+    // brugerens portable familiedata — og indeholder ingen data ud over et
+    // sessions-id og udløbstidspunkt.
+    "child_sessions",
   ],
   nonFamilyTables: [
     "users",
