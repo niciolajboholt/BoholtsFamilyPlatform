@@ -640,6 +640,7 @@ export const featureKeys = [
   "birthdays",
   "shared-expenses",
   "kiosk",
+  "mit-i-dag",
 ] as const;
 
 export type FeatureKey = (typeof featureKeys)[number];
