@@ -1,5 +1,21 @@
 # Changelog
 
+## Sprint 53 — Sikker børneadgang med PIN-kode (Fase 3)
+
+> Se `01_Project_Documentation/Development/53_Sprint53_Barn_Pinkode_Adgang_Plan.md`
+> for den fulde plan og enheds-modelbeslutningen.
+
+- **Implementeret:** et barn kan åbne "Mit i dag" på sin egen, aldrig
+  logget-ind enhed via `/barn/:token` — et ugætteligt link + en 4-cifret
+  PIN-kode, uden Google-/Microsoft-/iCloud-login og uden en ny, fuld
+  kontotype. En separat `child_session`-cookie (migration 0032) holder
+  login ved siden af den almindelige users/sessions-model.
+- **Implementeret:** ejer/admin kan generere/rotere linket og sætte/rydde
+  PIN-koden pr. familiemedlem fra "Rediger familiemedlem".
+- **Afgrænset i v1:** kun dagens egne opgaver (afkrydsning inkl.
+  lommepenge-bogføring) — ingen kalenderaftaler, da de i dag hentes med
+  den indloggede voksnes eget OAuth-token, som en ny enhed ikke har.
+
 ## Sprint 52 — Mit i dag / Se som barn
 
 - **Implementeret:** valgfri "Mit i dag"-side med medlemsvælger, næste
