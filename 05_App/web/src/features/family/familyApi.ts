@@ -657,3 +657,47 @@ export function setFeatureEnabled(familyId: string, featureKey: FeatureKey, enab
     { method: "PUT", body: JSON.stringify({ enabled }) },
   );
 }
+
+// Sprint 53: ejer/admin-siden af børneadgang (child_access_token + PIN) —
+// se server/routes/familyRoutes/childAccessManagement.ts. Selve
+// barnets/enhedens side af flowet ligger i features/family/childAccessApi.ts,
+// da den ikke bruger denne fils users/sessions-auth.
+export interface ChildAccessStatusDto {
+  token: string | null;
+  hasPin: boolean;
+  pinSetAt: string | null;
+}
+
+export function getChildAccessStatus(familyId: string, memberId: string) {
+  return request<ChildAccessStatusDto & { error?: string }>(
+    `/api/families/${familyId}/members/${memberId}/child-access`,
+  );
+}
+
+export function generateChildAccessToken(familyId: string, memberId: string) {
+  return request<{ token?: string; error?: string }>(
+    `/api/families/${familyId}/members/${memberId}/child-access/token`,
+    { method: "POST" },
+  );
+}
+
+export function revokeChildAccessToken(familyId: string, memberId: string) {
+  return request<{ ok?: boolean; error?: string }>(
+    `/api/families/${familyId}/members/${memberId}/child-access/token`,
+    { method: "DELETE" },
+  );
+}
+
+export function setChildAccessPin(familyId: string, memberId: string, pin: string) {
+  return request<{ ok?: boolean; pinSetAt?: string; error?: string }>(
+    `/api/families/${familyId}/members/${memberId}/child-access/pin`,
+    { method: "PUT", body: JSON.stringify({ pin }) },
+  );
+}
+
+export function clearChildAccessPin(familyId: string, memberId: string) {
+  return request<{ ok?: boolean; error?: string }>(
+    `/api/families/${familyId}/members/${memberId}/child-access/pin`,
+    { method: "DELETE" },
+  );
+}

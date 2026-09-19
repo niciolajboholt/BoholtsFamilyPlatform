@@ -4,6 +4,7 @@ import type { Env } from "../../env";
 import { getMembershipForFamily } from "../../lib/familyMembership";
 import { logError } from "../../lib/structuredLog";
 import { isTaskIcon } from "../../lib/taskIcons";
+import { setTaskDone } from "../../lib/taskCompletion";
 import {
   assertValidMember,
   isValidDateString,
@@ -168,28 +169,7 @@ tasksCrud.patch("/:id/tasks/:taskId", async (c) => {
   }
 
   if (body.isDone !== undefined) {
-    await c.env.DB.prepare("UPDATE tasks SET is_done = ?, done_at = ? WHERE id = ?")
-      .bind(body.isDone ? 1 : 0, body.isDone ? new Date().toISOString() : null, taskId)
-      .run();
-
-    // Sprint 39: bogfør (eller fortryd) belønningen sammen med selve
-    // fuldførelsen — ikke et separat skridt. INSERT OR IGNORE + det
-    // partielle unik-indeks på task_id forhindrer, at et gentaget
-    // fuldført-klik (eller to samtidige PATCH-kald) bogfører beløbet
-    // flere gange; DELETE ved fortryd forhindrer at gentagen
-    // afkrydsning/fortryd kan "høste" belønningen mere end én gang.
-    if (task.assignedMemberId && task.rewardAmount > 0) {
-      if (body.isDone) {
-        await c.env.DB.prepare(
-          `INSERT OR IGNORE INTO allowance_ledger (id, family_id, family_member_id, amount, task_id, created_at)
-           VALUES (?, ?, ?, ?, ?, ?)`,
-        )
-          .bind(crypto.randomUUID(), familyId, task.assignedMemberId, task.rewardAmount, taskId, new Date().toISOString())
-          .run();
-      } else {
-        await c.env.DB.prepare("DELETE FROM allowance_ledger WHERE task_id = ?").bind(taskId).run();
-      }
-    }
+    await setTaskDone(c.env.DB, { ...task, familyId }, body.isDone);
   }
 
   const items = await listTasksForDate(c.env.DB, familyId, task.taskDate ?? "");

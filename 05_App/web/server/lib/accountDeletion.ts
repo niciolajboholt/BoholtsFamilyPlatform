@@ -447,6 +447,14 @@ async function hardDeleteFamily(db: D1Database, familyId: string): Promise<void>
     db.prepare("DELETE FROM family_weekly_summaries WHERE family_id = ?").bind(familyId),
     db.prepare("DELETE FROM family_enabled_features WHERE family_id = ?").bind(familyId),
     db.prepare("DELETE FROM family_invites WHERE family_id = ?").bind(familyId),
+    // Sprint 53: child_sessions.family_member_id peger på family_members —
+    // skal ryddes FØR family_members-sletningen nedenfor, ellers ville FK-
+    // constrainten fejle og vælte hele purge-batchen.
+    db
+      .prepare(
+        "DELETE FROM child_sessions WHERE family_member_id IN (SELECT id FROM family_members WHERE family_id = ?)",
+      )
+      .bind(familyId),
     db.prepare("DELETE FROM family_members WHERE family_id = ?").bind(familyId),
     db.prepare("DELETE FROM family_memberships WHERE family_id = ?").bind(familyId),
     db.prepare("DELETE FROM user_activity_cursors WHERE family_id = ?").bind(familyId),
