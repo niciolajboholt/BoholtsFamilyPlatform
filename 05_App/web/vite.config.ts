@@ -25,8 +25,8 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,svg,png,ico}'],
       },
       manifest: {
-        name: 'Boholts Familieapp',
-        short_name: 'Boholts',
+        name: 'Hjemmecentralen',
+        short_name: 'Hjemmecentralen',
         description: 'Familiens fælles kalender og aftaler, samlet ét sted.',
         lang: 'da',
         start_url: '/',

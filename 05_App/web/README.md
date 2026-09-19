@@ -1,7 +1,8 @@
-# Boholts Familieapp – web
+# Hjemmecentralen – web
 
-Den aktive klient til Boholts Family Platform. Appen er bygget med React,
-TypeScript, Vite og Material UI og er optimeret til mobil brug.
+Den aktive klient til Hjemmecentralen (kodenavn/repository: Boholts Family
+Platform). Appen er bygget med React, TypeScript, Vite og Material UI og er
+optimeret til mobil brug.
 
 ## Kom i gang
 

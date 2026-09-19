@@ -56,7 +56,7 @@ export async function sendFeedbackNotificationEmail(
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      from: "Boholts Familieapp <onboarding@resend.dev>",
+      from: "Hjemmecentralen <onboarding@resend.dev>",
       to: adminEmail,
       reply_to: entry.senderEmail,
       subject: `Ny feedback (${categoryLabel}) fra ${entry.senderName}`,

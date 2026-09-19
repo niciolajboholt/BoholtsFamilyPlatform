@@ -107,7 +107,7 @@ function LoginPage() {
           />
 
           <Typography variant="h4" component="h1" sx={{ fontWeight: 700, mb: 1.5 }}>
-            Boholts Familieapp
+            Hjemmecentralen
           </Typography>
 
           <Typography color="text.secondary" sx={{ maxWidth: 480, mx: "auto" }}>
