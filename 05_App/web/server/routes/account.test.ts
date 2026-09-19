@@ -12,6 +12,14 @@ async function markReauthenticated(env: ReturnType<typeof createFakeEnv>, cookie
     .run();
 }
 
+function confirmedDeletionRequest(cookieHeader: string): RequestInit {
+  return {
+    method: "POST",
+    headers: { Cookie: cookieHeader, "Content-Type": "application/json" },
+    body: JSON.stringify({ confirmation: "SLET MIN KONTO" }),
+  };
+}
+
 describe("account routes", () => {
   let env: ReturnType<typeof createFakeEnv>;
 
@@ -52,11 +60,55 @@ describe("account routes", () => {
 
     const response = await account.request(
       "/deletion/request",
-      { method: "POST", headers: { Cookie: cookieHeader } },
+      confirmedDeletionRequest(cookieHeader),
       env,
     );
 
     expect(response.status).toBe(403);
+  });
+
+  it("refuses a wrong destructive confirmation after re-authentication", async () => {
+    const { cookieHeader } = await seedLoggedInUser(env.DB as never, { id: "user-1" });
+    await markReauthenticated(env, cookieHeader);
+
+    const response = await account.request(
+      "/deletion/request",
+      {
+        method: "POST",
+        headers: { Cookie: cookieHeader, "Content-Type": "application/json" },
+        body: JSON.stringify({ confirmation: "forkert" }),
+      },
+      env,
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ code: "invalid_confirmation" });
+  });
+
+  it("returns structured guidance when an owner must transfer or delete a family first", async () => {
+    const { userId, cookieHeader } = await seedLoggedInUser(env.DB as never, { id: "owner-1" });
+    const now = new Date().toISOString();
+    await env.DB.prepare("INSERT INTO families (id, name, owner_user_id, created_at) VALUES (?, ?, ?, ?)")
+      .bind("family-1", "Testfamilien", userId, now)
+      .run();
+    await env.DB.prepare(
+      "INSERT INTO family_memberships (family_id, user_id, role, joined_at) VALUES (?, ?, 'owner', ?)",
+    )
+      .bind("family-1", userId, now)
+      .run();
+    await markReauthenticated(env, cookieHeader);
+
+    const response = await account.request(
+      "/deletion/request",
+      confirmedDeletionRequest(cookieHeader),
+      env,
+    );
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({
+      code: "ownership_transfer_required",
+      ownedFamilies: [{ familyId: "family-1", familyName: "Testfamilien", memberCount: 1 }],
+    });
   });
 
   it("accepts a deletion request once the session has a fresh re-authentication, and logs the user out", async () => {
@@ -65,7 +117,7 @@ describe("account routes", () => {
 
     const response = await account.request(
       "/deletion/request",
-      { method: "POST", headers: { Cookie: cookieHeader } },
+      confirmedDeletionRequest(cookieHeader),
       env,
     );
 
@@ -86,7 +138,7 @@ describe("account routes", () => {
   it("refuses a second open deletion request with a 409", async () => {
     const { userId, cookieHeader } = await seedLoggedInUser(env.DB as never, { id: "user-1" });
     await markReauthenticated(env, cookieHeader);
-    await account.request("/deletion/request", { method: "POST", headers: { Cookie: cookieHeader } }, env);
+    await account.request("/deletion/request", confirmedDeletionRequest(cookieHeader), env);
 
     // Logget ud efter første anmodning — logger ind igen (ny session) for at
     // forsøge en gentaget anmodning, ligesom en rigtig bruger ville.
@@ -100,7 +152,7 @@ describe("account routes", () => {
 
     const response = await account.request(
       "/deletion/request",
-      { method: "POST", headers: { Cookie: secondCookie } },
+      confirmedDeletionRequest(secondCookie),
       env,
     );
 
@@ -122,7 +174,7 @@ describe("account routes", () => {
   it("cancels an open deletion request and restores access", async () => {
     const { userId, cookieHeader } = await seedLoggedInUser(env.DB as never, { id: "user-1" });
     await markReauthenticated(env, cookieHeader);
-    await account.request("/deletion/request", { method: "POST", headers: { Cookie: cookieHeader } }, env);
+    await account.request("/deletion/request", confirmedDeletionRequest(cookieHeader), env);
 
     // Logger ind igen (ny session) for at fortryde, ligesom planen
     // forudsætter (den gamle session blev slettet af anmodningen selv).

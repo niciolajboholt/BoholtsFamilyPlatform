@@ -16,6 +16,14 @@ async function markReauthenticated(env: ReturnType<typeof createFakeEnv>, cookie
     .run();
 }
 
+function confirmedFamilyDeletionRequest(cookieHeader: string, confirmation = "Testfamilien"): RequestInit {
+  return {
+    method: "POST",
+    headers: { Cookie: cookieHeader, "Content-Type": "application/json" },
+    body: JSON.stringify({ confirmation }),
+  };
+}
+
 async function seedFamily(
   env: ReturnType<typeof createFakeEnv>,
   familyId: string,
@@ -169,6 +177,23 @@ describe("family export + deletion routes", () => {
       expect(response.status).toBe(403);
     });
 
+    it("refuses an incorrect family-name confirmation", async () => {
+      const { userId: ownerId, cookieHeader: ownerCookie } = await seedLoggedInUser(env.DB as never, {
+        id: "owner-1",
+      });
+      await seedFamily(env, "family-1", ownerId);
+      await markReauthenticated(env, ownerCookie);
+
+      const response = await families.request(
+        "/family-1/deletion/request",
+        confirmedFamilyDeletionRequest(ownerCookie, "Forkert navn"),
+        env,
+      );
+
+      expect(response.status).toBe(400);
+      expect(await response.json()).toMatchObject({ code: "invalid_confirmation" });
+    });
+
     it("hides the family from every member immediately once the owner confirms deletion", async () => {
       const { userId: ownerId, cookieHeader: ownerCookie } = await seedLoggedInUser(env.DB as never, {
         id: "owner-1",
@@ -181,7 +206,7 @@ describe("family export + deletion routes", () => {
 
       const requestResponse = await families.request(
         "/family-1/deletion/request",
-        { method: "POST", headers: { Cookie: ownerCookie } },
+        confirmedFamilyDeletionRequest(ownerCookie),
         env,
       );
       expect(requestResponse.status).toBe(200);
@@ -204,7 +229,7 @@ describe("family export + deletion routes", () => {
       await markReauthenticated(env, ownerCookie);
       await families.request(
         "/family-1/deletion/request",
-        { method: "POST", headers: { Cookie: ownerCookie } },
+        confirmedFamilyDeletionRequest(ownerCookie),
         env,
       );
 
@@ -235,7 +260,7 @@ describe("family export + deletion routes", () => {
 
       await families.request(
         "/family-1/deletion/request",
-        { method: "POST", headers: { Cookie: ownerCookie } },
+        confirmedFamilyDeletionRequest(ownerCookie),
         env,
       );
 

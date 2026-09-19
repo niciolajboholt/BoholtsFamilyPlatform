@@ -1,10 +1,13 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
 import {
+  ACCOUNT_DELETION_CONFIRMATION,
+  AccountOwnsFamiliesError,
   cancelAccountDeletion,
   cancelFamilyDeletion,
   DeletionAlreadyRequestedError,
   DELETION_RETENTION_DAYS,
+  InvalidDeletionConfirmationError,
   isReauthFresh,
   previewAccountDeletion,
   previewFamilyDeletion,
@@ -266,9 +269,93 @@ describe("accountDeletion", () => {
       const now = new Date("2026-09-19T12:20:00.000Z");
       expect(isReauthFresh("2026-09-19T12:05:00.000Z", now)).toBe(false);
     });
+
+    it("rejects invalid and future timestamps", () => {
+      const now = new Date("2026-09-19T12:10:00.000Z");
+      expect(isReauthFresh("not-a-date", now)).toBe(false);
+      expect(isReauthFresh("2026-09-19T12:10:01.000Z", now)).toBe(false);
+    });
   });
 
   describe("account deletion", () => {
+    it("requires the exact destructive confirmation", async () => {
+      await seedUser(db, { id: "user-1" });
+
+      await expect(
+        requestAccountDeletion(db as never, {
+          userId: "user-1",
+          reauthenticatedAt: new Date().toISOString(),
+          confirmation: "slet min konto",
+        }),
+      ).rejects.toThrow(InvalidDeletionConfirmationError);
+    });
+
+    it("blocks an owner until ownership has been transferred", async () => {
+      await seedUser(db, { id: "owner-1" });
+      await seedUser(db, { id: "member-1" });
+      await seedFamily(db, "family-1", "owner-1", ["member-1"]);
+
+      await expect(
+        requestAccountDeletion(db as never, {
+          userId: "owner-1",
+          reauthenticatedAt: new Date().toISOString(),
+          confirmation: ACCOUNT_DELETION_CONFIRMATION,
+        }),
+      ).rejects.toMatchObject({
+        families: [{ familyId: "family-1", familyName: "Testfamilien", memberCount: 2 }],
+      });
+
+      await db.batch([
+        db.prepare("UPDATE families SET owner_user_id = ? WHERE id = ?").bind("member-1", "family-1"),
+        db
+          .prepare("UPDATE family_memberships SET role = 'admin' WHERE family_id = ? AND user_id = ?")
+          .bind("family-1", "owner-1"),
+        db
+          .prepare("UPDATE family_memberships SET role = 'owner' WHERE family_id = ? AND user_id = ?")
+          .bind("family-1", "member-1"),
+      ]);
+
+      await expect(
+        requestAccountDeletion(db as never, {
+          userId: "owner-1",
+          reauthenticatedAt: new Date().toISOString(),
+          confirmation: ACCOUNT_DELETION_CONFIRMATION,
+        }),
+      ).resolves.toBeDefined();
+    });
+
+    it("blocks a sole owner so an active family cannot become ownerless", async () => {
+      await seedUser(db, { id: "owner-1" });
+      await seedFamily(db, "family-1", "owner-1");
+
+      await expect(
+        requestAccountDeletion(db as never, {
+          userId: "owner-1",
+          reauthenticatedAt: new Date().toISOString(),
+          confirmation: ACCOUNT_DELETION_CONFIRMATION,
+        }),
+      ).rejects.toThrow(AccountOwnsFamiliesError);
+    });
+
+    it("reports every active family the account owns", async () => {
+      await seedUser(db, { id: "owner-1" });
+      await seedFamily(db, "family-1", "owner-1");
+      await seedFamily(db, "family-2", "owner-1");
+
+      await expect(
+        requestAccountDeletion(db as never, {
+          userId: "owner-1",
+          reauthenticatedAt: new Date().toISOString(),
+          confirmation: ACCOUNT_DELETION_CONFIRMATION,
+        }),
+      ).rejects.toMatchObject({
+        families: expect.arrayContaining([
+          expect.objectContaining({ familyId: "family-1" }),
+          expect.objectContaining({ familyId: "family-2" }),
+        ]),
+      });
+    });
+
     it("preview lists only active (non-deleted) family memberships", async () => {
       await seedUser(db, { id: "owner-1" });
       await seedFamily(db, "family-1", "owner-1");
@@ -304,6 +391,7 @@ describe("accountDeletion", () => {
       const { purgeAfter } = await requestAccountDeletion(db as never, {
         userId: "user-1",
         reauthenticatedAt: now.toISOString(),
+        confirmation: ACCOUNT_DELETION_CONFIRMATION,
       });
 
       const expectedPurgeAfter = new Date(now.getTime() + DELETION_RETENTION_DAYS * 24 * 60 * 60 * 1000);
@@ -329,12 +417,14 @@ describe("accountDeletion", () => {
       await requestAccountDeletion(db as never, {
         userId: "user-1",
         reauthenticatedAt: new Date().toISOString(),
+        confirmation: ACCOUNT_DELETION_CONFIRMATION,
       });
 
       await expect(
         requestAccountDeletion(db as never, {
           userId: "user-1",
           reauthenticatedAt: new Date().toISOString(),
+          confirmation: ACCOUNT_DELETION_CONFIRMATION,
         }),
       ).rejects.toThrow(DeletionAlreadyRequestedError);
     });
@@ -344,6 +434,7 @@ describe("accountDeletion", () => {
       await requestAccountDeletion(db as never, {
         userId: "user-1",
         reauthenticatedAt: new Date().toISOString(),
+        confirmation: ACCOUNT_DELETION_CONFIRMATION,
       });
 
       const cancelled = await cancelAccountDeletion(db as never, "user-1");
@@ -359,6 +450,7 @@ describe("accountDeletion", () => {
         requestAccountDeletion(db as never, {
           userId: "user-1",
           reauthenticatedAt: new Date().toISOString(),
+          confirmation: ACCOUNT_DELETION_CONFIRMATION,
         }),
       ).resolves.toBeDefined();
     });
@@ -370,6 +462,20 @@ describe("accountDeletion", () => {
   });
 
   describe("family deletion", () => {
+    it("requires the exact family name", async () => {
+      await seedUser(db, { id: "owner-1" });
+      await seedFamily(db, "family-1", "owner-1");
+
+      await expect(
+        requestFamilyDeletion(db as never, {
+          familyId: "family-1",
+          requestedByUserId: "owner-1",
+          reauthenticatedAt: new Date().toISOString(),
+          confirmation: "Forkert navn",
+        }),
+      ).rejects.toThrow(InvalidDeletionConfirmationError);
+    });
+
     it("previews member/data counts", async () => {
       await seedUser(db, { id: "owner-1" });
       await seedFamily(db, "family-1", "owner-1");
@@ -383,6 +489,7 @@ describe("accountDeletion", () => {
 
       const preview = await previewFamilyDeletion(db as never, "family-1");
 
+      expect(preview.familyName).toBe("Testfamilien");
       expect(preview.memberCount).toBe(1);
       expect(preview.taskCount).toBe(1);
     });
@@ -396,6 +503,7 @@ describe("accountDeletion", () => {
         familyId: "family-1",
         requestedByUserId: "owner-1",
         reauthenticatedAt: new Date().toISOString(),
+        confirmation: "Testfamilien",
       });
 
       const family = await db
@@ -420,6 +528,50 @@ describe("accountDeletion", () => {
       expect(restored?.deletedAt).toBeNull();
     });
 
+    it("also cancels the owner's pending account deletion when restoring the family", async () => {
+      await seedUser(db, { id: "owner-1" });
+      await seedFamily(db, "family-1", "owner-1");
+
+      await requestFamilyDeletion(db as never, {
+        familyId: "family-1",
+        requestedByUserId: "owner-1",
+        reauthenticatedAt: new Date().toISOString(),
+        confirmation: "Testfamilien",
+      });
+      await requestAccountDeletion(db as never, {
+        userId: "owner-1",
+        reauthenticatedAt: new Date().toISOString(),
+        confirmation: ACCOUNT_DELETION_CONFIRMATION,
+      });
+
+      await expect(
+        cancelFamilyDeletion(db as never, {
+          familyId: "family-1",
+          requestedByUserId: "owner-1",
+        }),
+      ).resolves.toBe(true);
+
+      const user = await db
+        .prepare("SELECT deleted_at AS deletedAt FROM users WHERE id = 'owner-1'")
+        .first<{ deletedAt: string | null }>();
+      const openAccountDeletion = await db
+        .prepare(
+          `SELECT id FROM deletion_requests
+           WHERE scope = 'account' AND target_id = 'owner-1' AND cancelled_at IS NULL`,
+        )
+        .first();
+
+      expect(user?.deletedAt).toBeNull();
+      expect(openAccountDeletion).toBeNull();
+      await expect(
+        requestAccountDeletion(db as never, {
+          userId: "owner-1",
+          reauthenticatedAt: new Date().toISOString(),
+          confirmation: ACCOUNT_DELETION_CONFIRMATION,
+        }),
+      ).rejects.toThrow(AccountOwnsFamiliesError);
+    });
+
     it("refuses a second open deletion request for the same family", async () => {
       await seedUser(db, { id: "owner-1" });
       await seedFamily(db, "family-1", "owner-1");
@@ -428,6 +580,7 @@ describe("accountDeletion", () => {
         familyId: "family-1",
         requestedByUserId: "owner-1",
         reauthenticatedAt: new Date().toISOString(),
+        confirmation: "Testfamilien",
       });
 
       await expect(
@@ -435,6 +588,7 @@ describe("accountDeletion", () => {
           familyId: "family-1",
           requestedByUserId: "owner-1",
           reauthenticatedAt: new Date().toISOString(),
+          confirmation: "Testfamilien",
         }),
       ).rejects.toThrow(DeletionAlreadyRequestedError);
     });
@@ -446,6 +600,7 @@ describe("accountDeletion", () => {
       await requestAccountDeletion(db as never, {
         userId: "user-1",
         reauthenticatedAt: new Date().toISOString(),
+        confirmation: ACCOUNT_DELETION_CONFIRMATION,
       });
 
       await purgeExpiredDeletions(createFakeEnv({ DB: db as never }));
@@ -462,6 +617,7 @@ describe("accountDeletion", () => {
       await requestAccountDeletion(db as never, {
         userId: "user-1",
         reauthenticatedAt: new Date().toISOString(),
+        confirmation: ACCOUNT_DELETION_CONFIRMATION,
       });
       await cancelAccountDeletion(db as never, "user-1");
       // Simulerer at fortrydelsesperioden er udløbet, EFTER at anmodningen
@@ -496,6 +652,7 @@ describe("accountDeletion", () => {
       await requestAccountDeletion(db as never, {
         userId: "member-1",
         reauthenticatedAt: now,
+        confirmation: ACCOUNT_DELETION_CONFIRMATION,
       });
       // Fremtvinger at fortrydelsesperioden er udløbet.
       await db
@@ -556,6 +713,7 @@ describe("accountDeletion", () => {
         familyId: "family-1",
         requestedByUserId: "owner-1",
         reauthenticatedAt: new Date().toISOString(),
+        confirmation: "Testfamilien",
       });
       await db
         .prepare("UPDATE deletion_requests SET purge_after = ? WHERE target_id = ?")
@@ -601,11 +759,13 @@ describe("accountDeletion", () => {
       await requestAccountDeletion(db as never, {
         userId: "solo-user",
         reauthenticatedAt: new Date().toISOString(),
+        confirmation: ACCOUNT_DELETION_CONFIRMATION,
       });
       await requestFamilyDeletion(db as never, {
         familyId: "family-1",
         requestedByUserId: "owner-1",
         reauthenticatedAt: new Date().toISOString(),
+        confirmation: "Testfamilien",
       });
       await db
         .prepare("UPDATE deletion_requests SET purge_after = ?")

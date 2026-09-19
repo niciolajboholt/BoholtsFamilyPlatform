@@ -32,9 +32,15 @@ export function getAccountDeletionPreview() {
   );
 }
 
-export function requestAccountDeletion() {
-  return request<{ purgeAfter?: string; error?: string }>("/api/account/deletion/request", {
+export function requestAccountDeletion(confirmation: string) {
+  return request<{
+    purgeAfter?: string;
+    error?: string;
+    code?: "invalid_confirmation" | "ownership_transfer_required";
+    ownedFamilies?: { familyId: string; familyName: string; memberCount: number }[];
+  }>("/api/account/deletion/request", {
     method: "POST",
+    body: JSON.stringify({ confirmation }),
   });
 }
 
@@ -45,6 +51,7 @@ export function cancelAccountDeletion() {
 }
 
 export interface FamilyDeletionPreview {
+  familyName: string;
   memberCount: number;
   taskCount: number;
   shoppingListCount: number;
@@ -58,10 +65,10 @@ export function getFamilyDeletionPreview(familyId: string) {
   );
 }
 
-export function requestFamilyDeletion(familyId: string) {
+export function requestFamilyDeletion(familyId: string, confirmation: string) {
   return request<{ purgeAfter?: string; error?: string }>(
     `/api/families/${familyId}/deletion/request`,
-    { method: "POST" },
+    { method: "POST", body: JSON.stringify({ confirmation }) },
   );
 }
 
