@@ -10,7 +10,7 @@ import {
   PersonRounded,
   SaveRounded,
 } from "@mui/icons-material";
-import { Alert, Box, Button, Card, CardContent, Dialog, DialogActions, DialogContent, DialogTitle, Divider, IconButton, Typography } from "@mui/material";
+import { Alert, Box, Button, Card, CardContent, Dialog, DialogActions, DialogContent, DialogTitle, Divider, IconButton, TextField, Typography } from "@mui/material";
 
 import { useSession } from "../../auth/hooks/useSession";
 import { CurrentMemberPickerDialog } from "../../calendar/components/CurrentMemberPickerDialog";
@@ -108,6 +108,7 @@ export function AccountDataSection() {
   >(null);
   const [accountDeletionError, setAccountDeletionError] = useState<string | null>(null);
   const [accountDeletionBusy, setAccountDeletionBusy] = useState(false);
+  const [accountDeletionConfirmation, setAccountDeletionConfirmation] = useState("");
   const [cancelDeletionFeedback, setCancelDeletionFeedback] = useState<string | null>(null);
 
   // Sprint 50: familiesletning (kun ejer)
@@ -120,6 +121,7 @@ export function AccountDataSection() {
   const [familyDeletionPreview, setFamilyDeletionPreview] = useState<FamilyDeletionPreview | null>(null);
   const [familyDeletionError, setFamilyDeletionError] = useState<string | null>(null);
   const [familyDeletionBusy, setFamilyDeletionBusy] = useState(false);
+  const [familyDeletionConfirmation, setFamilyDeletionConfirmation] = useState("");
 
   useEffect(() => {
     // Fjerner forespørgselsparametrene med det samme, så et genindlæst
@@ -132,8 +134,35 @@ export function AccountDataSection() {
     }
   }, []);
 
+  // OAuth-roundtrippet genindlæser siden, så preview-state fra første trin
+  // findes ikke længere. Hent konsekvensen igen på confirm-trinnet, så
+  // ejerskabsblokering og familiens præcise navn stadig vises korrekt.
+  useEffect(() => {
+    if (!isAccountDeletionOpen || accountDeletionStep !== "confirm" || accountDeletionPreview) return;
+
+    void getAccountDeletionPreview().then((result) => {
+      if (result.ok) setAccountDeletionPreview(result.data.memberships);
+    });
+  }, [accountDeletionPreview, accountDeletionStep, isAccountDeletionOpen]);
+
+  useEffect(() => {
+    if (
+      !familyId ||
+      !isFamilyDeletionOpen ||
+      familyDeletionStep !== "confirm" ||
+      familyDeletionPreview
+    ) {
+      return;
+    }
+
+    void getFamilyDeletionPreview(familyId).then((result) => {
+      if (result.ok) setFamilyDeletionPreview(result.data);
+    });
+  }, [familyDeletionPreview, familyDeletionStep, familyId, isFamilyDeletionOpen]);
+
   function openAccountDeletionDialog(): void {
     setAccountDeletionError(null);
+    setAccountDeletionConfirmation("");
     setAccountDeletionStep("review");
     setIsAccountDeletionOpen(true);
     getAccountDeletionPreview().then((result) => {
@@ -147,7 +176,7 @@ export function AccountDataSection() {
     setAccountDeletionBusy(true);
     setAccountDeletionError(null);
 
-    const result = await requestAccountDeletion();
+    const result = await requestAccountDeletion(accountDeletionConfirmation);
 
     setAccountDeletionBusy(false);
 
@@ -157,6 +186,12 @@ export function AccountDataSection() {
         setAccountDeletionStep("reauth");
       } else {
         setAccountDeletionError(result.data.error ?? "Sletningen kunne ikke gennemføres. Prøv igen.");
+        if (result.data.code === "ownership_transfer_required") {
+          setAccountDeletionStep("review");
+          void getAccountDeletionPreview().then((previewResult) => {
+            if (previewResult.ok) setAccountDeletionPreview(previewResult.data.memberships);
+          });
+        }
       }
       return;
     }
@@ -179,6 +214,7 @@ export function AccountDataSection() {
   function openFamilyDeletionDialog(): void {
     if (!familyId) return;
     setFamilyDeletionError(null);
+    setFamilyDeletionConfirmation("");
     setFamilyDeletionStep("review");
     setIsFamilyDeletionOpen(true);
     getFamilyDeletionPreview(familyId).then((result) => {
@@ -193,7 +229,7 @@ export function AccountDataSection() {
     setFamilyDeletionBusy(true);
     setFamilyDeletionError(null);
 
-    const result = await requestFamilyDeletion(familyId);
+    const result = await requestFamilyDeletion(familyId, familyDeletionConfirmation);
 
     setFamilyDeletionBusy(false);
 
@@ -276,6 +312,8 @@ export function AccountDataSection() {
 
     reader.readAsText(file);
   }
+
+  const ownedFamilies = accountDeletionPreview?.filter((membership) => membership.role === "owner") ?? [];
 
   return (
     <>
@@ -518,6 +556,14 @@ export function AccountDataSection() {
                   {accountDeletionPreview.map((membership) => membership.familyName).join(", ")}.
                 </Typography>
               )}
+
+              {ownedFamilies.length > 0 && (
+                <Alert severity="warning" sx={{ mb: 2 }}>
+                  Du ejer {ownedFamilies.map((family) => family.familyName).join(", ")}. Overdrag først
+                  ejerskabet til et andet medlem. Er du eneste bruger, skal du i stedet slette hele
+                  familien først. En aktiv familie må ikke efterlades uden ejer.
+                </Alert>
+              )}
             </>
           )}
 
@@ -545,10 +591,24 @@ export function AccountDataSection() {
           )}
 
           {accountDeletionStep === "confirm" && (
-            <Typography color="text.secondary" sx={{ mb: 2 }}>
-              Din identitet er bekræftet. Tryk herunder for at slette din
-              konto permanent (efter 30 dages fortrydelsesperiode).
-            </Typography>
+            <>
+              {ownedFamilies.length > 0 && (
+                <Alert severity="warning" sx={{ mb: 2 }}>
+                  Du ejer stadig en aktiv familie. Overdrag ejerskabet, eller slet familien først.
+                </Alert>
+              )}
+              <Typography color="text.secondary" sx={{ mb: 2 }}>
+                Din identitet er bekræftet. Skriv <strong>SLET MIN KONTO</strong> for at bekræfte
+                permanent sletning efter fortrydelsesperioden.
+              </Typography>
+              <TextField
+                autoComplete="off"
+                fullWidth
+                label="Bekræftelsestekst"
+                value={accountDeletionConfirmation}
+                onChange={(event) => setAccountDeletionConfirmation(event.target.value)}
+              />
+            </>
           )}
         </DialogContent>
 
@@ -558,7 +618,12 @@ export function AccountDataSection() {
           </Button>
 
           {accountDeletionStep === "review" && (
-            <Button variant="contained" color="error" onClick={() => setAccountDeletionStep("reauth")}>
+            <Button
+              variant="contained"
+              color="error"
+              disabled={accountDeletionPreview === null || ownedFamilies.length > 0}
+              onClick={() => setAccountDeletionStep("reauth")}
+            >
               Fortsæt
             </Button>
           )}
@@ -567,7 +632,11 @@ export function AccountDataSection() {
             <Button
               variant="contained"
               color="error"
-              disabled={accountDeletionBusy}
+              disabled={
+                accountDeletionBusy ||
+                ownedFamilies.length > 0 ||
+                accountDeletionConfirmation !== "SLET MIN KONTO"
+              }
               onClick={() => void handleConfirmAccountDeletion()}
             >
               Slet min konto
@@ -634,10 +703,20 @@ export function AccountDataSection() {
           )}
 
           {familyDeletionStep === "confirm" && (
-            <Typography color="text.secondary" sx={{ mb: 2 }}>
-              Din identitet er bekræftet. Tryk herunder for at slette hele
-              familien permanent (efter 30 dages fortrydelsesperiode).
-            </Typography>
+            <>
+              <Typography color="text.secondary" sx={{ mb: 2 }}>
+                Din identitet er bekræftet. Skriv familiens navn præcist —
+                <strong> {familyDeletionPreview?.familyName ?? "familiens navn"}</strong> — for at
+                bekræfte permanent sletning efter fortrydelsesperioden.
+              </Typography>
+              <TextField
+                autoComplete="off"
+                fullWidth
+                label="Familiens navn"
+                value={familyDeletionConfirmation}
+                onChange={(event) => setFamilyDeletionConfirmation(event.target.value)}
+              />
+            </>
           )}
         </DialogContent>
 
@@ -656,7 +735,11 @@ export function AccountDataSection() {
             <Button
               variant="contained"
               color="error"
-              disabled={familyDeletionBusy}
+              disabled={
+                familyDeletionBusy ||
+                !familyDeletionPreview?.familyName ||
+                familyDeletionConfirmation !== familyDeletionPreview.familyName
+              }
               onClick={() => void handleConfirmFamilyDeletion()}
             >
               Slet hele familien

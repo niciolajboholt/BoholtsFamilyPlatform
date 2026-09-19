@@ -27,6 +27,7 @@ import type { MembershipRow } from "./familyMembership";
 
 export const DELETION_RETENTION_DAYS = 30;
 export const REAUTH_MAX_AGE_MS = 10 * 60 * 1000; // 10 minutter
+export const ACCOUNT_DELETION_CONFIRMATION = "SLET MIN KONTO";
 
 const ANONYMIZED_NAME = "Tidligere medlem";
 
@@ -35,7 +36,10 @@ export function isReauthFresh(reauthenticatedAt: string | null, now: Date = new 
     return false;
   }
 
-  return now.getTime() - new Date(reauthenticatedAt).getTime() < REAUTH_MAX_AGE_MS;
+  const reauthenticatedAtMs = new Date(reauthenticatedAt).getTime();
+  const ageMs = now.getTime() - reauthenticatedAtMs;
+
+  return Number.isFinite(reauthenticatedAtMs) && ageMs >= 0 && ageMs < REAUTH_MAX_AGE_MS;
 }
 
 function purgeAfterFromNow(now: Date): string {
@@ -78,10 +82,52 @@ export async function previewAccountDeletion(
 
 export class DeletionAlreadyRequestedError extends Error {}
 
+export class InvalidDeletionConfirmationError extends Error {}
+
+export interface OwnedFamilyBlockingDeletion {
+  familyId: string;
+  familyName: string;
+  memberCount: number;
+}
+
+export class AccountOwnsFamiliesError extends Error {
+  readonly families: OwnedFamilyBlockingDeletion[];
+
+  constructor(families: OwnedFamilyBlockingDeletion[]) {
+    super("Ejerskab skal overdrages, eller familien skal slettes, før kontoen kan slettes.");
+    this.families = families;
+  }
+}
+
 export async function requestAccountDeletion(
   db: D1Database,
-  options: { userId: string; reauthenticatedAt: string },
+  options: { userId: string; reauthenticatedAt: string; confirmation: string },
 ): Promise<{ purgeAfter: string }> {
+  if (options.confirmation !== ACCOUNT_DELETION_CONFIRMATION) {
+    throw new InvalidDeletionConfirmationError(
+      `Skriv ${ACCOUNT_DELETION_CONFIRMATION} præcist for at bekræfte kontosletningen.`,
+    );
+  }
+
+  // En aktiv familie må aldrig efterlades med owner_user_id pegende på en
+  // anonymiseret tombstone. Ejeren skal derfor enten overdrage ejerskabet
+  // eller vælge det særskilte familiesletningsflow først. Håndhæves her i
+  // domænelaget (ikke kun i UI'et), så ruten ikke kan omgås.
+  const ownedFamilies = await db
+    .prepare(
+      `SELECT families.id AS familyId, families.name AS familyName,
+              (SELECT COUNT(*) FROM family_memberships fm
+               WHERE fm.family_id = families.id) AS memberCount
+       FROM families
+       WHERE families.owner_user_id = ? AND families.deleted_at IS NULL`,
+    )
+    .bind(options.userId)
+    .all<OwnedFamilyBlockingDeletion>();
+
+  if (ownedFamilies.results.length > 0) {
+    throw new AccountOwnsFamiliesError(ownedFamilies.results);
+  }
+
   const existingOpen = await db
     .prepare(
       `SELECT id FROM deletion_requests
@@ -156,6 +202,7 @@ export async function cancelAccountDeletion(db: D1Database, userId: string): Pro
 // ---------------------------------------------------------------------------
 
 export interface FamilyDeletionPreview {
+  familyName: string;
   memberCount: number;
   taskCount: number;
   shoppingListCount: number;
@@ -167,7 +214,8 @@ export async function previewFamilyDeletion(
   db: D1Database,
   familyId: string,
 ): Promise<FamilyDeletionPreview> {
-  const [members, tasks, lists, expenses, meals] = await Promise.all([
+  const [family, members, tasks, lists, expenses, meals] = await Promise.all([
+    db.prepare("SELECT name FROM families WHERE id = ?").bind(familyId).first<{ name: string }>(),
     db.prepare("SELECT COUNT(*) AS count FROM family_members WHERE family_id = ?").bind(familyId).first<{
       count: number;
     }>(),
@@ -189,6 +237,7 @@ export async function previewFamilyDeletion(
   ]);
 
   return {
+    familyName: family?.name ?? "",
     memberCount: members?.count ?? 0,
     taskCount: tasks?.count ?? 0,
     shoppingListCount: lists?.count ?? 0,
@@ -199,7 +248,12 @@ export async function previewFamilyDeletion(
 
 export async function requestFamilyDeletion(
   db: D1Database,
-  options: { familyId: string; requestedByUserId: string; reauthenticatedAt: string },
+  options: {
+    familyId: string;
+    requestedByUserId: string;
+    reauthenticatedAt: string;
+    confirmation: string;
+  },
 ): Promise<{ purgeAfter: string }> {
   const existingOpen = await db
     .prepare(
@@ -212,6 +266,17 @@ export async function requestFamilyDeletion(
   if (existingOpen) {
     throw new DeletionAlreadyRequestedError(
       "Der er allerede en igangværende sletningsanmodning for denne familie.",
+    );
+  }
+
+  const family = await db
+    .prepare("SELECT name FROM families WHERE id = ? AND deleted_at IS NULL")
+    .bind(options.familyId)
+    .first<{ name: string }>();
+
+  if (!family || options.confirmation !== family.name) {
+    throw new InvalidDeletionConfirmationError(
+      "Skriv familiens navn præcist for at bekræfte sletningen.",
     );
   }
 
@@ -264,10 +329,34 @@ export async function cancelFamilyDeletion(
 
   const now = new Date().toISOString();
 
-  await db.batch([
+  // Ejeren kan have bestilt personlig kontosletning, mens familien var
+  // skjult og planlagt til sletning. Hvis familien gendannes, skal den
+  // personlige anmodning derfor også fortrydes atomisk; ellers ville den
+  // senere account-purge igen efterlade den gendannede familie uden ejer.
+  const openAccountRequest = await db
+    .prepare(
+      `SELECT id FROM deletion_requests
+       WHERE scope = 'account' AND target_id = ?
+             AND cancelled_at IS NULL AND purged_at IS NULL`,
+    )
+    .bind(options.requestedByUserId)
+    .first<{ id: string }>();
+
+  const statements = [
     db.prepare("UPDATE deletion_requests SET cancelled_at = ? WHERE id = ?").bind(now, openRequest.id),
     db.prepare("UPDATE families SET deleted_at = NULL WHERE id = ?").bind(options.familyId),
-  ]);
+  ];
+
+  if (openAccountRequest) {
+    statements.push(
+      db
+        .prepare("UPDATE deletion_requests SET cancelled_at = ? WHERE id = ?")
+        .bind(now, openAccountRequest.id),
+      db.prepare("UPDATE users SET deleted_at = NULL WHERE id = ?").bind(options.requestedByUserId),
+    );
+  }
+
+  await db.batch(statements);
 
   return true;
 }

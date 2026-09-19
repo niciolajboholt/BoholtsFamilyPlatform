@@ -17,7 +17,12 @@ Claude
 Status:
 Implementeret 2026-09-19. Nicolaj besvarede planens fire åbne
 produktbeslutninger (se afsnittet nedenfor, nu markeret med svar), og
-implementeringen fulgte den foreslåede tekniske tilgang uændret:
+implementeringen fulgte den foreslåede tekniske tilgang. En efterfølgende
+hardening-gennemgang 2026-09-19 lukkede fire launch-blokeringer:
+familier kan ikke efterlades uden ejer ved personlig kontosletning,
+eksporten dækker alle klassificerede familie-tabeller uden bearer-
+credentials, schema-health dækker migration 0031, og destruktive flows
+kræver nu en servervalideret bekræftelsestekst ud over frisk OAuth:
 server-side dataeksport (migration 0031, `server/lib/dataExport.ts`,
 `GET /api/families/:id/export`), og et to-trins konto-/familiesletnings-
 flow med gen-autentificering (`server/lib/accountDeletion.ts`,
@@ -32,14 +37,14 @@ Cron Trigger) og UI i Indstillinger (`AccountDataSection.tsx`). Se
 
 Bygge en reel, selvbetjent server-side dataeksport og en kontrolleret
 kontosletning, så privatlivspolitikkens "kontakt os for sletning/eksport"
-(Sprint 49's midlertidige løsning) på sigt kan erstattes af noget
-brugeren selv kan udføre. IKKE implementeret i dette dokument — kun
-planlagt, jf. opgavens eksplicitte afgrænsning: "Implementér ikke et
-stort og risikabelt slette-/eksportsystem uden først at vurdere omfanget."
+(Sprint 49's midlertidige løsning) erstattes af noget, brugeren selv kan
+udføre. Den oprindelige plan blev først risikovurderet og derefter
+implementeret i Sprint 50; dette dokument beskriver nu både beslutninger,
+implementering og efterfølgende hardening.
 
 ---
 
-## Nuværende tilstand (verificeret, Sprint 49)
+## Udgangspunkt før implementering (verificeret, Sprint 49)
 
 - `createDataBackup()` (`dataBackupStorage.ts`) eksporterer kun
   `localStorage`-nøgler med præfikset `boholts-family-` — ingen server-kald.
@@ -77,7 +82,7 @@ sletter sig selv.
 
 ---
 
-## Foreslået teknisk tilgang (til godkendelse, ikke bygget)
+## Implementeret teknisk tilgang
 
 ### Eksport
 
@@ -97,6 +102,13 @@ sletter sig selv.
 - Krypterede felter (OAuth-tokens, iCloud-adgangskode) eksporteres
   ALDRIG i klartekst — kun metadata (fx "Google-forbindelse oprettet
   <dato>").
+- `FAMILY_EXPORT_POLICY` klassificerer alle migrerede tabeller som
+  eksporteret, bevidst udeladt driftsdata eller ikke-familiedata. En test
+  sammenholder politikken med det faktiske migrerede schema, så en ny
+  tabel ikke kan blive glemt stiltiende.
+- Aktive delelinktokens, invitationskoder, sessionsdata, push-endpoints,
+  fulde ICS-bearer-URL'er og synk-tokens eksporteres aldrig. For iCloud,
+  ICS og delelinks eksporteres kun sikre metadata.
 
 ### Kontosletning
 
@@ -118,6 +130,13 @@ sletter sig selv.
   medlem — ellers reduceres handlingen til "fjern mig fra familien og
   slet min egen konto", med et separat, tydeligt markeret
   "slet hele familien"-flow for en ejer, der eksplicit vælger det.
+- En aktiv familie må aldrig blive ejerløs: en ejer skal overdrage
+  ejerskabet, eller — som eneste bruger — gennemføre det særskilte
+  familiesletningsflow, før personlig kontosletning tillades. Reglen
+  håndhæves server-side.
+- Personlig kontosletning kræver den eksakte tekst `SLET MIN KONTO`;
+  familiesletning kræver familiens eksakte navn. Begge dele valideres
+  server-side efter frisk OAuth-genautentificering.
 
 ---
 
@@ -146,16 +165,19 @@ sletter sig selv.
 
 ---
 
-## Teststrategi (når planen godkendes og implementeres)
+## Teststrategi og regressionstest
 
-- Enhedstests for hver tabel, der indgår i eksport/sletning — bekræft at
+- Enhedstests for hver tabel, der indgår i eksport/sletning — bekræfter at
   INGEN tabel med `family_id`/`user_id` er glemt (fx ved at sammenholde
   eksport-routens tabelliste programmatisk mod `server/migrations/*.sql`).
-- Tests der bekræfter at sletning IKKE lækker en anden families data
+- Tests bekræfter at eksport IKKE lækker en anden families data
   (samme mønster som eksisterende `does not let ... from another family`-
   tests i `families.test.ts`).
 - Tests for det to-trins bekræftelses-/genautentificeringsflow, inkl. at
   en udløbet eller manglende genautentificering blokerer sletningen.
+- Regressionstest dækker desuden ejerblokering/ejerskifte, eneste ejer,
+  manglende Sprint 50-schemaelementer, fremtidige/ugyldige reauth-
+  timestamps og fravær af bearer-credentials i eksporten.
 - Manuel test af en reel eksportfil mod en reel, udfyldt testfamilie, med
   visuelt gennemsyn af at intet krypteret felt lækkes i klartekst.
 
@@ -174,3 +196,10 @@ anbefalet tjek (nu udført): opret en testfamilie i beta, bed om
 kontosletning, bekræft at man logges ud og kan fortryde ved login, og at
 `/api/families/:id/export` giver et brugbart JSON-svar for både ejer og
 medlem.
+
+Den efterfølgende hardening er automatisk verificeret, men skal deployes
+til beta og have et kort ikke-destruktivt UI-smoketest, før samme manuelle
+status kan overføres til den ændrede bekræftelsesoplevelse. En reel
+automatisk purge efter 30 dage er fortsat **ikke manuelt verificeret**;
+den er dækket af isolerede tests og må ikke fremprovokeres mod rigtige
+beta-/produktionsdata.

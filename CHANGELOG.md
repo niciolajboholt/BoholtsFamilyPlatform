@@ -26,6 +26,26 @@
   dataeksport (kunne ikke afprøves fra udviklingsmiljøet, kun via
   automatiserede enheds-/rutetests — se plandokumentets "Manuelt
   opfølgningspunkt").
+- **Hardening efter review 2026-09-19:** personlig kontosletning blokeres
+  nu server-side, mens brugeren ejer en aktiv familie, så ejerskab først
+  skal overdrages eller familien slettes særskilt. Dermed kan
+  `families.owner_user_id` ikke efterlades pegende på en anonymiseret
+  bruger uden aktiv ejerrolle.
+- **Hardening efter review 2026-09-19:** ejereksporten inkluderer nu også
+  rutinepunkter, skabelonvarer, kategori-tilpasninger,
+  aftalepåmindelser, ugeresuméer og kalenderaktivitetslog. En eksplicit
+  eksportpolitik klassificerer alle migrerede tabeller. Aktive
+  delelinktokens, fulde hemmelige ICS-URL'er, invitationskoder, sync-
+  tokens og krypterede credentials er udeladt; kun sikker metadata
+  eksporteres for forbindelser.
+- **Hardening efter review 2026-09-19:** sletning kræver nu både frisk
+  OAuth-genautentificering og servervalideret destruktiv tekst
+  (`SLET MIN KONTO` eller familiens eksakte navn). Reauth afviser også
+  ugyldige og fremtidige timestamps.
+- **Hardening efter review 2026-09-19:** `/api/health` kontrollerer nu
+  `deletion_requests`, `users.deleted_at`, `families.deleted_at` og
+  `sessions.reauthenticated_at`, så migration 0031 ikke fejlagtigt kan
+  rapporteres som gennemført.
 
 ## Sprint 49 — Klargøring til Hjemmecentralen-lancering
 

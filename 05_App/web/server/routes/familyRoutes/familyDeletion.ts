@@ -8,6 +8,7 @@ import { Hono } from "hono";
 import {
   cancelFamilyDeletion,
   DeletionAlreadyRequestedError,
+  InvalidDeletionConfirmationError,
   isReauthFresh,
   previewFamilyDeletion,
   requestFamilyDeletion,
@@ -73,6 +74,9 @@ familyDeletion.get("/:id/deletion/preview", async (c) => {
 familyDeletion.post("/:id/deletion/request", async (c) => {
   const user = c.get("user");
   const familyId = c.req.param("id");
+  const body: { confirmation?: string } = await c.req
+    .json<{ confirmation?: string }>()
+    .catch(() => ({}));
   const membership = await getMembershipForFamily(c.env.DB, familyId, user.id);
 
   if (!membership || membership.role !== "owner") {
@@ -101,10 +105,14 @@ familyDeletion.post("/:id/deletion/request", async (c) => {
       familyId,
       requestedByUserId: user.id,
       reauthenticatedAt: user.reauthenticatedAt as string,
+      confirmation: body.confirmation ?? "",
     });
 
     return c.json({ purgeAfter });
   } catch (error) {
+    if (error instanceof InvalidDeletionConfirmationError) {
+      return c.json({ error: error.message, code: "invalid_confirmation" }, 400);
+    }
     if (error instanceof DeletionAlreadyRequestedError) {
       return c.json({ error: error.message }, 409);
     }

@@ -6,8 +6,10 @@
 import { Hono } from "hono";
 
 import {
+  AccountOwnsFamiliesError,
   cancelAccountDeletion,
   DeletionAlreadyRequestedError,
+  InvalidDeletionConfirmationError,
   isReauthFresh,
   previewAccountDeletion,
   requestAccountDeletion,
@@ -54,6 +56,9 @@ account.get("/deletion/preview", async (c) => {
 // gyldig, evt. ugedes-gammel session-cookie.
 account.post("/deletion/request", async (c) => {
   const user = c.get("user");
+  const body: { confirmation?: string } = await c.req
+    .json<{ confirmation?: string }>()
+    .catch(() => ({}));
 
   const { allowed } = await checkRateLimit(c.env.DB, {
     scope: "account-deletion-request",
@@ -76,10 +81,24 @@ account.post("/deletion/request", async (c) => {
     const { purgeAfter } = await requestAccountDeletion(c.env.DB, {
       userId: user.id,
       reauthenticatedAt: user.reauthenticatedAt as string,
+      confirmation: body.confirmation ?? "",
     });
 
     return c.json({ purgeAfter });
   } catch (error) {
+    if (error instanceof AccountOwnsFamiliesError) {
+      return c.json(
+        {
+          error: error.message,
+          code: "ownership_transfer_required",
+          ownedFamilies: error.families,
+        },
+        409,
+      );
+    }
+    if (error instanceof InvalidDeletionConfirmationError) {
+      return c.json({ error: error.message, code: "invalid_confirmation" }, 400);
+    }
     if (error instanceof DeletionAlreadyRequestedError) {
       return c.json({ error: error.message }, 409);
     }
