@@ -51,9 +51,19 @@ React/TypeScript/Vite-klient (ADR-017, Sprint 20). Leveret indtil videre:
 - Fællesøkonomi (delte udgifter) mellem forældre (Sprint 41).
 - Kiosk-dashboard: en navigationsfri visning af dagens aftaler, opgaver og
   indkøbsliste (Sprint 43).
+- Server-side fuld dataeksport (rolleafhængigt omfang) og to-trins konto-/
+  familiesletning med gen-autentificering og 30 dages fortrydelsesperiode
+  (Sprint 50).
+- Barnets Hjemmecentral (roadmap i
+  `01_Project_Documentation/Development/51_Barnets_Hjemmecentral_Plan.md`):
+  en valgfri "Mit i dag"-side pr. familiemedlem (Sprint 52); sikker
+  børneadgang på et barns EGEN, ikke-logget-ind enhed via link + 4-cifret
+  PIN-kode (Sprint 53); faste rutineskabeloner i "Opret rutine" (Sprint 54).
 
 Danske skoleferier (Sprint 42) er kun research, ikke bygget. Native
-iOS-app (Sprint 46) og Apple-login findes kun som plan. Se
+iOS-app (Sprint 46) og Apple-login findes kun som plan. Barnets
+Hjemmecentrals øvrige faser (oplæsning, valgfrit point-/mållag, guidede
+Aula/DBU Kampklar/Holdsport-forbindelser) er også kun plan. Se
 [CHANGELOG.md](CHANGELOG.md) for den fulde, løbende sprint-for-sprint-liste.
 
 Se [AI Knowledge Base](01_Project_Documentation/AI_Knowledge_Base/00_README.md)
@@ -135,6 +145,12 @@ GitHub-repo via Cloudflare Workers Builds (git-integration):
 - Push til `develop` deployer beta (`boholtsfamilyplatform-beta`), en
   separat Worker med egen D1-database, så beta-test aldrig kan ramme rigtig
   familiedata.
+
+`main` og `develop` er pt. IKKE synkroniserede — `develop` er ikke merget
+til `main` siden PR #228 (2026-09-13). "Aktuel status" ovenfor beskriver
+den samlede kodebase, ikke nødvendigvis hvad der kører i produktion netop
+nu; se [PROJECT_STATUS.md](PROJECT_STATUS.md) for den verificerede
+fordeling mellem `main` og `develop`.
 
 Se `05_App/web/wrangler.jsonc` for den fulde konfiguration (D1-binding,
 Secrets Store-bindinger, Workers AI-binding, versionsmetadata, assets og
