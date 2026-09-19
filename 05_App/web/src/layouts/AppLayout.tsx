@@ -155,7 +155,7 @@ function AppLayout() {
   }, [user, isFirstLaunch]);
 
   useEffect(() => {
-    document.title = `${familyName} Familieapp`;
+    document.title = `${familyName} · Hjemmecentralen`;
   }, [familyName]);
 
   // Renaming the family in Settings saves through a separate
