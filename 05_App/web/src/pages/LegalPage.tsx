@@ -79,6 +79,18 @@ function PrivacyContent() {
           login-siden er bevidst inaktiv indtil da.
         </Typography>
       </Section>
+      <Section title="Børneadgang uden konto">
+        Et familiemedlem (fx et barn) kan i stedet få adgang til sin egen
+        "Mit i dag"-visning på en separat enhed, uden at logge ind med Google
+        eller Microsoft. Det kræver et unikt link, som kun familiens ejer
+        eller admin kan oprette og dele, samt en 4-cifret kode, som ejeren
+        eller admin sætter for det pågældende familiemedlem. Denne adgang
+        viser og lader kun barnet afkrydse sine egne opgaver den pågældende
+        dag — intet andet i appen, og ingen andre familiemedlemmers data.
+        Koden gemmes aldrig i klartekst, kun kryptografisk hashet. Ejeren
+        eller admin kan til enhver tid tilbagekalde eller udskifte linket,
+        hvorved enhver aktiv adgang for barnet øjeblikkeligt ophører.
+      </Section>
       <Section title="Kalenderintegrationer">
         <Typography color="text.secondary" component="span" sx={{ display: "block", mb: 1.5 }}>
           Du vælger selv, hvilke eksterne kalendere der kobles til appen — der
@@ -241,8 +253,9 @@ function TermsContent() {
       </Section>
       <Section title="Din brug">
         Du er ansvarlig for de oplysninger, du tilføjer eller deler, og for at
-        offentlige delelinks kun sendes til de rette modtagere. Misbrug eller
-        forsøg på uautoriseret adgang er ikke tilladt.
+        offentlige delelinks og børneadgangs-links kun deles med de rette
+        modtagere. Misbrug eller forsøg på uautoriseret adgang er ikke
+        tilladt.
       </Section>
       <Section title="Eksterne tjenester">
         Google-, Microsoft- og iCloud-kalenderintegration, ICS-kalender-

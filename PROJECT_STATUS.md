@@ -2,26 +2,38 @@
 
 Senest opdateret: 2026-09-19
 
-> **Opdatering 2026-09-19 (Sprint 49):** "Aktuel fase" og "Leveret" nedenfor
-> er IKKE genskrevet siden 2026-09-09 og dækker derfor stadig kun til og med
-> Sprint 37 — de nævner hverken måltidsplan, lommepenge, fødselsdage/gaver,
-> fællesøkonomi, kiosk-dashboard, iCloud-kalender eller Microsoft-login,
-> selvom alle disse (undtagen danske skoleferier, se nedenfor) er
-> implementeret og merget til `main`. [CHANGELOG.md](CHANGELOG.md) ER
-> løbende ajourført til og med Sprint 49 og er den autoritative,
-> sprint-for-sprint kilde — brug den, ikke "Leveret"-listen nedenfor, ved
-> tvivl om hvad der reelt er bygget. Kort status pr. 2026-09-19:
+> **Opdatering 2026-09-19 (efterset ved en ekstra launch-gennemgang):**
+> "Aktuel fase" og "Leveret" nedenfor er IKKE genskrevet siden 2026-09-09 og
+> dækker derfor stadig kun til og med Sprint 37 — de nævner hverken
+> måltidsplan, lommepenge, fødselsdage/gaver, fællesøkonomi,
+> kiosk-dashboard, iCloud-kalender, Microsoft-login eller Barnets
+> Hjemmecentral. [CHANGELOG.md](CHANGELOG.md) ER løbende ajourført til og
+> med Sprint 54 og er den autoritative, sprint-for-sprint kilde — brug den,
+> ikke "Leveret"-listen nedenfor, ved tvivl om hvad der reelt er bygget.
+> **Vigtigt, tidligere fejlagtigt her:** `main` (produktion) og `develop`
+> (beta) er ikke synkroniserede — `git merge-base --is-ancestor` bekræfter,
+> at `develop` ikke er merget til `main` siden PR #228 (2026-09-13). Kort,
+> verificeret status pr. 2026-09-19:
 >
-> - **Implementeret og på `main`:** måltidsplan (Sprint 38), lommepenge/
->   opgavebelønning (39), fødselsdage/gaveplaner (40), fællesøkonomi (41),
->   kiosk-dashboard (43), iCloud CalDAV (47), Microsoft-login (48 Del A/C).
+> - **Implementeret og på `main` (produktion):** måltidsplan (Sprint 38),
+>   lommepenge/opgavebelønning (39), fødselsdage/gaveplaner (40),
+>   fællesøkonomi (41), kiosk-dashboard (43), iCloud CalDAV (47).
+> - **Implementeret på `develop` (beta), IKKE endnu på `main`:**
+>   Microsoft-login (Sprint 48 Del A/C — migration 0030 findes kun på
+>   `develop`), sikkerhedshærdning/juridiske tekster/Hjemmecentralen-
+>   branding (Sprint 49), fuld dataeksport og konto-/familiesletning
+>   (Sprint 50), og Barnets Hjemmecentral: "Mit i dag" (51-52), PIN-baseret
+>   børneadgang (53), rutineskabeloner (54).
 > - **Ikke implementeret:** danske skoleferier (Sprint 42 — kun research,
 >   ingen kode), Apple-login (Sprint 48 Del B), native iOS-app (Sprint 46,
->   kun plan).
+>   kun plan), Barnets Hjemmecentrals øvrige faser (oplæsning, point-/
+>   mållag, guidede Aula/DBU Kampklar/Holdsport-forbindelser — kun plan i
+>   `51_Barnets_Hjemmecentral_Plan.md`).
 > - **Midlertidigt deaktiveret i produktion:** Outlook-kalenderintegration
 >   (koden findes, men er slået fra pga. en Azure-tenant-begrænsning).
 > - Se `01_Project_Documentation/Development/49_Sprint49_Hjemmecentralen_Launch_Prep_Plan.md`
->   for den fulde verifikation bag disse punkter.
+>   for baggrunden for Sprint 49-punkterne, og `51_Barnets_Hjemmecentral_Plan.md`
+>   for Barnets Hjemmecentral-roadmappet.
 
 > Den autoritative fase-for-fase-plan og levende status findes i
 > [`30_Stabilization_Execution_Plan.md`](01_Project_Documentation/Development/30_Stabilization_Execution_Plan.md).

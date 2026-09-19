@@ -378,7 +378,7 @@ export async function fetchCalendarEvents(
 function buildIcsForEvent(input: ICloudEventInput): string {
   const calendarComponent = new ICAL.Component(["vcalendar", [], []]);
   calendarComponent.updatePropertyWithValue("version", "2.0");
-  calendarComponent.updatePropertyWithValue("prodid", "-//Boholts Family Platform//iCloud CalDAV//DA");
+  calendarComponent.updatePropertyWithValue("prodid", "-//Hjemmecentralen//iCloud CalDAV//DA");
 
   const vevent = new ICAL.Component("vevent");
   const icalEvent = new ICAL.Event(vevent);
