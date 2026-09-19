@@ -108,6 +108,7 @@ async function mockAuthenticatedApi(page: Page): Promise<void> {
           "birthdays",
           "shared-expenses",
           "kiosk",
+          "mit-i-dag",
         ],
       };
     } else if (path === "/api/calendar/status") {
@@ -619,7 +620,7 @@ test("primary pages have no visible unnamed controls", async ({ page }, testInfo
   test.setTimeout(60_000);
   await mockAuthenticatedApi(page);
 
-  for (const path of ["/", "/calendar", "/shopping-list", "/tasks", "/settings"]) {
+  for (const path of ["/", "/calendar", "/shopping-list", "/tasks", "/mit-i-dag", "/settings"]) {
     await page.goto(path);
     await expect(page.locator("main")).toBeVisible();
     expect(await getUnnamedInteractiveElements(page), `Kontroller på ${path}`).toEqual([]);
@@ -633,7 +634,7 @@ test("primary pages have no WCAG 2.0/2.1 A/AA accessibility violations", async (
   test.setTimeout(60_000);
   await mockAuthenticatedApi(page);
 
-  for (const path of ["/", "/calendar", "/shopping-list", "/tasks", "/settings"]) {
+  for (const path of ["/", "/calendar", "/shopping-list", "/tasks", "/mit-i-dag", "/settings"]) {
     await page.goto(path);
     await expect(page.locator("main")).toBeVisible();
     const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
@@ -645,7 +646,7 @@ test("primary pages have no WCAG 2.0/2.1 A/AA accessibility violations", async (
 // Fase 2: axe-core (ovenfor) tjekker statisk ARIA-opmærkning, men fanger
 // hverken en reel tastaturfælde i en dialog eller om et fokuseret element
 // rent faktisk er synligt — begge kræver at man faktisk tabber sig igennem.
-const sidebarNavLabels = ["Overblik", "Kalender", "Indkøb", "Opgaver", "Indstillinger"];
+const sidebarNavLabels = ["Overblik", "Kalender", "Indkøb", "Opgaver", "Mit i dag", "Indstillinger"];
 
 test("desktop sidebar navigation is reachable by keyboard, and no focused element becomes invisible", async ({
   page,
@@ -654,7 +655,7 @@ test("desktop sidebar navigation is reachable by keyboard, and no focused elemen
   test.setTimeout(60_000);
   await mockAuthenticatedApi(page);
 
-  for (const path of ["/", "/calendar", "/shopping-list", "/tasks", "/settings"]) {
+  for (const path of ["/", "/calendar", "/shopping-list", "/tasks", "/mit-i-dag", "/settings"]) {
     await page.goto(path);
     await expect(page.locator("main")).toBeVisible();
 
@@ -1052,7 +1053,7 @@ test("primary pages fit the complete supported mobile width matrix", async ({
   for (const width of [320, 375, 390, 430]) {
     await page.setViewportSize({ width, height: 844 });
 
-    for (const path of ["/", "/calendar", "/shopping-list", "/tasks", "/settings"]) {
+    for (const path of ["/", "/calendar", "/shopping-list", "/tasks", "/mit-i-dag", "/settings"]) {
       await page.goto(path);
       await expect(page.locator("main")).toBeVisible();
 
@@ -1061,6 +1062,24 @@ test("primary pages fit the complete supported mobile width matrix", async ({
       );
       expect(overflow, `${path} ved ${width}px`).toBeLessThanOrEqual(1);
     }
+  }
+});
+
+test("mobile bottom navigation keeps every enabled feature as a usable touch target", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "mobile-chromium");
+  await mockAuthenticatedApi(page);
+  await page.goto("/mit-i-dag");
+
+  for (const label of ["Overblik", "Kalender", "Indkøb", "Måltider", "Opgaver", "Mit i dag", "Indstillinger"]) {
+    const button = page.getByRole("button", { name: label, exact: true });
+    await button.scrollIntoViewIfNeeded();
+    await expect(button).toBeVisible();
+
+    const box = await button.boundingBox();
+    expect(box?.width ?? 0, `${label} skal have mindst 44 px bred trykflade`).toBeGreaterThanOrEqual(44);
+    expect(box?.height ?? 0, `${label} skal have mindst 44 px høj trykflade`).toBeGreaterThanOrEqual(44);
   }
 });
 
@@ -3539,6 +3558,131 @@ test("the kiosk dashboard shows today's agenda, tasks, and shopping list, withou
   // ligger uden for den routing-gren, samme princip som /share/:token.
   await expect(page.getByRole("navigation")).not.toBeVisible();
   await expect(page.getByRole("button", { name: "Indstillinger" })).not.toBeVisible();
+});
+
+test("Mit i dag includes shared work, persists check-off, and protects another member's private title", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  await mockAuthenticatedApi(page);
+  await page.clock.setFixedTime(new Date("2026-08-26T09:00:00+02:00"));
+  await page.addInitScript(() => {
+    window.localStorage.setItem("boholts-current-member-id", "member-e2e");
+  });
+
+  await page.route("**/api/calendar/status", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ connected: true }),
+    }),
+  );
+
+  await page.route("**/api/calendar/calendars/*/events*", async (route) => {
+    const calendarId = decodeURIComponent(new URL(route.request().url()).pathname.split("/")[4] ?? "");
+
+    if (route.request().method() !== "GET") {
+      await route.fallback();
+      return;
+    }
+
+    const item =
+      calendarId === "alex-calendar"
+        ? {
+            id: "alex-event",
+            summary: "Fodboldtræning",
+            status: "confirmed",
+            start: { dateTime: "2026-08-26T10:00:00+02:00" },
+            end: { dateTime: "2026-08-26T11:00:00+02:00" },
+          }
+        : calendarId === "chris-calendar"
+          ? {
+              id: "chris-private-event",
+              summary: "Privat lægetid",
+              visibility: "private",
+              status: "confirmed",
+              start: { dateTime: "2026-08-26T11:00:00+02:00" },
+              end: { dateTime: "2026-08-26T12:00:00+02:00" },
+            }
+          : null;
+
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        items: item ? [item] : [],
+        nextSyncToken: `${calendarId}-sync-token`,
+      }),
+    });
+  });
+
+  let sharedTaskDone = 0;
+  let patchedTaskId: string | null = null;
+  const taskRows = () => [
+    {
+      id: "own-task",
+      familyId: family.id,
+      name: "Find sportstaske",
+      icon: "fritid",
+      assignedMemberId: "member-e2e",
+      timeOfDay: null,
+      isDone: 0,
+      routineItemId: null,
+      taskDate: "2026-08-26",
+      createdByUserId: "user-e2e",
+      createdAt: "2026-08-26T06:00:00.000Z",
+      doneAt: null,
+      rewardAmount: 0,
+    },
+    {
+      id: "shared-task",
+      familyId: family.id,
+      name: "Pak skoletaske",
+      icon: "skole",
+      assignedMemberId: null,
+      timeOfDay: null,
+      isDone: sharedTaskDone,
+      routineItemId: null,
+      taskDate: "2026-08-26",
+      createdByUserId: "user-e2e",
+      createdAt: "2026-08-26T06:01:00.000Z",
+      doneAt: sharedTaskDone ? "2026-08-26T07:01:00.000Z" : null,
+      rewardAmount: 0,
+    },
+  ];
+
+  await page.route("**/api/families/*/tasks*", async (route) => {
+    if (route.request().method() === "PATCH") {
+      patchedTaskId = new URL(route.request().url()).pathname.split("/").at(-1) ?? null;
+      sharedTaskDone = 1;
+    } else if (route.request().method() !== "GET") {
+      await route.fallback();
+      return;
+    }
+
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ tasks: taskRows() }),
+    });
+  });
+
+  await page.goto("/mit-i-dag");
+
+  await expect(page.getByText("Fodboldtræning")).toBeVisible();
+  await expect(page.getByText("Find sportstaske")).toBeVisible();
+  await expect(page.getByText("Pak skoletaske")).toBeVisible();
+
+  const sharedCheckbox = page.getByRole("checkbox", {
+    name: "Pak skoletaske: marker som færdig",
+  });
+  await sharedCheckbox.check();
+  await expect.poll(() => patchedTaskId).toBe("shared-task");
+  await expect(sharedCheckbox).toBeChecked();
+
+  await page.getByRole("button", { name: /Chris/ }).click();
+  await expect(page.getByText("Optaget", { exact: true })).toBeVisible();
+  await expect(page.getByText("Privat lægetid", { exact: true })).not.toBeVisible();
 });
 
 // "Flere funktioner": alt starter slået fra for en familie, der endnu ikke

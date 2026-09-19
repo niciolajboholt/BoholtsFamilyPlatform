@@ -1,5 +1,22 @@
 # Changelog
 
+## Sprint 52 — Mit i dag / Se som barn
+
+- **Implementeret:** valgfri "Mit i dag"-side med medlemsvælger, næste
+  aktivitet og dagens aftaler/opgaver oven på eksisterende data.
+- **Hardening efter review 2026-09-19:** private aftaler redigeres til
+  "Optaget" ud fra den faktiske seer, også når en anden profil vælges i
+  forhåndsvisningen.
+- **Hardening efter review 2026-09-19:** flerpersoners og fælles
+  familieaftaler samt familie-rettede opgaver indgår nu i medlemmets
+  overblik.
+- **Hardening efter review 2026-09-19:** siden opdaterer automatisk
+  afsluttede/næste aktiviteter og remounter datakilderne ved lokal midnat.
+  Indlæsnings-, fejl- og ventende offline-status er synlig.
+- **Verificering:** målrettede unit-tests og Playwright-scenarie er
+  tilføjet, og siden indgår nu i de fælles a11y-, tastatur- og mobile
+  breddetests.
+
 ## Sprint 50 — Fuld dataeksport og kontosletning
 
 > Se `01_Project_Documentation/Development/50_Sprint50_Fuld_Dataeksport_Kontosletning_Plan.md`
