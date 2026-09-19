@@ -161,15 +161,16 @@ sletter sig selv.
 
 ---
 
-## Manuelt opfølgningspunkt
+## Manuelt opfølgningspunkt — verificeret 2026-09-19
 
-Live header-/flow-verifikation mod beta-miljøet (rigtig OAuth-roundtrip
-for gen-autentificering, rigtig purge via den daglige Cron Trigger) kunne
-ikke køres fra denne sandbox — kun automatiserede enheds-/rutetests (17 +
-8 + 8 nye tests, se `server/lib/accountDeletion.test.ts`,
+Live flow-verifikation mod beta-miljøet (rigtig OAuth-roundtrip for
+gen-autentificering, kontosletning/fortrydelse, dataeksport) kunne ikke
+køres fra sandboxen — kun automatiserede enheds-/rutetests (17 + 8 + 8
+nye tests, se `server/lib/accountDeletion.test.ts`,
 `server/routes/account.test.ts`,
-`server/routes/familyRoutes/familyDeletion.test.ts`). Anbefalet manuelt
-tjek efter deploy: opret en testfamilie i beta, bed om kontosletning,
-bekræft at man logges ud og kan fortryde ved login, og at
+`server/routes/familyRoutes/familyDeletion.test.ts`). **Nicolaj har
+efterfølgende bekræftet manuelt i beta at flowet virker.** Tidligere
+anbefalet tjek (nu udført): opret en testfamilie i beta, bed om
+kontosletning, bekræft at man logges ud og kan fortryde ved login, og at
 `/api/families/:id/export` giver et brugbart JSON-svar for både ejer og
 medlem.
