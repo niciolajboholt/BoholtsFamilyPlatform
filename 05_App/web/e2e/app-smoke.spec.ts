@@ -3652,14 +3652,28 @@ test("Mit i dag includes shared work, persists check-off, and protects another m
   ];
 
   await page.route("**/api/families/*/tasks*", async (route) => {
-    if (route.request().method() === "PATCH") {
-      patchedTaskId = new URL(route.request().url()).pathname.split("/").at(-1) ?? null;
-      sharedTaskDone = 1;
-    } else if (route.request().method() !== "GET") {
+    if (route.request().method() !== "GET") {
       await route.fallback();
       return;
     }
 
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ tasks: taskRows() }),
+    });
+  });
+
+  // PATCH-URL'en har et ekstra /:taskId-segment og matches derfor ikke af
+  // GET-mønstret ovenfor (Playwrights * krydser ikke en skråstreg).
+  await page.route("**/api/families/*/tasks/*", async (route) => {
+    if (route.request().method() !== "PATCH") {
+      await route.fallback();
+      return;
+    }
+
+    patchedTaskId = new URL(route.request().url()).pathname.split("/").at(-1) ?? null;
+    sharedTaskDone = 1;
     await route.fulfill({
       status: 200,
       contentType: "application/json",
