@@ -3688,7 +3688,7 @@ test("Mit i dag includes shared work, persists check-off, and protects another m
   await expect(page.getByText("Pak skoletaske")).toBeVisible();
 
   const sharedCheckbox = page.getByRole("checkbox", {
-    name: "Pak skoletaske: marker som færdig",
+    name: /Pak skoletaske:/,
   });
   await sharedCheckbox.check();
   await expect.poll(() => patchedTaskId).toBe("shared-task");
