@@ -246,6 +246,15 @@ async function seedFullFamilyDataset(
     )
     .bind(ownerUserId, familyId, now)
     .run();
+  // Sprint 53: child_sessions.family_member_id -> family_members(id) — uden
+  // denne rad ville testen ikke opdage, hvis hardDeleteFamily() glemte at
+  // rydde den FØR family_members selv slettes.
+  await db
+    .prepare(
+      `INSERT INTO child_sessions (id, family_member_id, created_at, expires_at) VALUES ('child-session-1', ?, ?, ?)`,
+    )
+    .bind(memberId, now, new Date(Date.now() + 100_000).toISOString())
+    .run();
 }
 
 describe("accountDeletion", () => {
@@ -744,6 +753,11 @@ describe("accountDeletion", () => {
         .prepare("SELECT event_id FROM calendar_event_snapshots WHERE google_calendar_id = 'gcal-1'")
         .first();
       expect(snapshot).toBeNull();
+
+      const childSession = await db
+        .prepare("SELECT id FROM child_sessions WHERE id = 'child-session-1'")
+        .first();
+      expect(childSession).toBeNull();
 
       // Medlemmernes egne konti overlever en familiesletning — kun
       // deres medlemskab af DENNE familie forsvinder.
