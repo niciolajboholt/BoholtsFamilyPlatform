@@ -255,6 +255,16 @@ async function seedFullFamilyDataset(
     )
     .bind(memberId, now, new Date(Date.now() + 100_000).toISOString())
     .run();
+  // Sprint 55: child_messages.family_member_id -> family_members(id) og
+  // child_messages.family_id -> families(id) — samme FK-sikkerhedsgrund som
+  // child_sessions ovenfor.
+  await db
+    .prepare(
+      `INSERT INTO child_messages (id, family_id, family_member_id, created_by_user_id, body, created_at)
+       VALUES ('child-message-1', ?, ?, ?, 'Hej skat!', ?)`,
+    )
+    .bind(familyId, memberId, ownerUserId, now)
+    .run();
 }
 
 describe("accountDeletion", () => {
@@ -758,6 +768,11 @@ describe("accountDeletion", () => {
         .prepare("SELECT id FROM child_sessions WHERE id = 'child-session-1'")
         .first();
       expect(childSession).toBeNull();
+
+      const childMessage = await db
+        .prepare("SELECT id FROM child_messages WHERE id = 'child-message-1'")
+        .first();
+      expect(childMessage).toBeNull();
 
       // Medlemmernes egne konti overlever en familiesletning — kun
       // deres medlemskab af DENNE familie forsvinder.
