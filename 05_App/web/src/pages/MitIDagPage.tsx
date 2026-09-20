@@ -25,7 +25,8 @@ import { getEventsForDate } from "../features/calendar/utils/getEventsForDate";
 import type { CalendarEvent } from "../features/calendar/models/calendarEvent";
 import { isChildRelation } from "../features/calendar/data/familyMemberRelations";
 import { ChildAccessAdminPanel } from "../features/family/components/ChildAccessAdminPanel";
-import { getChildMessagesForMember, getMyFamily, type ChildMessageDto, type FamilyRole } from "../features/family/familyApi";
+import { getChildMessagesForMember, type ChildMessageDto, type FamilyRole } from "../features/family/familyApi";
+import { getCachedFamily } from "../features/family/familySessionCache";
 import { useEnabledFeatures } from "../features/family/hooks/useEnabledFeatures";
 import {
   buildMitIDagPlan,
@@ -167,7 +168,7 @@ function MitIDagContent({ now }: MitIDagContentProps) {
   useEffect(() => {
     let isCancelled = false;
 
-    getMyFamily().then((result) => {
+    getCachedFamily().then((result) => {
       if (!isCancelled && result.ok && result.data.family) {
         setFamilyId(result.data.family.id);
         setOwnRole(result.data.role ?? null);

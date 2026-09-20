@@ -38,8 +38,8 @@ import {
   hasCompletedFamilySetup,
 } from "../features/calendar/preferences/familyMembersStorage";
 import type { FeatureKey } from "../features/family/familyApi";
-import { getMyFamily } from "../features/family/familyApi";
 import { syncFamilyMembersFromServer } from "../features/family/familyMembersSync";
+import { getCachedFamily } from "../features/family/familySessionCache";
 import { useEnabledFeatures } from "../features/family/hooks/useEnabledFeatures";
 import LoginPage from "../pages/LoginPage";
 import { OfflineStatusBanner } from "../components/OfflineStatusBanner";
@@ -107,7 +107,7 @@ function AppLayout() {
 
     let isCancelled = false;
 
-    getMyFamily().then((result) => {
+    getCachedFamily().then((result) => {
       if (isCancelled) {
         return;
       }
@@ -142,7 +142,7 @@ function AppLayout() {
 
     let isCancelled = false;
 
-    getMyFamily().then((result) => {
+    getCachedFamily().then((result) => {
       if (!isCancelled && result.ok && result.data.family && result.data.members) {
         syncFamilyMembersFromServer(result.data.members);
         setFamilyName(readFamilyName());

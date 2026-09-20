@@ -11,6 +11,7 @@ import {
   setFamilyPseudoMemberServerId,
 } from "../calendar/preferences/familyMembersStorage";
 import type { FamilyMemberDto } from "./familyApi";
+import { invalidateFamilyCache } from "./familySessionCache";
 
 // relation=NULL er reserveret til familie-pseudomedlemmet på serveren — det
 // er sådan vi genkender netop den række og giver den det id, resten af
@@ -35,4 +36,9 @@ export function syncFamilyMembersFromServer(members: FamilyMemberDto[]): void {
   const pseudoMember = members.find((member) => member.relation === null);
   setFamilyPseudoMemberServerId(pseudoMember?.id ?? null);
   saveFamilyMembers(mapMembersToCalendarOwners(members));
+  // Sprint 57: dette er allerede det eksisterende, centrale signal for
+  // "familiens medlemmer ændrede sig" (kaldt efter enhver
+  // tilføjelse/redigering/sletning, se useFamilyMembers.ts) — genbruges
+  // derfor også til at invalidere getCachedFamily()'s delte cache.
+  invalidateFamilyCache();
 }
