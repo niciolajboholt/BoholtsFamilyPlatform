@@ -25,9 +25,12 @@ implementeret 2026-09-19. Sprint 55 (se
 samlet administrationsside, QR-kode, sessionsoverblik, kalenderaftaler
 (sikkert delomfang), dansk oplæsning og en minimal besked-funktion.
 Oplæsning og beskeder (punkt 5/foreslået indhold) er dermed implementeret
-tidligere end den oprindeligt foreslåede rækkefølge tilsagde. De øvrige
-faser (point-/mållag, guidede eksterne kalenderforbindelser) er fortsat
-ikke implementeret. Arbejdstitel: **Barnets Hjemmecentral**.
+tidligere end den oprindeligt foreslåede rækkefølge tilsagde. Sprint 56
+flyttede efterfølgende selve børneadgangs-administrationen (link/QR/PIN/
+sessioner/beskeder) fra Indstillinger til en sektion på "Mit i dag" for
+det valgte medlem, efter Nicolajs feedback om at den var for gemt væk.
+De øvrige faser (point-/mållag, guidede eksterne kalenderforbindelser)
+er fortsat ikke implementeret. Arbejdstitel: **Barnets Hjemmecentral**.
 
 ---
 

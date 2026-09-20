@@ -280,13 +280,15 @@ export function FamilyMemberDialog({
             )}
 
             {canManageChildAccess && (
-              // Sprint 55: ÉT administrations-flow for børneadgang, ikke to
-              // — link, PIN, QR-kode og enheder administreres nu samlet i
-              // Indstillinger → Familie → "Børneadgang" (ChildAccessDialog.tsx),
-              // som denne dialog blot henviser til.
+              // Sprint 56 (opfølgning på Sprint 55): ÉT administrations-flow
+              // for børneadgang, ikke to — link, PIN, QR-kode, enheder og
+              // beskeder administreres nu samlet på "Mit i dag" for det
+              // valgte medlem (ChildAccessAdminPanel.tsx), som denne dialog
+              // blot henviser til.
               <Alert severity="info">
-                Link, kode og enheder til {member?.name ?? "dette medlems"} egen adgang uden login
-                administreres under Indstillinger → Familie → "Børneadgang".
+                Link, kode, enheder og beskeder til {member?.name ?? "dette medlems"} egen adgang uden
+                login administreres nu under "Mit i dag" — vælg {member?.name ?? "medlemmet"} og åbn
+                "Børneadgang" dér.
               </Alert>
             )}
 

@@ -11,6 +11,7 @@ import {
   ManageAccountsRounded,
 } from "@mui/icons-material";
 import { Avatar, Box, Button, Card, CardContent, Divider, IconButton, Typography } from "@mui/material";
+import { useNavigate } from "react-router-dom";
 
 import { FamilyMemberDialog } from "../../calendar/components/FamilyMemberDialog";
 import type { CalendarOwner } from "../../calendar/data/calendarOwners";
@@ -22,13 +23,13 @@ import {
 import type { MappableCalendarOption } from "../../calendar/providers/calendarProviderFactory";
 import { listAllMappableCalendars } from "../../calendar/providers/calendarProviderFactory";
 import { getInitials } from "../../calendar/utils/getInitials";
-import { ChildAccessDialog } from "../../family/ChildAccessDialog";
 import { FamilyMembershipsDialog } from "../../family/FamilyMembershipsDialog";
 import { InviteCodeDialog } from "../../family/InviteCodeDialog";
 import { ShareLinkDialog } from "../../family/ShareLinkDialog";
 import { SettingsLinkRow, SettingsSectionHeader } from "./SettingsPrimitives";
 
 export function FamilySection() {
+  const navigate = useNavigate();
   const { members, addMember, updateMember, deleteMember } = useFamilyMembers();
 
   const [editingMember, setEditingMember] = useState<CalendarOwner | null>(null);
@@ -36,7 +37,6 @@ export function FamilySection() {
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const [isMembershipsDialogOpen, setIsMembershipsDialogOpen] = useState(false);
-  const [isChildAccessDialogOpen, setIsChildAccessDialogOpen] = useState(false);
 
   // Kalender-til-medlem-visning (kun læsning her — selve tildelingen sker i
   // FamilyMemberDialog) — hentes én gang, så familielisten kan vise hvilken
@@ -231,8 +231,8 @@ export function FamilySection() {
           <SettingsLinkRow
             icon={<ChildCareRounded color="action" />}
             title="Børneadgang"
-            subtitle="Link, kode og enheder til Mit i dag uden login"
-            onClick={() => setIsChildAccessDialogOpen(true)}
+            subtitle="Administreres nu under Mit i dag for det valgte medlem"
+            onClick={() => navigate("/mit-i-dag")}
           />
         </CardContent>
       </Card>
@@ -253,8 +253,6 @@ export function FamilySection() {
       />
 
       <ShareLinkDialog open={isShareDialogOpen} onClose={() => setIsShareDialogOpen(false)} />
-
-      <ChildAccessDialog open={isChildAccessDialogOpen} onClose={() => setIsChildAccessDialogOpen(false)} />
     </>
   );
 }

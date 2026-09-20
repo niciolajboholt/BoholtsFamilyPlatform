@@ -3890,11 +3890,12 @@ test("a slow calendar load shows an explanation and a manual retry after a while
   await expect(page.getByText("Indlæser kalender…")).not.toBeVisible();
 });
 
-// Sprint 55 (se
+// Sprint 56 (opfølgning på
 // 01_Project_Documentation/Development/55_Sprint55_Barn_Adgang_UX_Plan.md):
-// den samlede "Børneadgang"-administration i Indstillinger — opret/rotér
-// link, vis QR-kode, sæt PIN, send en besked. Rate-begrænsning,
-// rolle-håndhævelse og sessions-tilbagekaldelse er allerede dækket af
+// den samlede "Børneadgang"-administration flyttet fra Indstillinger til
+// "Mit i dag" for det valgte medlem — opret/rotér link, vis QR-kode, sæt
+// PIN, send en besked. Rate-begrænsning, rolle-håndhævelse og
+// sessions-tilbagekaldelse er allerede dækket af
 // server/routes/familyRoutes/childAccessManagement.test.ts; dette
 // scenarie dækker selve UI-flowet.
 test("en voksen kan oprette børneadgang med QR-kode, sætte en PIN, og sende en besked", async ({
@@ -3980,27 +3981,24 @@ test("en voksen kan oprette børneadgang med QR-kode, sætte en PIN, og sende en
     await route.fallback();
   });
 
-  await page.goto("/settings");
-  await page.getByRole("button", { name: "Børneadgang" }).click();
+  await page.goto("/mit-i-dag");
+  await page.getByRole("button", { name: /Billie/ }).click();
 
-  const dialog = page.getByRole("dialog", { name: "Børneadgang" });
-  await expect(dialog).toBeVisible();
+  await page.getByRole("button", { name: /Børneadgang for Billie/ }).click();
 
-  await dialog.getByText("Billie", { exact: true }).click();
+  await page.getByRole("button", { name: "Opret børneadgangs-link" }).click();
+  await expect(page.getByText(/\/barn\/e2e-child-token/)).toBeVisible();
 
-  await dialog.getByRole("button", { name: "Opret børneadgangs-link" }).click();
-  await expect(dialog.getByText(/\/barn\/e2e-child-token/)).toBeVisible();
+  await page.getByRole("button", { name: "Vis QR-kode" }).click();
+  await expect(page.getByRole("img", { name: /QR-kode til børneadgangslinket/ })).toBeVisible();
 
-  await dialog.getByRole("button", { name: "Vis QR-kode" }).click();
-  await expect(dialog.getByRole("img", { name: /QR-kode til børneadgangslinket/ })).toBeVisible();
+  await page.getByLabel("Kode (4 cifre)").fill("1234");
+  await page.getByRole("button", { name: "Sæt kode", exact: true }).click();
+  await expect(page.getByText(/Sat/)).toBeVisible();
 
-  await dialog.getByLabel("Kode (4 cifre)").fill("1234");
-  await dialog.getByRole("button", { name: "Sæt kode", exact: true }).click();
-  await expect(dialog.getByText(/Klar til brug/)).toBeVisible();
-
-  await dialog.getByLabel(/Kort besked/).fill("God skoledag, Billie!");
-  await dialog.getByRole("button", { name: "Send", exact: true }).click();
-  await expect(dialog.getByText("God skoledag, Billie!")).toBeVisible();
+  await page.getByLabel(/Kort besked/).fill("God skoledag, Billie!");
+  await page.getByRole("button", { name: "Send", exact: true }).click();
+  await expect(page.getByText("God skoledag, Billie!").first()).toBeVisible();
 });
 
 // Barnets side af samme flow — helt uden voksensession (kun
