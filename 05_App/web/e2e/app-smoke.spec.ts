@@ -4001,6 +4001,76 @@ test("en voksen kan oprette børneadgang med QR-kode, sætte en PIN, og sende en
   await expect(page.getByText("God skoledag, Billie!").first()).toBeVisible();
 });
 
+// Regression: da børneadgangs-panelet flyttede fra en Dialog (som klipper
+// overflow) til at ligge direkte i "Mit i dag"s sideflow, blev et ægte
+// (langt) børneadgangslink observeret til at presse hele panelet bredere
+// end skærmen på mobil — se CHANGELOG's Sprint 56-afsnit. Rettelsen
+// erstatter en-linje-ellipse (afhængig af at flere CSS-regler er
+// indlæst korrekt i den rigtige rækkefølge) med almindelig
+// linjeombrydning, som er robust uanset indlæsningstilstand. Dækker
+// specifikt den udfoldede tilstand med QR-koden vist, som den generiske
+// mobilbredde-test ikke rammer (accordions er lukkede som udgangspunkt).
+test("børneadgangs-panelet med udfoldet QR-kode har ingen vandret overflow på mobil", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "mobile-chromium");
+
+  // Minimal, selvstændig mock (i stedet for mockAuthenticatedApi) — kun
+  // ét familiemedlem, så det er forvalgt uden et ekstra chip-klik, og kun
+  // de endepunkter denne side rent faktisk bruger.
+  await page.route("**/api/**", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    let body: object = {};
+
+    if (path === "/api/me") {
+      body = { user: { id: "user-e2e", email: "familie@example.com", name: "Testbruger", pictureUrl: null } };
+    } else if (path === "/api/families/mine") {
+      body = {
+        family,
+        role: "owner",
+        members: [
+          { id: "member-billie", name: "Billie", color: "#D19A2A", relation: "Barn", isPlaceholderName: 0, linkedUserId: null },
+        ],
+        inviteCode: "TEST1234",
+      };
+    } else if (path.endsWith("/enabled-features")) {
+      body = { features: ["mit-i-dag"] };
+    } else if (path.endsWith("/tasks")) {
+      body = { tasks: [] };
+    } else if (path === "/api/calendar/status") {
+      body = { connected: false };
+    } else if (path.includes("child-access/sessions")) {
+      body = { sessions: [] };
+    } else if (path.includes("child-access")) {
+      // Et rigtigt børneadgangs-token er 32 tilfældige bytes,
+      // base64url-kodet (~43 tegn, se generateShareToken() i
+      // server/lib/familySeed.ts) — langt nok, sammen med produktionens
+      // beta-domæne, til at afsløre overflowet. Det korte
+      // "e2e-child-token" i de øvrige tests i denne fil er ikke langt nok.
+      body = {
+        token: "aB3dEfGhIjKlMnOpQrStUvWxYz0123456789-_ABCDE",
+        hasPin: true,
+        pinSetAt: "2026-09-20T08:00:00.000Z",
+      };
+    } else if (path.includes("/messages")) {
+      body = { messages: [] };
+    }
+
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
+  });
+
+  await page.setViewportSize({ width: 360, height: 800 });
+  await page.goto("/mit-i-dag");
+  await page.getByRole("button", { name: /Børneadgang for Billie/ }).click();
+  await page.getByRole("button", { name: "Vis QR-kode" }).click();
+  await expect(page.getByRole("img", { name: /QR-kode til børneadgangslinket/ })).toBeVisible();
+
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  );
+  expect(overflow).toBeLessThanOrEqual(1);
+});
+
 // Barnets side af samme flow — helt uden voksensession (kun
 // child_session-cookien, sat af den rigtige /verify-rute). Dækker
 // opgaver, kalenderaftaler (Fase C's sikre delomfang), en besked, og

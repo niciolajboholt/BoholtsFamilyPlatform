@@ -34,7 +34,7 @@ export function ChildAccessQrCode({ value, size = 176 }: ChildAccessQrCodeProps)
       viewBox={`0 0 ${size} ${size}`}
       role="img"
       aria-label={`QR-kode til børneadgangslinket. Linket er ${value}`}
-      style={{ borderRadius: 8, backgroundColor: "#FFFFFF" }}
+      style={{ borderRadius: 8, backgroundColor: "#FFFFFF", maxWidth: "100%", height: "auto" }}
     >
       <path d={rects.join(" ")} fill="#000000" />
     </svg>
