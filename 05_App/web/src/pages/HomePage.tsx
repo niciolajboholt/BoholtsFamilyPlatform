@@ -111,7 +111,23 @@ function HomePage() {
   const navigate = useNavigate();
   const { members } = useFamilyMembers();
   const { currentMember } = useCurrentMember();
-  const { events } = useCalendarEvents();
+
+  // Sprint 57: Overblik behøver kun i dag og "Næste aftale"'s
+  // lookahead-vindue (dashboardLookaheadDays), ikke det brede "et år
+  // tilbage til to år frem"-standardinterval. Beregnet én gang pr. mount
+  // (tom deps-liste) — objektidentitet er irrelevant for
+  // useCalendarEvents (den sammenligner kun start/slut-strengene), men en
+  // frisk `new Date()` ved hvert render ville ellers give et nyt
+  // millisekund-præcist tidsstempel og dermed udløse en unødig
+  // genhentning ved hvert render.
+  const dashboardRange = useMemo(() => {
+    const now = new Date();
+    const rangeEnd = new Date(now);
+    rangeEnd.setDate(rangeEnd.getDate() + dashboardLookaheadDays);
+    return { start: now.toISOString(), end: rangeEnd.toISOString() };
+  }, []);
+
+  const { events } = useCalendarEvents(undefined, dashboardRange);
   const { visibleCalendarSourceIds } = useCalendarSources();
   const recurrenceExceptions = useRecurrenceExceptions();
   const { isEnabled: isFeatureEnabled } = useEnabledFeatures();

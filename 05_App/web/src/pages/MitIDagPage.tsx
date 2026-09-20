@@ -119,11 +119,23 @@ interface MitIDagContentProps {
 }
 
 function MitIDagContent({ now }: MitIDagContentProps) {
+  // Sprint 57: Mit i dag viser kun én dag — henter derfor kun i dag ±1
+  // dags buffer (i stedet for det brede "et år tilbage til to år frem"-
+  // standardinterval), med en dags margen på hver side for korrekt at
+  // fange en flerdagesaftale, der allerede er i gang. Memoized på
+  // dato-nøglen (ikke `now` selv, som opdateres hvert 30. sekund), så
+  // genhentning kun sker, når dagen reelt skifter.
+  const todaysRange = useMemo(() => {
+    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 0, 0, 0, 0);
+    const end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 2, 0, 0, 0, 0);
+    return { start: start.toISOString(), end: end.toISOString() };
+  }, [now]);
+
   const {
     events,
     isLoading: areCalendarEventsLoading,
     error: calendarError,
-  } = useCalendarEvents();
+  } = useCalendarEvents(undefined, todaysRange);
   const { visibleCalendarSourceIds } = useCalendarSources();
   const recurrenceExceptions = useRecurrenceExceptions();
   const {

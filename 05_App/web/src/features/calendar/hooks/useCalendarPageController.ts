@@ -130,6 +130,19 @@ export function useCalendarPageController() {
     showUndo: false,
   });
 
+  // Sprint 57: måned/uge/dag henter nu kun den synlige periode (samme
+  // view-specifikke buffer som getVisibleRange allerede brugte til
+  // udfoldning), i stedet for det brede "et år tilbage til to år frem"-
+  // standardinterval. Planlæggeren udelades bevidst (undefined → det
+  // brede standardinterval bevares) — den har sit eget, uafhængige,
+  // dynamisk voksende vindue (se FamilyPlannerCalendar), og
+  // getVisibleRange's egen "planner"-gren falder kun igennem til
+  // månedens buffer, som er for smal til planlæggerens behov.
+  const eventsFetchRange = useMemo(
+    () => (calendarView === "planner" ? undefined : getVisibleRange(visibleDate, calendarView)),
+    [calendarView, visibleDate],
+  );
+
   const {
     events,
     hasLoadedEvents,
@@ -142,7 +155,7 @@ export function useCalendarPageController() {
     deleteEvent,
     restoreEvent,
     refreshEvents,
-  } = useCalendarEvents();
+  } = useCalendarEvents(undefined, eventsFetchRange);
 
   const {
     calendarSources,

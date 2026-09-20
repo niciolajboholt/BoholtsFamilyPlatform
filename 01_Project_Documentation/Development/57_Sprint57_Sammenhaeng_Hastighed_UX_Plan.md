@@ -264,11 +264,21 @@ navigationen, bør heller ikke findes som en klikbar genvej på forsiden.
   forvejen en rundhåndet buffer (7 dage for måned, hhv. 7/14 og 3/4 dage
   for uge/dag), hvilket er tilstrækkeligt for Outlook/ICS's bekræftede
   overlap-korrekte filtrering.
-- **Familie-/planlægger-visning**: uændret — bruger fortsat sit eget
-  dynamiske vindue, som allerede er uafhængigt af `useCalendarEvents`s
-  hentnings-range for udfoldning; selve fetch-kaldet skal dog bruge
-  planlæggerens aktuelle `windowRange` som argument til
-  `useCalendarEvents`, ikke det gamle 3-års standardinterval.
+- **Familie-/planlægger-visning**: uændret, også i selve fetch-kaldet.
+  Planlæggerens rullende vindue-tilstand lever inde i
+  `FamilyPlannerCalendar`-komponenten selv (`useReducer`), ikke i
+  `useCalendarPageController`, som er der, hvor selve
+  `useCalendarEvents`-kaldet sker — at løfte vinduestilstanden op i
+  controlleren for at kunne bruge den som fetch-range ville være et
+  strukturelt indgreb i en komponent, opgaven eksplicit beder om at lade
+  være urørt. `useCalendarPageController` sender derfor `undefined`
+  (dvs. det uændrede, brede standardinterval) som fetch-range, når
+  `calendarView === "planner"`, og først den view-specifikke, snævrere
+  `getVisibleRange()`-baserede range for måned/uge/dag. Dette er en
+  bevidst, dokumenteret afgrænsning af ydelsesgevinsten for
+  planlæggervisningen specifikt — dens korrekthed er uændret, kun dens
+  eventuelle ydelsesgevinst er udskudt til en fremtidig sprint, der kan
+  gennemføre den nødvendige strukturændring med sin egen risikovurdering.
 - Al eksisterende dedup (`deduplicateCalendarEvents`, kører på det rå,
   hentede datasæt før view-specifik filtrering) og privatlivsredigering
   (`redactCalendarEventForViewer`, kører på master-aftaler, ikke pr.

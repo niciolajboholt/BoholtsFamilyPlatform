@@ -10,6 +10,7 @@ import type { CreateCalendarEventInput } from "../models/calendarEventInput";
 import {
   getDefaultCalendarEventRange,
 } from "../models/calendarProvider";
+import type { CalendarEventRange } from "../models/calendarProvider";
 import type { CalendarProvider } from "../providers/CalendarProvider";
 import {
   calendarProvider,
@@ -69,6 +70,14 @@ function getErrorMessage(
 
 export function useCalendarEvents(
   provider: CalendarProvider = calendarProvider,
+  // Sprint 57: udeladt betyder "det brede standardinterval", som før —
+  // beregnet FRISK inde i refreshEvents (ikke som en JS-standardværdi
+  // her), da et JS-standardparameter ville blive genberegnet ved hvert
+  // render og derved ændre identitet konstant. Når en range angives,
+  // afhænger genindlæsning kun af dens start/slut-strenge (ikke
+  // objektidentitet), så kaldere ikke behøver selv at memoize den for at
+  // undgå en uendelig genhentnings-løkke.
+  range?: CalendarEventRange,
 ): UseCalendarEventsResult {
   const [events, setEvents] = useState<
     CalendarEvent[]
@@ -93,6 +102,13 @@ export function useCalendarEvents(
     CalendarProviderHealth[]
   >(() => getProviderHealth(provider));
 
+  // Destruktureret til primitiver FØR useCallback, så
+  // react-hooks/exhaustive-deps' dependency-analyse matcher, hvad
+  // refreshEvents rent faktisk bruger — undgår at afhænge af `range`s
+  // objektidentitet (se parameterkommentaren ovenfor).
+  const rangeStart = range?.start;
+  const rangeEnd = range?.end;
+
   const refreshEvents = useCallback(
     async (): Promise<void> => {
       const requestGeneration = ++requestGenerationRef.current;
@@ -100,9 +116,14 @@ export function useCalendarEvents(
       setError(null);
 
       try {
+        const effectiveRange =
+          rangeStart && rangeEnd
+            ? { start: rangeStart, end: rangeEnd }
+            : getDefaultCalendarEventRange();
+
         const loadedEvents =
           await provider.getEvents(
-            getDefaultCalendarEventRange(),
+            effectiveRange,
           );
 
         if (requestGeneration !== requestGenerationRef.current) {
@@ -124,7 +145,7 @@ export function useCalendarEvents(
         }
       }
     },
-    [provider],
+    [provider, rangeStart, rangeEnd],
   );
 
   useEffect(() => {
