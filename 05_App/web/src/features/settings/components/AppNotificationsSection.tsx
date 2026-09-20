@@ -6,13 +6,15 @@ import {
   LightModeRounded,
   NotificationsRounded,
   SettingsBrightnessRounded,
+  WidgetsRounded,
 } from "@mui/icons-material";
-import { Alert, Box, Button, Card, CardContent, Divider, Switch, ToggleButton, ToggleButtonGroup, Typography } from "@mui/material";
+import { Alert, Avatar, Box, Button, Card, CardContent, Divider, Switch, ToggleButton, ToggleButtonGroup, Typography } from "@mui/material";
 
 import { usePushNotifications } from "../../notifications/hooks/usePushNotifications";
 import { getMyFamily, updateFamilyPrivacySettings } from "../../family/familyApi";
 import type { ThemeModePreference } from "../../../theme/ThemeModeContext";
 import { useThemeMode } from "../../../theme/ThemeModeContext";
+import { FeatureFlagsDialog } from "./FeatureFlagsDialog";
 import { SettingsSectionHeader } from "./SettingsPrimitives";
 
 export function AppNotificationsSection() {
@@ -49,6 +51,7 @@ export function AppNotificationsSection() {
   const [aiWeeklySummaryEnabled, setAiWeeklySummaryEnabled] = useState(false);
   const [isAiPreferenceLoading, setIsAiPreferenceLoading] = useState(true);
   const [aiPreferenceError, setAiPreferenceError] = useState<string | null>(null);
+  const [isFeatureFlagsDialogOpen, setIsFeatureFlagsDialogOpen] = useState(false);
 
   useEffect(() => {
     let isCancelled = false;
@@ -95,7 +98,32 @@ export function AppNotificationsSection() {
 
   return (
     <>
-      <SettingsSectionHeader>App og notifikationer</SettingsSectionHeader>
+      <SettingsSectionHeader>Funktioner og notifikationer</SettingsSectionHeader>
+
+      {/* Sprint 57: flyttet hertil fra "Hjælp og feedback" (mere logisk
+          placering sammen med appens øvrige til-/frakoblinger) — ingen
+          funktionsændring, samme FeatureFlagsDialog. */}
+      <Card>
+        <CardContent sx={{ p: 3 }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+            <Avatar sx={{ bgcolor: "text.secondary" }}>
+              <WidgetsRounded />
+            </Avatar>
+
+            <Box sx={{ flexGrow: 1 }}>
+              <Typography sx={{ fontWeight: 600 }}>Flere funktioner</Typography>
+
+              <Typography variant="body2" color="text.secondary">
+                Slå dele af appen til eller fra for hele familien
+              </Typography>
+            </Box>
+
+            <Button variant="outlined" onClick={() => setIsFeatureFlagsDialogOpen(true)}>
+              Åbn
+            </Button>
+          </Box>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardContent sx={{ p: 3 }}>
@@ -260,6 +288,8 @@ export function AppNotificationsSection() {
           </Box>
         </CardContent>
       </Card>
+
+      <FeatureFlagsDialog open={isFeatureFlagsDialogOpen} onClose={() => setIsFeatureFlagsDialogOpen(false)} />
     </>
   );
 }

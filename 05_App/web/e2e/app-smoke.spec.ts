@@ -240,6 +240,10 @@ test("authenticated family can open every primary area", async ({ page }) => {
     await expect(page.getByRole("heading", { name: heading, exact: true })).toBeVisible();
   }
 
+  // Version-teksten sidder under Indstillinger → "Hjælp og feedback"-fanen
+  // (Sprint 57: Indstillinger blev opdelt i faner, se
+  // 57_Sprint57_Sammenhaeng_Hastighed_UX_Plan.md, afsnit I).
+  await page.getByRole("tab", { name: "Hjælp og feedback" }).click();
   await expect(page.getByText("Version e2e-version-")).toBeVisible();
 });
 
@@ -712,6 +716,7 @@ test("a Settings dialog traps keyboard focus while open and restores it to the t
   test.skip(testInfo.project.name !== "desktop-chromium");
   await mockAuthenticatedApi(page);
   await page.goto("/settings");
+  await page.getByRole("tab", { name: "Kalenderforbindelser" }).click();
 
   const trigger = page.getByRole("button", { name: /Kalenderforbindelser/ });
   await trigger.focus();
@@ -1489,6 +1494,7 @@ test("a family member can add and remove an ICS calendar subscription in Setting
   });
 
   await page.goto("/settings");
+  await page.getByRole("tab", { name: "Kalenderforbindelser" }).click();
   await page.getByRole("button", { name: /Kalenderforbindelser/ }).click();
   const connectionsDialog = page.getByRole("dialog", { name: "Kalenderforbindelser" });
   await expect(connectionsDialog).toBeVisible();
@@ -3006,6 +3012,7 @@ test("logging out through the real UI clears the session and every locally cache
   });
 
   await page.goto("/settings");
+  await page.getByRole("tab", { name: "Konto og data" }).click();
 
   await page.evaluate(() => {
     window.localStorage.setItem("boholts-family-members", "[]");
@@ -3885,6 +3892,7 @@ test("a family with nothing enabled can turn on a feature via 'Flere funktioner'
   // Nav-punktet for Måltider er skjult, da intet er slået til endnu.
   await expect(page.getByRole("button", { name: "Måltider" })).not.toBeVisible();
 
+  await page.getByRole("tab", { name: "Funktioner og notifikationer" }).click();
   await page.getByRole("button", { name: "Åbn", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Flere funktioner" });
   await expect(dialog).toBeVisible();
