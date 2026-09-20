@@ -24,16 +24,29 @@ i Sprint 51-56.
 - **Rettet:** forsidens Hurtige handlinger ("Indkøbsliste", "Opgaver")
   fulgte ikke familiens feature flags og kunne navigere til en
   deaktiveret funktion — filtreres nu som navigationen allerede gjorde.
+- **Rettet (blocker fundet ved review):** en nyere Google-synkronisering
+  kunne skjule aftaler efter datointerval-indsnævringen nedenfor. Et
+  cachet `syncToken` blev genbrugt uanset hvilket interval der
+  efterspurgtes, men det underliggende cachede datasæt var kun så
+  fuldstændigt, som den seneste FULDE synks interval var — hvis
+  Forsidens smalle 14-dages-vindue byggede cachen op først, ville en
+  efterfølgende bredere forespørgsel (måneds-/ugevisning) aldrig selv
+  udføre en intervalbaseret synk, og en aftale uden for de oprindelige
+  14 dage kunne derfor mangle. `GoogleCalendarSyncCacheState` gemmer nu
+  eksplicit det interval, den seneste fulde synk dækkede; et
+  efterspurgt interval uden for det udløser nu en ny, fuld synk (unionen
+  af gammelt og nyt interval) før syncToken-genbrug igen tillades. Ny
+  regressionstest reproducerer scenariet direkte (smalt interval først,
+  derefter bredt).
 - **Ydelse:** kalenderen hentede altid "et år tilbage til to år frem",
   uanset visning. Mit i dag henter nu kun i dag ±1 dag, Overblik kun
   14 dages udkig, og kalenderens måned-/uge-/dagvisning kun den synlige
   periode. Familie-/planlæggervisningen er uændret. Rækkevidde-sikkerhed
-  er eksplicit verificeret pr. udbyder: Outlook og ICS-abonnementer får
-  fuld effekt; Google ignorerer i praksis intervallet efter første
-  synkronisering (harmløst, men uden fuld effekt); iCloud/CalDAV har en
+  er eksplicit verificeret pr. udbyder: Outlook, ICS-abonnementer og
+  (efter rettelsen ovenfor) Google får fuld effekt; iCloud/CalDAV har en
   allerede eksisterende, uafhængig fejl (ingen RRULE-udfoldning),
-  upåvirket af denne ændring — begge dokumenteret som kendte
-  begrænsninger for en fremtidig sprint.
+  upåvirket af denne ændring — dokumenteret som en kendt begrænsning for
+  en fremtidig sprint.
 - **Ydelse:** et let, delt cache-lag (`familySessionCache.ts`)
   deduplikerer identiske `getMyFamily()`-kald på tværs af
   hook-instanser (mindst 4 identiske kald ved én Overblik-/Mit i

@@ -208,21 +208,21 @@ navigationen, bør heller ikke findes som en klikbar genvej på forsiden.
     (bredere) interval i op til 15 minutter. Acceptabelt — ikke en
     korrekthedsfejl, kun en kort forsinkelse før et nyt, snævrere kald
     reelt når serveren.
-  - **Google**: `GoogleCalendarApi.listEvents` bruger korrekt
-    `timeMin`/`timeMax`/`singleEvents=true` — men kun ved FØRSTE
-    synkronisering af en kalender. Så snart `GoogleCalendarProvider`
-    (`GoogleCalendarProvider.ts:145-184`) har et cachet `syncToken`
-    (`googleCalendarSyncCacheStorage.ts`, ingen TTL på selve genbruget),
-    ignoreres `range` **fuldstændigt** ved efterfølgende kald — der
-    hentes kun en delta via `syncToken`, som flettes ind i det allerede
-    lokalt cachede (under det oprindelige, brede vindue opbyggede)
-    events-sæt (`mergeGoogleEventDelta`, linje 327-350), UDEN at det
-    sammenflettede resultat efterfølgende filtreres til det nyligt
-    forespurgte, snævrere interval. **Konsekvens: at indsnævre `range`
-    er harmløst (intet forsvinder, intet går i stykker) for Google, men
-    giver INGEN reel reduktion i den datamængde, appen behandler fra
-    Google, efter første synkronisering** — det virker kun fuldt ud for
-    en helt ny/nyligt forbundet kalender.
+  - **Google — [RETTET efter Nicolajs review, se afsnittet "Risici" og
+    commitindlægget for den konkrete rettelse].** Oprindelig (fejlagtig)
+    vurdering her: `GoogleCalendarApi.listEvents` bruger korrekt
+    `timeMin`/`timeMax`/`singleEvents=true` ved første synkronisering,
+    men et cachet `syncToken` fik `GoogleCalendarProvider`
+    (`GoogleCalendarProvider.ts`) til at ignorere `range` fuldstændigt
+    ved efterfølgende kald, og det blev fejlagtigt vurderet som
+    "harmløst" — men fordi cachen kun var opbygget for det interval, den
+    FØRSTE fulde synk dækkede, kunne en efterfølgende, bredere
+    forespørgsel reelt gå glip af aftaler uden for det oprindelige
+    interval (en funktionel fejl, ikke kun en udeblevet
+    ydelsesgevinst — se Risici). `GoogleCalendarSyncCacheState` gemmer
+    nu det dækkede interval eksplicit, og en forespørgsel uden for det
+    udløser en ny, intervalbaseret fuld synk (unionen af gammelt og nyt
+    interval), før syncToken-genbrug igen tillades.
   - **iCloud/CalDAV**: `icloudCalDav.ts` sender korrekt et CalDAV
     `<c:time-range>`-filter (linje 333-335, overlap-korrekt per RFC 4791)
     — men **udfolder aldrig RRULE-gentagelser overhovedet** (ingen
@@ -286,12 +286,13 @@ navigationen, bør heller ikke findes som en klikbar genvej på forsiden.
   (`redactCalendarEventForViewer`, kører på master-aftaler, ikke pr.
   forekomst) forbliver uændret — begge er intervalneutrale.
 - **Bevidst UDENFOR denne sprints omfang** (dokumenteres ærligt som kendt
-  begrænsning, ikke stiltiende løst): at gøre `GoogleCalendarProvider`s
-  syncToken-baserede delta-cache selv respektere et indsnævret interval,
-  og at tilføje RRULE-udfoldning til `icloudCalDav.ts`. Begge er reelle,
-  men afgrænsede, allerede eksisterende arkitekturbegrænsninger opdaget
-  under denne sprints EXPLORE-fase — ikke introduceret af
-  intervalændringen, og for risikable/omfangsrige at rette som en
+  begrænsning, ikke stiltiende løst): at tilføje RRULE-udfoldning til
+  `icloudCalDav.ts` (Googles syncToken-cache ER nu rettet til at
+  respektere et indsnævret interval — se ovenfor og Risici — det var
+  oprindeligt fejlagtigt placeret i denne kategori). iCloud-udfoldningen
+  er en reel, men afgrænset, allerede eksisterende arkitekturbegrænsning
+  opdaget under denne sprints EXPLORE-fase — ikke introduceret af
+  intervalændringen, og for risikabel/omfangsrig at rette som en
   bi-ændring i en sprint, der eksplicit skal reducere risiko, ikke øge
   den. De flages til Nicolaj i CHANGELOG/PR-beskrivelsen som fund, der
   kræver en selvstændig, fremtidig sprint.
@@ -559,18 +560,34 @@ applikationslogik oven på det eksisterende skema.
   dokumentere fundet i CHANGELOG/PR som en kendt begrænsning, der kræver
   en selvstændig sprint — ikke ved at forsøge en risikabel bi-rettelse
   af `icloudCalDav.ts`s RRULE-håndtering her.
-- **Google-kalenderdata reduceres ikke reelt efter første
-  synkronisering.** `GoogleCalendarProvider` ignorerer `range` fuldt ud,
-  når et `syncToken` allerede er cachet, og returnerer det fulde,
-  lokalt sammenflettede (oprindeligt bredt opbyggede) events-sæt uanset
-  hvor snævert der forespørges. Intervalindsnævring er harmløs for
-  Google (intet forsvinder), men leverer ikke den forventede
-  ydelsesgevinst for denne kilde efter første synkronisering — kun
-  Outlook og ICS-abonnementer får fuld effekt. Dokumenteres ærligt i
-  PR'ens performance-afsnit som en kendt begrænsning, fremfor at
-  overdrive den målte gevinst. At rette selve syncToken-cachen til også
-  at respektere et indsnævret interval vurderes for omfangsrigt og
-  risikabelt til denne sprint og er bevidst udskudt.
+- **[RETTET efter Nicolajs review — oprindeligt fejlvurderet som
+  harmløst.] Google-kalenderdata kunne mangle aftaler, ikke kun undlade
+  at blive reduceret i mængde.** Den oprindelige analyse konkluderede
+  fejlagtigt, at intervalindsnævring var "harmløs, blot uden fuld
+  effekt" for Google. Det er forkert: `GoogleCalendarProvider` ignorerer
+  ganske vist `range` fuldt ud, når et `syncToken` allerede er cachet —
+  men det cachede events-sæt er kun så fuldstændigt, som den seneste
+  FULDE synks interval var. Når Forsidens smalle 14-dages-vindue rammer
+  en tom cache FØRST, opbygges cachen kun for de 14 dage; en efterfølgende
+  bredere forespørgsel (måneds-/ugevisningen) genbrugte blot det samme
+  syncToken uden selv at udføre en intervalbaseret synk — en aftale uden
+  for de oprindelige 14 dage ville derfor aldrig blive hentet og kunne
+  reelt mangle i kalenderen. Dette var en funktionel fejl, ikke kun en
+  udeblevet ydelsesgevinst.
+  **Rettelse:** `GoogleCalendarSyncCacheState` gemmer nu det interval
+  (`rangeStart`/`rangeEnd`), den seneste fulde synk dækkede. Kun når et
+  efterspurgt interval er en delmængde heraf, genbruges den billige
+  inkrementelle syncToken-synk; ellers udføres en ny, fuld synk med
+  UNIONEN af det gamle og det nye interval, og cachens dækning
+  opdateres tilsvarende. En allerede gemt, ældre cache-post (uden de nye
+  felter) behandles som ugyldig og udløser en frisk fuld synk, i stedet
+  for at blive brugt med et ukendt/antaget dækningsinterval. Se
+  `GoogleCalendarProvider.ts`s `fetchCalendarEvents`/`isRangeCovered`/
+  `unionRange`, samt den nye regressionstest i
+  `GoogleCalendarProvider.test.ts`, der eksplicit reproducerer
+  scenariet: et smalt interval først, derefter et bredere, og
+  bekræfter at en aftale uden for det første interval kommer med i det
+  andet kald.
 - **Multi-dags-/gentagelsesregression generelt.** Mitigeres ved at
   bevare/udvide `expandRecurringEvents.test.ts` og
   `calendarPageDateNavigation.test.ts` med grænsetilfælde-tests for
@@ -693,13 +710,16 @@ flaget).
   ikke funktionelt — kun de bagvedliggende admin-ruter, der opretter
   adgangen, får strammere validering; et allerede udstedt, gyldigt
   børne-token for et rigtigt barn fortsætter med at virke uændret.
-- **To eksisterende, upåagtede fund fra EXPLORE rettes bevidst IKKE i
-  denne sprint** (dokumenteres som kendte begrænsninger, ikke som løst):
+- **Én eksisterende, upåagtet fund fra EXPLORE rettes bevidst IKKE i
+  denne sprint** (dokumenteres som en kendt begrænsning, ikke som løst):
   `icloudCalDav.ts` udfolder aldrig RRULE-gentagelser (påvirker
-  gentagne iCloud-aftaler uafhængigt af denne sprint), og
-  `GoogleCalendarProvider`s syncToken-cache ignorerer det forespurgte
-  interval efter første synkronisering. Begge kræver en selvstændig,
-  fremtidig sprint med sin egen risikovurdering.
+  gentagne iCloud-aftaler uafhængigt af denne sprint) — kræver en
+  selvstændig, fremtidig sprint med sin egen risikovurdering.
+  **`GoogleCalendarProvider`s syncToken-cache ER derimod rettet** (efter
+  Nicolajs review, se Risici) til at respektere et efterspurgt interval
+  — den var oprindeligt fejlagtigt kategoriseret som "harmløs, kun
+  udeblevet ydelsesgevinst", men var reelt en funktionel fejl, der kunne
+  skjule aftaler.
 
 ---
 

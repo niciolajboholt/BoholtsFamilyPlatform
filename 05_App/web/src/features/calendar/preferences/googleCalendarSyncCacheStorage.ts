@@ -18,6 +18,17 @@ export interface GoogleCalendarSyncCacheState {
   events: CalendarEvent[];
   syncToken: string;
   updatedAt: string;
+  // Sprint 57-opfølgning: det interval, den seneste FULDE synk faktisk
+  // dækkede (ikke opdateret ved en inkrementel synk, som selv er
+  // interval-uafhængig — se GoogleCalendarProvider.ts's fetchCalendarEvents).
+  // Bruges til at afgøre, om en efterspurgt, muligvis snævrere/anden
+  // periode allerede er dækket, eller om en ny fuld synk med et udvidet
+  // interval er nødvendig — ellers kunne en tidligere, smallere synk (fx
+  // forsidens 14-dages-vindue) skjule aftaler uden for det interval, når en
+  // bredere visning (fx månedskalenderen) genbruger cachen og syncToken'et
+  // uden selv at angive et interval.
+  rangeStart: string;
+  rangeEnd: string;
 }
 
 // Jf. 31_Offline_Data_Policy.md: data ældre end dette vises ikke som
@@ -53,7 +64,13 @@ export function getCachedCalendarSyncState(
       typeof parsed !== "object" ||
       !Array.isArray((parsed as GoogleCalendarSyncCacheState).events) ||
       typeof (parsed as GoogleCalendarSyncCacheState).syncToken !== "string" ||
-      typeof (parsed as GoogleCalendarSyncCacheState).updatedAt !== "string"
+      typeof (parsed as GoogleCalendarSyncCacheState).updatedAt !== "string" ||
+      // rangeStart/rangeEnd er nye felter (Sprint 57-opfølgning) — en
+      // ældre, allerede gemt cache-post uden dem afvises bevidst her, så
+      // den udløser en frisk fuld synk i stedet for at blive brugt med et
+      // ukendt/antaget dækningsinterval.
+      typeof (parsed as GoogleCalendarSyncCacheState).rangeStart !== "string" ||
+      typeof (parsed as GoogleCalendarSyncCacheState).rangeEnd !== "string"
     ) {
       return undefined;
     }

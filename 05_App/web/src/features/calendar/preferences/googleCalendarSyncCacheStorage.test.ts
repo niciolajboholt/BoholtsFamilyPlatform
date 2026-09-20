@@ -31,32 +31,35 @@ describe("googleCalendarSyncCacheStorage", () => {
     expect(getCachedCalendarSyncState("cal-1")).toBeUndefined();
   });
 
+  const aRange = { rangeStart: "2026-01-01T00:00:00.000Z", rangeEnd: "2026-12-31T00:00:00.000Z" };
+
   it("round-trips events and syncToken, stamping updatedAt", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-08-20T12:00:00.000Z"));
 
-    setCachedCalendarSyncState("cal-1", { events: [anEvent], syncToken: "token-1" });
+    setCachedCalendarSyncState("cal-1", { events: [anEvent], syncToken: "token-1", ...aRange });
 
     expect(getCachedCalendarSyncState("cal-1")).toEqual({
       events: [anEvent],
       syncToken: "token-1",
       updatedAt: "2026-08-20T12:00:00.000Z",
+      ...aRange,
     });
 
     vi.useRealTimers();
   });
 
   it("keeps different calendar ids separate", () => {
-    setCachedCalendarSyncState("cal-1", { events: [anEvent], syncToken: "token-1" });
-    setCachedCalendarSyncState("cal-2", { events: [], syncToken: "token-2" });
+    setCachedCalendarSyncState("cal-1", { events: [anEvent], syncToken: "token-1", ...aRange });
+    setCachedCalendarSyncState("cal-2", { events: [], syncToken: "token-2", ...aRange });
 
     expect(getCachedCalendarSyncState("cal-1")?.syncToken).toBe("token-1");
     expect(getCachedCalendarSyncState("cal-2")?.syncToken).toBe("token-2");
   });
 
   it("clearCachedCalendarSyncState removes only the given calendar", () => {
-    setCachedCalendarSyncState("cal-1", { events: [anEvent], syncToken: "token-1" });
-    setCachedCalendarSyncState("cal-2", { events: [], syncToken: "token-2" });
+    setCachedCalendarSyncState("cal-1", { events: [anEvent], syncToken: "token-1", ...aRange });
+    setCachedCalendarSyncState("cal-2", { events: [], syncToken: "token-2", ...aRange });
 
     clearCachedCalendarSyncState("cal-1");
 
@@ -91,10 +94,22 @@ describe("googleCalendarSyncCacheStorage", () => {
     expect(getCachedCalendarSyncState("cal-1")).toBeUndefined();
   });
 
+  // Sprint 57-opfølgning: en cache-post gemt før rangeStart/rangeEnd blev
+  // indført skal behandles som ugyldig (udløser en frisk fuld synk), ikke
+  // bruges med et ukendt/antaget dækningsinterval.
+  it("falls back to undefined when a pre-Sprint-57 entry has no rangeStart/rangeEnd", () => {
+    window.localStorage.setItem(
+      "boholts-family-google-sync-cache:cal-1",
+      JSON.stringify({ events: [anEvent], syncToken: "token-1", updatedAt: "2026-08-20T12:00:00.000Z" }),
+    );
+
+    expect(getCachedCalendarSyncState("cal-1")).toBeUndefined();
+  });
+
   describe("listCachedCalendarSyncEntries", () => {
     it("lists every cached calendar, ignoring unrelated localStorage keys", () => {
-      setCachedCalendarSyncState("cal-1", { events: [anEvent], syncToken: "token-1" });
-      setCachedCalendarSyncState("cal-2", { events: [], syncToken: "token-2" });
+      setCachedCalendarSyncState("cal-1", { events: [anEvent], syncToken: "token-1", ...aRange });
+      setCachedCalendarSyncState("cal-2", { events: [], syncToken: "token-2", ...aRange });
       window.localStorage.setItem("some-other-app-key", "irrelevant");
 
       const entries = listCachedCalendarSyncEntries();
