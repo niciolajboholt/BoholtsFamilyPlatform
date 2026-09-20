@@ -268,10 +268,21 @@ function MitIDagContent({ now }: MitIDagContentProps) {
   // opgave — ikke et fuldt kronologisk fletning af begge (opgavers
   // timeOfDay er en fritekst-påmindelse, ikke et pålideligt sorterbart
   // klokkeslæt, se plandokumentets teststrategi-afsnit).
-  const { nextEvent, nextTask, restOfDayEvents, restOfDayTasks } = useMemo(
-    () => buildMitIDagPlan(memberEvents, memberTasks, now),
-    [memberEvents, memberTasks, now],
-  );
+  //
+  // Mens kalenderen stadig indlæses, ved buildMitIDagPlan endnu intet om
+  // en evt. kommende aftale — den ville derfor fejlagtigt "forbruge" en
+  // allerede hentet opgave som "næste" (og dermed fjerne den fra "Resten
+  // af dagen"), selvom Næste-blokken samtidig (se JSX nedenfor) skjuler
+  // netop det valg, indtil kalenderen er klar. Resultatet ville være en
+  // opgave, der reelt forsvinder fra siden i mellemtiden. Undlader derfor
+  // bevidst at udpege en "næste" opgave, mens kalenderen indlæses — alle
+  // opgaver vises i stedet uændret i "Resten af dagen".
+  const { nextEvent, nextTask, restOfDayEvents, restOfDayTasks } = useMemo(() => {
+    if (areCalendarEventsLoading) {
+      return { nextEvent: null, nextTask: null, restOfDayEvents: [], restOfDayTasks: [...memberTasks] };
+    }
+    return buildMitIDagPlan(memberEvents, memberTasks, now);
+  }, [memberEvents, memberTasks, now, areCalendarEventsLoading]);
 
   const today = new Intl.DateTimeFormat("da-DK", {
     weekday: "long",
@@ -279,7 +290,12 @@ function MitIDagContent({ now }: MitIDagContentProps) {
     month: "long",
   }).format(now);
 
-  if (areCalendarEventsLoading || areTasksLoading) {
+  // Sprint 57: kun opgavehentningen (og dermed medlemslisten, som
+  // useTasks() leverer sammen med den — se dens egen kommentar) blokerer
+  // hele siden. Kalenderaftaler vises progressivt nedenfor i stedet for
+  // at spærre hele siden, mens de stadig indlæses — se
+  // 57_Sprint57_Sammenhaeng_Hastighed_UX_Plan.md, afsnit F.
+  if (areTasksLoading) {
     return (
       <Box
         role="status"
@@ -360,7 +376,18 @@ function MitIDagContent({ now }: MitIDagContentProps) {
               Næste
             </Typography>
 
-            {nextEvent ? (
+            {areCalendarEventsLoading ? (
+              // Mens kalenderen stadig indlæses, ved vi endnu ikke, om der
+              // findes en kommende aftale, der skal have forrang over en
+              // opgave — viser derfor en lokal, kompakt indlæsningstilstand
+              // for kun denne blok, i stedet for enten at blokere hele
+              // siden eller forkert vise en opgave, som en aftale burde
+              // have gået forud for.
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mt: 0.5 }}>
+                <CircularProgress size={20} aria-hidden="true" />
+                <Typography color="text.secondary">Henter kalenderen…</Typography>
+              </Box>
+            ) : nextEvent ? (
               <>
                 <Typography variant="h5" sx={{ fontWeight: 700, mt: 0.5 }}>
                   {nextEvent.title}
@@ -385,12 +412,20 @@ function MitIDagContent({ now }: MitIDagContentProps) {
             Resten af dagen
           </Typography>
 
-          {restOfDayEvents.length === 0 && restOfDayTasks.length === 0 ? (
+          {restOfDayEvents.length === 0 && restOfDayTasks.length === 0 && !areCalendarEventsLoading ? (
             <Typography color="text.secondary" sx={{ mb: 3 }}>
               Ikke mere på programmet.
             </Typography>
           ) : (
             <Box sx={{ mb: 3 }}>
+              {areCalendarEventsLoading && (
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, py: 1.75 }}>
+                  <CircularProgress size={18} aria-hidden="true" />
+                  <Typography variant="body2" color="text.secondary">
+                    Henter kalenderaftaler…
+                  </Typography>
+                </Box>
+              )}
               {restOfDayEvents.map((event) => (
                 <DayEventRow key={event.id} event={event} />
               ))}
