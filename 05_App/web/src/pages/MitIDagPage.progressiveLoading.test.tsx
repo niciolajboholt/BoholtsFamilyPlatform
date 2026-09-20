@@ -95,72 +95,102 @@ vi.mock("../features/family/familyApi", async () => {
 
 afterEach(() => {
   vi.clearAllMocks();
+  // Sikkerhedsnet: hvis en tidligere test fejlede/timede ud FØR dens egen
+  // oprydning nåede at køre, må en efterladt container/React-root ikke
+  // smitte af på den næste tests target.textContent-tjek (samme jsdom
+  // `document` deles på tværs af tests i denne fil).
+  document.body.innerHTML = "";
 });
 
 // Sprint 57: Mit i dag må ikke blokere hele siden bag én fælles
 // indlæsningsspærre, når opgaver og kalenderaftaler indlæses uafhængigt af
 // hinanden — se 57_Sprint57_Sammenhaeng_Hastighed_UX_Plan.md, afsnit F.
+//
+// Et fuldt React 19 + StrictMode (dobbelt-kørte effekter)-render af hele
+// MitIDagPage-træet er tungere end en ren hook-test — givet 20 sekunder pr.
+// test i stedet for Vitests standard på 5000ms, som viste sig for stramt på
+// CI's langsommere runnere (lokalt tæt på grænsen i forvejen).
+const renderTestTimeoutMs = 20_000;
+
 describe("MitIDagPage progressive loading", () => {
-  it("shows already-loaded tasks while the calendar is still loading, with a local loading note instead of blocking the page", async () => {
-    calendarEventsMock = { events: [], isLoading: true, error: null };
-    tasksMock = { members: [member], tasks: [task], isLoading: false, error: null };
+  it(
+    "shows already-loaded tasks while the calendar is still loading, with a local loading note instead of blocking the page",
+    async () => {
+      calendarEventsMock = { events: [], isLoading: true, error: null };
+      tasksMock = { members: [member], tasks: [task], isLoading: false, error: null };
 
-    const { default: MitIDagPage } = await import("./MitIDagPage");
-    const container = document.createElement("div");
-    document.body.appendChild(container);
-    const root = createRoot(container);
+      const { default: MitIDagPage } = await import("./MitIDagPage");
+      const container = document.createElement("div");
+      document.body.appendChild(container);
+      const root = createRoot(container);
 
-    await act(async () => {
-      root.render(<StrictMode><MitIDagPage /></StrictMode>);
-    });
+      try {
+        await act(async () => {
+          root.render(<StrictMode><MitIDagPage /></StrictMode>);
+        });
 
-    // Opgaven er allerede synlig, selvom kalenderen stadig indlæses.
-    expect(container.textContent).toContain("Ryd op på værelset");
-    // En lokal indlæsningsnote for kalenderdelen — ikke en sideblokerende spinner.
-    expect(container.textContent).toContain("Henter kalenderen");
-    expect(container.textContent).not.toContain("Henter dagens aktiviteter");
+        // Opgaven er allerede synlig, selvom kalenderen stadig indlæses.
+        expect(container.textContent).toContain("Ryd op på værelset");
+        // En lokal indlæsningsnote for kalenderdelen — ikke en sideblokerende spinner.
+        expect(container.textContent).toContain("Henter kalenderen");
+        expect(container.textContent).not.toContain("Henter dagens aktiviteter");
+      } finally {
+        await act(async () => root.unmount());
+        container.remove();
+      }
+    },
+    renderTestTimeoutMs,
+  );
 
-    await act(async () => root.unmount());
-    container.remove();
-  });
+  it(
+    "shows calendar events when the task fetch failed (empty tasks, error set)",
+    async () => {
+      calendarEventsMock = { events: [event], isLoading: false, error: null };
+      tasksMock = { members: [member], tasks: [], isLoading: false, error: "Kunne ikke hente opgaverne." };
 
-  it("shows calendar events when the task fetch failed (empty tasks, error set)", async () => {
-    calendarEventsMock = { events: [event], isLoading: false, error: null };
-    tasksMock = { members: [member], tasks: [], isLoading: false, error: "Kunne ikke hente opgaverne." };
+      const { default: MitIDagPage } = await import("./MitIDagPage");
+      const container = document.createElement("div");
+      document.body.appendChild(container);
+      const root = createRoot(container);
 
-    const { default: MitIDagPage } = await import("./MitIDagPage");
-    const container = document.createElement("div");
-    document.body.appendChild(container);
-    const root = createRoot(container);
+      try {
+        await act(async () => {
+          root.render(<StrictMode><MitIDagPage /></StrictMode>);
+        });
 
-    await act(async () => {
-      root.render(<StrictMode><MitIDagPage /></StrictMode>);
-    });
+        expect(container.textContent).toContain("Fødselsdag");
+        expect(container.textContent).toContain("Kunne ikke hente opgaverne.");
+      } finally {
+        await act(async () => root.unmount());
+        container.remove();
+      }
+    },
+    renderTestTimeoutMs,
+  );
 
-    expect(container.textContent).toContain("Fødselsdag");
-    expect(container.textContent).toContain("Kunne ikke hente opgaverne.");
+  it(
+    "shows tasks when the calendar failed (calendarError set, no events)",
+    async () => {
+      calendarEventsMock = { events: [], isLoading: false, error: "network" };
+      tasksMock = { members: [member], tasks: [task], isLoading: false, error: null };
 
-    await act(async () => root.unmount());
-    container.remove();
-  });
+      const { default: MitIDagPage } = await import("./MitIDagPage");
+      const container = document.createElement("div");
+      document.body.appendChild(container);
+      const root = createRoot(container);
 
-  it("shows tasks when the calendar failed (calendarError set, no events)", async () => {
-    calendarEventsMock = { events: [], isLoading: false, error: "network" };
-    tasksMock = { members: [member], tasks: [task], isLoading: false, error: null };
+      try {
+        await act(async () => {
+          root.render(<StrictMode><MitIDagPage /></StrictMode>);
+        });
 
-    const { default: MitIDagPage } = await import("./MitIDagPage");
-    const container = document.createElement("div");
-    document.body.appendChild(container);
-    const root = createRoot(container);
-
-    await act(async () => {
-      root.render(<StrictMode><MitIDagPage /></StrictMode>);
-    });
-
-    expect(container.textContent).toContain("Ryd op på værelset");
-    expect(container.textContent).toContain("Kalenderaftalerne kunne ikke hentes");
-
-    await act(async () => root.unmount());
-    container.remove();
-  });
+        expect(container.textContent).toContain("Ryd op på værelset");
+        expect(container.textContent).toContain("Kalenderaftalerne kunne ikke hentes");
+      } finally {
+        await act(async () => root.unmount());
+        container.remove();
+      }
+    },
+    renderTestTimeoutMs,
+  );
 });
