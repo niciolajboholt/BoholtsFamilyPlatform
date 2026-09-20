@@ -46,14 +46,16 @@ const features: FeatureDefinition[] = [
   {
     key: "tasks",
     title: "Opgaver",
-    description: "Engangsopgaver for familien, med tildeling og påmindelser.",
+    description:
+      "Engangsopgaver for familien, med tildeling og påmindelser. Slår Rutiner og Opgave-belønning fra, hvis de er aktive.",
     color: "#6B4FA0",
     icon: <CheckCircleOutlineRounded />,
   },
   {
     key: "routines",
     title: "Rutiner",
-    description: "Faste, tilbagevendende opgaver — fx morgenrutiner på skoledage.",
+    description:
+      "Faste, tilbagevendende opgaver — fx morgenrutiner på skoledage. Kræver Opgaver, som slås til automatisk.",
     color: "#9C7A2E",
     icon: <AutorenewRounded />,
   },
@@ -67,7 +69,8 @@ const features: FeatureDefinition[] = [
   {
     key: "task-rewards",
     title: "Opgave-belønning",
-    description: "Sæt en kontant belønning på opgaver og hold styr på lommepenge.",
+    description:
+      "Sæt en kontant belønning på opgaver og hold styr på lommepenge. Kræver Opgaver, som slås til automatisk.",
     color: "#B5722E",
     icon: <SavingsRounded />,
   },
