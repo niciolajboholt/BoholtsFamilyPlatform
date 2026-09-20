@@ -396,7 +396,11 @@ describe("accountDeletion", () => {
         .bind("session-1", "user-1", new Date().toISOString(), new Date(Date.now() + 1000).toISOString())
         .run();
 
-      const now = new Date("2026-09-19T12:00:00.000Z");
+      // Hardkoder bevidst ikke en kalenderdato her: requestAccountDeletion
+      // beregner sin purge-dato ud fra det virkelige, aktuelle tidspunkt
+      // (new Date()), så en fast literal-dato driver ud af synk med testen,
+      // efterhånden som kalenderen skrider frem, og fejler til sidst.
+      const now = new Date();
       const { purgeAfter } = await requestAccountDeletion(db as never, {
         userId: "user-1",
         reauthenticatedAt: now.toISOString(),
