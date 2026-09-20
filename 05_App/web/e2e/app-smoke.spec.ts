@@ -2431,6 +2431,80 @@ test("an unassigned ICS subscription's event uses the subscription's own color, 
   expect(accentColor).not.toBe(hexToRgb("#6D597A")); // Familien-farven
 });
 
+// Sprint 57: "Vis kalendere" var en flad, ugrupperet liste, der blev
+// uoverskuelig med mange kilder — grupperes nu (her: alle i "Fælles og
+// andet", da ingen har en familiemedlem-tilknytning) og foldes sammen som
+// standard, når der er mere end 6 kilder i alt.
+test("the calendar source filter groups and collapses many sources, with a visible count summary", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  await mockAuthenticatedApi(page);
+
+  const subscriptionLabels = [
+    "Skole A", "Skole B", "Skole C", "Skole D", "Skole E", "Skole F", "Skole G", "Skole H",
+  ];
+  const subscriptions = subscriptionLabels.map((label, index) => ({
+    id: `sub-${index}`,
+    familyId: family.id,
+    url: `https://calendar.skole.dk/${index}.ics`,
+    label,
+    familyMemberId: null,
+    color: "#D99832",
+    lastFetchedAt: null,
+    lastFetchStatus: null,
+    createdAt: "2026-08-26T00:00:00.000Z",
+  }));
+
+  await page.route("**/api/families/*/ics-subscriptions", async (route) => {
+    if (route.request().method() !== "GET") {
+      await route.fallback();
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ subscriptions }),
+    });
+  });
+
+  await page.route("**/api/families/*/ics-subscriptions/*/events*", async (route) => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ events: [] }) });
+  });
+
+  // Overstyrer standardmockens tre Google-kalendere, så testen kun har de
+  // otte ICS-abonnementer at forholde sig til.
+  await page.route("**/api/calendar/calendars*", async (route) => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ items: [] }) });
+  });
+
+  await page.goto("/calendar");
+
+  await expect(page.getByText("8 af 8 kalendere vises")).toBeVisible();
+
+  // Alle otte havner i samme gruppe ("Fælles og andet", ingen har en
+  // medlemstilknytning) — foldet sammen som standard, da 8 > tærsklen på
+  // 6. Kilden findes i DOM'en (Accordion afmonterer ikke sit indhold),
+  // men er ikke synlig, før gruppen åbnes.
+  const firstSourceLabel = page.getByText("Skole A", { exact: true });
+  await expect(firstSourceLabel).not.toBeVisible();
+
+  const groupHeader = page.getByRole("button", { name: /Fælles og andet/ });
+  await expect(groupHeader).toBeVisible();
+  await groupHeader.click();
+  await expect(firstSourceLabel).toBeVisible();
+  await expect(page.getByText("Abonnement").first()).toBeVisible();
+
+  const firstCheckbox = page.getByRole("checkbox", { name: /Skole A/ });
+  await expect(firstCheckbox).toBeChecked();
+  await firstCheckbox.uncheck();
+  await expect(firstCheckbox).not.toBeChecked();
+  await expect(page.getByText("7 af 8 kalendere vises")).toBeVisible();
+
+  await groupHeader.click();
+  await expect(firstSourceLabel).not.toBeVisible();
+});
+
 // Fase 5: sidste åbne "Mangler"-punkt — reel Playwright-E2E for opret/
 // redigér/slet gennem UI'et på indkøbsliste, opgaver og rutiner (hidtil kun
 // dækket for offline-scenarier, se de tre "offline ... is queued locally"
