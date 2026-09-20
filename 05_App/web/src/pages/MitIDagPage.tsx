@@ -1,7 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
 
-import { CalendarMonthRounded } from "@mui/icons-material";
-import { Alert, Avatar, Box, Checkbox, Chip, CircularProgress, Container, Typography } from "@mui/material";
+import { CalendarMonthRounded, ChildCareRounded, ExpandMoreRounded } from "@mui/icons-material";
+import {
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
+  Alert,
+  Avatar,
+  Box,
+  Checkbox,
+  Chip,
+  CircularProgress,
+  Container,
+  Typography,
+} from "@mui/material";
 
 import { FeatureDisabledNotice } from "../components/FeatureDisabledNotice";
 import { useCalendarEvents } from "../features/calendar/hooks/useCalendarEvents";
@@ -11,7 +23,8 @@ import { useRecurrenceExceptions } from "../features/calendar/hooks/useRecurrenc
 import { expandRecurringEvents } from "../features/calendar/utils/expandRecurringEvents";
 import { getEventsForDate } from "../features/calendar/utils/getEventsForDate";
 import type { CalendarEvent } from "../features/calendar/models/calendarEvent";
-import { getChildMessagesForMember, getMyFamily, type ChildMessageDto } from "../features/family/familyApi";
+import { ChildAccessAdminPanel } from "../features/family/components/ChildAccessAdminPanel";
+import { getChildMessagesForMember, getMyFamily, type ChildMessageDto, type FamilyRole } from "../features/family/familyApi";
 import { useEnabledFeatures } from "../features/family/hooks/useEnabledFeatures";
 import {
   buildMitIDagPlan,
@@ -124,11 +137,18 @@ function MitIDagContent({ now }: MitIDagContentProps) {
 
   // Sprint 55 (Fase E): korte beskeder fra en voksen til det valgte
   // medlem. useTasks() eksponerer ikke familyId, så den hentes separat
-  // her — samme mønster som ChildAccessDialog.tsx. Bevidst READ-ONLY her:
-  // "Se som barn" er en forhåndsvisning for en forælder og må ALDRIG
-  // markere en besked som læst på barnets vegne (kun barnets egen session
-  // i ChildAccessPage.tsx kan det).
+  // her. Bevidst READ-ONLY her: "Se som barn" er en forhåndsvisning for
+  // en forælder og må ALDRIG markere en besked som læst på barnets vegne
+  // (kun barnets egen session i ChildAccessPage.tsx kan det).
+  //
+  // Sprint 56: samme kald henter nu også den indloggede brugers EGEN
+  // rolle i familien (role) — bruges til at afgøre, om
+  // børneadgangs-administrationen nedenfor skal vises. Rent klient-side
+  // bekvemmelighed, ikke sikkerhed: serveren håndhæver ejer/admin på hver
+  // enkelt børneadgangs-rute uafhængigt af dette (se
+  // childAccessManagement.ts).
   const [familyId, setFamilyId] = useState<string | null>(null);
+  const [ownRole, setOwnRole] = useState<FamilyRole | null>(null);
   const [messages, setMessages] = useState<ChildMessageDto[]>([]);
 
   useEffect(() => {
@@ -137,6 +157,7 @@ function MitIDagContent({ now }: MitIDagContentProps) {
     getMyFamily().then((result) => {
       if (!isCancelled && result.ok && result.data.family) {
         setFamilyId(result.data.family.id);
+        setOwnRole(result.data.role ?? null);
       }
     });
 
@@ -383,6 +404,20 @@ function MitIDagContent({ now }: MitIDagContentProps) {
                 </Alert>
               ))}
             </Box>
+          )}
+
+          {familyId && (ownRole === "owner" || ownRole === "admin") && (
+            <Accordion disableGutters sx={{ mt: 4 }}>
+              <AccordionSummary expandIcon={<ExpandMoreRounded />}>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                  <ChildCareRounded color="action" fontSize="small" />
+                  <Typography sx={{ fontWeight: 600 }}>Børneadgang for {selectedMember.name}</Typography>
+                </Box>
+              </AccordionSummary>
+              <AccordionDetails>
+                <ChildAccessAdminPanel familyId={familyId} member={selectedMember} />
+              </AccordionDetails>
+            </Accordion>
           )}
         </>
       )}

@@ -1,5 +1,20 @@
 # Changelog
 
+## Sprint 56 — Børneadgang flyttet fra Indstillinger til Mit i dag
+
+- **Ændret:** administrationen af børneadgang (link/QR-kode, PIN,
+  sessionsoverblik, beskeder) er flyttet fra en selvstændig dialog i
+  Indstillinger → Familie til en sammenklappelig sektion direkte på
+  "Mit i dag" for det valgte familiemedlem — samme sted en forælder
+  allerede ser dagens opgaver og aftaler for barnet. Kun ét
+  administrations-flow findes fortsat (`ChildAccessAdminPanel.tsx`,
+  udtrukket af den tidligere `ChildAccessDialog.tsx`); "Rediger
+  familiemedlem" og Indstillinger peger nu begge dertil i stedet.
+- **Uændret sikkerhed:** sektionen vises kun for den indloggede bruger,
+  hvis egen rolle i familien er ejer eller admin (klient-side
+  bekvemmelighed) — server-side håndhævelse af ejer/admin på hver
+  børneadgangs-rute er uændret og er den reelle adgangskontrol.
+
 ## Sprint 55 — Børneadgangs-UX: administration, QR, sessioner, kalender, oplæsning, beskeder
 
 > Se `01_Project_Documentation/Development/55_Sprint55_Barn_Adgang_UX_Plan.md`.
