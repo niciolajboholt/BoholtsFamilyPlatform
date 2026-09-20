@@ -8,7 +8,7 @@ interface LegalPageProps {
   kind: "privacy" | "terms";
 }
 
-const updatedAt = "19. september 2026";
+const updatedAt = "20. september 2026";
 
 export default function LegalPage({ kind }: LegalPageProps) {
   const isPrivacy = kind === "privacy";
@@ -80,16 +80,32 @@ function PrivacyContent() {
         </Typography>
       </Section>
       <Section title="Børneadgang uden konto">
-        Et familiemedlem (fx et barn) kan i stedet få adgang til sin egen
-        "Mit i dag"-visning på en separat enhed, uden at logge ind med Google
-        eller Microsoft. Det kræver et unikt link, som kun familiens ejer
-        eller admin kan oprette og dele, samt en 4-cifret kode, som ejeren
-        eller admin sætter for det pågældende familiemedlem. Denne adgang
-        viser og lader kun barnet afkrydse sine egne opgaver den pågældende
-        dag — intet andet i appen, og ingen andre familiemedlemmers data.
-        Koden gemmes aldrig i klartekst, kun kryptografisk hashet. Ejeren
-        eller admin kan til enhver tid tilbagekalde eller udskifte linket,
-        hvorved enhver aktiv adgang for barnet øjeblikkeligt ophører.
+        <Typography color="text.secondary" component="span" sx={{ display: "block", mb: 1.5 }}>
+          Et familiemedlem (fx et barn) kan i stedet få adgang til sin egen
+          "Mit i dag"-visning på en separat enhed, uden at logge ind med
+          Google eller Microsoft. Det kræver et unikt link (der også kan
+          vises som en QR-kode til at scanne), som kun familiens ejer eller
+          admin kan oprette og dele, samt en 4-cifret kode, som ejeren eller
+          admin sætter for det pågældende familiemedlem. Koden gemmes aldrig
+          i klartekst, kun kryptografisk hashet, og indgår aldrig i
+          QR-koden.
+        </Typography>
+        <Typography color="text.secondary" component="span" sx={{ display: "block", mb: 1.5 }}>
+          Denne adgang viser kun barnets egne opgaver (som barnet selv kan
+          afkrydse), barnets eget kalendermappede kalender samt familiens
+          fælles kalender for den pågældende dag, og korte tekstbeskeder
+          sendt til barnet af en voksen i familien (se "Beskeder mellem
+          familiemedlemmer" nedenfor) — intet andet i appen, og ingen andre
+          familiemedlemmers private data.
+        </Typography>
+        <Typography color="text.secondary" component="span" sx={{ display: "block" }}>
+          Ejeren eller admin kan se, hvor mange enheder der er logget ind
+          med linket (kun tidspunkt for oprettelse og seneste brug — ingen
+          IP-adresse eller anden enhedsinformation gemmes), og kan til
+          enhver tid logge én eller alle enheder ud samt tilbagekalde eller
+          udskifte linket, hvorved enhver aktiv adgang for barnet
+          øjeblikkeligt ophører.
+        </Typography>
       </Section>
       <Section title="Kalenderintegrationer">
         <Typography color="text.secondary" component="span" sx={{ display: "block", mb: 1.5 }}>
@@ -133,6 +149,14 @@ function PrivacyContent() {
         opgørelse) gemmes i appens database, knyttet til din familie. Disse
         data deles ikke uden for familien og bruges ikke til andet end at
         levere funktionerne.
+      </Section>
+      <Section title="Beskeder mellem familiemedlemmer">
+        Et familiemedlem kan sende en kort tekstbesked (op til 280 tegn) til
+        et andet familiemedlem, fx et barn. Beskeder er ren tekst — ingen
+        billeder, filer eller links — og kan ses af alle i familien, ligesom
+        opgaver og kalenderaftaler. Afsenderen eller ejeren/admin kan slette
+        en besked igen. Modtageren kan markere en besked som læst. Der er
+        ingen automatisk sletning af beskeder.
       </Section>
       <Section title="Push-notifikationer">
         Hvis du aktiverer notifikationer, gemmer appen et push-abonnement

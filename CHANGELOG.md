@@ -1,5 +1,34 @@
 # Changelog
 
+## Sprint 55 — Børneadgangs-UX: administration, QR, sessioner, kalender, oplæsning, beskeder
+
+> Se `01_Project_Documentation/Development/55_Sprint55_Barn_Adgang_UX_Plan.md`.
+
+- **Implementeret:** samlet "Børneadgang"-side under Indstillinger →
+  Familie — erstatter den tidligere skjulte sektion i "Rediger
+  familiemedlem" med ét administrations-flow: link/QR-kode/kopiér, sæt/
+  skift/ryd PIN, sessionsoverblik, "log ud på alle enheder" og korte
+  beskeder, alt sammen pr. familiemedlem.
+- **Implementeret:** QR-kode til børneadgangslinket, tegnet lokalt som
+  SVG (`qrcode-generator`, 0 transitive afhængigheder) — ingen ekstern
+  webtjeneste, og PIN-koden indgår aldrig i QR-dataene.
+- **Implementeret:** sessionsoverblik (oprettet/senest aktiv) og
+  mulighed for at logge én eller alle enheder ud for et familiemedlem
+  (migration 0033: `child_sessions.last_seen_at`, kun et tidsstempel).
+- **Implementeret (sikkert delomfang):** kalenderaftaler i barnets egen
+  "Mit i dag"-visning (`/barn/:token`) — genbruger den eksisterende,
+  allerede produktionsafprøvede `fetchPublicFamilyCalendarEvents()`
+  (samme funktion som det offentlige delelink og ugeresuméet). Dækker
+  barnets eget kalendermappede medlem og familiens fælles kalender;
+  ægte flerpersoners deltager-matchede aftaler er bevidst udskudt til en
+  selvstændig arkitekturfase (se plandokumentets "Fase C — afgrænsning").
+- **Implementeret:** dansk oplæsning i barnets visning via browserens
+  Web Speech API — ingen ekstern TTS-tjeneste, ingen automatisk start.
+- **Implementeret (v1):** korte, envejs beskeder fra en voksen til et
+  familiemedlem (migration 0033: `child_messages`) — ren tekst, 280
+  tegns grænse, læst-kvittering, ingen billeder/filer/links/svar fra
+  barnet i denne omgang.
+
 ## Sprint 54 — Rutineskabeloner (Fase 4)
 
 > Se `01_Project_Documentation/Development/54_Sprint54_Rutineskabeloner_Plan.md`.

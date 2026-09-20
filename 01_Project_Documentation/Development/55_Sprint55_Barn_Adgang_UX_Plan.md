@@ -15,11 +15,12 @@ Maintained by:
 Claude
 
 Status:
-Under implementering 2026-09-19. Fase A, B og D nedenfor implementeres i
-dette sprint. Fase C (kalender) implementeres i sit sikre, genbrugte
-delomfang — fuld flerpersoners attendee-matching er en dokumenteret,
-udskudt arkitekturopgave (se "Fase C — afgrænsning"). Fase E (beskeder)
-implementeres som en minimal v1.
+Implementeret 2026-09-20. Fase A, B og D er fuldt implementeret. Fase C
+(kalender) er implementeret i sit sikre, genbrugte delomfang (barnets
+eget kalendermappede medlem + familiens fælles kalender) — fuld
+flerpersoners attendee-matching er bevidst en dokumenteret, udskudt
+arkitekturopgave (se "Fase C — afgrænsning"). Fase E (beskeder) er
+implementeret som en minimal v1 (envejs, ren tekst, læst-kvittering).
 
 ---
 
