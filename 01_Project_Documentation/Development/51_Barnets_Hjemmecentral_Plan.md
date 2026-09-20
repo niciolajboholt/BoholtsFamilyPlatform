@@ -20,8 +20,14 @@ barn"-forhåndsvisning**, blev implementeret i Sprint 52 og efterfølgende
 hardnet 2026-09-19. PIN-baseret børneadgang (Fase 3, se
 `53_Sprint53_Barn_Pinkode_Adgang_Plan.md`) og faste rutineskabeloner
 (Fase 4, se `54_Sprint54_Rutineskabeloner_Plan.md`) blev begge
-implementeret 2026-09-19. De øvrige faser nedenfor er fortsat ikke
-implementeret. Arbejdstitel: **Barnets Hjemmecentral**.
+implementeret 2026-09-19. Sprint 55 (se
+`55_Sprint55_Barn_Adgang_UX_Plan.md`) udbyggede børneadgangen med en
+samlet administrationsside, QR-kode, sessionsoverblik, kalenderaftaler
+(sikkert delomfang), dansk oplæsning og en minimal besked-funktion.
+Oplæsning og beskeder (punkt 5/foreslået indhold) er dermed implementeret
+tidligere end den oprindeligt foreslåede rækkefølge tilsagde. De øvrige
+faser (point-/mållag, guidede eksterne kalenderforbindelser) er fortsat
+ikke implementeret. Arbejdstitel: **Barnets Hjemmecentral**.
 
 ---
 
@@ -68,12 +74,14 @@ Barnets Hjemmecentral skal genbruge det, der allerede findes:
   og opgaver, en kort liste — ikke en fuld kalender.
 - **Næste aktivitet**: det først kommende punkt (aftale eller opgave),
   fremhævet separat fra resten af dagen.
-- **Små beskeder fra forældre**: en let, envejs eller letvægts tovejs
-  besked-boks — omfang (kun tekst? emoji? læst-kvittering?) skal afklares
-  med Nicolaj før design.
-- **Oplæsning med dansk browser-talesyntese**: Web Speech API
-  (`speechSynthesis`) med en dansk stemme, hvis tilgængelig i brugerens
-  browser — ingen ekstern TTS-tjeneste, ingen ny backend-afhængighed.
+- **Små beskeder fra forældre** — **implementeret i Sprint 55 (v1):**
+  envejs, ren tekst (280 tegn), læst-kvittering, ingen billeder/filer/
+  links/svar fra barnet. Se `55_Sprint55_Barn_Adgang_UX_Plan.md`s Fase E
+  for de trufne beslutninger.
+- **Oplæsning med dansk browser-talesyntese** — **implementeret i
+  Sprint 55:** Web Speech API (`speechSynthesis`) med en dansk stemme,
+  hvis tilgængelig i brugerens browser — ingen ekstern TTS-tjeneste,
+  ingen ny backend-afhængighed.
 - **Moduler pr. familiemedlem**: barnets egen visning tilpasses dets
   alder/behov — kræver en beslutning om, hvor meget der er konfigurerbart
   pr. barn vs. fælles for alle børn.
@@ -157,7 +165,13 @@ ikke antages eller påbegyndes uden en selvstændig, ny beslutning:
 4. **Implementeret i Sprint 54:** faste skabeloner (morgenrutine,
    skoletaske, tandbørstning, sengetid), der udfylder den eksisterende
    rutine-editor — se `54_Sprint54_Rutineskabeloner_Plan.md`.
-5. Oplæsning (isoleret, lav risiko — kun klient-side Web Speech API).
+5. **Implementeret i Sprint 55:** oplæsning (isoleret, kun klient-side Web
+   Speech API), samlet administrationsside med QR-kode og
+   sessionsoverblik for børneadgang, kalenderaftaler i barnets visning
+   (sikkert delomfang — se `55_Sprint55_Barn_Adgang_UX_Plan.md`s "Fase
+   C — afgrænsning" for hvorfor ægte flerpersoners deltager-matchede
+   aftaler stadig mangler), og en minimal, envejs besked-funktion fra
+   voksen til barn.
 6. Valgfrit point-/mållag oven på lommepenge.
 7. Guidede eksterne kalenderforbindelser (Aula/DBU Kampklar/Holdsport) —
    sidst, da det afhænger af ekstern research pr. tjeneste.

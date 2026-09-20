@@ -11,6 +11,7 @@ import { useRecurrenceExceptions } from "../features/calendar/hooks/useRecurrenc
 import { expandRecurringEvents } from "../features/calendar/utils/expandRecurringEvents";
 import { getEventsForDate } from "../features/calendar/utils/getEventsForDate";
 import type { CalendarEvent } from "../features/calendar/models/calendarEvent";
+import { getChildMessagesForMember, getMyFamily, type ChildMessageDto } from "../features/family/familyApi";
 import { useEnabledFeatures } from "../features/family/hooks/useEnabledFeatures";
 import {
   buildMitIDagPlan,
@@ -121,6 +122,29 @@ function MitIDagContent({ now }: MitIDagContentProps) {
   } = useTasks();
   const { currentMember } = useCurrentMember();
 
+  // Sprint 55 (Fase E): korte beskeder fra en voksen til det valgte
+  // medlem. useTasks() eksponerer ikke familyId, så den hentes separat
+  // her — samme mønster som ChildAccessDialog.tsx. Bevidst READ-ONLY her:
+  // "Se som barn" er en forhåndsvisning for en forælder og må ALDRIG
+  // markere en besked som læst på barnets vegne (kun barnets egen session
+  // i ChildAccessPage.tsx kan det).
+  const [familyId, setFamilyId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<ChildMessageDto[]>([]);
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    getMyFamily().then((result) => {
+      if (!isCancelled && result.ok && result.data.family) {
+        setFamilyId(result.data.family.id);
+      }
+    });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
+
   // Egen, lokal vælger-tilstand — bevidst IKKE useCurrentMember's
   // setCurrentMemberId, som også kobler medlemmet til kontoen for push
   // (se familyApi.ts's linkFamilyMemberToMe). currentMember bruges kun som
@@ -176,6 +200,26 @@ function MitIDagContent({ now }: MitIDagContentProps) {
     [tasks, selectedMemberId],
   );
 
+  useEffect(() => {
+    if (!familyId || !selectedMemberId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setMessages([]);
+      return;
+    }
+
+    let isCancelled = false;
+
+    getChildMessagesForMember(familyId, selectedMemberId).then((result) => {
+      if (!isCancelled && result.ok) {
+        setMessages(result.data.messages ?? []);
+      }
+    });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [familyId, selectedMemberId]);
+
   // "Næste": den først kommende aftale, ellers den første ufærdige
   // opgave — ikke et fuldt kronologisk fletning af begge (opgavers
   // timeOfDay er en fritekst-påmindelse, ikke et pålideligt sorterbart
@@ -199,7 +243,7 @@ function MitIDagContent({ now }: MitIDagContentProps) {
         role="status"
         sx={{ minHeight: 240, display: "flex", alignItems: "center", justifyContent: "center", gap: 2 }}
       >
-        <CircularProgress size={28} />
+        <CircularProgress size={28} aria-hidden="true" />
         <Typography color="text.secondary">Henter dagens aktiviteter…</Typography>
       </Box>
     );
@@ -314,18 +358,32 @@ function MitIDagContent({ now }: MitIDagContentProps) {
             </Box>
           )}
 
-          <Box
-            sx={{
-              border: "1.5px dashed",
-              borderColor: "divider",
-              borderRadius: 3,
-              p: 2,
-            }}
-          >
-            <Typography variant="body2" color="text.secondary" sx={{ fontStyle: "italic" }}>
-              Beskeder fra forældre kommer senere.
-            </Typography>
-          </Box>
+          <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
+            Beskeder
+          </Typography>
+
+          {messages.length === 0 ? (
+            <Box
+              sx={{
+                border: "1.5px dashed",
+                borderColor: "divider",
+                borderRadius: 3,
+                p: 2,
+              }}
+            >
+              <Typography variant="body2" color="text.secondary" sx={{ fontStyle: "italic" }}>
+                Ingen beskeder endnu.
+              </Typography>
+            </Box>
+          ) : (
+            <Box sx={{ display: "grid", gap: 1 }}>
+              {messages.map((message) => (
+                <Alert key={message.id} severity={message.readAt ? "success" : "info"}>
+                  {message.body}
+                </Alert>
+              ))}
+            </Box>
+          )}
         </>
       )}
     </Container>

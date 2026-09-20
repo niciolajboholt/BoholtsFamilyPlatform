@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 
 import { useParams } from "react-router-dom";
 
-import { LogoutRounded } from "@mui/icons-material";
+import { CampaignRounded, LogoutRounded, StopRounded, VolumeUpRounded } from "@mui/icons-material";
 import {
   Alert,
   Avatar,
@@ -19,27 +19,40 @@ import {
 import {
   childLogout,
   getChildAccessLinkInfo,
+  getChildCalendarEvents,
+  getChildMessages,
   getChildSessionMe,
   getChildTasksForDate,
+  markChildMessageRead,
   setChildTaskDone,
   verifyChildAccessPin,
+  type ChildCalendarEventDto,
+  type ChildMessageDto,
 } from "../features/family/childAccessApi";
+import { useSpeechReadout } from "../features/mitIDag/hooks/useSpeechReadout";
 import { localDateKey } from "../features/mitIDag/mitIDagUtils";
 import type { TaskDto } from "../features/tasks/tasksApi";
 
-// Sprint 53 (Fase 3, se
-// 01_Project_Documentation/Development/53_Sprint53_Barn_Pinkode_Adgang_Plan.md):
+// Sprint 53 (Fase 3) + Sprint 55 (Fase A/C/D/E, se
+// 01_Project_Documentation/Development/55_Sprint55_Barn_Adgang_UX_Plan.md):
 // børneadgang på en helt ny, ikke-logget-ind enhed — barnets eget device.
 // Uden for AppLayout (samme princip som /share/:token og /kiosk): denne
 // side bruger slet ikke den almindelige users/sessions-model, kun
 // child_session-cookien fra features/family/childAccessApi.ts.
 //
-// Bevidst v1-afgrænset: kun dagens opgaver, ingen kalenderaftaler (Google-
-// kalenderdata hentes i dag med DEN INDLOGGEDE brugers eget OAuth-token,
-// se calendar.ts — en enhed uden nogen voksen logget ind har intet token
-// at hente med), og ingen billede-baseret login, kun PIN.
+// Kalenderaftaler dækker bevidst kun barnets eget kalendermappede
+// medlem-id og familiens fælles kalender — se childAccess.ts's egen
+// kommentar og planens "Fase C — afgrænsning" for hvorfor ægte
+// flerpersoners deltager-matchede aftaler ikke er med i v1.
 
 type Phase = "loading" | "pin-entry" | "dashboard" | "invalid-link";
+
+function formatEventTime(value: string, allDay: boolean): string {
+  if (allDay) {
+    return "Hele dagen";
+  }
+  return new Intl.DateTimeFormat("da-DK", { hour: "2-digit", minute: "2-digit" }).format(new Date(value));
+}
 
 function DayTaskRow({
   task,
@@ -83,10 +96,59 @@ function DayTaskRow({
   );
 }
 
+function DayEventRow({ event }: { event: ChildCalendarEventDto }) {
+  return (
+    <Box sx={{ py: 1, borderBottom: "1px solid", borderColor: "divider" }}>
+      <Typography sx={{ fontWeight: 600 }}>{event.title}</Typography>
+      <Typography variant="body2" color="text.secondary">
+        {formatEventTime(event.start, event.allDay)}
+      </Typography>
+    </Box>
+  );
+}
+
+// Bygger oplæsningsteksten UDELUKKENDE af data, siden allerede har hentet
+// og vist — aldrig en rå kilde. Aftaler er allerede privatlivsredigeret af
+// serveren (getSafeGoogleEventDetails, se childAccess.ts), så en privat
+// aftales titel her er allerede "Optaget", ikke det rigtige indhold.
+function buildReadoutText(
+  name: string,
+  tasks: TaskDto[],
+  events: ChildCalendarEventDto[],
+  unreadMessages: ChildMessageDto[],
+): string {
+  const parts = [`Hej, ${name}!`];
+
+  if (events.length > 0) {
+    parts.push("Dagens aftaler:");
+    events.forEach((event) => parts.push(`${event.title} klokken ${formatEventTime(event.start, event.allDay)}.`));
+  }
+
+  const undoneTasks = tasks.filter((task) => !task.isDone);
+  if (undoneTasks.length > 0) {
+    parts.push("Dine opgaver i dag:");
+    undoneTasks.forEach((task) => parts.push(`${task.name}.`));
+  } else if (tasks.length > 0) {
+    parts.push("Du har lavet alle dine opgaver i dag!");
+  }
+
+  if (unreadMessages.length > 0) {
+    parts.push("Du har en besked:");
+    unreadMessages.forEach((message) => parts.push(message.body));
+  }
+
+  return parts.join(" ");
+}
+
 function ChildDashboard({ name, color }: { name: string; color: string }) {
   const [tasks, setTasks] = useState<TaskDto[]>([]);
   const [isLoadingTasks, setIsLoadingTasks] = useState(true);
   const [taskError, setTaskError] = useState<string | null>(null);
+  const [events, setEvents] = useState<ChildCalendarEventDto[]>([]);
+  const [isLoadingEvents, setIsLoadingEvents] = useState(true);
+  const [calendarAvailable, setCalendarAvailable] = useState(true);
+  const [messages, setMessages] = useState<ChildMessageDto[]>([]);
+  const readout = useSpeechReadout();
 
   useEffect(() => {
     let isCancelled = false;
@@ -100,6 +162,19 @@ function ChildDashboard({ name, color }: { name: string; color: string }) {
         setTaskError("Opgaverne kunne ikke hentes.");
       }
       setIsLoadingTasks(false);
+    });
+
+    getChildCalendarEvents().then((response) => {
+      if (isCancelled) return;
+      setEvents(response.ok ? (response.data.events ?? []) : []);
+      setCalendarAvailable(response.ok ? (response.data.calendarAvailable ?? false) : false);
+      setIsLoadingEvents(false);
+    });
+
+    getChildMessages().then((response) => {
+      if (!isCancelled && response.ok) {
+        setMessages(response.data.messages ?? []);
+      }
     });
 
     return () => {
@@ -119,9 +194,24 @@ function ChildDashboard({ name, color }: { name: string; color: string }) {
     }
   }
 
+  async function handleMarkMessageRead(messageId: string) {
+    const response = await markChildMessageRead(messageId);
+
+    if (response.ok && response.data.messages) {
+      setMessages(response.data.messages);
+    }
+  }
+
   async function handleLogout() {
+    readout.stop();
     await childLogout();
     window.location.reload();
+  }
+
+  const unreadMessages = messages.filter((message) => !message.readAt);
+
+  function handleReadAloud() {
+    readout.speak(buildReadoutText(name, tasks, events, unreadMessages));
   }
 
   return (
@@ -139,6 +229,55 @@ function ChildDashboard({ name, color }: { name: string; color: string }) {
         </IconButton>
       </Box>
 
+      {readout.isSupported && (
+        <Box sx={{ display: "flex", gap: 1, mb: 3 }}>
+          {readout.isSpeaking ? (
+            <Button variant="outlined" size="small" startIcon={<StopRounded />} onClick={() => readout.stop()}>
+              Stop oplæsning
+            </Button>
+          ) : (
+            <Button variant="outlined" size="small" startIcon={<VolumeUpRounded />} onClick={handleReadAloud}>
+              Læs op
+            </Button>
+          )}
+        </Box>
+      )}
+
+      {unreadMessages.map((message) => (
+        <Alert
+          key={message.id}
+          severity="info"
+          icon={<CampaignRounded />}
+          sx={{ mb: 2 }}
+          action={
+            <Button color="inherit" size="small" onClick={() => void handleMarkMessageRead(message.id)}>
+              Læst
+            </Button>
+          }
+        >
+          {message.body}
+        </Alert>
+      ))}
+
+      {events.length > 0 && (
+        <>
+          <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
+            Dagens aftaler
+          </Typography>
+          <Box sx={{ mb: 3 }}>
+            {events.map((event, index) => (
+              <DayEventRow key={`${event.title}-${event.start}-${index}`} event={event} />
+            ))}
+          </Box>
+        </>
+      )}
+
+      {!isLoadingEvents && !calendarAvailable && events.length === 0 && (
+        <Alert severity="warning" sx={{ mb: 3 }}>
+          Kalenderaftaler kunne ikke hentes lige nu. Dine opgaver vises stadig.
+        </Alert>
+      )}
+
       <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
         Dine opgaver i dag
       </Typography>
@@ -151,7 +290,7 @@ function ChildDashboard({ name, color }: { name: string; color: string }) {
 
       {isLoadingTasks ? (
         <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
-          <CircularProgress />
+          <CircularProgress aria-label="Indlæser opgaver" />
         </Box>
       ) : tasks.length === 0 ? (
         <Typography color="text.secondary">Ingen opgaver i dag.</Typography>
@@ -285,7 +424,7 @@ function ChildAccessPage() {
   if (phase === "loading") {
     return (
       <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
-        <CircularProgress />
+        <CircularProgress aria-label="Indlæser" />
       </Box>
     );
   }

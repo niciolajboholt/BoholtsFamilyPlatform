@@ -332,4 +332,126 @@ describe("child access management routes", () => {
       expect(status.hasPin).toBe(false);
     });
   });
+
+  describe("child-access/sessions", () => {
+    it("rejects a non-owner/admin member", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamilyWithChild(env, owner.cookieHeader);
+      const member = await seedLoggedInUser(env.DB as never, { id: "member" });
+      await families.request(
+        `/invites/${created.inviteCode}/accept`,
+        { method: "POST", headers: { Cookie: member.cookieHeader } },
+        env,
+      );
+
+      const response = await families.request(
+        `/${created.familyId}/members/${created.childMemberId}/child-access/sessions`,
+        { headers: { Cookie: member.cookieHeader } },
+        env,
+      );
+
+      expect(response.status).toBe(403);
+    });
+
+    it("lists active sessions with created/last-seen timestamps", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamilyWithChild(env, owner.cookieHeader);
+      const now = new Date().toISOString();
+      const future = new Date(Date.now() + 100_000).toISOString();
+
+      await env.DB.prepare(
+        "INSERT INTO child_sessions (id, family_member_id, created_at, expires_at, last_seen_at) VALUES (?, ?, ?, ?, ?)",
+      )
+        .bind("session-1", created.childMemberId, now, future, now)
+        .run();
+
+      const response = await families.request(
+        `/${created.familyId}/members/${created.childMemberId}/child-access/sessions`,
+        { headers: { Cookie: owner.cookieHeader } },
+        env,
+      );
+      const body = await response.json<{ sessions: { id: string; createdAt: string; lastSeenAt: string | null }[] }>();
+
+      expect(response.status).toBe(200);
+      expect(body.sessions).toEqual([{ id: "session-1", createdAt: now, lastSeenAt: now }]);
+    });
+
+    it("does not list an expired session", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamilyWithChild(env, owner.cookieHeader);
+      const past = new Date(Date.now() - 100_000).toISOString();
+
+      await env.DB.prepare(
+        "INSERT INTO child_sessions (id, family_member_id, created_at, expires_at) VALUES (?, ?, ?, ?)",
+      )
+        .bind("expired-session", created.childMemberId, past, past)
+        .run();
+
+      const response = await families.request(
+        `/${created.familyId}/members/${created.childMemberId}/child-access/sessions`,
+        { headers: { Cookie: owner.cookieHeader } },
+        env,
+      );
+
+      expect((await response.json<{ sessions: unknown[] }>()).sessions).toEqual([]);
+    });
+
+    it("'log out on all devices' removes every session for that member only", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamilyWithChild(env, owner.cookieHeader);
+      const future = new Date(Date.now() + 100_000).toISOString();
+
+      await env.DB.batch([
+        env.DB.prepare(
+          "INSERT INTO child_sessions (id, family_member_id, created_at, expires_at) VALUES (?, ?, ?, ?)",
+        ).bind("session-1", created.childMemberId, new Date().toISOString(), future),
+        env.DB.prepare(
+          "INSERT INTO child_sessions (id, family_member_id, created_at, expires_at) VALUES (?, ?, ?, ?)",
+        ).bind("session-2", created.childMemberId, new Date().toISOString(), future),
+        env.DB.prepare(
+          "INSERT INTO child_sessions (id, family_member_id, created_at, expires_at) VALUES (?, ?, ?, ?)",
+        ).bind("other-member-session", created.familyPseudoMemberId, new Date().toISOString(), future),
+      ]);
+
+      const response = await families.request(
+        `/${created.familyId}/members/${created.childMemberId}/child-access/sessions`,
+        { method: "DELETE", headers: { Cookie: owner.cookieHeader } },
+        env,
+      );
+
+      expect(response.status).toBe(200);
+
+      const remaining = await env.DB.prepare("SELECT id FROM child_sessions").all<{ id: string }>();
+      expect(remaining.results.map((row) => row.id)).toEqual(["other-member-session"]);
+    });
+
+    it("logs out a single device by id, and 404s for an unknown session id", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamilyWithChild(env, owner.cookieHeader);
+      const future = new Date(Date.now() + 100_000).toISOString();
+
+      await env.DB.prepare(
+        "INSERT INTO child_sessions (id, family_member_id, created_at, expires_at) VALUES (?, ?, ?, ?)",
+      )
+        .bind("session-1", created.childMemberId, new Date().toISOString(), future)
+        .run();
+
+      const missing = await families.request(
+        `/${created.familyId}/members/${created.childMemberId}/child-access/sessions/does-not-exist`,
+        { method: "DELETE", headers: { Cookie: owner.cookieHeader } },
+        env,
+      );
+      expect(missing.status).toBe(404);
+
+      const response = await families.request(
+        `/${created.familyId}/members/${created.childMemberId}/child-access/sessions/session-1`,
+        { method: "DELETE", headers: { Cookie: owner.cookieHeader } },
+        env,
+      );
+      expect(response.status).toBe(200);
+
+      const remaining = await env.DB.prepare("SELECT id FROM child_sessions").all<{ id: string }>();
+      expect(remaining.results).toEqual([]);
+    });
+  });
 });

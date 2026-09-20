@@ -701,3 +701,58 @@ export function clearChildAccessPin(familyId: string, memberId: string) {
     { method: "DELETE" },
   );
 }
+
+// Sprint 55: sessionsoverblik og "log ud på alle enheder".
+export interface ChildAccessSessionDto {
+  id: string;
+  createdAt: string;
+  lastSeenAt: string | null;
+}
+
+export function getChildAccessSessions(familyId: string, memberId: string) {
+  return request<{ sessions?: ChildAccessSessionDto[]; error?: string }>(
+    `/api/families/${familyId}/members/${memberId}/child-access/sessions`,
+  );
+}
+
+export function revokeAllChildAccessSessions(familyId: string, memberId: string) {
+  return request<{ ok?: boolean; error?: string }>(
+    `/api/families/${familyId}/members/${memberId}/child-access/sessions`,
+    { method: "DELETE" },
+  );
+}
+
+export function revokeChildAccessSession(familyId: string, memberId: string, sessionId: string) {
+  return request<{ ok?: boolean; error?: string }>(
+    `/api/families/${familyId}/members/${memberId}/child-access/sessions/${sessionId}`,
+    { method: "DELETE" },
+  );
+}
+
+// Sprint 55: korte, envejs beskeder fra en voksen til et familiemedlem.
+export interface ChildMessageDto {
+  id: string;
+  familyMemberId: string;
+  body: string;
+  createdAt: string;
+  readAt: string | null;
+}
+
+export function sendChildMessage(familyId: string, memberId: string, body: string) {
+  return request<{ message?: ChildMessageDto; error?: string }>(`/api/families/${familyId}/messages`, {
+    method: "POST",
+    body: JSON.stringify({ familyMemberId: memberId, body }),
+  });
+}
+
+export function getChildMessagesForMember(familyId: string, memberId: string) {
+  return request<{ messages?: ChildMessageDto[]; error?: string }>(
+    `/api/families/${familyId}/messages?memberId=${encodeURIComponent(memberId)}`,
+  );
+}
+
+export function deleteChildMessage(familyId: string, messageId: string) {
+  return request<{ ok?: boolean; error?: string }>(`/api/families/${familyId}/messages/${messageId}`, {
+    method: "DELETE",
+  });
+}

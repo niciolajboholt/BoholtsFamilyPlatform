@@ -16,6 +16,9 @@ import {
   getChildSessionMember,
   type ChildSessionMember,
 } from "../lib/childSession";
+import { markChildMessageRead, listChildMessagesForMember } from "../lib/childMessages";
+import { fetchPublicFamilyCalendarEvents } from "../lib/googleCalendarAggregation";
+import { GoogleNotConnectedError } from "../lib/googleConnection";
 import { checkRateLimit } from "../lib/rateLimit";
 import { isValidPinFormat, verifyPin } from "../lib/pinHashing";
 import { logError } from "../lib/structuredLog";
@@ -26,6 +29,7 @@ import {
   materializeTasksForDate,
   parseJsonBody,
 } from "./taskRoutes/taskQueries";
+import { getCopenhagenDayRangeUtc } from "../lib/weeklySummary";
 
 type Variables = { childMember: ChildSessionMember };
 
@@ -181,6 +185,77 @@ childAccess.post("/tasks/:taskId/done", async (c) => {
   const tasks = await listTasksForDate(c.env.DB, member.familyId, task.taskDate ?? "");
 
   return c.json({ tasks: tasks.filter((t) => t.assignedMemberId === member.id) });
+});
+
+// GET /today/calendar — kun barnets EGET kalendermappede medlem-id og
+// familiens fælles pseudo-medlem (relation IS NULL), aldrig andre
+// familiemedlemmers personlige kalendere. Genbruger 100% den samme
+// funktion som det offentlige delelink (Sprint 26) og ugeresuméet (Sprint
+// 28) allerede bruger — intet OAuth-token forlader nogensinde denne rute,
+// kun færdig-formaterede, privatlivsredigerede aftaler. Se
+// 55_Sprint55_Barn_Adgang_UX_Plan.md's "Fase C — afgrænsning" for hvorfor
+// ægte flerpersoners deltager-matchede aftaler bevidst IKKE er med her.
+childAccess.get("/today/calendar", async (c) => {
+  const member = c.get("childMember");
+
+  const family = await c.env.DB.prepare("SELECT owner_user_id AS ownerUserId FROM families WHERE id = ?")
+    .bind(member.familyId)
+    .first<{ ownerUserId: string }>();
+
+  if (!family) {
+    return c.json({ events: [], calendarAvailable: false });
+  }
+
+  const pseudoMember = await c.env.DB.prepare(
+    "SELECT id FROM family_members WHERE family_id = ? AND relation IS NULL",
+  )
+    .bind(member.familyId)
+    .first<{ id: string }>();
+
+  const memberIds = pseudoMember ? [member.id, pseudoMember.id] : [member.id];
+
+  try {
+    const events = await fetchPublicFamilyCalendarEvents(
+      c.env,
+      member.familyId,
+      family.ownerUserId,
+      memberIds,
+      getCopenhagenDayRangeUtc(new Date()),
+    );
+
+    return c.json({ events, calendarAvailable: true });
+  } catch (error) {
+    if (error instanceof GoogleNotConnectedError) {
+      // Blødt fald, ikke en fejl — opgavevisningen skal fortsat virke, selv
+      // hvis familiens ejer ikke har forbundet Google (samme princip som
+      // det offentlige delelink allerede følger).
+      return c.json({ events: [], calendarAvailable: false });
+    }
+
+    throw error;
+  }
+});
+
+// GET /messages — kun DENNE barns egne beskeder, aldrig andre
+// familiemedlemmers.
+childAccess.get("/messages", async (c) => {
+  const member = c.get("childMember");
+  return c.json({ messages: await listChildMessagesForMember(c.env.DB, member.id) });
+});
+
+// POST /messages/:messageId/read — 404, ikke 403, hvis beskeden ikke er
+// barnets egen, samme "afslør ikke eksistensen"-princip som resten af
+// børneadgangs-API'et.
+childAccess.post("/messages/:messageId/read", async (c) => {
+  const member = c.get("childMember");
+  const messageId = c.req.param("messageId");
+  const marked = await markChildMessageRead(c.env.DB, member.id, messageId);
+
+  if (!marked) {
+    return c.json({ error: "Ikke fundet." }, 404);
+  }
+
+  return c.json({ messages: await listChildMessagesForMember(c.env.DB, member.id) });
 });
 
 export default childAccess;

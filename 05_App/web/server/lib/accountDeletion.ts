@@ -447,6 +447,9 @@ async function hardDeleteFamily(db: D1Database, familyId: string): Promise<void>
     db.prepare("DELETE FROM family_weekly_summaries WHERE family_id = ?").bind(familyId),
     db.prepare("DELETE FROM family_enabled_features WHERE family_id = ?").bind(familyId),
     db.prepare("DELETE FROM family_invites WHERE family_id = ?").bind(familyId),
+    // Sprint 55: child_messages har et direkte family_id-felt, ingen
+    // to-niveau-kæde nødvendig som child_sessions nedenfor.
+    db.prepare("DELETE FROM child_messages WHERE family_id = ?").bind(familyId),
     // Sprint 53: child_sessions.family_member_id peger på family_members —
     // skal ryddes FØR family_members-sletningen nedenfor, ellers ville FK-
     // constrainten fejle og vælte hele purge-batchen.

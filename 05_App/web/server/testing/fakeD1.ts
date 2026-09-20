@@ -41,6 +41,7 @@ const migrationFiles = [
   "0030_microsoft_login.sql",
   "0031_account_family_deletion.sql",
   "0032_child_access.sql",
+  "0033_child_access_sessions_messages.sql",
 ];
 
 function loadMigrations(db: DatabaseSync): void {

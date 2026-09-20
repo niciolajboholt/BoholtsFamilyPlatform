@@ -1,9 +1,18 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { createFakeEnv } from "../testing/fakeEnv";
 import { seedUser } from "../testing/fakeD1";
 import { hashPin } from "../lib/pinHashing";
-import childAccess from "./childAccess";
+
+vi.mock("../lib/googleCalendarAggregation", () => ({
+  fetchPublicFamilyCalendarEvents: vi.fn(),
+}));
+
+const { fetchPublicFamilyCalendarEvents } = await import("../lib/googleCalendarAggregation");
+const { GoogleNotConnectedError } = await import("../lib/googleConnection");
+const { default: childAccess } = await import("./childAccess");
+
+const fetchPublicFamilyCalendarEventsMock = vi.mocked(fetchPublicFamilyCalendarEvents);
 
 function extractCookie(response: Response, name: string): string | null {
   const setCookie = response.headers.get("set-cookie");
@@ -293,5 +302,127 @@ describe("session-protected routes", () => {
 
     const meResponse = await childAccess.request("/me", { headers: { Cookie: cookie } }, env);
     expect(meResponse.status).toBe(401);
+  });
+
+  describe("GET /today/calendar", () => {
+    it("fetches events for the child's own member id and the family pseudo-member, never other members", async () => {
+      fetchPublicFamilyCalendarEventsMock.mockReset().mockResolvedValue([
+        {
+          title: "Fødselsdag",
+          start: "2026-09-19T10:00:00.000Z",
+          end: "2026-09-19T11:00:00.000Z",
+          allDay: false,
+          memberName: "Frida",
+          memberColor: "#D99832",
+        },
+      ]);
+
+      const env = createFakeEnv();
+      const { familyId, memberId, token } = await seedChildMember(env, { pin: "4242" });
+      await env.DB.prepare(
+        "INSERT INTO family_members (id, family_id, name, color, relation, is_placeholder_name, created_at) VALUES ('family-pseudo', ?, 'Familien', '#6D597A', NULL, 0, ?)",
+      )
+        .bind(familyId, new Date().toISOString())
+        .run();
+      const cookie = await loginAsChild(env, token, "4242");
+
+      const response = await childAccess.request("/today/calendar", { headers: { Cookie: cookie } }, env);
+      const body = await response.json<{ events: unknown[]; calendarAvailable: boolean }>();
+
+      expect(response.status).toBe(200);
+      expect(body.calendarAvailable).toBe(true);
+      expect(body.events).toHaveLength(1);
+      expect(fetchPublicFamilyCalendarEventsMock).toHaveBeenCalledWith(
+        env,
+        familyId,
+        "owner",
+        [memberId, "family-pseudo"],
+        expect.objectContaining({ start: expect.any(String), end: expect.any(String) }),
+      );
+    });
+
+    it("falls back to an empty, non-error response when the family owner has no Google connection", async () => {
+      fetchPublicFamilyCalendarEventsMock.mockReset().mockRejectedValue(new GoogleNotConnectedError());
+
+      const env = createFakeEnv();
+      const { token } = await seedChildMember(env, { pin: "4242" });
+      const cookie = await loginAsChild(env, token, "4242");
+
+      const response = await childAccess.request("/today/calendar", { headers: { Cookie: cookie } }, env);
+      const body = await response.json<{ events: unknown[]; calendarAvailable: boolean }>();
+
+      expect(response.status).toBe(200);
+      expect(body).toEqual({ events: [], calendarAvailable: false });
+    });
+  });
+
+  describe("beskeder", () => {
+    it("GET /messages only returns this child's own messages", async () => {
+      const env = createFakeEnv();
+      const { familyId, memberId, token } = await seedChildMember(env, { pin: "4242" });
+      const cookie = await loginAsChild(env, token, "4242");
+      const now = new Date().toISOString();
+
+      await env.DB.prepare(
+        "INSERT INTO family_members (id, family_id, name, color, relation, is_placeholder_name, created_at) VALUES ('sibling-1', ?, 'Anton', '#4D7EA8', 'Barn', 0, ?)",
+      )
+        .bind(familyId, now)
+        .run();
+
+      await env.DB.batch([
+        env.DB.prepare(
+          "INSERT INTO child_messages (id, family_id, family_member_id, created_by_user_id, body, created_at) VALUES ('msg-mine', ?, ?, 'owner', 'Hej skat!', ?)",
+        ).bind(familyId, memberId, now),
+        env.DB.prepare(
+          "INSERT INTO child_messages (id, family_id, family_member_id, created_by_user_id, body, created_at) VALUES ('msg-other', ?, 'sibling-1', 'owner', 'Til en anden', ?)",
+        ).bind(familyId, now),
+      ]);
+
+      const response = await childAccess.request("/messages", { headers: { Cookie: cookie } }, env);
+      const body = await response.json<{ messages: { id: string }[] }>();
+
+      expect(response.status).toBe(200);
+      expect(body.messages.map((m) => m.id)).toEqual(["msg-mine"]);
+    });
+
+    it("POST /messages/:id/read marks the child's own message read, 404s for another member's message", async () => {
+      const env = createFakeEnv();
+      const { familyId, memberId, token } = await seedChildMember(env, { pin: "4242" });
+      const cookie = await loginAsChild(env, token, "4242");
+      const now = new Date().toISOString();
+
+      await env.DB.prepare(
+        "INSERT INTO family_members (id, family_id, name, color, relation, is_placeholder_name, created_at) VALUES ('sibling-1', ?, 'Anton', '#4D7EA8', 'Barn', 0, ?)",
+      )
+        .bind(familyId, now)
+        .run();
+
+      await env.DB.batch([
+        env.DB.prepare(
+          "INSERT INTO child_messages (id, family_id, family_member_id, created_by_user_id, body, created_at) VALUES ('msg-mine', ?, ?, 'owner', 'Hej skat!', ?)",
+        ).bind(familyId, memberId, now),
+        env.DB.prepare(
+          "INSERT INTO child_messages (id, family_id, family_member_id, created_by_user_id, body, created_at) VALUES ('msg-other', ?, 'sibling-1', 'owner', 'Til en anden', ?)",
+        ).bind(familyId, now),
+      ]);
+
+      const notFound = await childAccess.request(
+        "/messages/msg-other/read",
+        { method: "POST", headers: { Cookie: cookie } },
+        env,
+      );
+      expect(notFound.status).toBe(404);
+
+      const response = await childAccess.request(
+        "/messages/msg-mine/read",
+        { method: "POST", headers: { Cookie: cookie } },
+        env,
+      );
+      expect(response.status).toBe(200);
+
+      const readRow = await env.DB.prepare("SELECT read_at AS readAt FROM child_messages WHERE id = 'msg-mine'")
+        .first<{ readAt: string | null }>();
+      expect(readRow?.readAt).not.toBeNull();
+    });
   });
 });

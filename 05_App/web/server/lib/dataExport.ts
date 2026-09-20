@@ -46,6 +46,7 @@ export const FAMILY_EXPORT_POLICY = {
     "shared_expense_settlements",
     "family_enabled_features",
     "icloud_calendar_connections",
+    "child_messages",
   ],
   excludedOperationalTables: [
     // Engangskoder og synk-/cursor-tilstand er credentials eller
@@ -159,6 +160,7 @@ export interface FamilyExport {
   icloudCalendarConnections: Record<string, unknown>[];
   familyShareLinks: Record<string, unknown>[];
   familyEnabledFeatures: Record<string, unknown>[];
+  childMessages: Record<string, unknown>[];
 }
 
 async function allByFamily(
@@ -205,6 +207,7 @@ export async function buildFamilyExport(db: D1Database, familyId: string): Promi
     icloudCalendarConnections,
     familyShareLinks,
     familyEnabledFeatures,
+    childMessages,
   ] = await Promise.all([
     allByFamily(
       db,
@@ -415,6 +418,13 @@ export async function buildFamilyExport(db: D1Database, familyId: string): Promi
        FROM family_enabled_features WHERE family_id = ?`,
       familyId,
     ),
+    allByFamily(
+      db,
+      `SELECT id, family_member_id AS familyMemberId, created_by_user_id AS createdByUserId,
+              body, created_at AS createdAt, read_at AS readAt
+       FROM child_messages WHERE family_id = ?`,
+      familyId,
+    ),
   ]);
 
   return {
@@ -444,5 +454,6 @@ export async function buildFamilyExport(db: D1Database, familyId: string): Promi
     icloudCalendarConnections,
     familyShareLinks,
     familyEnabledFeatures,
+    childMessages,
   };
 }

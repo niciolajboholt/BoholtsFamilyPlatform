@@ -196,11 +196,13 @@ familyMembers.delete("/:id/members/:memberId", async (c) => {
     return c.json({ error: "Kun ejer eller admin kan fjerne medlemmer." }, 403);
   }
 
-  // Sprint 53: child_sessions.family_member_id peger på family_members — skal
-  // ryddes FØR selve medlemmet slettes nedenfor, ellers ville FK-constrainten
-  // fejle (samme grund som hardDeleteFamily() i accountDeletion.ts).
+  // Sprint 53/55: child_sessions og child_messages har begge et
+  // family_member_id, der peger på family_members — skal ryddes FØR selve
+  // medlemmet slettes nedenfor, ellers ville FK-constrainten fejle (samme
+  // grund som hardDeleteFamily() i accountDeletion.ts).
   await c.env.DB.batch([
     c.env.DB.prepare("DELETE FROM child_sessions WHERE family_member_id = ?").bind(memberId),
+    c.env.DB.prepare("DELETE FROM child_messages WHERE family_member_id = ?").bind(memberId),
     c.env.DB.prepare("DELETE FROM family_members WHERE family_id = ? AND id = ? AND relation IS NOT NULL").bind(
       familyId,
       memberId,

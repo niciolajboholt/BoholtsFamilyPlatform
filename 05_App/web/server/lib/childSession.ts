@@ -87,6 +87,16 @@ export async function getChildSessionMember<E extends { Bindings: Env }>(
     return null;
   }
 
+  // Sprint 55: eneste "aktivitet"-signal, ejer/admin kan se om barnets
+  // enheder (se childAccessManagement.ts's sessions-rute) — bevidst kun et
+  // tidsstempel, ingen IP/enhedsinformation (se migration 0033's kommentar).
+  // waitUntil ville være at foretrække, men denne funktion har ikke adgang
+  // til c.executionCtx her uden at ændre alle kaldesteders signatur — et
+  // par ekstra ms på et allerede letvægts kald er en accepteret afvejning.
+  await c.env.DB.prepare("UPDATE child_sessions SET last_seen_at = ? WHERE id = ?")
+    .bind(new Date().toISOString(), sessionId)
+    .run();
+
   return { id: row.id, familyId: row.familyId, name: row.name, color: row.color };
 }
 
@@ -108,4 +118,60 @@ export async function cleanupExpiredChildSessions(env: Env): Promise<void> {
   await env.DB.prepare("DELETE FROM child_sessions WHERE expires_at < ?")
     .bind(new Date().toISOString())
     .run();
+}
+
+export interface ChildSessionSummary {
+  id: string;
+  createdAt: string;
+  lastSeenAt: string | null;
+}
+
+// Sprint 55: ejer/admin-siden af sessionsoverblikket (se
+// childAccessManagement.ts) — kun aktive (ikke udløbne) sessioner, samme
+// afgrænsning som getChildSessionMember() selv håndhæver ved brug.
+export async function listChildSessions(
+  db: D1Database,
+  familyMemberId: string,
+): Promise<ChildSessionSummary[]> {
+  const { results } = await db
+    .prepare(
+      `SELECT id, created_at AS createdAt, last_seen_at AS lastSeenAt
+       FROM child_sessions
+       WHERE family_member_id = ? AND expires_at > ?
+       ORDER BY created_at DESC`,
+    )
+    .bind(familyMemberId, new Date().toISOString())
+    .all<ChildSessionSummary>();
+
+  return results;
+}
+
+// Logger ÉN bestemt enhed ud — returnerer om der reelt var en session at
+// slette, så ruten kan svare 404 for et sessions-id, der enten aldrig har
+// eksisteret eller hører til et andet familiemedlem. Slår op FØR sletning
+// (i stedet for at læse .run()'s meta.changes), da testsuitens fakeD1 ikke
+// modellerer D1's affected-rows-metadata.
+export async function revokeChildSession(
+  db: D1Database,
+  familyMemberId: string,
+  sessionId: string,
+): Promise<boolean> {
+  const existing = await db
+    .prepare("SELECT id FROM child_sessions WHERE id = ? AND family_member_id = ?")
+    .bind(sessionId, familyMemberId)
+    .first<{ id: string }>();
+
+  if (!existing) {
+    return false;
+  }
+
+  await db.prepare("DELETE FROM child_sessions WHERE id = ?").bind(sessionId).run();
+  return true;
+}
+
+// "Log ud på alle enheder" — samme oprydning som allerede sker ved
+// rotation/fjernelse af link eller PIN (childAccessManagement.ts), nu også
+// tilgængelig som sin egen handling.
+export async function revokeAllChildSessions(db: D1Database, familyMemberId: string): Promise<void> {
+  await db.prepare("DELETE FROM child_sessions WHERE family_member_id = ?").bind(familyMemberId).run();
 }

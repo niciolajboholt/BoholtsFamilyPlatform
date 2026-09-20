@@ -6,6 +6,7 @@ import { logError } from "../lib/structuredLog";
 import birthdayGiftPlans from "./familyRoutes/birthdayGiftPlans";
 import calendarMappings from "./familyRoutes/calendarMappings";
 import childAccessManagement from "./familyRoutes/childAccessManagement";
+import childMessages from "./familyRoutes/childMessages";
 import familyCore from "./familyRoutes/familyCore";
 import familyDeletion from "./familyRoutes/familyDeletion";
 import familyMembers from "./familyRoutes/familyMembers";
@@ -57,5 +58,6 @@ families.route("/", sharedExpenses);
 families.route("/", featureFlags);
 families.route("/", familyDeletion);
 families.route("/", childAccessManagement);
+families.route("/", childMessages);
 
 export default families;
