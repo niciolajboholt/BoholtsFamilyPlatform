@@ -407,7 +407,15 @@ function MitIDagContent({ now }: MitIDagContentProps) {
           )}
 
           {familyId && (ownRole === "owner" || ownRole === "admin") && (
-            <Accordion disableGutters sx={{ mt: 4 }}>
+            // slotProps.transition afmonterer AccordionDetails' indhold helt,
+            // når den er lukket, i stedet for MUI's standard (som blot sætter
+            // højden til 0 og beholder indholdet i DOM'en) — dels så
+            // ChildAccessAdminPanel's børneadgangs-opslag først sker, når
+            // forælderen rent faktisk åbner sektionen (samme lazy-adfærd som
+            // den oprindelige Dialog-udgave havde), dels fordi et lukket
+            // panel ellers stadig tælles som "synligt" af nogle enkle
+            // tilgængeligheds-tjek, selvom det reelt er skjult.
+            <Accordion disableGutters sx={{ mt: 4 }} slotProps={{ transition: { unmountOnExit: true } }}>
               <AccordionSummary expandIcon={<ExpandMoreRounded />}>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                   <ChildCareRounded color="action" fontSize="small" />

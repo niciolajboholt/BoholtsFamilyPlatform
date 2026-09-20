@@ -83,7 +83,14 @@ export function ChildAccessAdminPanel({ familyId, member }: ChildAccessAdminPane
   }
 
   return (
-    <Box sx={{ display: "grid", gap: 2 }}>
+    // minWidth: 0 er nødvendigt her: en grid-celle skrumper som standard
+    // ikke under sit indholds min-content-bredde (samme fælde som
+    // flex-items uden min-width: 0), så uden den tvinger det lange,
+    // ubrudte børneadgangslink hele panelet — og dermed siden — bredere
+    // end skærmen på mobil. Skjult i den tidligere Dialog-udgave (som
+    // klippede overflow), men synlig nu panelet ligger direkte i "Mit i
+    // dag"s normale sideflow.
+    <Box sx={{ display: "grid", gap: 2, minWidth: 0 }}>
       {admin.error && <Alert severity="error">{admin.error}</Alert>}
 
       {!admin.token ? (
@@ -92,7 +99,7 @@ export function ChildAccessAdminPanel({ familyId, member }: ChildAccessAdminPane
         </Button>
       ) : (
         <>
-          <Box>
+          <Box sx={{ minWidth: 0 }}>
             <Typography variant="subtitle2" sx={{ mb: 1 }}>
               Link
             </Typography>
@@ -105,14 +112,20 @@ export function ChildAccessAdminPanel({ familyId, member }: ChildAccessAdminPane
             <Box
               sx={{
                 display: "flex",
-                alignItems: "center",
+                alignItems: "flex-start",
                 gap: 1,
                 p: 1.25,
                 borderRadius: 2,
                 bgcolor: "action.hover",
+                minWidth: 0,
               }}
             >
-              <Typography variant="body2" noWrap sx={{ flex: 1, minWidth: 0 }}>
+              {/* Ombryder bevidst i stedet for en-linje-ellipse: et ægte
+                  børneadgangs-token er ~43 tegn og kan, sammen med et langt
+                  domænenavn, presse hele siden bredere end skærmen på mobil,
+                  hvis det først skal afkortes via flex/grid-krympning (se
+                  Sprint 56's rettelse af netop denne overflow-fejl). */}
+              <Typography variant="body2" sx={{ flex: 1, minWidth: 0, wordBreak: "break-all" }}>
                 {childAccessUrl}
               </Typography>
               <IconButton aria-label="Kopiér børneadgangs-link" size="small" onClick={handleCopyLink}>
