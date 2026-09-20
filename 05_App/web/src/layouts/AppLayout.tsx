@@ -381,7 +381,15 @@ function AppLayout() {
 
         <Container
           component="main"
-          maxWidth="md"
+          // Sprint 57: kalenderen sætter selv maxWidth: 1200 på sin egen
+          // indre Box (CalendarPage.tsx), men denne fælles ydre Container
+          // begrænsede den hele tiden til MUI's md-breakpoint (900px) —
+          // den indre værdi kunne derfor aldrig reelt tage effekt.
+          // "xl" (1536px) gør den ydre grænse rigelig, så CalendarPage's
+          // egen 1200px bliver den faktisk begrænsende faktor, som koden
+          // allerede antog den var. Alle andre sider sætter selv
+          // maxWidth: 900 på deres egen indre Box og upåvirkes derfor.
+          maxWidth={location.pathname === "/calendar" ? "xl" : "md"}
           sx={{
             pt: { xs: 3, sm: 4 },
             px: { xs: 2, sm: 3 },
