@@ -62,8 +62,12 @@ React/TypeScript/Vite-klient (ADR-017, Sprint 20). Leveret indtil videre:
 
 Danske skoleferier (Sprint 42) er kun research, ikke bygget. Native
 iOS-app (Sprint 46) og Apple-login findes kun som plan. Barnets
-Hjemmecentrals øvrige faser (oplæsning, valgfrit point-/mållag, guidede
-Aula/DBU Kampklar/Holdsport-forbindelser) er også kun plan. Se
+Hjemmecentrals øvrige faser (valgfrit point-/mållag, guidede Aula/DBU
+Kampklar/Holdsport-forbindelser) er også kun plan. Sprint 55-56 samlede
+børneadgangs-administrationen ét sted, direkte på "Mit i dag". Sprint 57
+tilføjede ingen nye hovedfunktioner, men rettede sammenhæng og ydelse på
+tværs af Sprint 51-56 (børneadgangs-sikkerhed, featureflag-afhængigheder,
+kalenderens datointervaller/bredde/filter, Indstillingers struktur). Se
 [CHANGELOG.md](CHANGELOG.md) for den fulde, løbende sprint-for-sprint-liste.
 
 Se [AI Knowledge Base](01_Project_Documentation/AI_Knowledge_Base/00_README.md)

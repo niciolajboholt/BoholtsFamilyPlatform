@@ -1,5 +1,68 @@
 # Changelog
 
+## Sprint 57 — Sammenhæng, hastighed og UX
+
+> Se `01_Project_Documentation/Development/57_Sprint57_Sammenhaeng_Hastighed_UX_Plan.md`.
+
+Ingen nye hovedfunktioner — retter sammenhæng, ydelse og UX-gæld opstået
+i Sprint 51-56.
+
+- **Rettet (sikkerhed):** børneadgang (link/QR-kode, PIN, sessioner) og
+  Beskeder kunne fejlagtigt aktiveres/vises for en voksen profil eller
+  familiens pseudoprofil — både i Mit i dags UI og server-side
+  (`childAccessManagement.ts`/`childMessages.ts` tjekkede kun
+  `relation IS NOT NULL`, ikke `relation = 'Barn'`). Håndhæves nu
+  konsekvent begge steder; `relation` valideres nu også mod en
+  allow-list ved oprettelse/redigering af familiemedlemmer. Eksisterende
+  gyldig børneadgang til rigtige børneprofiler er upåvirket.
+- **Rettet:** Rutiner og Opgave-belønning kunne ende aktive uden
+  Opgaver — ingen afhængighedsvalidering fandtes. Serveren håndhæver nu
+  atomisk, at en underfunktion aktiverer sin hovedfunktion, og at
+  deaktivering af Opgaver deaktiverer dens underfunktioner; en allerede
+  gemt ugyldig tilstand normaliseres automatisk ved næste læsning, uden
+  at fjerne noget familien aktivt har slået til.
+- **Rettet:** forsidens Hurtige handlinger ("Indkøbsliste", "Opgaver")
+  fulgte ikke familiens feature flags og kunne navigere til en
+  deaktiveret funktion — filtreres nu som navigationen allerede gjorde.
+- **Ydelse:** kalenderen hentede altid "et år tilbage til to år frem",
+  uanset visning. Mit i dag henter nu kun i dag ±1 dag, Overblik kun
+  14 dages udkig, og kalenderens måned-/uge-/dagvisning kun den synlige
+  periode. Familie-/planlæggervisningen er uændret. Rækkevidde-sikkerhed
+  er eksplicit verificeret pr. udbyder: Outlook og ICS-abonnementer får
+  fuld effekt; Google ignorerer i praksis intervallet efter første
+  synkronisering (harmløst, men uden fuld effekt); iCloud/CalDAV har en
+  allerede eksisterende, uafhængig fejl (ingen RRULE-udfoldning),
+  upåvirket af denne ændring — begge dokumenteret som kendte
+  begrænsninger for en fremtidig sprint.
+- **Ydelse:** et let, delt cache-lag (`familySessionCache.ts`)
+  deduplikerer identiske `getMyFamily()`-kald på tværs af
+  hook-instanser (mindst 4 identiske kald ved én Overblik-/Mit i
+  dag-indlæsning hidtil) — genbruger appens eksisterende
+  cache+invalideringsmønster, ingen ny state-management-afhængighed.
+- **Forbedret:** Mit i dag blokerer ikke længere hele siden bag én
+  fælles spinner — allerede hentede opgaver vises, mens kalenderen
+  stadig indlæses, med en kompakt lokal indlæsningsnote i stedet.
+- **Rettet:** kalenderen brugte reelt kun ~900px på desktop, selvom
+  koden selv angav 1200px — den fælles sidelayout begrænsede den
+  utilsigtet. Kalenderen får nu sin tiltænkte bredde; øvrige sider er
+  upåvirkede.
+- **Forbedret:** "Vis kalendere" grupperes nu pr. familiemedlem (med en
+  "Fælles og andet"-gruppe) og foldes sammen som standard ved mere end
+  6 kilder, med en synlig "X af Y kalendere vises"-opsummering og
+  udbydertype pr. kilde for at skelne ens navngivne kalendere.
+- **Forbedret:** Indstillinger er opdelt i faner (Familie,
+  Kalenderforbindelser, Funktioner og notifikationer, Konto og data,
+  Hjælp og feedback) i stedet for én lang, flad liste — kun den aktive
+  fanes indhold henter data.
+- **Undersøgt, bevidst ikke ændret:** en "mere meningsfuld" versionsvisning
+  end det nuværende, korte Cloudflare-deployment-id. En statisk
+  sprint-mærkat ville gå i stå ved næste sprint uden en huskeregel, og en
+  reel build-time-injiceret version ville kræve ændringer i
+  build-/deploy-opsætningen, som opgaven eksplicit beder om at undgå
+  risiko for. `package.json`s `"version": "0.0.0"` er fortsat ubrugt til
+  visning; det faktisk viste id kommer uændret fra
+  `CF_VERSION_METADATA` via `/api/health`.
+
 ## Sprint 56 — Børneadgang flyttet fra Indstillinger til Mit i dag
 
 - **Ændret:** administrationen af børneadgang (link/QR-kode, PIN,

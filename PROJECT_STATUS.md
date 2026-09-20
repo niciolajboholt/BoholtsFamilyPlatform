@@ -1,19 +1,21 @@
 # Projektstatus
 
-Senest opdateret: 2026-09-19
+Senest opdateret: 2026-09-20
 
-> **Opdatering 2026-09-19 (efterset ved en ekstra launch-gennemgang):**
-> "Aktuel fase" og "Leveret" nedenfor er IKKE genskrevet siden 2026-09-09 og
-> dækker derfor stadig kun til og med Sprint 37 — de nævner hverken
-> måltidsplan, lommepenge, fødselsdage/gaver, fællesøkonomi,
-> kiosk-dashboard, iCloud-kalender, Microsoft-login eller Barnets
-> Hjemmecentral. [CHANGELOG.md](CHANGELOG.md) ER løbende ajourført til og
-> med Sprint 54 og er den autoritative, sprint-for-sprint kilde — brug den,
-> ikke "Leveret"-listen nedenfor, ved tvivl om hvad der reelt er bygget.
+> **Opdatering 2026-09-20:** Sprint 57 ("Sammenhæng, hastighed og UX" —
+> se `01_Project_Documentation/Development/57_Sprint57_Sammenhaeng_Hastighed_UX_Plan.md`)
+> er udviklet på en featurebranch, endnu ikke merget til `develop`. Den
+> tilføjer ingen nye hovedfunktioner — retter børneadgangs-sikkerhed,
+> featureflag-afhængigheder, kalenderens datointervaller/bredde/filter og
+> Indstillingers struktur. [CHANGELOG.md](CHANGELOG.md) er løbende
+> ajourført til og med Sprint 57 og er den autoritative, sprint-for-sprint
+> kilde — brug den, ikke "Leveret"-listen nedenfor, ved tvivl om hvad der
+> reelt er bygget. "Aktuel fase" og "Leveret" nedenfor er IKKE genskrevet
+> siden 2026-09-09 og dækker derfor stadig kun til og med Sprint 37.
 > **Vigtigt, tidligere fejlagtigt her:** `main` (produktion) og `develop`
 > (beta) er ikke synkroniserede — `git merge-base --is-ancestor` bekræfter,
 > at `develop` ikke er merget til `main` siden PR #228 (2026-09-13). Kort,
-> verificeret status pr. 2026-09-19:
+> verificeret status pr. 2026-09-20:
 >
 > - **Implementeret og på `main` (produktion):** måltidsplan (Sprint 38),
 >   lommepenge/opgavebelønning (39), fødselsdage/gaveplaner (40),
@@ -23,11 +25,13 @@ Senest opdateret: 2026-09-19
 >   `develop`), sikkerhedshærdning/juridiske tekster/Hjemmecentralen-
 >   branding (Sprint 49), fuld dataeksport og konto-/familiesletning
 >   (Sprint 50), og Barnets Hjemmecentral: "Mit i dag" (51-52), PIN-baseret
->   børneadgang (53), rutineskabeloner (54).
+>   børneadgang (53), rutineskabeloner (54), børneadgangs-UX (55-56).
+> - **Under udvikling, endnu ikke merget til `develop`:** Sprint 57
+>   (sammenhæng, hastighed og UX — se ovenfor).
 > - **Ikke implementeret:** danske skoleferier (Sprint 42 — kun research,
 >   ingen kode), Apple-login (Sprint 48 Del B), native iOS-app (Sprint 46,
->   kun plan), Barnets Hjemmecentrals øvrige faser (oplæsning, point-/
->   mållag, guidede Aula/DBU Kampklar/Holdsport-forbindelser — kun plan i
+>   kun plan), Barnets Hjemmecentrals øvrige faser (point-/mållag, guidede
+>   Aula/DBU Kampklar/Holdsport-forbindelser — kun plan i
 >   `51_Barnets_Hjemmecentral_Plan.md`).
 > - **Midlertidigt deaktiveret i produktion:** Outlook-kalenderintegration
 >   (koden findes, men er slået fra pga. en Azure-tenant-begrænsning).

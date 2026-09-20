@@ -15,7 +15,9 @@ Maintained by:
 Claude
 
 Status:
-PLAN — under implementering.
+Implementeret 2026-09-20 (afsnit A-J). Afventer fuld VERIFY-kørsel og
+Nicolajs gennemgang/godkendelse før merge til `develop` — se PR'en for
+testresultater.
 
 ---
 
