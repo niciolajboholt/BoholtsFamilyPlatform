@@ -604,6 +604,49 @@ describe("families routes", () => {
       expect(afterDelete.members.some((m) => m.id === newMember!.id)).toBe(false);
     });
 
+    // Sprint 57: relation styrer, om børneadgang må aktiveres for et medlem
+    // (se childAccessManagement.ts) — skal derfor være et håndhævet
+    // kategorisk felt, ikke fri tekst, både ved oprettelse og redigering.
+    it("rejects an unknown relation on create and on edit", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader);
+
+      const addResponse = await families.request(
+        `/${created.family.id}/members`,
+        {
+          method: "POST",
+          headers: { Cookie: owner.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({ name: "Ven", color: "#123456", relation: "Superhelt" }),
+        },
+        env,
+      );
+      expect(addResponse.status).toBe(400);
+
+      const validAddResponse = await families.request(
+        `/${created.family.id}/members`,
+        {
+          method: "POST",
+          headers: { Cookie: owner.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({ name: "Ven", color: "#123456", relation: "Andet" }),
+        },
+        env,
+      );
+      const afterAdd: { members: FamilyMemberJson[] } = await validAddResponse.json();
+      const newMember = afterAdd.members.find((m) => m.name === "Ven");
+      expect(newMember).toBeDefined();
+
+      const editResponse = await families.request(
+        `/${created.family.id}/members/${newMember!.id}`,
+        {
+          method: "PATCH",
+          headers: { Cookie: owner.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({ relation: "Superhelt" }),
+        },
+        env,
+      );
+      expect(editResponse.status).toBe(400);
+    });
+
     it("never deletes the reserved 'Familien' pseudo-member, even by its real id", async () => {
       const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
       const created = await createFamily(env, owner.cookieHeader);

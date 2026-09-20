@@ -23,6 +23,7 @@ import { useRecurrenceExceptions } from "../features/calendar/hooks/useRecurrenc
 import { expandRecurringEvents } from "../features/calendar/utils/expandRecurringEvents";
 import { getEventsForDate } from "../features/calendar/utils/getEventsForDate";
 import type { CalendarEvent } from "../features/calendar/models/calendarEvent";
+import { isChildRelation } from "../features/calendar/data/familyMemberRelations";
 import { ChildAccessAdminPanel } from "../features/family/components/ChildAccessAdminPanel";
 import { getChildMessagesForMember, getMyFamily, type ChildMessageDto, type FamilyRole } from "../features/family/familyApi";
 import { useEnabledFeatures } from "../features/family/hooks/useEnabledFeatures";
@@ -221,8 +222,17 @@ function MitIDagContent({ now }: MitIDagContentProps) {
     [tasks, selectedMemberId],
   );
 
+  const selectedMember = realMembers.find((member) => member.id === selectedMemberId) ?? null;
+
+  // Beskeder er en børneadgangs-funktion (voksen → barn) — henter kun
+  // for medlemmer, hvis relation faktisk er "Barn" (se
+  // isChildRelation), samme markør som serveren håndhæver i
+  // childMessages.ts. Undgår også et unødigt netværkskald for enhver
+  // valgt voksen.
+  const isSelectedMemberChild = selectedMember !== null && isChildRelation(selectedMember.relation);
+
   useEffect(() => {
-    if (!familyId || !selectedMemberId) {
+    if (!familyId || !selectedMemberId || !isSelectedMemberChild) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setMessages([]);
       return;
@@ -239,7 +249,7 @@ function MitIDagContent({ now }: MitIDagContentProps) {
     return () => {
       isCancelled = true;
     };
-  }, [familyId, selectedMemberId]);
+  }, [familyId, selectedMemberId, isSelectedMemberChild]);
 
   // "Næste": den først kommende aftale, ellers den første ufærdige
   // opgave — ikke et fuldt kronologisk fletning af begge (opgavers
@@ -249,8 +259,6 @@ function MitIDagContent({ now }: MitIDagContentProps) {
     () => buildMitIDagPlan(memberEvents, memberTasks, now),
     [memberEvents, memberTasks, now],
   );
-
-  const selectedMember = realMembers.find((member) => member.id === selectedMemberId) ?? null;
 
   const today = new Intl.DateTimeFormat("da-DK", {
     weekday: "long",
@@ -379,53 +387,63 @@ function MitIDagContent({ now }: MitIDagContentProps) {
             </Box>
           )}
 
-          <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
-            Beskeder
-          </Typography>
-
-          {messages.length === 0 ? (
-            <Box
-              sx={{
-                border: "1.5px dashed",
-                borderColor: "divider",
-                borderRadius: 3,
-                p: 2,
-              }}
-            >
-              <Typography variant="body2" color="text.secondary" sx={{ fontStyle: "italic" }}>
-                Ingen beskeder endnu.
+          {/* Sprint 57: Beskeder og børneadgangs-administrationen er
+              udelukkende en børnefunktion — de må ikke vises, når den
+              valgte profil er en voksen eller familiens pseudoprofil (se
+              isChildRelation). Serveren håndhæver det samme uafhængigt
+              (childAccessManagement.ts, childMessages.ts), så dette er
+              kun visning, ikke selve adgangskontrollen. */}
+          {isSelectedMemberChild && (
+            <>
+              <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
+                Beskeder
               </Typography>
-            </Box>
-          ) : (
-            <Box sx={{ display: "grid", gap: 1 }}>
-              {messages.map((message) => (
-                <Alert key={message.id} severity={message.readAt ? "success" : "info"}>
-                  {message.body}
-                </Alert>
-              ))}
-            </Box>
-          )}
 
-          {familyId && (ownRole === "owner" || ownRole === "admin") && (
-            // slotProps.transition afmonterer AccordionDetails' indhold helt,
-            // når den er lukket, i stedet for MUI's standard (som blot sætter
-            // højden til 0 og beholder indholdet i DOM'en) — dels så
-            // ChildAccessAdminPanel's børneadgangs-opslag først sker, når
-            // forælderen rent faktisk åbner sektionen (samme lazy-adfærd som
-            // den oprindelige Dialog-udgave havde), dels fordi et lukket
-            // panel ellers stadig tælles som "synligt" af nogle enkle
-            // tilgængeligheds-tjek, selvom det reelt er skjult.
-            <Accordion disableGutters sx={{ mt: 4 }} slotProps={{ transition: { unmountOnExit: true } }}>
-              <AccordionSummary expandIcon={<ExpandMoreRounded />}>
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                  <ChildCareRounded color="action" fontSize="small" />
-                  <Typography sx={{ fontWeight: 600 }}>Børneadgang for {selectedMember.name}</Typography>
+              {messages.length === 0 ? (
+                <Box
+                  sx={{
+                    border: "1.5px dashed",
+                    borderColor: "divider",
+                    borderRadius: 3,
+                    p: 2,
+                  }}
+                >
+                  <Typography variant="body2" color="text.secondary" sx={{ fontStyle: "italic" }}>
+                    Ingen beskeder endnu.
+                  </Typography>
                 </Box>
-              </AccordionSummary>
-              <AccordionDetails>
-                <ChildAccessAdminPanel familyId={familyId} member={selectedMember} />
-              </AccordionDetails>
-            </Accordion>
+              ) : (
+                <Box sx={{ display: "grid", gap: 1 }}>
+                  {messages.map((message) => (
+                    <Alert key={message.id} severity={message.readAt ? "success" : "info"}>
+                      {message.body}
+                    </Alert>
+                  ))}
+                </Box>
+              )}
+
+              {familyId && (ownRole === "owner" || ownRole === "admin") && (
+                // slotProps.transition afmonterer AccordionDetails' indhold helt,
+                // når den er lukket, i stedet for MUI's standard (som blot sætter
+                // højden til 0 og beholder indholdet i DOM'en) — dels så
+                // ChildAccessAdminPanel's børneadgangs-opslag først sker, når
+                // forælderen rent faktisk åbner sektionen (samme lazy-adfærd som
+                // den oprindelige Dialog-udgave havde), dels fordi et lukket
+                // panel ellers stadig tælles som "synligt" af nogle enkle
+                // tilgængeligheds-tjek, selvom det reelt er skjult.
+                <Accordion disableGutters sx={{ mt: 4 }} slotProps={{ transition: { unmountOnExit: true } }}>
+                  <AccordionSummary expandIcon={<ExpandMoreRounded />}>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                      <ChildCareRounded color="action" fontSize="small" />
+                      <Typography sx={{ fontWeight: 600 }}>Børneadgang for {selectedMember.name}</Typography>
+                    </Box>
+                  </AccordionSummary>
+                  <AccordionDetails>
+                    <ChildAccessAdminPanel familyId={familyId} member={selectedMember} />
+                  </AccordionDetails>
+                </Accordion>
+              )}
+            </>
           )}
         </>
       )}

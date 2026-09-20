@@ -13,6 +13,17 @@ import {
 
 const familyMembers = new Hono<{ Bindings: Env; Variables: Variables }>();
 
+// Sprint 57: samme allow-list-konvention som featureFlags.ts's
+// isKnownFeatureKey — relation styrer i dag også, om børneadgang må
+// aktiveres for et medlem (se childAccessManagement.ts), og skal derfor
+// være et reelt håndhævet kategorisk felt, ikke fri tekst. Matcher
+// klientens dropdown (familyMemberRelations.ts).
+const knownRelations = ["Far", "Mor", "Barn", "Andet"];
+
+function isKnownRelation(value: string): boolean {
+  return knownRelations.includes(value);
+}
+
 // Familiens konti (ikke at forveksle med family_members-profilerne
 // ovenfor) med deres rolle — grundlaget for rolle-/adgangsadministrations-
 // UI'et. Enhver medlem må læse, ligesom resten af familiedata; kun
@@ -49,6 +60,10 @@ familyMembers.post("/:id/members", async (c) => {
 
   if (!body.name?.trim() || !body.color?.trim()) {
     return c.json({ error: "Navn og farve er påkrævet." }, 400);
+  }
+
+  if (body.relation !== undefined && body.relation !== null && !isKnownRelation(body.relation)) {
+    return c.json({ error: "Ukendt relation." }, 400);
   }
 
   const memberId = crypto.randomUUID();
@@ -103,6 +118,10 @@ familyMembers.patch("/:id/members/:memberId", async (c) => {
   // relation=NULL er reserveret til familie-pseudomedlemmet — et almindeligt
   // medlem kan ikke få sin relation nulstillet til NULL via denne rute.
   if (body.relation !== undefined && body.relation !== null) {
+    if (!isKnownRelation(body.relation)) {
+      return c.json({ error: "Ukendt relation." }, 400);
+    }
+
     updates.push("relation = ?");
     values.push(body.relation);
   }

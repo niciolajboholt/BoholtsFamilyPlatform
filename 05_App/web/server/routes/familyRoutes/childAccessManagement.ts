@@ -20,6 +20,11 @@ interface ChildAccessMemberRow {
   pinSetAt: string | null;
 }
 
+// Sprint 57: skærpet fra "relation IS NOT NULL" (som kun udelukkede
+// familie-pseudoprofilen) til "relation = 'Barn'" — børneadgang
+// (link/QR/PIN/sessioner) må kun kunne aktiveres for en reel børneprofil,
+// aldrig for en voksen ("Far"/"Mor"/"Andet") via et direkte API-kald. Se
+// 57_Sprint57_Sammenhaeng_Hastighed_UX_Plan.md, afsnit A.
 async function requireOwnerOrAdminMember(
   db: D1Database,
   familyId: string,
@@ -28,7 +33,7 @@ async function requireOwnerOrAdminMember(
   const member = await db
     .prepare(
       `SELECT id, child_access_token AS childAccessToken, pin_set_at AS pinSetAt
-       FROM family_members WHERE id = ? AND family_id = ? AND relation IS NOT NULL`,
+       FROM family_members WHERE id = ? AND family_id = ? AND relation = 'Barn'`,
     )
     .bind(memberId, familyId)
     .first<ChildAccessMemberRow>();
