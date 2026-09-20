@@ -97,7 +97,7 @@ export function ChildAccessDialog({ open, onClose }: ChildAccessDialogProps) {
 
         {isLoading ? (
           <Box sx={{ display: "flex", justifyContent: "center", py: 3 }}>
-            <CircularProgress />
+            <CircularProgress aria-label="Indlæser familiemedlemmer" />
           </Box>
         ) : errorMessage ? (
           <Alert severity="error">{errorMessage}</Alert>
@@ -192,7 +192,7 @@ function ChildAccessMemberAccordion({ familyId, member, expanded, onToggle }: Ch
       <AccordionDetails>
         {admin.isLoading ? (
           <Box sx={{ display: "flex", justifyContent: "center", py: 2 }}>
-            <CircularProgress size={24} />
+            <CircularProgress size={24} aria-label="Indlæser børneadgang" />
           </Box>
         ) : (
           <Box sx={{ display: "grid", gap: 2 }}>
@@ -446,7 +446,7 @@ function ChildMessagesPanel({ familyId, member }: ChildMessagesPanelProps) {
       )}
 
       {isLoading ? (
-        <CircularProgress size={20} />
+        <CircularProgress size={20} aria-label="Indlæser beskeder" />
       ) : messages.length === 0 ? (
         <Typography variant="body2" color="text.secondary">
           Ingen beskeder sendt endnu.

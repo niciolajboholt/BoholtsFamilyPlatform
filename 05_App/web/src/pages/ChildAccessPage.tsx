@@ -290,7 +290,7 @@ function ChildDashboard({ name, color }: { name: string; color: string }) {
 
       {isLoadingTasks ? (
         <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
-          <CircularProgress />
+          <CircularProgress aria-label="Indlæser opgaver" />
         </Box>
       ) : tasks.length === 0 ? (
         <Typography color="text.secondary">Ingen opgaver i dag.</Typography>
@@ -424,7 +424,7 @@ function ChildAccessPage() {
   if (phase === "loading") {
     return (
       <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
-        <CircularProgress />
+        <CircularProgress aria-label="Indlæser" />
       </Box>
     );
   }

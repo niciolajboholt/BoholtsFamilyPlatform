@@ -243,7 +243,7 @@ function MitIDagContent({ now }: MitIDagContentProps) {
         role="status"
         sx={{ minHeight: 240, display: "flex", alignItems: "center", justifyContent: "center", gap: 2 }}
       >
-        <CircularProgress size={28} />
+        <CircularProgress size={28} aria-hidden="true" />
         <Typography color="text.secondary">Henter dagens aktiviteter…</Typography>
       </Box>
     );
