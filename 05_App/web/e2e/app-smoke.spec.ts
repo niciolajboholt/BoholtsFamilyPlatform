@@ -3889,3 +3889,295 @@ test("a slow calendar load shows an explanation and a manual retry after a while
 
   await expect(page.getByText("Indlæser kalender…")).not.toBeVisible();
 });
+
+// Sprint 55 (se
+// 01_Project_Documentation/Development/55_Sprint55_Barn_Adgang_UX_Plan.md):
+// den samlede "Børneadgang"-administration i Indstillinger — opret/rotér
+// link, vis QR-kode, sæt PIN, send en besked. Rate-begrænsning,
+// rolle-håndhævelse og sessions-tilbagekaldelse er allerede dækket af
+// server/routes/familyRoutes/childAccessManagement.test.ts; dette
+// scenarie dækker selve UI-flowet.
+test("en voksen kan oprette børneadgang med QR-kode, sætte en PIN, og sende en besked", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  await mockAuthenticatedApi(page);
+
+  let childAccessToken: string | null = null;
+  let hasPin = false;
+  const messages: { id: string; familyMemberId: string; body: string; createdAt: string; readAt: string | null }[] =
+    [];
+
+  await page.route("**/api/families/*/members/member-billie/child-access", async (route) => {
+    if (route.request().method() !== "GET") {
+      await route.fallback();
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ token: childAccessToken, hasPin, pinSetAt: hasPin ? "2026-09-20T08:00:00.000Z" : null }),
+    });
+  });
+
+  await page.route("**/api/families/*/members/member-billie/child-access/token", async (route) => {
+    if (route.request().method() !== "POST") {
+      await route.fallback();
+      return;
+    }
+    childAccessToken = "e2e-child-token";
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ token: childAccessToken }) });
+  });
+
+  await page.route("**/api/families/*/members/member-billie/child-access/pin", async (route) => {
+    if (route.request().method() !== "PUT") {
+      await route.fallback();
+      return;
+    }
+    hasPin = true;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ ok: true, pinSetAt: "2026-09-20T08:00:00.000Z" }),
+    });
+  });
+
+  await page.route("**/api/families/*/members/member-billie/child-access/sessions", async (route) => {
+    if (route.request().method() !== "GET") {
+      await route.fallback();
+      return;
+    }
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ sessions: [] }) });
+  });
+
+  await page.route("**/api/families/*/messages*", async (route) => {
+    const method = route.request().method();
+
+    if (method === "POST") {
+      const posted = route.request().postDataJSON() as { familyMemberId: string; body: string };
+      const message = {
+        id: "msg-1",
+        familyMemberId: posted.familyMemberId,
+        body: posted.body,
+        createdAt: "2026-09-20T08:00:00.000Z",
+        readAt: null,
+      };
+      messages.push(message);
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ message }) });
+      return;
+    }
+
+    if (method === "GET") {
+      const memberId = new URL(route.request().url()).searchParams.get("memberId");
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ messages: messages.filter((message) => message.familyMemberId === memberId) }),
+      });
+      return;
+    }
+
+    await route.fallback();
+  });
+
+  await page.goto("/settings");
+  await page.getByRole("button", { name: "Børneadgang" }).click();
+
+  const dialog = page.getByRole("dialog", { name: "Børneadgang" });
+  await expect(dialog).toBeVisible();
+
+  await dialog.getByText("Billie", { exact: true }).click();
+
+  await dialog.getByRole("button", { name: "Opret børneadgangs-link" }).click();
+  await expect(dialog.getByText(/\/barn\/e2e-child-token/)).toBeVisible();
+
+  await dialog.getByRole("button", { name: "Vis QR-kode" }).click();
+  await expect(dialog.getByRole("img", { name: /QR-kode til børneadgangslinket/ })).toBeVisible();
+
+  await dialog.getByLabel("Kode (4 cifre)").fill("1234");
+  await dialog.getByRole("button", { name: "Sæt kode", exact: true }).click();
+  await expect(dialog.getByText(/Klar til brug/)).toBeVisible();
+
+  await dialog.getByLabel(/Kort besked/).fill("God skoledag, Billie!");
+  await dialog.getByRole("button", { name: "Send", exact: true }).click();
+  await expect(dialog.getByText("God skoledag, Billie!")).toBeVisible();
+});
+
+// Barnets side af samme flow — helt uden voksensession (kun
+// child_session-cookien, sat af den rigtige /verify-rute). Dækker
+// opgaver, kalenderaftaler (Fase C's sikre delomfang), en besked, og
+// dansk oplæsning (Fase D).
+test("et barn kan logge ind uden voksensession og se opgaver, kalenderaftaler og en besked", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+
+  let isLoggedIn = false;
+  let isTaskDone = false;
+
+  await page.route("**/api/child/access/e2e-child-token", async (route) => {
+    if (route.request().method() !== "GET") {
+      await route.fallback();
+      return;
+    }
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ name: "Billie", color: "#D19A2A" }) });
+  });
+
+  await page.route("**/api/child/access/e2e-child-token/verify", async (route) => {
+    const body = route.request().postDataJSON() as { pin: string };
+
+    if (body.pin !== "1234") {
+      await route.fulfill({ status: 401, contentType: "application/json", body: JSON.stringify({ error: "Forkert kode. Prøv igen." }) });
+      return;
+    }
+
+    isLoggedIn = true;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      headers: { "set-cookie": "child_session=e2e-fake-session; Path=/" },
+      body: JSON.stringify({ ok: true, name: "Billie", color: "#D19A2A" }),
+    });
+  });
+
+  await page.route("**/api/child/me", async (route) => {
+    if (!isLoggedIn) {
+      await route.fulfill({ status: 401, contentType: "application/json", body: JSON.stringify({ error: "Ikke logget ind." }) });
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ member: { id: "member-billie", familyId: family.id, name: "Billie", color: "#D19A2A" } }),
+    });
+  });
+
+  await page.route("**/api/child/today?*", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        tasks: [
+          {
+            id: "task-1",
+            familyId: family.id,
+            name: "Ryd op på værelset",
+            icon: "husholdning",
+            assignedMemberId: "member-billie",
+            timeOfDay: null,
+            isDone: isTaskDone ? 1 : 0,
+            routineItemId: null,
+            taskDate: "2026-09-20",
+            createdByUserId: "user-e2e",
+            createdAt: "2026-09-20T06:00:00.000Z",
+            doneAt: isTaskDone ? "2026-09-20T07:00:00.000Z" : null,
+            rewardAmount: 0,
+          },
+        ],
+      }),
+    });
+  });
+
+  await page.route("**/api/child/today/calendar", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        events: [
+          {
+            title: "Svømning",
+            start: "2026-09-20T14:00:00.000Z",
+            end: "2026-09-20T15:00:00.000Z",
+            allDay: false,
+            memberName: "Billie",
+            memberColor: "#D19A2A",
+          },
+        ],
+        calendarAvailable: true,
+      }),
+    });
+  });
+
+  await page.route("**/api/child/messages", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        messages: [
+          {
+            id: "msg-1",
+            familyMemberId: "member-billie",
+            body: "God skoledag, Billie!",
+            createdAt: "2026-09-20T08:00:00.000Z",
+            readAt: null,
+          },
+        ],
+      }),
+    });
+  });
+
+  await page.route("**/api/child/tasks/task-1/done", async (route) => {
+    isTaskDone = true;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        tasks: [
+          {
+            id: "task-1",
+            familyId: family.id,
+            name: "Ryd op på værelset",
+            icon: "husholdning",
+            assignedMemberId: "member-billie",
+            timeOfDay: null,
+            isDone: 1,
+            routineItemId: null,
+            taskDate: "2026-09-20",
+            createdByUserId: "user-e2e",
+            createdAt: "2026-09-20T06:00:00.000Z",
+            doneAt: "2026-09-20T07:00:00.000Z",
+            rewardAmount: 0,
+          },
+        ],
+      }),
+    });
+  });
+
+  await page.goto("/barn/e2e-child-token");
+
+  // PIN-skærmen — ingen voksensession involveret nogen steder i dette test.
+  await expect(page.getByRole("heading", { name: "Hej, Billie! Skriv din kode." })).toBeVisible();
+
+  const pinAxeResults = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
+  expect(pinAxeResults.violations, JSON.stringify(pinAxeResults.violations, null, 2)).toEqual([]);
+
+  await page.getByLabel("Kode").fill("0000");
+  await page.getByRole("button", { name: "Fortsæt" }).click();
+  await expect(page.getByText("Forkert kode. Prøv igen.")).toBeVisible();
+
+  await page.getByLabel("Kode").fill("1234");
+  await page.getByRole("button", { name: "Fortsæt" }).click();
+
+  // Dashboard.
+  await expect(page.getByText("Ryd op på værelset")).toBeVisible();
+  await expect(page.getByText("Svømning")).toBeVisible();
+  await expect(page.getByText("God skoledag, Billie!")).toBeVisible();
+
+  const dashboardAxeResults = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
+  expect(dashboardAxeResults.violations, JSON.stringify(dashboardAxeResults.violations, null, 2)).toEqual([]);
+
+  // Oplæsning (Fase D) — kun knappens tilstedeværelse/tilstandsskift
+  // testes her; selve talesyntesen kan ikke afprøves i en headless
+  // browser uden lyd-output, se PR-beskrivelsens kendte begrænsninger.
+  const readAloudButton = page.getByRole("button", { name: "Læs op" });
+  if (await readAloudButton.isVisible()) {
+    await readAloudButton.click();
+  }
+
+  // Barnet afkrydser sin egen opgave.
+  await page.getByRole("checkbox", { name: /Ryd op på værelset/ }).check();
+  await expect(page.getByText("Ryd op på værelset")).toHaveCSS("text-decoration-line", "line-through");
+
+  // Marker beskeden som læst.
+  await page.getByRole("button", { name: "Læst" }).click();
+});
