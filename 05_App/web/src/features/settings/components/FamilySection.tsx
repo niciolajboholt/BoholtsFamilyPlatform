@@ -4,6 +4,7 @@ import AddIcon from "@mui/icons-material/Add";
 import {
   CalendarMonthRounded,
   ChevronRightRounded,
+  ChildCareRounded,
   FamilyRestroomRounded,
   GroupAddRounded,
   LinkRounded,
@@ -21,6 +22,7 @@ import {
 import type { MappableCalendarOption } from "../../calendar/providers/calendarProviderFactory";
 import { listAllMappableCalendars } from "../../calendar/providers/calendarProviderFactory";
 import { getInitials } from "../../calendar/utils/getInitials";
+import { ChildAccessDialog } from "../../family/ChildAccessDialog";
 import { FamilyMembershipsDialog } from "../../family/FamilyMembershipsDialog";
 import { InviteCodeDialog } from "../../family/InviteCodeDialog";
 import { ShareLinkDialog } from "../../family/ShareLinkDialog";
@@ -34,6 +36,7 @@ export function FamilySection() {
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const [isMembershipsDialogOpen, setIsMembershipsDialogOpen] = useState(false);
+  const [isChildAccessDialogOpen, setIsChildAccessDialogOpen] = useState(false);
 
   // Kalender-til-medlem-visning (kun læsning her — selve tildelingen sker i
   // FamilyMemberDialog) — hentes én gang, så familielisten kan vise hvilken
@@ -222,6 +225,15 @@ export function FamilySection() {
             subtitle="Offentligt link til udenforstående"
             onClick={() => setIsShareDialogOpen(true)}
           />
+
+          <Divider />
+
+          <SettingsLinkRow
+            icon={<ChildCareRounded color="action" />}
+            title="Børneadgang"
+            subtitle="Link, kode og enheder til Mit i dag uden login"
+            onClick={() => setIsChildAccessDialogOpen(true)}
+          />
         </CardContent>
       </Card>
 
@@ -241,6 +253,8 @@ export function FamilySection() {
       />
 
       <ShareLinkDialog open={isShareDialogOpen} onClose={() => setIsShareDialogOpen(false)} />
+
+      <ChildAccessDialog open={isChildAccessDialogOpen} onClose={() => setIsChildAccessDialogOpen(false)} />
     </>
   );
 }

@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 
-import ContentCopyIcon from "@mui/icons-material/ContentCopyRounded";
 import {
   Alert,
   Box,
@@ -10,8 +9,6 @@ import {
   DialogContent,
   DialogContentText,
   DialogTitle,
-  Divider,
-  IconButton,
   MenuItem,
   TextField,
   Typography,
@@ -30,14 +27,6 @@ import {
   refreshCalendarMemberMappingsFromServer,
   setCalendarMemberMapping,
 } from "../preferences/calendarMemberMappingStorage";
-import {
-  clearChildAccessPin,
-  generateChildAccessToken,
-  getChildAccessStatus,
-  getMyFamily,
-  revokeChildAccessToken,
-  setChildAccessPin,
-} from "../../family/familyApi";
 
 interface FamilyMemberDialogProps {
   open: boolean;
@@ -76,19 +65,6 @@ export function FamilyMemberDialog({
   const [isSavingCalendarMapping, setIsSavingCalendarMapping] =
     useState(false);
 
-  // Sprint 53: børneadgang (link + PIN) til dette medlem — se
-  // childAccessApi.ts/childAccessManagement.ts. familyId er ikke kendt af
-  // denne dialog i forvejen (samme situation som ShareLinkDialog.tsx),
-  // derfor hentes den her via getMyFamily() sammen med statussen.
-  const [childAccessFamilyId, setChildAccessFamilyId] = useState<string | null>(null);
-  const [childAccessToken, setChildAccessToken] = useState<string | null>(null);
-  const [childAccessHasPin, setChildAccessHasPin] = useState(false);
-  const [isLoadingChildAccess, setIsLoadingChildAccess] = useState(false);
-  const [childAccessError, setChildAccessError] = useState<string | null>(null);
-  const [isChildAccessBusy, setIsChildAccessBusy] = useState(false);
-  const [newPin, setNewPin] = useState("");
-  const [pinError, setPinError] = useState<string | null>(null);
-
   // Same render-phase reset pattern established in Sprint 13 (NewEventDialog/
   // EditEventDialog) — avoids a useEffect that the react-hooks/
   // set-state-in-effect rule would flag, and avoids remounting the dialog
@@ -107,12 +83,6 @@ export function FamilyMemberDialog({
     // af effekten herunder, når mappings er hentet friskt fra serveren.
     setSelectedCalendarId("");
     setCalendarMappingError(null);
-    setChildAccessFamilyId(null);
-    setChildAccessToken(null);
-    setChildAccessHasPin(false);
-    setChildAccessError(null);
-    setNewPin("");
-    setPinError(null);
   }
 
   // Et helt nyt medlem har intet id, før det er gemt server-side (Fase 2) —
@@ -121,7 +91,7 @@ export function FamilyMemberDialog({
   const canAssignCalendar = !isNew;
   // Børneadgang giver ingen mening for "family"-pseudomedlemmet (ingen
   // konto/PIN kan pege på hele familien) — samme relation IS NOT NULL-
-  // afgrænsning som serveren selv håndhæver (404 ellers).
+  // afgrænsning som serveren selv håndhæver.
   const canManageChildAccess = !isNew && !isFamilyPseudoMember;
 
   useEffect(() => {
@@ -168,147 +138,6 @@ export function FamilyMemberDialog({
       isCancelled = true;
     };
   }, [open, canAssignCalendar, member]);
-
-  useEffect(() => {
-    if (!open || !canManageChildAccess || !member) {
-      return;
-    }
-
-    let isCancelled = false;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setIsLoadingChildAccess(true);
-    setChildAccessError(null);
-
-    getMyFamily()
-      .then(async (familyResponse) => {
-        if (isCancelled) return;
-
-        const familyId = familyResponse.data.family?.id;
-        if (!familyResponse.ok || !familyId) {
-          setChildAccessError("Kunne ikke hente familien.");
-          return;
-        }
-
-        setChildAccessFamilyId(familyId);
-
-        const statusResponse = await getChildAccessStatus(familyId, member.id);
-        if (isCancelled) return;
-
-        if (!statusResponse.ok) {
-          setChildAccessError(statusResponse.data.error ?? "Kunne ikke hente børneadgang.");
-          return;
-        }
-
-        setChildAccessToken(statusResponse.data.token);
-        setChildAccessHasPin(statusResponse.data.hasPin);
-      })
-      .catch(() => {
-        if (!isCancelled) {
-          setChildAccessError("Kunne ikke hente børneadgang.");
-        }
-      })
-      .finally(() => {
-        if (!isCancelled) {
-          setIsLoadingChildAccess(false);
-        }
-      });
-
-    return () => {
-      isCancelled = true;
-    };
-  }, [open, canManageChildAccess, member]);
-
-  async function handleGenerateOrRotateToken() {
-    if (!childAccessFamilyId || !member) {
-      return;
-    }
-
-    setIsChildAccessBusy(true);
-    setChildAccessError(null);
-    const response = await generateChildAccessToken(childAccessFamilyId, member.id);
-    setIsChildAccessBusy(false);
-
-    if (!response.ok || !response.data.token) {
-      setChildAccessError(response.data.error ?? "Linket kunne ikke oprettes.");
-      return;
-    }
-
-    setChildAccessToken(response.data.token);
-    setChildAccessHasPin(false);
-  }
-
-  async function handleRevokeToken() {
-    if (!childAccessFamilyId || !member) {
-      return;
-    }
-
-    setIsChildAccessBusy(true);
-    setChildAccessError(null);
-    const response = await revokeChildAccessToken(childAccessFamilyId, member.id);
-    setIsChildAccessBusy(false);
-
-    if (!response.ok) {
-      setChildAccessError(response.data.error ?? "Linket kunne ikke fjernes.");
-      return;
-    }
-
-    setChildAccessToken(null);
-    setChildAccessHasPin(false);
-  }
-
-  async function handleSetPin() {
-    if (!childAccessFamilyId || !member) {
-      return;
-    }
-
-    if (!/^\d{4}$/.test(newPin)) {
-      setPinError("Koden skal være præcis 4 cifre.");
-      return;
-    }
-
-    setPinError(null);
-    setIsChildAccessBusy(true);
-    setChildAccessError(null);
-    const response = await setChildAccessPin(childAccessFamilyId, member.id, newPin);
-    setIsChildAccessBusy(false);
-
-    if (!response.ok) {
-      setChildAccessError(response.data.error ?? "Koden kunne ikke gemmes.");
-      return;
-    }
-
-    setChildAccessHasPin(true);
-    setNewPin("");
-  }
-
-  async function handleClearPin() {
-    if (!childAccessFamilyId || !member) {
-      return;
-    }
-
-    setIsChildAccessBusy(true);
-    setChildAccessError(null);
-    const response = await clearChildAccessPin(childAccessFamilyId, member.id);
-    setIsChildAccessBusy(false);
-
-    if (!response.ok) {
-      setChildAccessError(response.data.error ?? "Koden kunne ikke ryddes.");
-      return;
-    }
-
-    setChildAccessHasPin(false);
-  }
-
-  function handleCopyChildAccessLink() {
-    if (!childAccessToken) {
-      return;
-    }
-
-    const url = `${window.location.origin}/barn/${childAccessToken}`;
-    navigator.clipboard?.writeText(url).catch(() => {
-      // Udklipsholder kan være utilgængelig — linket kan stadig kopieres manuelt.
-    });
-  }
 
   const trimmedName = name.trim();
   const nameError =
@@ -451,115 +280,14 @@ export function FamilyMemberDialog({
             )}
 
             {canManageChildAccess && (
-              <>
-                <Divider />
-
-                <Box>
-                  <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                    Børneadgang (uden login)
-                  </Typography>
-
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-                    Et link + en 4-cifret kode, som {member?.name ?? "medlemmet"} kan bruge til at
-                    logge ind på egen enhed (fx en tablet) — uden en almindelig konto.
-                  </Typography>
-
-                  {childAccessError && (
-                    <Alert severity="error" sx={{ mb: 1.5 }}>
-                      {childAccessError}
-                    </Alert>
-                  )}
-
-                  {isLoadingChildAccess ? (
-                    <Typography variant="body2" color="text.secondary">
-                      Henter…
-                    </Typography>
-                  ) : (
-                    <Box sx={{ display: "grid", gap: 1.5 }}>
-                      {childAccessToken ? (
-                        <Box
-                          sx={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 1,
-                            p: 1.25,
-                            borderRadius: 2,
-                            bgcolor: "action.hover",
-                          }}
-                        >
-                          <Typography variant="body2" noWrap sx={{ flex: 1, minWidth: 0 }}>
-                            {window.location.origin}/barn/{childAccessToken}
-                          </Typography>
-                          <IconButton
-                            aria-label="Kopiér børneadgangs-link"
-                            size="small"
-                            onClick={handleCopyChildAccessLink}
-                          >
-                            <ContentCopyIcon fontSize="small" />
-                          </IconButton>
-                        </Box>
-                      ) : (
-                        <Button
-                          variant="outlined"
-                          size="small"
-                          disabled={isChildAccessBusy}
-                          onClick={() => void handleGenerateOrRotateToken()}
-                        >
-                          Opret link
-                        </Button>
-                      )}
-
-                      {childAccessToken && (
-                        <>
-                          <Box sx={{ display: "flex", gap: 1, alignItems: "flex-start" }}>
-                            <TextField
-                              label="Ny kode (4 cifre)"
-                              value={newPin}
-                              onChange={(event) => setNewPin(event.target.value.replace(/\D/g, "").slice(0, 4))}
-                              error={Boolean(pinError)}
-                              helperText={pinError}
-                              size="small"
-                              sx={{ flex: 1 }}
-                            />
-                            <Button
-                              variant="outlined"
-                              size="small"
-                              disabled={isChildAccessBusy}
-                              onClick={() => void handleSetPin()}
-                              sx={{ mt: 0.25 }}
-                            >
-                              {childAccessHasPin ? "Skift kode" : "Sæt kode"}
-                            </Button>
-                          </Box>
-
-                          <Box sx={{ display: "flex", gap: 1 }}>
-                            {childAccessHasPin && (
-                              <Button
-                                size="small"
-                                color="warning"
-                                disabled={isChildAccessBusy}
-                                onClick={() => void handleClearPin()}
-                              >
-                                Ryd kode
-                              </Button>
-                            )}
-                            <Button
-                              size="small"
-                              color="error"
-                              disabled={isChildAccessBusy}
-                              onClick={() => void handleRevokeToken()}
-                            >
-                              Fjern link
-                            </Button>
-                          </Box>
-                        </>
-                      )}
-                    </Box>
-                  )}
-                </Box>
-
-                <Divider />
-              </>
+              // Sprint 55: ÉT administrations-flow for børneadgang, ikke to
+              // — link, PIN, QR-kode og enheder administreres nu samlet i
+              // Indstillinger → Familie → "Børneadgang" (ChildAccessDialog.tsx),
+              // som denne dialog blot henviser til.
+              <Alert severity="info">
+                Link, kode og enheder til {member?.name ?? "dette medlems"} egen adgang uden login
+                administreres under Indstillinger → Familie → "Børneadgang".
+              </Alert>
             )}
 
             <Box>

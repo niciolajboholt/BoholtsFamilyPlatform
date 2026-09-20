@@ -70,3 +70,40 @@ export function setChildTaskDone(taskId: string, isDone: boolean) {
     body: JSON.stringify({ isDone }),
   });
 }
+
+// Sprint 55: dagens kalenderaftaler — kun barnets eget kalendermappede
+// medlem-id og familiens fælles pseudo-medlem, se server/routes/childAccess.ts.
+export interface ChildCalendarEventDto {
+  title: string;
+  start: string;
+  end: string;
+  allDay: boolean;
+  description?: string;
+  location?: string;
+  memberName: string;
+  memberColor: string;
+}
+
+export function getChildCalendarEvents() {
+  return request<{ events?: ChildCalendarEventDto[]; calendarAvailable?: boolean; error?: string }>(
+    "/api/child/today/calendar",
+  );
+}
+
+export interface ChildMessageDto {
+  id: string;
+  familyMemberId: string;
+  body: string;
+  createdAt: string;
+  readAt: string | null;
+}
+
+export function getChildMessages() {
+  return request<{ messages?: ChildMessageDto[]; error?: string }>("/api/child/messages");
+}
+
+export function markChildMessageRead(messageId: string) {
+  return request<{ messages?: ChildMessageDto[]; error?: string }>(`/api/child/messages/${messageId}/read`, {
+    method: "POST",
+  });
+}
