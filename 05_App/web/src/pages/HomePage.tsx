@@ -36,6 +36,8 @@ import type { CalendarEvent } from "../features/calendar/models/calendarEvent";
 import { expandRecurringEvents } from "../features/calendar/utils/expandRecurringEvents";
 import { getEventsForDate } from "../features/calendar/utils/getEventsForDate";
 import { getInitials } from "../features/calendar/utils/getInitials";
+import type { FeatureKey } from "../features/family/familyApi";
+import { useEnabledFeatures } from "../features/family/hooks/useEnabledFeatures";
 
 // Hvor langt frem "Næste aftale" kigger for at finde en kommende
 // forekomst — også af gentagne aftaler, som først udfoldes inden for dette
@@ -46,12 +48,16 @@ interface QuickAction {
   title: string;
   icon: ReactNode;
   isComingSoon: boolean;
+  // Sprint 57: kun sat for handlinger, der kræver en valgfri funktion —
+  // "Ny aftale" har ingen (kalenderen er en kernefunktion) og vises
+  // derfor altid. Samme mønster som AppLayout.tsx's NavItem.featureKey.
+  featureKey?: FeatureKey;
 }
 
 const quickActions: QuickAction[] = [
   { title: "Ny aftale", icon: <AddRounded />, isComingSoon: false },
-  { title: "Indkøbsliste", icon: <ShoppingCartOutlined />, isComingSoon: false },
-  { title: "Opgaver", icon: <CheckCircleOutlineRounded />, isComingSoon: false },
+  { title: "Indkøbsliste", icon: <ShoppingCartOutlined />, isComingSoon: false, featureKey: "shopping-list" },
+  { title: "Opgaver", icon: <CheckCircleOutlineRounded />, isComingSoon: false, featureKey: "tasks" },
 ];
 
 function formatEventTime(value: string, allDay: boolean): string {
@@ -108,6 +114,15 @@ function HomePage() {
   const { events } = useCalendarEvents();
   const { visibleCalendarSourceIds } = useCalendarSources();
   const recurrenceExceptions = useRecurrenceExceptions();
+  const { isEnabled: isFeatureEnabled } = useEnabledFeatures();
+
+  // Sprint 57: Hurtige handlinger må ikke fremstå som normale, aktive
+  // genveje for en funktion, familien har slået fra (samme skjul-mønster
+  // som AppLayout.tsx's navigation) — ellers lokkes almindelige medlemmer
+  // ind i et flow, de ikke har rettigheder til selv at aktivere.
+  const visibleQuickActions = quickActions.filter(
+    (action) => !action.featureKey || isFeatureEnabled(action.featureKey),
+  );
 
   const currentDate = new Intl.DateTimeFormat("da-DK", {
     weekday: "long",
@@ -434,7 +449,7 @@ function HomePage() {
               gap: 1.5,
             }}
           >
-            {quickActions.map((action) => (
+            {visibleQuickActions.map((action) => (
               <Button
                 key={action.title}
                 fullWidth
