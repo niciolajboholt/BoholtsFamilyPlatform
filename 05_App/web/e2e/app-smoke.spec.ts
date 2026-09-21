@@ -1089,7 +1089,11 @@ test("primary pages fit the complete supported mobile width matrix", async ({
   page,
 }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop-chromium");
-  test.setTimeout(120_000);
+  // 5 bredder × 6 sider = 30 sideindlæsninger. Oprindeligt 120s for 4
+  // bredder (24 indlæsninger) — 360px tilføjet (Sprint 57-reviewfund)
+  // pressede den samlede kørsel over budgettet på CI's langsommere
+  // runnere, selvom den var rigeligt inden for grænsen lokalt.
+  test.setTimeout(150_000);
   await mockAuthenticatedApi(page);
 
   for (const width of [320, 360, 375, 390, 430]) {
