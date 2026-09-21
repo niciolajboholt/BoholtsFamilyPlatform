@@ -1,5 +1,23 @@
 # Changelog
 
+## Mobilnavigation — 3 faste bundfaner + burgermenu
+
+Opfølgning efter Sprint 57: mobilens flydende bundmenu viste alle
+navigationspunkter (op til 7, afhængigt af hvilke valgfrie funktioner
+familien har slået til) presset ind på 390px-brede skærme.
+
+- **Ændret:** bundmenuen på mobil viser nu kun 3 faste kernepunkter
+  (Overblik, Kalender, Indstillinger). En ny burgerknap i AppBar'en åbner
+  "Alle visninger" — en sidepanel-menu med samtlige synlige
+  navigationspunkter (inkl. de tre faste igen), samme feature-flag-filtrering
+  som før. Desktop/tablet-venstremenuen er uændret — den har rigeligt med
+  lodret plads og viser fortsat alle punkter direkte uden en burgermenu.
+- Designforslaget blev først skitseret som mockups (nuværende tilstand vs.
+  to alternativer) og godkendt af Nicolaj, før implementeringen.
+- Ny e2e-testdækning: trykflader for både bundfanerne, burgerknappen og
+  menuens punkter (mindst 44×44px); menuens navigation, samt at den lukker
+  korrekt med Escape og luk-knappen.
+
 ## Sprint 57 — Sammenhæng, hastighed og UX
 
 > Se `01_Project_Documentation/Development/57_Sprint57_Sammenhaeng_Hastighed_UX_Plan.md`.

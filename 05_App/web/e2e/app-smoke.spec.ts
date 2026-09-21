@@ -1111,22 +1111,78 @@ test("primary pages fit the complete supported mobile width matrix", async ({
   }
 });
 
-test("mobile bottom navigation keeps every enabled feature as a usable touch target", async ({
+// Nicolaj (2026-09-21): mobilens bundmenu blev for trang, efterhånden som
+// flere valgfrie funktioner slås til. AppLayout.tsx viser nu kun 3 faste
+// bundfaner (Overblik, Kalender, Indstillinger) + en burgerknap, der åbner
+// "Alle visninger" med samtlige punkter. Denne test dækker trykfladerne
+// begge steder — bundfanerne, selve burgerknappen, og punkterne i menuen.
+test("mobil-navigationen holder brugbare trykflader — bundfaner, burgerknap og alle punkter i menuen", async ({
   page,
 }, testInfo) => {
   test.skip(testInfo.project.name !== "mobile-chromium");
   await mockAuthenticatedApi(page);
   await page.goto("/mit-i-dag");
 
-  for (const label of ["Overblik", "Kalender", "Indkøb", "Måltider", "Opgaver", "Mit i dag", "Indstillinger"]) {
+  for (const label of ["Overblik", "Kalender", "Indstillinger"]) {
     const button = page.getByRole("button", { name: label, exact: true });
-    await button.scrollIntoViewIfNeeded();
     await expect(button).toBeVisible();
 
     const box = await button.boundingBox();
     expect(box?.width ?? 0, `${label} skal have mindst 44 px bred trykflade`).toBeGreaterThanOrEqual(44);
     expect(box?.height ?? 0, `${label} skal have mindst 44 px høj trykflade`).toBeGreaterThanOrEqual(44);
   }
+
+  const menuButton = page.getByRole("button", { name: "Åbn menu" });
+  const menuButtonBox = await menuButton.boundingBox();
+  expect(menuButtonBox?.width ?? 0, "Burgerknappen skal have mindst 44 px bred trykflade").toBeGreaterThanOrEqual(44);
+  expect(menuButtonBox?.height ?? 0, "Burgerknappen skal have mindst 44 px høj trykflade").toBeGreaterThanOrEqual(44);
+
+  await menuButton.click();
+  const menu = page.getByRole("dialog", { name: "Alle visninger" });
+  await expect(menu).toBeVisible();
+
+  for (const label of ["Overblik", "Kalender", "Indkøb", "Måltider", "Opgaver", "Mit i dag", "Indstillinger"]) {
+    const item = menu.getByRole("button", { name: label, exact: true });
+    await item.scrollIntoViewIfNeeded();
+    await expect(item).toBeVisible();
+
+    const box = await item.boundingBox();
+    expect(box?.width ?? 0, `${label} i menuen skal have mindst 44 px bred trykflade`).toBeGreaterThanOrEqual(44);
+    expect(box?.height ?? 0, `${label} i menuen skal have mindst 44 px høj trykflade`).toBeGreaterThanOrEqual(44);
+  }
+});
+
+// Samme reviewfund som ovenfor — dækker selve menuens funktion: navigation
+// til et punkt uden for de 3 faste bundfaner, og at både Escape og
+// luk-knappen lukker menuen uden at navigere væk.
+test("burgermenuen på mobil navigerer til alle visninger og lukker med Escape eller luk-knappen", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "mobile-chromium");
+  await mockAuthenticatedApi(page);
+  await page.goto("/");
+
+  await page.getByRole("button", { name: "Åbn menu" }).click();
+  const menu = page.getByRole("dialog", { name: "Alle visninger" });
+  await expect(menu).toBeVisible();
+
+  // "Opgaver" er ikke blandt de 3 faste bundfaner — klik navigerer og
+  // lukker menuen af sig selv.
+  await menu.getByRole("button", { name: "Opgaver", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Opgaver", exact: true })).toBeVisible();
+  await expect(menu).not.toBeVisible();
+
+  await page.getByRole("button", { name: "Åbn menu" }).click();
+  await expect(menu).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(menu).not.toBeVisible();
+  // Escape navigerede ikke væk — stadig på Opgaver.
+  await expect(page.getByRole("heading", { name: "Opgaver", exact: true })).toBeVisible();
+
+  await page.getByRole("button", { name: "Åbn menu" }).click();
+  await expect(menu).toBeVisible();
+  await menu.getByRole("button", { name: "Luk menu" }).click();
+  await expect(menu).not.toBeVisible();
 });
 
 test("a private calendar event is fully visible to its owner and redacted to 'Optaget' for another family member", async ({

@@ -3,7 +3,9 @@ import { useEffect, useRef, useState } from "react";
 import {
   CalendarMonthRounded,
   CheckCircleOutlineRounded,
+  CloseRounded,
   HomeRounded,
+  MenuRounded,
   RestaurantMenuRounded,
   SettingsRounded,
   ShoppingCartOutlined,
@@ -16,6 +18,8 @@ import {
   BottomNavigationAction,
   CircularProgress,
   Container,
+  Drawer,
+  IconButton,
   List,
   ListItem,
   ListItemButton,
@@ -64,6 +68,15 @@ const navItems: NavItem[] = [
   { path: "/settings", label: "Indstillinger", icon: <SettingsRounded /> },
 ];
 
+// Mobilens flydende bundmenu blev for trang, efterhånden som flere
+// valgfrie funktioner slås til (op til 7 punkter presset ind på 390px).
+// Bunden viser nu kun disse tre kernepunkter permanent; resten (og de
+// samme tre igen) findes i "Alle visninger"-menuen, åbnet via
+// burgerknappen i AppBar'en. Desktop/tablet-venstremenuen er uændret —
+// den har rigeligt med lodret plads og viser fortsat alle synlige punkter
+// direkte, uden en burgermenu.
+const mobileTabPaths = ["/", "/calendar", "/settings"];
+
 const sidebarWidth = 220;
 
 function readFamilyName(): string {
@@ -84,6 +97,11 @@ function AppLayout() {
     (item) => !item.featureKey || isEnabled(item.featureKey),
   );
   const routes = visibleNavItems.map((item) => item.path);
+
+  const mobileTabItems = navItems.filter((item) => mobileTabPaths.includes(item.path));
+  const mobileTabRoutes = mobileTabItems.map((item) => item.path);
+
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const [isFirstLaunch, setIsFirstLaunch] = useState(
     () => !hasCompletedFamilySetup(),
@@ -255,6 +273,7 @@ function AppLayout() {
   // ingen af navigationens punkter, så MUI viser korrekt ingen fane som
   // valgt.
   const currentIndex = routes.indexOf(location.pathname);
+  const mobileCurrentIndex = mobileTabRoutes.indexOf(location.pathname);
 
   return (
     <Box
@@ -280,34 +299,56 @@ function AppLayout() {
             sx={{
               display: "flex",
               alignItems: "center",
+              justifyContent: "space-between",
               width: "100%",
+              gap: 1.5,
             }}
           >
-            <Box
+            <Box sx={{ display: "flex", alignItems: "center", minWidth: 0 }}>
+              <Box
+                sx={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 3,
+                  bgcolor: "primary.main",
+                  color: "primary.contrastText",
+                  display: "grid",
+                  placeItems: "center",
+                  mr: 1.5,
+                  fontWeight: 800,
+                  flexShrink: 0,
+                }}
+              >
+                {familyName.trim().slice(0, 1).toUpperCase() || "?"}
+              </Box>
+
+              <Box sx={{ minWidth: 0 }}>
+                <Typography variant="h6" sx={{ lineHeight: 1.1 }} noWrap>
+                  {familyName}
+                </Typography>
+
+                <Typography variant="caption" color="text.secondary">
+                  Familiens fælles overblik
+                </Typography>
+              </Box>
+            </Box>
+
+            {/* Kun mobil — desktop/tablet har venstremenuen med alle punkter
+                direkte synlige og behøver ingen burgermenu. */}
+            <IconButton
+              aria-label="Åbn menu"
+              onClick={() => setIsMobileMenuOpen(true)}
               sx={{
-                width: 40,
-                height: 40,
-                borderRadius: 3,
-                bgcolor: "primary.main",
-                color: "primary.contrastText",
-                display: "grid",
-                placeItems: "center",
-                mr: 1.5,
-                fontWeight: 800,
+                display: { xs: "inline-flex", sm: "none" },
+                flexShrink: 0,
+                // MUI's standardstørrelse (40px) er under den anbefalede
+                // 44px-mindstegrænse for trykflader.
+                width: 44,
+                height: 44,
               }}
             >
-              {familyName.trim().slice(0, 1).toUpperCase() || "?"}
-            </Box>
-
-            <Box>
-              <Typography variant="h6" sx={{ lineHeight: 1.1 }}>
-                {familyName}
-              </Typography>
-
-              <Typography variant="caption" color="text.secondary">
-                Familiens fælles overblik
-              </Typography>
-            </Box>
+              <MenuRounded />
+            </IconButton>
           </Box>
         </Toolbar>
       </AppBar>
@@ -413,30 +454,18 @@ function AppLayout() {
           transform: "translateX(-50%)",
           width: "calc(100% - 24px)",
           borderRadius: 4,
-          // Flere valgfrie funktioner kan give mere end fem mobilpunkter.
-          // Bevar store trykflader og gør rækken vandret scrollbar i stedet
-          // for at mase etiketter/ikoner sammen på 320–430 px skærme.
-          overflowX: "auto",
-          overflowY: "hidden",
-          scrollbarWidth: "none",
-          "&::-webkit-scrollbar": { display: "none" },
           zIndex: 1200,
         }}
       >
         <BottomNavigation
           showLabels
-          value={currentIndex}
+          value={mobileCurrentIndex}
           onChange={(_event, newValue: number) => {
-            navigate(routes[newValue]);
+            navigate(mobileTabRoutes[newValue]);
           }}
           sx={{
             height: 68,
-            width: "max-content",
-            minWidth: "100%",
-            justifyContent: "flex-start",
             "& .MuiBottomNavigationAction-root": {
-              minWidth: 72,
-              flex: "0 0 72px",
               borderRadius: 2,
               mx: 0.5,
               "&.Mui-selected": {
@@ -448,7 +477,7 @@ function AppLayout() {
             },
           }}
         >
-          {visibleNavItems.map((item) => (
+          {mobileTabItems.map((item) => (
             <BottomNavigationAction
               key={item.path}
               label={item.label}
@@ -457,6 +486,98 @@ function AppLayout() {
           ))}
         </BottomNavigation>
       </Paper>
+
+      {/* "Alle visninger" — burgermenuen, kun relevant på mobil (se
+          burgerknappen i AppBar'en ovenfor; på desktop/tablet er den umulig
+          at åbne, da knappen der er skjult). Viser samme liste som
+          venstremenuen, så et punkt uden for de 3 faste bundfaner (fx
+          Opgaver, Mit i dag) fortsat er ét tryk væk. */}
+      <Drawer
+        anchor="right"
+        open={isMobileMenuOpen}
+        onClose={() => setIsMobileMenuOpen(false)}
+        slotProps={{
+          paper: {
+            role: "dialog",
+            "aria-label": "Alle visninger",
+            sx: {
+              width: 296,
+              maxWidth: "80vw",
+              borderTopLeftRadius: 20,
+              borderBottomLeftRadius: 20,
+            },
+          },
+        }}
+      >
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            px: 2.5,
+            py: 2,
+            borderBottom: "1px solid",
+            borderColor: "divider",
+          }}
+        >
+          <Typography variant="h6">Alle visninger</Typography>
+
+          <IconButton
+            aria-label="Luk menu"
+            onClick={() => setIsMobileMenuOpen(false)}
+            sx={{ width: 44, height: 44 }}
+          >
+            <CloseRounded />
+          </IconButton>
+        </Box>
+
+        <List sx={{ px: 1.5, py: 1 }}>
+          {visibleNavItems.map((item) => {
+            const isSelected = item.path === location.pathname;
+
+            return (
+              <ListItem key={item.path} disablePadding>
+                <ListItemButton
+                  selected={isSelected}
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    navigate(item.path);
+                  }}
+                  sx={{
+                    borderRadius: 2,
+                    mb: 0.5,
+                    "&.Mui-selected": {
+                      bgcolor: (theme) => alpha(theme.palette.primary.main, 0.12),
+                      "& .MuiListItemIcon-root": { color: "primary.main" },
+                    },
+                  }}
+                >
+                  <ListItemIcon
+                    sx={{
+                      minWidth: 40,
+                      color: isSelected ? "primary.main" : "text.secondary",
+                    }}
+                  >
+                    {item.icon}
+                  </ListItemIcon>
+
+                  <ListItemText
+                    primary={item.label}
+                    slotProps={{
+                      primary: {
+                        sx: {
+                          fontWeight: isSelected ? 700 : 500,
+                          color: isSelected ? "primary.main" : "text.primary",
+                        },
+                      },
+                    }}
+                  />
+                </ListItemButton>
+              </ListItem>
+            );
+          })}
+        </List>
+      </Drawer>
     </Box>
   );
 }
