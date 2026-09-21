@@ -641,6 +641,21 @@ test("primary pages have no WCAG 2.0/2.1 A/AA accessibility violations", async (
   for (const path of ["/", "/calendar", "/shopping-list", "/tasks", "/mit-i-dag", "/settings"]) {
     await page.goto(path);
     await expect(page.locator("main")).toBeVisible();
+
+    // Mit i dag vælger asynkront et medlem kort efter montering (se
+    // MitIDagPage.tsx's useEffect for selectedMemberId), hvilket skifter
+    // det valgte medlems Chip fra "outlined" til "filled" — et
+    // klasseskift, MUI's delte .MuiChip-root-transition (background-color)
+    // animerer. Axe kan ramme scanningen midt i den animation og måle en
+    // midlertidig, interpoleret baggrundsfarve med for lav kontrast, selvom
+    // hverken start- eller sluttilstanden reelt har et kontrastproblem.
+    // Slår alle transitions/animationer fra på hver side (skal gentages
+    // pr. navigation — en ny page.goto rydder tidligere injicerede
+    // style-tags), så axe altid måler den faktiske, hvilende tilstand.
+    await page.addStyleTag({
+      content: "*, *::before, *::after { transition: none !important; animation: none !important; }",
+    });
+
     const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
 
     expect(results.violations, JSON.stringify(results.violations, null, 2)).toEqual([]);
