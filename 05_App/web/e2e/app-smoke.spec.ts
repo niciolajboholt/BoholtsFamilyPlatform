@@ -3079,7 +3079,10 @@ test("logging out through the real UI clears the session and every locally cache
   // useSession() gemmer sin tilstand lokalt pr. komponent uden delt context,
   // se kommentaren i useSession.ts. Uden genindlæsningen ville AppLayout's
   // egen, uafhængige useSession()-instans aldrig opdage logout'et.
-  await page.waitForURL("/settings");
+  // Regex i stedet for en eksakt streng: siden Indstillinger blev opdelt i
+  // faner (Sprint 57, afsnit I), bærer URL'en fortsat "?tab=account" fra
+  // fanevalget ovenfor, som en genindlæsning ikke fjerner.
+  await page.waitForURL(/\/settings/);
   // LoginPage's "Fortsæt med Google" er et <Button href="…">, som MUI/browseren
   // gengiver med role "link", ikke "button".
   await expect(page.getByRole("link", { name: "Fortsæt med Google" })).toBeVisible();
