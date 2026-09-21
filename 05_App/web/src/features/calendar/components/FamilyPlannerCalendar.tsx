@@ -5,6 +5,7 @@ import {
   useMemo,
   useReducer,
   useRef,
+  useState,
 } from "react";
 
 import {
@@ -18,7 +19,6 @@ import {
 } from "@mui/material";
 
 import type { CalendarOwner } from "../data/calendarOwners";
-import { getEventOwnerBorderSx, getEventOwnerColors } from "../utils/getEventOwnerColor";
 import {
   familyPseudoMemberId,
   type CalendarEvent,
@@ -33,9 +33,8 @@ import {
   buildInitialWindow,
   windowReducer,
 } from "../utils/plannerWindowReducer";
-import { getEventActionLabel } from "../utils/calendarAccessibility";
-import ConflictBadge from "./ConflictBadge";
-import EventSourceBadge from "./EventSourceBadge";
+import PlannerEventChip from "./PlannerEventChip";
+import PlannerOverflowDialog from "./PlannerOverflowDialog";
 
 interface FamilyPlannerCalendarProps {
   visibleDate: Date;
@@ -111,15 +110,22 @@ function formatWeekBandLabel(weekStartDate: Date): string {
   return `Uge ${weekNumber} · ${monthYear}`;
 }
 
-function formatEventTime(event: CalendarEvent): string {
-  if (event.allDay) {
-    return "Hele dagen";
-  }
+// Indeholder bevidst antal, dato og medlemsnavn (krav til "+N mere"-knappens
+// aria-label), så en skærmlæser-bruger ved præcis hvad knappen åbner, uden
+// selv at skulle udlede det af cellens position i gitteret.
+function formatOverflowActionLabel(
+  hiddenEventCount: number,
+  columnLabel: string,
+  day: Date,
+): string {
+  const dateLabel = new Intl.DateTimeFormat("da-DK", {
+    day: "numeric",
+    month: "long",
+  }).format(day);
 
-  return new Intl.DateTimeFormat("da-DK", {
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(event.start));
+  const eventWord = hiddenEventCount === 1 ? "skjult aftale" : "skjulte aftaler";
+
+  return `Vis ${hiddenEventCount} ${eventWord} for ${columnLabel} den ${dateLabel}`;
 }
 
 interface PlannerColumn {
@@ -211,6 +217,51 @@ function FamilyPlannerCalendar({
   const dayRowRefs = useRef(new Map<string, HTMLDivElement>());
   const pendingBackwardScrollHeightRef = useRef<number | null>(null);
   const pendingScrollDateRef = useRef<Date | null>(visibleDate);
+  const gridRef = useRef<HTMLDivElement>(null);
+
+  // Hvilken dato×medlem-celles "+N mere"-knap der (hvis nogen) har åbnet
+  // PlannerOverflowDialog — selve dagen og cellens fulde aftaleliste slås op
+  // på ny herfra ved hvert render, i stedet for at blive gemt i state, så de
+  // altid er friske (fx efter en aftale redigeres/slettes mens dialogen er
+  // åben).
+  const [overflowSelection, setOverflowSelection] = useState<{
+    day: Date;
+    columnId: string;
+  } | null>(null);
+
+  // Den diskrete "stryg vandret"-hjælpetekst skal kun vises, når gitteret
+  // RENT FAKTISK er bredere end viewporten — ikke bare gættet ud fra
+  // isMobile/antal kolonner, som let ville blive forkert ved fx 430px med
+  // få medlemmer. Målt direkte i stedet.
+  const [canScrollHorizontally, setCanScrollHorizontally] = useState(false);
+
+  useEffect(() => {
+    const grid = gridRef.current;
+
+    if (!grid || !isMobile) {
+      setCanScrollHorizontally(false);
+      return;
+    }
+
+    function updateCanScrollHorizontally() {
+      if (!grid) {
+        return;
+      }
+
+      setCanScrollHorizontally(grid.getBoundingClientRect().width > window.innerWidth + 1);
+    }
+
+    updateCanScrollHorizontally();
+
+    const resizeObserver = new ResizeObserver(updateCanScrollHorizontally);
+    resizeObserver.observe(grid);
+    window.addEventListener("resize", updateCanScrollHorizontally);
+
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener("resize", updateCanScrollHorizontally);
+    };
+  }, [isMobile, columns.length]);
 
   // Ekstern navigation (Frem/Tilbage/"I dag" i værktøjslinjen) ændrer
   // visibleDate — det udløser en gen-forankring af vinduet, hvis den nye dato
@@ -302,6 +353,16 @@ function FamilyPlannerCalendar({
 
   const today = new Date();
 
+  const overflowColumn = overflowSelection
+    ? columns.find((column) => column.id === overflowSelection.columnId)
+    : undefined;
+  const overflowEvents = overflowSelection
+    ? getPlannerEventsForColumn(
+        eventsByDay.get(getDayKey(overflowSelection.day)) ?? [],
+        overflowSelection.columnId,
+      )
+    : [];
+
   return (
     <Card
       sx={{
@@ -324,6 +385,16 @@ function FamilyPlannerCalendar({
           "&:last-child": { pb: isMobile ? 0 : 1.5 },
         }}
       >
+        {canScrollHorizontally && (
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ display: "block", px: 1.5, pb: 0.75 }}
+          >
+            Stryg vandret for at se flere familiemedlemmer →
+          </Typography>
+        )}
+
         {/*
           Hele tabellen (header + alle dage) er ÉT delt CSS-grid, ikke ét
           grid pr. række — ellers udregner hver række sine "1fr"-kolonner
@@ -351,6 +422,7 @@ function FamilyPlannerCalendar({
           efter de første par kolonner — selve fejlen brugeren så.
         */}
         <Box
+          ref={gridRef}
           sx={{
             display: "grid",
             gridTemplateColumns,
@@ -361,11 +433,21 @@ function FamilyPlannerCalendar({
             borderColor: "divider",
           }}
         >
+          {/*
+            Hjørnecellen skal forblive synlig ved BÅDE lodret og vandret
+            rulning (den er skæringspunktet mellem den klæbende datokolonne
+            og den klæbende medlemsheader), og skal derfor have den højeste
+            zIndex af de tre klæbende lag — ellers ville medlemsheaderen
+            (zIndex 3) eller datokolonnen (zIndex 2) kunne glide hen over
+            den, når man ruller i den modsatte retning af det, de hver især
+            er klæbet til.
+          */}
           <Box
             sx={{
               position: "sticky",
               top: APP_BAR_HEIGHT_VAR,
-              zIndex: 3,
+              left: 0,
+              zIndex: 4,
               backgroundColor: "background.paper",
               borderBottom: "2px solid",
               borderColor: "divider",
@@ -376,6 +458,7 @@ function FamilyPlannerCalendar({
           {columns.map((column) => (
             <Box
               key={column.id}
+              data-testid="planner-member-header"
               sx={{
                 position: "sticky",
                 top: APP_BAR_HEIGHT_VAR,
@@ -443,9 +526,19 @@ function FamilyPlannerCalendar({
                           dayRowRefs.current.delete(dayKey);
                         }
                       }}
+                      data-testid="planner-date-cell"
+                      data-today={isToday ? "true" : undefined}
                       sx={{
+                        position: "sticky",
+                        left: 0,
+                        zIndex: 2,
                         p: 0.75,
                         textAlign: "center",
+                        // Skal være uigennemsigtig (ikke bare arve
+                        // gitterets divider-farve gennem det 1px mellemrum),
+                        // ellers ville almindelige celler kunne skinne
+                        // igennem, når datocellen bliver liggende fast over
+                        // dem ved vandret rulning.
                         backgroundColor: "background.paper",
                       }}
                     >
@@ -495,107 +588,50 @@ function FamilyPlannerCalendar({
                             backgroundColor: "background.paper",
                           }}
                         >
-                          {visibleColumnEvents.map((event) => {
-                            const ownerColors = getEventOwnerColors(
-                              event,
-                              members,
-                            );
-                            const ownerColor = ownerColors[0];
-
-                            return (
-                              <ButtonBase
-                                key={`${column.id}::${event.id}`}
-                                aria-label={getEventActionLabel(event, members)}
-                                title={`${formatEventTime(event)} · ${event.title}`}
-                                onClick={() => onSelectEvent(event)}
-                                sx={{
-                                  display: "flex",
-                                  flexDirection: "column",
-                                  alignItems: "flex-start",
-                                  justifyContent: "flex-start",
-                                  width: "100%",
-                                  minWidth: 0,
-                                  p: 0.5,
-                                  borderRadius: 1,
-                                  ...getEventOwnerBorderSx(ownerColors, 3),
-                                  backgroundColor: `${ownerColor}14`,
-                                  textAlign: "left",
-
-                                  "&:hover": {
-                                    backgroundColor: `${ownerColor}24`,
-                                  },
-
-                                  "&:focus-visible": {
-                                    outline: "2px solid",
-                                    outlineColor: "primary.main",
-                                    outlineOffset: 1,
-                                  },
-                                }}
-                              >
-                                <Box
-                                  sx={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: 0.5,
-                                    width: "100%",
-                                    minWidth: 0,
-                                  }}
-                                >
-                                  <Typography
-                                    variant="caption"
-                                    noWrap
-                                    sx={{ fontWeight: 700, minWidth: 0 }}
-                                  >
-                                    {formatEventTime(event)}
-                                  </Typography>
-
-                                  <EventSourceBadge source={event.source} />
-
-                                  <ConflictBadge
-                                    isConflict={conflictEventIds.has(event.id)}
-                                  />
-                                </Box>
-
-                                {/*
-                                  Den omgivende ButtonBase bruger bevidst
-                                  alignItems: "flex-start" (venstrejusteret
-                                  tekst) i stedet for standarden "stretch" —
-                                  det betyder, at et flex-barn IKKE automatisk
-                                  strækkes til forælderens bredde, og derfor
-                                  ikke har noget at trunkere ("noWrap") imod:
-                                  uden en eksplicit width her rendered titlen
-                                  altid i sin fulde, uklippede bredde og flød
-                                  visuelt ud over cellen (usynligt på
-                                  desktops brede kolonner, men tydeligt på
-                                  mobils smalle).
-                                */}
-                                <Typography
-                                  variant="caption"
-                                  noWrap
-                                  sx={{ display: "block", width: "100%" }}
-                                >
-                                  {event.title}
-                                </Typography>
-                              </ButtonBase>
-                            );
-                          })}
+                          {visibleColumnEvents.map((event) => (
+                            <PlannerEventChip
+                              key={`${column.id}::${event.id}`}
+                              event={event}
+                              members={members}
+                              isConflict={conflictEventIds.has(event.id)}
+                              onSelectEvent={onSelectEvent}
+                            />
+                          ))}
 
                           {hiddenEventCount > 0 && (
-                            <Typography
-                              variant="caption"
-                              aria-label={`${hiddenEventCount} flere aftaler denne dag for ${column.label}`}
+                            <ButtonBase
+                              aria-label={formatOverflowActionLabel(
+                                hiddenEventCount,
+                                column.label,
+                                day,
+                              )}
+                              onClick={() =>
+                                setOverflowSelection({ day, columnId: column.id })
+                              }
                               sx={{
                                 justifySelf: "start",
-                                px: 0.75,
-                                py: 0.125,
+                                minWidth: 44,
+                                minHeight: 44,
+                                px: 1,
                                 borderRadius: 5,
                                 fontWeight: 700,
+                                fontSize: "0.75rem",
                                 color: "text.secondary",
                                 backgroundColor: "action.selected",
+
+                                "&:hover": {
+                                  backgroundColor: "action.focus",
+                                },
+
+                                "&:focus-visible": {
+                                  outline: "2px solid",
+                                  outlineColor: "primary.main",
+                                  outlineOffset: 1,
+                                },
                               }}
                             >
                               +{hiddenEventCount} mere
-                            </Typography>
+                            </ButtonBase>
                           )}
                         </Box>
                       );
@@ -612,6 +648,17 @@ function FamilyPlannerCalendar({
           />
         </Box>
       </CardContent>
+
+      <PlannerOverflowDialog
+        open={overflowSelection !== null}
+        day={overflowSelection?.day ?? null}
+        columnLabel={overflowColumn?.label ?? ""}
+        events={overflowEvents}
+        members={members}
+        conflictEventIds={conflictEventIds}
+        onClose={() => setOverflowSelection(null)}
+        onSelectEvent={onSelectEvent}
+      />
     </Card>
   );
 }
