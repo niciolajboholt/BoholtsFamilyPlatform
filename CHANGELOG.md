@@ -75,7 +75,27 @@ i Sprint 51-56.
 - **Forbedret:** Indstillinger er opdelt i faner (Familie,
   Kalenderforbindelser, Funktioner og notifikationer, Konto og data,
   Hjælp og feedback) i stedet for én lang, flad liste — kun den aktive
-  fanes indhold henter data.
+  fanes indhold henter data. **Rettet efter review:** fanedelingen betød
+  først, at ethvert link/enhver besked, der pegede på "/settings",
+  altid landede på standardfanen, uanset hvilken indstilling brugeren
+  reelt skulle finde. Hver fane har nu et stabilt id, valgbart via en
+  `?tab=`-URL-parameter (fx `/settings?tab=calendar-connections`), som
+  overlever en genindlæsning og virker som et delt link; forsidens "Se
+  familien"-knap peger nu eksplicit på `?tab=family`. Fanerne er
+  tastaturbetjente via MUI Tabs' indbyggede piletast-navigation.
+- **Testdækning (efter review):** flere af Sprint 57's accept-kriterier
+  manglede automatiske tests — tilføjet: at en voksens/familiens
+  pseudoprofils børneadgang og Beskeder forbliver skjult i Mit i dag
+  (mens et rigtigt barn fortsat ser dem), at forsidens Hurtige
+  handlinger reelt forsvinder når deres funktion er slået fra, en
+  server-side testsuite for funktionsafhængighedskaskaden (routines/
+  task-rewards ⇄ tasks, inkl. selv-helbredelse af en tidligere ugyldig
+  tilstand), de faktiske datointervaller Forsiden og Mit i dag sender
+  til kalender-hooket, kalenderens målte bredere layout på desktop,
+  indstillingsfanernes URL-navigation og tastaturbetjening, samt
+  grundlæggende tastaturbetjening af "Vis kalendere"-filterets
+  gruppe-accordion og afkrydsningsfelter. Den mobile bredde-matrix
+  dækker nu også 360px.
 - **Undersøgt, bevidst ikke ændret:** en "mere meningsfuld" versionsvisning
   end det nuværende, korte Cloudflare-deployment-id. En statisk
   sprint-mærkat ville gå i stå ved næste sprint uden en huskeregel, og en

@@ -1048,6 +1048,28 @@ test("offline task toggle is queued locally and syncs on reconnect", async ({
   await expect(checkbox).toBeChecked();
 });
 
+// Sprint 57, afsnit G (se 57_Sprint57_Sammenhaeng_Hastighed_UX_Plan.md):
+// kalenderen virkede for smal på desktop, fordi den delte det samme
+// 900px-loft som de øvrige sider, selvom den har markant mere indhold i
+// bredden (uge-/månedsgitter). CalendarPage.tsx bruger nu et bredere
+// 1200px-loft — denne test måler den faktiske gengivne bredde i stedet
+// for kun at kigge på sx-værdien i kildekoden.
+test("kalenderen bruger et bredere layout på desktop end de øvrige sider", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await mockAuthenticatedApi(page);
+
+  await page.goto("/tasks");
+  const tasksWidth = (await page.locator("main").boundingBox())!.width;
+
+  await page.goto("/calendar");
+  const calendarWidth = (await page.locator("main").boundingBox())!.width;
+
+  expect(calendarWidth).toBeGreaterThan(tasksWidth);
+  // Loftet er 1200px — med en vis margen til scrollbar/afrunding.
+  expect(calendarWidth).toBeGreaterThan(1100);
+});
+
 test("primary pages fit the complete supported mobile width matrix", async ({
   page,
 }, testInfo) => {
@@ -1055,7 +1077,7 @@ test("primary pages fit the complete supported mobile width matrix", async ({
   test.setTimeout(120_000);
   await mockAuthenticatedApi(page);
 
-  for (const width of [320, 375, 390, 430]) {
+  for (const width of [320, 360, 375, 390, 430]) {
     await page.setViewportSize({ width, height: 844 });
 
     for (const path of ["/", "/calendar", "/shopping-list", "/tasks", "/mit-i-dag", "/settings"]) {
@@ -2509,6 +2531,21 @@ test("the calendar source filter groups and collapses many sources, with a visib
 
   await groupHeader.click();
   await expect(firstSourceLabel).not.toBeVisible();
+
+  // Grundlæggende tastaturbetjening: gruppens accordion-header kan åbnes
+  // med tastaturet alene (Enter), og den enkelte kildes afkrydsningsfelt
+  // kan slås til/fra med mellemrumstasten — ikke kun med museklik.
+  await groupHeader.focus();
+  await page.keyboard.press("Enter");
+  await expect(firstSourceLabel).toBeVisible();
+
+  // Stadig afkrydset fra (uncheck'et) tidligere i testen — Accordion
+  // afmonterer ikke sit indhold ved sammenfoldning, så tilstanden bevares.
+  await firstCheckbox.focus();
+  await expect(firstCheckbox).not.toBeChecked();
+  await page.keyboard.press("Space");
+  await expect(firstCheckbox).toBeChecked();
+  await expect(page.getByText("8 af 8 kalendere vises")).toBeVisible();
 });
 
 // Fase 5: sidste åbne "Mangler"-punkt — reel Playwright-E2E for opret/
@@ -3916,6 +3953,69 @@ test("a family with nothing enabled can turn on a feature via 'Flere funktioner'
   await expect(page.getByText("Denne funktion er ikke slået til")).toBeVisible();
 });
 
+// Sprint 57, afsnit C: "Hurtige handlinger" på forsiden må ikke lokke ind i
+// et flow for en funktion, familien har slået fra (se HomePage.tsx's
+// visibleQuickActions-filter). "Ny aftale" har ingen featureKey og skal
+// derfor altid være synlig, uanset hvad der er slået til.
+test("hurtige handlinger på forsiden følger tændte/slukkede funktioner", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  await mockAuthenticatedApi(page);
+
+  await page.route("**/api/families/*/enabled-features", async (route) => {
+    if (route.request().method() !== "GET") {
+      await route.fallback();
+      return;
+    }
+    // Kun "tasks" slået til — "shopping-list" er bevidst udeladt.
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ features: ["tasks"] }) });
+  });
+
+  await page.goto("/");
+  const main = page.getByRole("main");
+
+  await expect(main.getByRole("button", { name: "Ny aftale" })).toBeVisible();
+  await expect(main.getByRole("button", { name: "Opgaver" })).toBeVisible();
+  await expect(main.getByRole("button", { name: "Indkøbsliste" })).not.toBeVisible();
+});
+
+// Sprint 57, afsnit I (reviewfund): et link/en besked, der peger på en
+// bestemt indstillingsfane, skal fortsat ramme rigtigt — brugeren skal
+// ikke selv skulle lede efter fx Kalenderforbindelser, blot fordi
+// Indstillinger blev delt op i faner. Se SettingsPage.tsx's
+// "?tab="-URL-parameter og HomePage.tsx's "Se familien"-knap.
+test("indstillingsfaner kan åbnes direkte via URL og er tastaturbetjente", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  await mockAuthenticatedApi(page);
+
+  // Direkte link til en ikke-standard fane rammer den fane med det samme
+  // — ikke standardfanen ("Familie"), som brugeren så selv skulle lede fra.
+  await page.goto("/settings?tab=calendar-connections");
+  await expect(page.getByRole("tab", { name: "Kalenderforbindelser", selected: true })).toBeVisible();
+  await expect(page.getByText("Kalenderforbindelser").first()).toBeVisible();
+  // Familie-fanepanelet (index 0) er ikke den aktive fane og skal derfor
+  // være skjult — ikke bare fraværende fra viewporten.
+  await expect(page.locator("#settings-tabpanel-0")).toBeHidden();
+
+  // Et klik på en anden fane opdaterer URL'en, så et genindlæst/delt link
+  // til den fane fortsat virker.
+  await page.getByRole("tab", { name: "Funktioner og notifikationer" }).click();
+  await expect(page.getByText("Notifikationer", { exact: true })).toBeVisible();
+  await expect(page).toHaveURL(/tab=features/);
+
+  // Tastaturbetjening: MUI Tabs' roving tabindex flytter fokus med
+  // piletaster mellem fanerne uden museklik.
+  await page.getByRole("tab", { name: "Funktioner og notifikationer" }).focus();
+  await page.keyboard.press("ArrowLeft");
+  await expect(page.getByRole("tab", { name: "Kalenderforbindelser" })).toBeFocused();
+
+  // "Se familien" fra forsiden går eksplicit til Familie-fanen.
+  await page.goto("/");
+  await page.getByRole("button", { name: "Se familien" }).click();
+  await expect(page).toHaveURL(/settings\?tab=family/);
+  await expect(page.getByRole("tab", { name: "Familie", selected: true })).toBeVisible();
+  await expect(page.locator("#settings-tabpanel-0")).toBeVisible();
+});
+
 // Fundet ved fejlsøgning af en rigtig bruger-rapport om, at kalenderen blev
 // stående på "Indlæser kalender…" i lang tid på et svagt mobilsignal — den
 // kom til sidst igennem, men uden nogen forklaring eller mulighed for selv
@@ -4081,6 +4181,39 @@ test("en voksen kan oprette børneadgang med QR-kode, sætte en PIN, og sende en
   await page.getByLabel(/Kort besked/).fill("God skoledag, Billie!");
   await page.getByRole("button", { name: "Send", exact: true }).click();
   await expect(page.getByText("God skoledag, Billie!").first()).toBeVisible();
+});
+
+// Sprint 57, afsnit A (sikkerhedsrettelse): "Børneadgang for {navn}" og
+// Beskeder må kun vises for en reel børneprofil (relation = "Barn"), ikke
+// for en voksen eller familiens pseudoprofil — uanset at den loggede
+// bruger selv er ejer/admin. Standardmockens "Alex" og "Chris" har begge
+// relation "Andet", "Billie" har "Barn" (se mockAuthenticatedApi ovenfor).
+test("Mit i dag viser kun børneadgang og beskeder for en reel børneprofil, ikke for en voksen", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  await mockAuthenticatedApi(page);
+
+  await page.goto("/mit-i-dag");
+
+  // Voksen (Alex, relation "Andet"): hverken Børneadgang eller Beskeder
+  // må være synlige.
+  await page.getByRole("button", { name: /Alex/ }).click();
+  await expect(page.getByText("Alex's dag").or(page.getByText("Alexs dag"))).toBeVisible();
+  await expect(page.getByRole("button", { name: /Børneadgang for Alex/ })).not.toBeVisible();
+  await expect(page.getByText("Beskeder", { exact: true })).not.toBeVisible();
+
+  // En anden voksen (Chris) — samme forventning, for at bekræfte det ikke
+  // kun er et enkeltstående navnetjek.
+  await page.getByRole("button", { name: /Chris/ }).click();
+  await expect(page.getByRole("button", { name: /Børneadgang for Chris/ })).not.toBeVisible();
+  await expect(page.getByText("Beskeder", { exact: true })).not.toBeVisible();
+
+  // Barnet (Billie, relation "Barn"): begge SKAL være synlige for en
+  // ejer/admin — bekræfter rettelsen ikke også skjuler den for reelle børn.
+  await page.getByRole("button", { name: /Billie/ }).click();
+  await expect(page.getByRole("button", { name: /Børneadgang for Billie/ })).toBeVisible();
+  await expect(page.getByText("Beskeder", { exact: true })).toBeVisible();
 });
 
 // Regression: da børneadgangs-panelet flyttede fra en Dialog (som klipper

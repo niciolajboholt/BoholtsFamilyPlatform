@@ -353,7 +353,11 @@ function HomePage() {
 
               <IconButton
                 aria-label="Se familien"
-                onClick={() => navigate("/settings")}
+                // Sprint 57: eksplicit til "Familie"-fanen (i dag også
+                // standardfanen, men skrevet eksplicit her, så dette link
+                // fortsat rammer rigtigt, selv hvis standardfanen senere
+                // ændres — se SettingsPage.tsx's "?tab="-parameter.
+                onClick={() => navigate("/settings?tab=family")}
               >
                 <ChevronRightRounded />
               </IconButton>

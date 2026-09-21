@@ -445,11 +445,22 @@ eksisterende 7 sektioner — ingen sektions interne indhold ændres:
 
 På mobil bevares samme `Tabs`-komponent i en scrollbar variant (MUI
 `Tabs variant="scrollable"`) — ingen tungere mobilvisning, ingen ekstra
-navigations-niveau. Direkte navigation understøttes ved at læse
-`location.state.settingsTab` (samme mønster som
-`CalendarPage`/`openNewEventDialog`) — forberedt til fremtidig
-dyb-linking, men ingen eksisterende kaldested ændres i denne sprint
-medmindre det viser sig nødvendigt for en konkret UX-forbedring.
+navigations-niveau.
+
+**[RETTET efter Nicolajs review — planen herunder er erstattet.]**
+Planen beskrev oprindeligt `location.state.settingsTab`
+(`CalendarPage`/`openNewEventDialog`-mønsteret) som "forberedt til
+fremtidig dyb-linking", uden at noget eksisterende kaldested skulle
+ændres i denne sprint. Reviewet påpegede korrekt, at fanedelingen i sig
+selv gjorde `navigate("/settings")` til en regression: ethvert link/
+enhver besked, der før ramte den rigtige indstilling direkte i den
+udelte side, ville nu altid lande på standardfanen. `location.state`
+overlever desuden hverken en genindlæsning eller et delt/åbnet-i-ny-
+fane-link, så det ville ikke reelt løse problemet. Implementeret i
+stedet med en `?tab=`-URL-parameter (`useSearchParams`, `replace: true`
+ved faneskift), som er stabil under genindlæsning og deling. Forsidens
+"Se familien"-knap (tidligere blot `navigate("/settings")`) peger nu
+eksplicit på `/settings?tab=family`.
 
 ### J. Dokumentation
 
