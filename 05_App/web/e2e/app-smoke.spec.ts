@@ -410,7 +410,14 @@ test("a family member can review \"Siden sidst du var her\" and it disappears on
   await expect(page.getByText("Du er helt ajour")).toBeVisible();
 });
 
-test("mobile family planner is a readable agenda without horizontal overflow", async ({
+// Opfølgning efter Nicolajs referencevideo af en anden families-app: Familie-
+// visningen på mobil skiftede bevidst fra en stablet dagskort-agenda (uden
+// vandret scroll, se den tidligere test her, "test: prevent mobile family
+// planner overflow", 27. august) til det samme medlemskolonne × dagrække-
+// gitter som på desktop, med vandret scroll for at se flere medlemmer — det
+// er nu det TILSIGTEDE resultat, ikke en regression. Se
+// FamilyPlannerCalendar.tsx.
+test("mobile family planner shows the same member-column matrix as desktop, with horizontal scroll", async ({
   page,
 }, testInfo) => {
   test.skip(testInfo.project.name !== "mobile-chromium");
@@ -419,20 +426,81 @@ test("mobile family planner is a readable agenda without horizontal overflow", a
 
   await page.getByRole("button", { name: "Familie", exact: true }).click();
 
+  // Alle medlemskolonner (inkl. familiens fælles kolonne) er til stede i
+  // gitteret, uanset om de er synlige uden at scrolle vandret.
+  await expect(page.getByText("Familien", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("Alex", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("Chris", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("Billie", { exact: true }).first()).toBeVisible();
+
   const eventCard = page.getByRole("button", {
     name: /Fælles fødselsdag hos familien/,
   });
   await expect(eventCard).toBeVisible();
 
-  const eventFitsItsCard = await eventCard.evaluate(
-    (element) => element.scrollWidth <= element.clientWidth + 1,
-  );
-  expect(eventFitsItsCard).toBe(true);
+  // Aftalekortet trunkerer sin titel (ellipsis, samme som desktop) i stedet
+  // for at ombryde — dets synlige boks må derfor ikke være bredere end sin
+  // egen gitter-celle, selvom hele tabellen (med fire kolonner) gerne må
+  // være bredere end en telefons viewport. scrollWidth > clientWidth på
+  // selve kortet ville her være FORVENTET (det er sådan trunkeret,
+  // ellipsis-tekst altid måler) og derfor ikke det rette tjek.
+  const cellBox = await eventCard.locator("..").evaluate((element) => element.getBoundingClientRect());
+  const cardBox = await eventCard.evaluate((element) => element.getBoundingClientRect());
+  expect(cardBox.width).toBeLessThanOrEqual(cellBox.width + 1);
 
   const hasHorizontalOverflow = await page.evaluate(
     () => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
   );
-  expect(hasHorizontalOverflow).toBe(false);
+  expect(hasHorizontalOverflow).toBe(true);
+});
+
+// Ny funktion: hvert familiemedlem kan sætte sin egen favorit-kalendervisning
+// (stjerneknappen i CalendarToolbar) — gemmes pr. enhed og pr. medlem-id (se
+// calendarFavoriteViewStorage.ts), og kalenderen skal åbne direkte i den ved
+// næste besøg i stedet for standardvisningen.
+test("favorit-stjernen gemmer medlemmets valgte visning og genbruger den ved næste besøg", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  await mockAuthenticatedApi(page);
+
+  // "Min profil" skal være valgt på enheden, før stjerneknappen kan bruges —
+  // uden et currentMember-medlem er der ingen medlem-id at gemme favoritten
+  // under (samme forudsætning som appens øvrige pr.-medlem-indstillinger).
+  await page.addInitScript(() => {
+    window.localStorage.setItem("boholts-current-member-id", "member-e2e");
+  });
+
+  await page.goto("/calendar");
+
+  await page.getByRole("button", { name: "Familie", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Gør Familie til din favoritvisning" })
+    .click();
+
+  await expect(page.getByText("Familie er nu din favoritvisning.")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Fjern som favoritvisning" }),
+  ).toBeVisible();
+
+  await page.reload();
+
+  // Stjernen viser kun "Fjern som favoritvisning", når den AKTUELT viste
+  // visning matcher den gemte favorit — at den vises med det samme efter et
+  // reload (uden at brugeren selv skal vælge "Familie" igen) beviser derfor,
+  // at siden faktisk åbnede direkte i favoritvisningen, ikke standarden.
+  await expect(
+    page.getByRole("button", { name: "Fjern som favoritvisning" }),
+  ).toBeVisible();
+
+  await page
+    .getByRole("button", { name: "Fjern som favoritvisning" })
+    .click();
+
+  await expect(page.getByText("Favoritvisningen er fjernet.")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Gør Familie til din favoritvisning" }),
+  ).toBeVisible();
 });
 
 test("mobile week rows keep time, title and member in separate columns", async ({

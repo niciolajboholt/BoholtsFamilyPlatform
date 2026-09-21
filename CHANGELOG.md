@@ -1,5 +1,32 @@
 # Changelog
 
+## Kalender: medlemskolonne-matrix på Familie-visningen + favorit-visning pr. medlem
+
+Opfølgning på ønske fra Nicolaj (skitseret med en skærmoptagelse af en anden
+families-app): en visning med medlemskolonner × dagrækker og et personligt
+favoritvalg af, hvilken visning kalenderen selv åbner i.
+
+- **Ændret:** Familie-visningen (planlæggeren) bruger nu det samme
+  medlemskolonne × dagrække-gitter med klæbende header og uge-bånd på **både
+  mobil og desktop** — tidligere viste mobil en helt separat, stablet
+  dagskort-agenda uden vandret scroll. Kolonnerne er smallere på mobil, og
+  man scroller vandret for at se flere medlemmer, ligesom i referencevideoen.
+  Dette erstatter bevidst den tidligere "ingen vandret overflow"-test fra 27.
+  august — vandret scroll er nu det tilsigtede resultat på mobil, ikke en
+  fejl.
+- **Nyt:** en dag×medlem-celle med mange aftaler viser nu højst 3 direkte og
+  opsummerer resten i et lille "+N mere"-badge, så travle dage ikke gør
+  rækken unødigt høj.
+- **Nyt:** en stjerneknap ved siden af visningsvælgeren (Måned/Uge/Dag/
+  Familie) lader hvert familiemedlem gemme sin egen foretrukne
+  kalendervisning — gemmes pr. enhed og pr. medlem-id (samme mønster som
+  "Min profil"), og kalenderen åbner fremover direkte i favoritten for det
+  medlem, der er valgt som "mig" på enheden. Kræver at "Min profil" er sat
+  under Indstillinger.
+- To arkitektoniske valg (udvide Familie-visningen frem for at bygge en helt
+  ny, og gemme favoritten pr. enhed frem for på serveren) blev afklaret med
+  Nicolaj, før implementeringen.
+
 ## Mobilnavigation — 3 faste bundfaner + burgermenu
 
 Opfølgning efter Sprint 57: mobilens flydende bundmenu viste alle
