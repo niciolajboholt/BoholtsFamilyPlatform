@@ -11,6 +11,7 @@ import {
   SaveRounded,
 } from "@mui/icons-material";
 import { Alert, Box, Button, Card, CardContent, Dialog, DialogActions, DialogContent, DialogTitle, Divider, IconButton, TextField, Typography } from "@mui/material";
+import { useSearchParams } from "react-router-dom";
 
 import { useSession } from "../../auth/hooks/useSession";
 import { CurrentMemberPickerDialog } from "../../calendar/components/CurrentMemberPickerDialog";
@@ -50,6 +51,7 @@ function readPendingDeletionReturn(): "account" | "family" | null {
 }
 
 export function AccountDataSection() {
+  const [, setSearchParams] = useSearchParams();
   const { members } = useFamilyMembers();
   const { currentMember, setCurrentMemberId } = useCurrentMember();
   const [isCurrentMemberPickerOpen, setIsCurrentMemberPickerOpen] = useState(false);
@@ -133,14 +135,30 @@ export function AccountDataSection() {
     // forespørgselsstrengen (url.search = ""), hvilket også fjernede
     // "?tab=account" og sendte brugeren tilbage til standardfanen
     // ("Familie") midt i sletningsflowet.
+    //
+    // Reviewfund #2: et rent window.history.replaceState()-kald ændrer
+    // kun browserens synlige URL, ikke React Routers interne
+    // searchParams-tilstand — den forbliver usynkroniseret, indtil noget
+    // andet (fx en genindlæsning) tvinger den til at læse URL'en igen. Et
+    // efterfølgende setSearchParams()-kald et andet sted i appen (fx
+    // SettingsPage.tsx's faneskift) ville derfor kunne skrive de gamle,
+    // allerede fjernede parametre tilbage i URL'en, fordi det bygger
+    // videre på Routerens forældede tilstand i stedet for den faktiske
+    // URL. Bruger derfor useSearchParams() til selve oprydningen, så
+    // browserens URL og Routerens tilstand altid er synkroniserede.
     if (readPendingDeletionReturn()) {
-      const url = new URL(window.location.href);
-      url.searchParams.delete("accountDeletion");
-      url.searchParams.delete("familyDeletion");
-      url.searchParams.delete("reauth");
-      window.history.replaceState({}, "", url.toString());
+      setSearchParams(
+        (current) => {
+          const next = new URLSearchParams(current);
+          next.delete("accountDeletion");
+          next.delete("familyDeletion");
+          next.delete("reauth");
+          return next;
+        },
+        { replace: true },
+      );
     }
-  }, []);
+  }, [setSearchParams]);
 
   // OAuth-roundtrippet genindlæser siden, så preview-state fra første trin
   // findes ikke længere. Hent konsekvensen igen på confirm-trinnet, så

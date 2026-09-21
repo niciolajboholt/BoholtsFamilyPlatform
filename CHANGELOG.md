@@ -97,7 +97,17 @@ i Sprint 51-56.
   effekten, der fjerner de midlertidige `accountDeletion`/
   `familyDeletion`/`reauth`-parametre efter genbekræftelsen, rydder nu
   kun disse tre i stedet for hele forespørgselsstrengen, så `?tab=account`
-  bevares.
+  bevares. **Endnu et blocker-fund ved samme review:** denne oprydning
+  brugte `window.history.replaceState()`, som kun opdaterer browserens
+  synlige URL — ikke React Routers interne `searchParams`-tilstand.
+  Routerens tilstand forblev derfor usynkroniseret med den fjernede
+  `accountDeletion`/`familyDeletion`/`reauth`; et efterfølgende faneskift
+  (som selv kalder `setSearchParams()`) kunne bygge videre på den
+  forældede tilstand og utilsigtet skrive de allerede fjernede parametre
+  tilbage i URL'en, hvorved slettedialogen kunne genåbne sig selv igen —
+  uden en genindlæsning nogen steder i flowet. Oprydningen bruger nu
+  `useSearchParams()` i stedet, så browserens URL og Routerens tilstand
+  altid er synkroniserede.
 - **Testdækning (efter review):** flere af Sprint 57's accept-kriterier
   manglede automatiske tests — tilføjet: at en voksens/familiens
   pseudoprofils børneadgang og Beskeder forbliver skjult i Mit i dag

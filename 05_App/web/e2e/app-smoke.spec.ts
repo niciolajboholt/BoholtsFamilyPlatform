@@ -4132,8 +4132,29 @@ test("kontosletning genåbner bekræftelsestrinnet på den rigtige fane efter OA
   // De midlertidige returparametre er fjernet, men "tab=account" er bevaret.
   await expect(page).toHaveURL(/\/settings\?tab=account$/);
 
-  // En genindlæsning genåbner ikke dialogen utilsigtet, og fanen forbliver
-  // "Konto og data" (styret af den bevarede "?tab="-parameter).
+  // Reviewfund #2: window.history.replaceState() opdaterer kun browserens
+  // synlige URL, ikke React Routers interne searchParams-tilstand — et
+  // SENERE setSearchParams()-kald et andet sted (fx et faneskift) kunne
+  // derfor bygge videre på Routerens forældede tilstand og utilsigtet
+  // skrive de allerede fjernede parametre tilbage i URL'en. Dækkes her
+  // UDEN en genindlæsning (som ellers ville skjule en usynkroniseret
+  // Router-tilstand): luk dialogen, skift væk fra og tilbage til fanen.
+  await dialog.getByRole("button", { name: "Annullér" }).click();
+  await expect(dialog).not.toBeVisible();
+
+  await page.getByRole("tab", { name: "Familie" }).click();
+  await expect(page.locator("#settings-tab-0")).toHaveAttribute("aria-selected", "true");
+
+  await page.getByRole("tab", { name: "Konto og data" }).click();
+  await expect(page.locator("#settings-tab-3")).toHaveAttribute("aria-selected", "true");
+
+  // Slettedialogen må ikke genåbne, og de fjernede parametre må ikke være
+  // kommet tilbage i URL'en.
+  await expect(dialog).not.toBeVisible();
+  await expect(page).toHaveURL(/\/settings\?tab=account$/);
+
+  // En genindlæsning genåbner heller ikke dialogen utilsigtet, og fanen
+  // forbliver "Konto og data" (styret af den bevarede "?tab="-parameter).
   await page.reload();
   await expect(dialog).not.toBeVisible();
   await expect(page.getByRole("tab", { name: "Konto og data", selected: true })).toBeVisible();
@@ -4178,6 +4199,21 @@ test("familiesletning genåbner bekræftelsestrinnet på den rigtige fane efter 
   await expect(dialog.getByText(new RegExp(`Skriv familiens navn præcist.*${family.name}`))).toBeVisible();
   await expect(dialog.getByRole("button", { name: "Bekræft med Google" })).not.toBeVisible();
 
+  await expect(page).toHaveURL(/\/settings\?tab=account$/);
+
+  // Se kommentaren i testen ovenfor: dækker uden en genindlæsning, at
+  // luk-dialog + faneskift væk og tilbage ikke utilsigtet genåbner
+  // dialogen eller skriver de fjernede parametre tilbage i URL'en.
+  await dialog.getByRole("button", { name: "Annullér" }).click();
+  await expect(dialog).not.toBeVisible();
+
+  await page.getByRole("tab", { name: "Familie" }).click();
+  await expect(page.locator("#settings-tab-0")).toHaveAttribute("aria-selected", "true");
+
+  await page.getByRole("tab", { name: "Konto og data" }).click();
+  await expect(page.locator("#settings-tab-3")).toHaveAttribute("aria-selected", "true");
+
+  await expect(dialog).not.toBeVisible();
   await expect(page).toHaveURL(/\/settings\?tab=account$/);
 
   await page.reload();

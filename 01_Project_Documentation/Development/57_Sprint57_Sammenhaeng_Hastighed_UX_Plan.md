@@ -484,6 +484,25 @@ hvert render (ingen separat lokal state); oprydningen sletter nu kun
 regressionstestdækning for begge sletningsflow (se
 `e2e/app-smoke.spec.ts`).
 
+**[RETTET efter samme review-runde — endnu et fund i selve rettelsen
+ovenfor.]** Oprydningen brugte `window.history.replaceState()` til at
+fjerne de tre midlertidige parametre. Det ændrer kun browserens synlige
+URL, ikke React Routers interne `searchParams`-tilstand, som forbliver
+usynkroniseret, indtil noget tvinger den til at læse URL'en igen (fx en
+genindlæsning). Et efterfølgende faneskift (`SettingsPage.tsx`s
+`handleChangeTab`, som selv kalder `setSearchParams()`) bygger videre på
+Routerens (forældede) tilstand, ikke den faktiske URL — de allerede
+fjernede parametre kunne derfor blive skrevet tilbage i URL'en, og
+slettedialogen kunne genåbne sig selv igen, uden at nogen genindlæsning
+nogensinde fandt sted. Den daværende Playwright-test opdagede ikke dette,
+fordi den genindlæste siden umiddelbart efter oprydningen — genindlæsningen
+skjulte netop den usynkroniserede Router-tilstand. Rettet ved at bruge
+`useSearchParams()` til selve oprydningen i stedet for
+`window.history.replaceState()`, så browserens URL og Routerens tilstand
+altid er synkroniserede. Testene udvidet til (uden en genindlæsning)
+at lukke dialogen, skifte til en anden fane og tilbage igen, og bekræfte
+hverken dialogen genåbner eller de fjernede parametre vender tilbage.
+
 ### J. Dokumentation
 
 - Lokal `main`-baseret checkout var ~19 sprints bagud (CHANGELOG stopper
