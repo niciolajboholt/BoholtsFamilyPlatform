@@ -454,6 +454,272 @@ test("mobile family planner shows the same member-column matrix as desktop, with
   expect(hasHorizontalOverflow).toBe(true);
 });
 
+// Opfølgning: "+N mere"-markeringen i en dato×medlem-celle var tidligere ren
+// tekst uden onClick, tastaturbetjening eller trykfladestørrelse — aftaler
+// ud over de tre direkte synlige var reelt utilgængelige. Den er nu en rigtig
+// knap, der åbner en dialog med ALLE cellens aftaler (ikke kun de skjulte).
+test("'+N mere'-knappen i Familie-visningen åbner alle aftaler for cellen, kan bruges med tastatur, og fokus vender tilbage ved lukning", async ({
+  page,
+}) => {
+  await mockAuthenticatedApi(page);
+
+  await page.route("**/api/calendar/calendars/family-calendar/events*", async (route) => {
+    if (route.request().method() !== "GET") {
+      await route.fallback();
+      return;
+    }
+
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        items: [
+          {
+            id: "family-1",
+            summary: "Fælles morgenmad",
+            status: "confirmed",
+            start: { dateTime: "2026-09-21T08:00:00+02:00" },
+            end: { dateTime: "2026-09-21T08:30:00+02:00" },
+          },
+          {
+            id: "family-2",
+            summary: "Fælles frokost",
+            status: "confirmed",
+            start: { dateTime: "2026-09-21T12:00:00+02:00" },
+            end: { dateTime: "2026-09-21T12:30:00+02:00" },
+          },
+          {
+            id: "family-3",
+            summary: "Fælles gåtur",
+            status: "confirmed",
+            start: { dateTime: "2026-09-21T15:00:00+02:00" },
+            end: { dateTime: "2026-09-21T15:30:00+02:00" },
+          },
+          {
+            id: "family-4",
+            summary: "Fælles aftensmad",
+            status: "confirmed",
+            start: { dateTime: "2026-09-21T18:00:00+02:00" },
+            end: { dateTime: "2026-09-21T18:30:00+02:00" },
+          },
+        ],
+        nextSyncToken: "family-calendar-sync-token",
+      }),
+    });
+  });
+
+  await page.clock.setFixedTime(new Date("2026-09-21T09:00:00+02:00"));
+  await page.goto("/calendar");
+  await page.getByRole("button", { name: "Familie", exact: true }).click();
+
+  // Kun de tre første vises direkte i cellen — resten er skjult bag knappen.
+  await expect(
+    page.getByRole("button", { name: /Rediger aftale: Fælles morgenmad/ }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /Rediger aftale: Fælles frokost/ }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /Rediger aftale: Fælles gåtur/ }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /Rediger aftale: Fælles aftensmad/ }),
+  ).not.toBeVisible();
+
+  const overflowButton = page.getByRole("button", {
+    name: "Vis 1 skjult aftale for Familien den 21. september",
+  });
+  await expect(overflowButton).toBeVisible();
+
+  const overflowButtonBox = await overflowButton.boundingBox();
+  expect(overflowButtonBox?.width ?? 0).toBeGreaterThanOrEqual(44);
+  expect(overflowButtonBox?.height ?? 0).toBeGreaterThanOrEqual(44);
+
+  // Tastaturaktivering (Enter) — knappen er en almindelig <button>, så dette
+  // er reelt et tjek af, at intet forhindrer den native semantik.
+  await overflowButton.focus();
+  await page.keyboard.press("Enter");
+
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByText("Familien", { exact: true })).toBeVisible();
+
+  // Dialogen viser ALLE aftaler for cellen, ikke kun de skjulte.
+  await expect(
+    dialog.getByRole("button", { name: /Rediger aftale: Fælles morgenmad/ }),
+  ).toBeVisible();
+  await expect(
+    dialog.getByRole("button", { name: /Rediger aftale: Fælles frokost/ }),
+  ).toBeVisible();
+  await expect(
+    dialog.getByRole("button", { name: /Rediger aftale: Fælles gåtur/ }),
+  ).toBeVisible();
+  await expect(
+    dialog.getByRole("button", { name: /Rediger aftale: Fælles aftensmad/ }),
+  ).toBeVisible();
+
+  // Luk med Escape — fokus skal vende tilbage til knappen, der åbnede den.
+  await page.keyboard.press("Escape");
+  await expect(dialog).not.toBeVisible();
+  await expect(overflowButton).toBeFocused();
+
+  // MUI's lukke-transition kan stadig være i gang et øjeblik efter, "not
+  // visible" bliver sandt — en kort pause her undgår at genåbne midt i den.
+  await page.waitForTimeout(300);
+
+  // Åbn igen, luk denne gang med selve luk-knappen.
+  await overflowButton.click();
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole("button", { name: "Luk" }).click();
+  await expect(dialog).not.toBeVisible();
+  await expect(overflowButton).toBeFocused();
+  await page.waitForTimeout(300);
+
+  // Åbn igen, og bekræft en aftale kan åbnes i den eksisterende aftaledialog.
+  await overflowButton.click();
+  await dialog
+    .getByRole("button", { name: /Rediger aftale: Fælles aftensmad/ })
+    .click();
+  await expect(page.getByLabel("Titel")).toHaveValue("Fælles aftensmad");
+});
+
+// Opfølgning: datokolonnen forsvandt tidligere ved vandret rulning på mobil,
+// så brugeren mistede dato, ugedag og "i dag"-markering. Datocellerne (og
+// hjørnet) er nu sticky. Testes eksplicit på 320/390/430px, samme mønster
+// (desktop-chromium + setViewportSize) som "primary pages fit the complete
+// supported mobile width matrix" allerede bruger, da mobile-chromimums faste
+// enhedsprofil ikke er beregnet til at skifte bredde undervejs.
+test("Familie-visningens datokolonne, medlemsheader og gitterlinjer forbliver korrekte ved rulning på 320/390/430px", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  await mockAuthenticatedApi(page);
+
+  const longTitle =
+    "Fælles rigtig lang aftaletitel der burde blive afkortet pænt i stedet for at flyde ud over cellen";
+
+  await page.route("**/api/calendar/calendars/family-calendar/events*", async (route) => {
+    if (route.request().method() !== "GET") {
+      await route.fallback();
+      return;
+    }
+
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        items: [
+          {
+            id: "family-long",
+            summary: longTitle,
+            status: "confirmed",
+            start: { dateTime: "2026-09-21T08:00:00+02:00" },
+            end: { dateTime: "2026-09-21T08:30:00+02:00" },
+          },
+        ],
+        nextSyncToken: "family-calendar-sync-token",
+      }),
+    });
+  });
+
+  await page.clock.setFixedTime(new Date("2026-09-21T09:00:00+02:00"));
+
+  for (const width of [320, 390, 430]) {
+    await page.setViewportSize({ width, height: 800 });
+    await page.goto("/calendar");
+    await page.getByRole("button", { name: "Familie", exact: true }).click();
+
+    // Vandret rulning er reelt påkrævet ved disse bredder (fire kolonner).
+    // Længere timeout end standarden — testen sætter viewport/navigerer 3
+    // gange i træk, og under en fuld, parallel testkørsel kan layoutet
+    // efter et nyt goto tage et øjeblik længere end de 5 sek. som
+    // expect.poll ellers bruger som standard.
+    await expect
+      .poll(
+        () =>
+          page.evaluate(
+            () => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
+          ),
+        { timeout: 15_000 },
+      )
+      .toBe(true);
+
+    // Kun synlig på mobil, og kun når det reelt kræver vandret rulning
+    // (begge dele er opfyldt her).
+    await expect(
+      page.getByText("Stryg vandret for at se flere familiemedlemmer"),
+    ).toBeVisible();
+
+    const dateCell = page.locator('[data-testid="planner-date-cell"][data-today="true"]');
+
+    // Ugedag er bevaret, og "i dag" (21.) er fortsat tydeligt fremhævet
+    // (fed skrift) i datocellen. Intl-formatteringen ("man.") er reelt
+    // små bogstaver i selve DOM-teksten — kun visuelt versaliseret via CSS
+    // (textTransform), som getByText ikke ser.
+    await expect(dateCell.getByText("man.", { exact: true })).toBeVisible();
+    await expect(dateCell.getByText("21", { exact: true })).toHaveCSS("font-weight", "700");
+
+    // Før rulning kan datocellens naturlige (ikke-klæbede) position sagtens
+    // ligge et lille stykke fra kanten (grid-ramme/gitterlinje) — det
+    // relevante "sticky"-tjek er derfor IKKE "uændret position fra 0
+    // rulning", men at positionen forbliver KONSTANT, når man ruller videre
+    // EFTER den først er klæbet fast (dvs. sammenligning af to forskellige
+    // rullede tilstande, ikke urullet vs. rullet).
+    await page.mouse.wheel(300, 0);
+    await expect
+      .poll(() => page.evaluate(() => window.scrollX))
+      .toBeGreaterThan(0);
+    await page.waitForTimeout(100);
+    const boxAfterFirstScroll = await dateCell.boundingBox();
+    expect(boxAfterFirstScroll).not.toBeNull();
+
+    // Endnu et rul-forsøg — ved smalle bredder kan det første hjul-tryk
+    // allerede have nået den maksimale rullelængde, så scrollX stiger ikke
+    // nødvendigvis yderligere. Det relevante er, at positionen forbliver
+    // konstant her, uanset om selve scrollX ændrer sig mere.
+    await page.mouse.wheel(100, 0);
+    await page.waitForTimeout(200);
+    const boxAfterSecondScroll = await dateCell.boundingBox();
+    expect(boxAfterSecondScroll).not.toBeNull();
+
+    expect(
+      Math.abs((boxAfterSecondScroll?.x ?? 0) - (boxAfterFirstScroll?.x ?? 0)),
+    ).toBeLessThanOrEqual(1);
+    await expect(dateCell).toBeVisible();
+    await expect(dateCell.getByText("21", { exact: true })).toBeVisible();
+    await expect(dateCell.getByText("man.", { exact: true })).toBeVisible();
+
+    // Lange aftaletitler forbliver inden for deres egen celle, ikke ud over
+    // nabokolonnen — samme tjek-metode som i matrix-layout-testen ovenfor.
+    const longEventCard = page.getByRole("button", { name: new RegExp(`Rediger aftale: ${longTitle}`) });
+    await expect(longEventCard).toBeVisible();
+    const eventCellBox = await longEventCard.locator("..").evaluate((element) => element.getBoundingClientRect());
+    const eventCardBox = await longEventCard.evaluate((element) => element.getBoundingClientRect());
+    expect(eventCardBox.width).toBeLessThanOrEqual(eventCellBox.width + 1);
+
+    // Medlemsheaderen forbliver korrekt placeret (klæbet mod toppen) ved
+    // lodret rulning.
+    const memberHeader = page.getByTestId("planner-member-header").filter({ hasText: "Alex" }).first();
+    const headerBoxBeforeVerticalScroll = await memberHeader.boundingBox();
+    await page.mouse.wheel(0, 400);
+    await page.waitForTimeout(200);
+    const headerBoxAfterVerticalScroll = await memberHeader.boundingBox();
+    expect(headerBoxAfterVerticalScroll).not.toBeNull();
+    expect(
+      Math.abs((headerBoxAfterVerticalScroll?.y ?? 0) - (headerBoxBeforeVerticalScroll?.y ?? 0)),
+    ).toBeLessThanOrEqual(1);
+  }
+
+  // Scroll-indikationen vises IKKE på en almindelig desktop-bredde, hvor
+  // gitteret ikke kræver vandret rulning.
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/calendar");
+  await page.getByRole("button", { name: "Familie", exact: true }).click();
+  await expect(
+    page.getByText("Stryg vandret for at se flere familiemedlemmer"),
+  ).not.toBeVisible();
+});
+
 // Ny funktion: hvert familiemedlem kan sætte sin egen favorit-kalendervisning
 // (stjerneknappen i CalendarToolbar) — gemmes pr. enhed og pr. medlem-id (se
 // calendarFavoriteViewStorage.ts), og kalenderen skal åbne direkte i den ved
