@@ -462,6 +462,28 @@ ved faneskift), som er stabil under genindlæsning og deling. Forsidens
 "Se familien"-knap (tidligere blot `navigate("/settings")`) peger nu
 eksplicit på `/settings?tab=family`.
 
+**[RETTET efter en anden review-runde — endnu en blocker fundet i samme
+område.]** Den første `?tab=`-rettelse ovenfor overså et konkret, allerede
+eksisterende kaldested: kontosletning og familiesletning
+(`AccountDataSection.tsx`, Sprint 50) kræver en frisk OAuth-
+genbekræftelse, hvis returadresse (`beginReauth()`) pegede på
+`/settings?accountDeletion=confirm`/`/settings?familyDeletion=confirm` —
+uden `?tab=account`. Efter genbekræftelsen landede brugeren derfor på
+standardfanen, og `AccountDataSection` (som læser returparametrene og
+genåbner bekræftelsestrinnet) blev slet ikke monteret — et brud midt i
+sletningsflowet. To yderligere, relaterede huller: `SettingsPage` læste
+kun `?tab=` ved mount (en lazy `useState`), så en `?tab=`-ændring mens
+siden allerede var monteret (fx ægte browser-frem/tilbage) ikke blev
+fulgt; og oprydningseffekten, der fjerner OAuth-returparametrene efter
+brug, ryddede hele forespørgselsstrengen (`url.search = ""`) i stedet for
+kun de midlertidige parametre, hvilket også fjernede `?tab=account`.
+Rettet alle tre: de fire `beginReauth()`-kald tilføjer nu `?tab=account`;
+`SettingsPage`s aktive fane udledes nu direkte af `searchParams` ved
+hvert render (ingen separat lokal state); oprydningen sletter nu kun
+`accountDeletion`/`familyDeletion`/`reauth` og bevarer `tab`. Ny
+regressionstestdækning for begge sletningsflow (se
+`e2e/app-smoke.spec.ts`).
+
 ### J. Dokumentation
 
 - Lokal `main`-baseret checkout var ~19 sprints bagud (CHANGELOG stopper

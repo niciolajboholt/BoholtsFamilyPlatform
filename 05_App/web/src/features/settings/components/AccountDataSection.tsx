@@ -125,12 +125,19 @@ export function AccountDataSection() {
   const [familyDeletionConfirmation, setFamilyDeletionConfirmation] = useState("");
 
   useEffect(() => {
-    // Fjerner forespørgselsparametrene med det samme, så et genindlæst
-    // faneblad ikke ved et uheld genåbner bekræftelses-trinnet igen —
-    // selve state'et er allerede sat af useState-initializerne ovenfor.
+    // Fjerner kun de midlertidige OAuth-returparametre med det samme, så
+    // et genindlæst faneblad ikke ved et uheld genåbner bekræftelses-
+    // trinnet igen — selve state'et er allerede sat af useState-
+    // initializerne ovenfor. "tab" (og enhver anden fremtidig parameter)
+    // bevares bevidst — reviewfund: en tidligere udgave ryddede HELE
+    // forespørgselsstrengen (url.search = ""), hvilket også fjernede
+    // "?tab=account" og sendte brugeren tilbage til standardfanen
+    // ("Familie") midt i sletningsflowet.
     if (readPendingDeletionReturn()) {
       const url = new URL(window.location.href);
-      url.search = "";
+      url.searchParams.delete("accountDeletion");
+      url.searchParams.delete("familyDeletion");
+      url.searchParams.delete("reauth");
       window.history.replaceState({}, "", url.toString());
     }
   }, []);
@@ -577,13 +584,13 @@ export function AccountDataSection() {
               <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap" }}>
                 <Button
                   variant="outlined"
-                  onClick={() => beginReauth("google", "/settings?accountDeletion=confirm")}
+                  onClick={() => beginReauth("google", "/settings?tab=account&accountDeletion=confirm")}
                 >
                   Bekræft med Google
                 </Button>
                 <Button
                   variant="outlined"
-                  onClick={() => beginReauth("microsoft", "/settings?accountDeletion=confirm")}
+                  onClick={() => beginReauth("microsoft", "/settings?tab=account&accountDeletion=confirm")}
                 >
                   Bekræft med Microsoft
                 </Button>
@@ -689,13 +696,13 @@ export function AccountDataSection() {
               <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap" }}>
                 <Button
                   variant="outlined"
-                  onClick={() => beginReauth("google", "/settings?familyDeletion=confirm")}
+                  onClick={() => beginReauth("google", "/settings?tab=account&familyDeletion=confirm")}
                 >
                   Bekræft med Google
                 </Button>
                 <Button
                   variant="outlined"
-                  onClick={() => beginReauth("microsoft", "/settings?familyDeletion=confirm")}
+                  onClick={() => beginReauth("microsoft", "/settings?tab=account&familyDeletion=confirm")}
                 >
                   Bekræft med Microsoft
                 </Button>

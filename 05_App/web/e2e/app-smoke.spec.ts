@@ -4038,6 +4038,153 @@ test("indstillingsfaner kan åbnes direkte via URL og er tastaturbetjente", asyn
   await expect(page.locator("#settings-tabpanel-0")).toBeVisible();
 });
 
+// Reviewfund: en ukendt "?tab="-værdi skal falde sikkert tilbage til
+// Familie (ikke fejle), og den viste fane skal følge "?tab=" via ægte
+// browser-navigation (frem/tilbage), selv når URL'en ændres MENS
+// SettingsPage allerede er monteret — ikke kun ved mount/genindlæsning.
+// AccountDataSection.tsx's OAuth-genbekræftelses-retur (se testene
+// nedenfor) er én konkret kilde til præcis den slags navigation.
+//
+// Bemærk: et rent history.pushState()-kald udefra (uden en efterfølgende
+// reel browser-navigation) udløser IKKE en reaktion i React Router — kun
+// dets egen navigate()/setSearchParams() og ægte browser-frem/tilbage
+// (popstate) gør. Testen bruger derfor to reelle historik-poster og
+// browserens egen frem/tilbage, som er det, brugeren faktisk oplever.
+test("en ukendt indstillingsfane falder sikkert tilbage, og aktiv fane følger ægte browser-navigation mens siden er monteret", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  await mockAuthenticatedApi(page);
+
+  await page.goto("/settings?tab=does-not-exist");
+  await expect(page.locator("main")).toBeVisible();
+  await expect(page.locator("#settings-tab-0")).toHaveAttribute("aria-selected", "true");
+
+  // En anden historik-post med en gyldig fane, oprettet uden en fuld
+  // sideindlæsning (samme lav-niveau-mekanisme browserens adresselinje
+  // selv bruger).
+  await page.evaluate(() => window.history.pushState({}, "", "/settings?tab=calendar-connections"));
+
+  // Ægte browser-tilbage (afsender en rigtig popstate) skal vise fanen,
+  // den forrige post pegede på — også selvom den post aldrig blev "set"
+  // reaktivt af appen, mens den blev oprettet.
+  await page.goBack();
+  await expect(page.locator("#settings-tab-0")).toHaveAttribute("aria-selected", "true");
+
+  // ...og frem igen til den gyldige fane.
+  await page.goForward();
+  await expect(page.locator("#settings-tab-1")).toHaveAttribute("aria-selected", "true");
+});
+
+// Reviewfund (blocker): AccountDataSection.tsx's kontosletnings-dialog
+// genåbner sig selv på bekræftelses-trinnet efter en OAuth-
+// genbekræftelses-roundtrip (se auth.ts's /reauth/google og /reauth/
+// microsoft) — men returadressen peger på "/settings?accountDeletion=
+// confirm" UDEN "?tab=account". Siden fanedelingen (Sprint 57, afsnit I)
+// betyder det, at AccountDataSection slet ikke monteres, og dialogen kan
+// derfor ikke genåbnes. Denne test dækker hele roundtrippet: URL'en
+// beginReauth() rent faktisk sender brugeren til, ikke kun UI'et isoleret.
+test("kontosletning genåbner bekræftelsestrinnet på den rigtige fane efter OAuth-genbekræftelse", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  await mockAuthenticatedApi(page);
+
+  let accountPreviewCallCount = 0;
+  await page.route("**/api/account/deletion/preview", async (route) => {
+    accountPreviewCallCount += 1;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        memberships: [{ familyId: family.id, familyName: family.name, role: "owner", memberCount: 3 }],
+      }),
+    });
+  });
+
+  // Den faktiske returadresse, /auth/reauth/*/callback ville sende
+  // brugeren til (se auth.ts's appendReauthSuccess) — inkl. "&reauth=
+  // success", som readPendingDeletionReturn() kræver.
+  await page.goto("/settings?tab=account&accountDeletion=confirm&reauth=success");
+
+  // #settings-tab-3 ("Konto og data") i stedet for getByRole(..., {
+  // selected: true }): MUI Dialog sætter aria-hidden på resten af siden,
+  // mens den er åben (korrekt for skærmlæsere) — en rolle-baseret
+  // forespørgsel ville derfor slet ikke finde fanen, selvom den fint er
+  // synlig og korrekt markeret i selve DOM'en.
+  await expect(page.locator("#settings-tab-3")).toHaveAttribute("aria-selected", "true");
+
+  const dialog = page.getByRole("dialog", { name: "Slet min konto" });
+  await expect(dialog).toBeVisible();
+
+  // Bekræftelses-trinnet, ikke gennemgangs- eller genbekræftelses-trinnet.
+  await expect(dialog.getByLabel("Bekræftelsestekst")).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "Bekræft med Google" })).not.toBeVisible();
+
+  // Preview-data er genhentet efter OAuth-returen (siden mistede al
+  // tidligere state ved genindlæsningen) — bekræftes ved, at advarslen om
+  // stadig at eje en aktiv familie rent faktisk vises.
+  await expect(
+    dialog.getByText("Du ejer stadig en aktiv familie. Overdrag ejerskabet, eller slet familien først."),
+  ).toBeVisible();
+  await expect.poll(() => accountPreviewCallCount).toBeGreaterThan(0);
+
+  // De midlertidige returparametre er fjernet, men "tab=account" er bevaret.
+  await expect(page).toHaveURL(/\/settings\?tab=account$/);
+
+  // En genindlæsning genåbner ikke dialogen utilsigtet, og fanen forbliver
+  // "Konto og data" (styret af den bevarede "?tab="-parameter).
+  await page.reload();
+  await expect(dialog).not.toBeVisible();
+  await expect(page.getByRole("tab", { name: "Konto og data", selected: true })).toBeVisible();
+});
+
+// Samme reviewfund som ovenfor, for familiesletnings-flowet.
+test("familiesletning genåbner bekræftelsestrinnet på den rigtige fane efter OAuth-genbekræftelse", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  await mockAuthenticatedApi(page);
+
+  await page.route(`**/api/families/${family.id}/deletion/preview`, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        familyName: family.name,
+        memberCount: 3,
+        taskCount: 5,
+        shoppingListCount: 2,
+        sharedExpenseCount: 1,
+        mealPlanEntryCount: 4,
+      }),
+    });
+  });
+
+  await page.goto("/settings?tab=account&familyDeletion=confirm&reauth=success");
+
+  // Se kommentaren i testen ovenfor: en rolle-baseret forespørgsel ville
+  // ikke finde fanen, mens MUI Dialog holder resten af siden aria-hidden.
+  await expect(page.locator("#settings-tab-3")).toHaveAttribute("aria-selected", "true");
+
+  const dialog = page.getByRole("dialog", { name: "Slet hele familien" });
+  await expect(dialog).toBeVisible();
+
+  // Bekræftelses-trinnet, ikke gennemgangs- eller genbekræftelses-trinnet.
+  // Optællingen ("X medlemmer, ...") vises kun på gennemgangs-trinnet —
+  // her bekræftes preview-genhentningen i stedet ved, at det genhentede
+  // familienavn indgår i selve bekræftelsesteksten.
+  await expect(dialog.getByLabel("Familiens navn")).toBeVisible();
+  await expect(dialog.getByText(new RegExp(`Skriv familiens navn præcist.*${family.name}`))).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "Bekræft med Google" })).not.toBeVisible();
+
+  await expect(page).toHaveURL(/\/settings\?tab=account$/);
+
+  await page.reload();
+  await expect(dialog).not.toBeVisible();
+  await expect(page.getByRole("tab", { name: "Konto og data", selected: true })).toBeVisible();
+});
+
 // Fundet ved fejlsøgning af en rigtig bruger-rapport om, at kalenderen blev
 // stående på "Indlæser kalender…" i lang tid på et svagt mobilsignal — den
 // kom til sidst igennem, men uden nogen forklaring eller mulighed for selv

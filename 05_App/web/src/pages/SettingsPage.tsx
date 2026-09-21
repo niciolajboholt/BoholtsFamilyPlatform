@@ -1,5 +1,3 @@
-import { useState } from "react";
-
 import { Box, Tab, Tabs, Typography } from "@mui/material";
 import { useSearchParams } from "react-router-dom";
 
@@ -28,6 +26,14 @@ import { SharedExpensesSection } from "../features/settings/components/SharedExp
 // men som en URL-parameter i stedet for router-state, så et link/bogmærke
 // til en bestemt fane fortsat virker efter en genindlæsning eller når det
 // deles/åbnes i en ny fane).
+//
+// Reviewfund #2: den første udgave læste kun "?tab=" ved mount (lazy
+// useState) — en OAuth-genbekræftelses-roundtrip (se AccountDataSection.tsx)
+// eller enhver anden navigation til en anden "?tab="-værdi, mens siden
+// allerede var monteret, blev derfor ikke fulgt. activeTab udledes nu
+// direkte af searchParams ved hvert render i stedet for kun ved mount, så
+// URL'en er den ene, autoritative kilde — også for browser-navigation
+// (frem/tilbage) og genindlæsning.
 const settingsTabs = [
   {
     id: "family",
@@ -54,17 +60,14 @@ function findTabIndex(tabId: string | null): number {
 
 function SettingsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  // Læses kun som starttilstand (lazy useState) — selve fanevisningen
-  // styres derefter af activeTab, ikke direkte af URL'en ved hvert render,
-  // så et tilbage-tryk i browseren ikke uventet hopper fanen tilbage,
-  // mens brugeren stadig er på siden.
-  const [activeTab, setActiveTab] = useState(() => findTabIndex(searchParams.get("tab")));
+  const activeTab = findTabIndex(searchParams.get("tab"));
 
   function handleChangeTab(index: number) {
-    setActiveTab(index);
     // replace: true — fane-skift er ikke egne navigationsskridt, en
     // bruger skal ikke skulle trykke "tilbage" flere gange for at forlade
-    // Indstillinger, blot fordi de kiggede på et par faner undervejs.
+    // Indstillinger, blot fordi de kiggede på et par faner undervejs. Ingen
+    // separat lokal state at holde i sync: activeTab udledes af searchParams
+    // ovenfor, så denne opdatering alene styrer den viste fane.
     setSearchParams((current) => {
       const next = new URLSearchParams(current);
       next.set("tab", settingsTabs[index].id);

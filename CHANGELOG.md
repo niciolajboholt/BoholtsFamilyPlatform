@@ -83,6 +83,21 @@ i Sprint 51-56.
   overlever en genindlæsning og virker som et delt link; forsidens "Se
   familien"-knap peger nu eksplicit på `?tab=family`. Fanerne er
   tastaturbetjente via MUI Tabs' indbyggede piletast-navigation.
+  **Blocker fundet ved en anden review-runde:** kontosletning og
+  familiesletning kræver en frisk OAuth-genbekræftelse (Google/Microsoft),
+  som returnerer til `/settings?accountDeletion=confirm`/
+  `/settings?familyDeletion=confirm` — uden `?tab=account` landede
+  brugeren nu på standardfanen ("Familie") efter genbekræftelsen, og
+  `AccountDataSection` (som læser returparametrene og genåbner
+  bekræftelsestrinnet) blev slet ikke monteret. Alle fire
+  `beginReauth()`-kald peger nu eksplicit på `?tab=account` ved siden af
+  de eksisterende returparametre. `SettingsPage` udleder desuden nu den
+  viste fane direkte af URL'en ved hvert render (ikke kun ved mount), så
+  ægte browser-frem/tilbage-navigation også følges korrekt. Oprydnings-
+  effekten, der fjerner de midlertidige `accountDeletion`/
+  `familyDeletion`/`reauth`-parametre efter genbekræftelsen, rydder nu
+  kun disse tre i stedet for hele forespørgselsstrengen, så `?tab=account`
+  bevares.
 - **Testdækning (efter review):** flere af Sprint 57's accept-kriterier
   manglede automatiske tests — tilføjet: at en voksens/familiens
   pseudoprofils børneadgang og Beskeder forbliver skjult i Mit i dag
@@ -95,7 +110,15 @@ i Sprint 51-56.
   indstillingsfanernes URL-navigation og tastaturbetjening, samt
   grundlæggende tastaturbetjening af "Vis kalendere"-filterets
   gruppe-accordion og afkrydsningsfelter. Den mobile bredde-matrix
-  dækker nu også 360px.
+  dækker nu også 360px. **Tilføjet efter blocker-fundet ovenfor:**
+  regressionstests for kontosletnings- og familiesletningsflowets
+  genåbning på bekræftelsestrinnet efter en OAuth-genbekræftelse (rigtig
+  returadresse, korrekt fane, genhentet preview-data, midlertidige
+  parametre fjernet men `?tab=account` bevaret, ingen utilsigtet
+  genåbning ved en efterfølgende genindlæsning), samt en test af, at en
+  ukendt fane falder sikkert tilbage og at aktiv fane følger ægte
+  browser-frem/tilbage-navigation mens Indstillinger allerede er
+  monteret.
 - **Undersøgt, bevidst ikke ændret:** en "mere meningsfuld" versionsvisning
   end det nuværende, korte Cloudflare-deployment-id. En statisk
   sprint-mærkat ville gå i stå ved næste sprint uden en huskeregel, og en
