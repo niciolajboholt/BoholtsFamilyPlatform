@@ -6,7 +6,8 @@ import {
   getCurrentMemberId,
   setCurrentMemberId as saveCurrentMemberId,
 } from "../preferences/currentMemberStorage";
-import { getMyFamily, linkFamilyMemberToMe } from "../../family/familyApi";
+import { linkFamilyMemberToMe } from "../../family/familyApi";
+import { getCachedFamily } from "../../family/familySessionCache";
 import { useFamilyMembers } from "./useFamilyMembers";
 
 interface UseCurrentMemberResult {
@@ -32,7 +33,7 @@ export function useCurrentMember(): UseCurrentMemberResult {
   useEffect(() => {
     let isCancelled = false;
 
-    getMyFamily().then((result) => {
+    getCachedFamily().then((result) => {
       if (!isCancelled && result.ok && result.data.family) {
         setFamilyId(result.data.family.id);
       }

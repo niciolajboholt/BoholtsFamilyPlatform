@@ -23,8 +23,10 @@ import { useRecurrenceExceptions } from "../features/calendar/hooks/useRecurrenc
 import { expandRecurringEvents } from "../features/calendar/utils/expandRecurringEvents";
 import { getEventsForDate } from "../features/calendar/utils/getEventsForDate";
 import type { CalendarEvent } from "../features/calendar/models/calendarEvent";
+import { isChildRelation } from "../features/calendar/data/familyMemberRelations";
 import { ChildAccessAdminPanel } from "../features/family/components/ChildAccessAdminPanel";
-import { getChildMessagesForMember, getMyFamily, type ChildMessageDto, type FamilyRole } from "../features/family/familyApi";
+import { getChildMessagesForMember, type ChildMessageDto, type FamilyRole } from "../features/family/familyApi";
+import { getCachedFamily } from "../features/family/familySessionCache";
 import { useEnabledFeatures } from "../features/family/hooks/useEnabledFeatures";
 import {
   buildMitIDagPlan,
@@ -118,11 +120,23 @@ interface MitIDagContentProps {
 }
 
 function MitIDagContent({ now }: MitIDagContentProps) {
+  // Sprint 57: Mit i dag viser kun én dag — henter derfor kun i dag ±1
+  // dags buffer (i stedet for det brede "et år tilbage til to år frem"-
+  // standardinterval), med en dags margen på hver side for korrekt at
+  // fange en flerdagesaftale, der allerede er i gang. Memoized på
+  // dato-nøglen (ikke `now` selv, som opdateres hvert 30. sekund), så
+  // genhentning kun sker, når dagen reelt skifter.
+  const todaysRange = useMemo(() => {
+    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 0, 0, 0, 0);
+    const end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 2, 0, 0, 0, 0);
+    return { start: start.toISOString(), end: end.toISOString() };
+  }, [now]);
+
   const {
     events,
     isLoading: areCalendarEventsLoading,
     error: calendarError,
-  } = useCalendarEvents();
+  } = useCalendarEvents(undefined, todaysRange);
   const { visibleCalendarSourceIds } = useCalendarSources();
   const recurrenceExceptions = useRecurrenceExceptions();
   const {
@@ -154,7 +168,7 @@ function MitIDagContent({ now }: MitIDagContentProps) {
   useEffect(() => {
     let isCancelled = false;
 
-    getMyFamily().then((result) => {
+    getCachedFamily().then((result) => {
       if (!isCancelled && result.ok && result.data.family) {
         setFamilyId(result.data.family.id);
         setOwnRole(result.data.role ?? null);
@@ -221,8 +235,17 @@ function MitIDagContent({ now }: MitIDagContentProps) {
     [tasks, selectedMemberId],
   );
 
+  const selectedMember = realMembers.find((member) => member.id === selectedMemberId) ?? null;
+
+  // Beskeder er en børneadgangs-funktion (voksen → barn) — henter kun
+  // for medlemmer, hvis relation faktisk er "Barn" (se
+  // isChildRelation), samme markør som serveren håndhæver i
+  // childMessages.ts. Undgår også et unødigt netværkskald for enhver
+  // valgt voksen.
+  const isSelectedMemberChild = selectedMember !== null && isChildRelation(selectedMember.relation);
+
   useEffect(() => {
-    if (!familyId || !selectedMemberId) {
+    if (!familyId || !selectedMemberId || !isSelectedMemberChild) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setMessages([]);
       return;
@@ -239,18 +262,27 @@ function MitIDagContent({ now }: MitIDagContentProps) {
     return () => {
       isCancelled = true;
     };
-  }, [familyId, selectedMemberId]);
+  }, [familyId, selectedMemberId, isSelectedMemberChild]);
 
   // "Næste": den først kommende aftale, ellers den første ufærdige
   // opgave — ikke et fuldt kronologisk fletning af begge (opgavers
   // timeOfDay er en fritekst-påmindelse, ikke et pålideligt sorterbart
   // klokkeslæt, se plandokumentets teststrategi-afsnit).
-  const { nextEvent, nextTask, restOfDayEvents, restOfDayTasks } = useMemo(
-    () => buildMitIDagPlan(memberEvents, memberTasks, now),
-    [memberEvents, memberTasks, now],
-  );
-
-  const selectedMember = realMembers.find((member) => member.id === selectedMemberId) ?? null;
+  //
+  // Mens kalenderen stadig indlæses, ved buildMitIDagPlan endnu intet om
+  // en evt. kommende aftale — den ville derfor fejlagtigt "forbruge" en
+  // allerede hentet opgave som "næste" (og dermed fjerne den fra "Resten
+  // af dagen"), selvom Næste-blokken samtidig (se JSX nedenfor) skjuler
+  // netop det valg, indtil kalenderen er klar. Resultatet ville være en
+  // opgave, der reelt forsvinder fra siden i mellemtiden. Undlader derfor
+  // bevidst at udpege en "næste" opgave, mens kalenderen indlæses — alle
+  // opgaver vises i stedet uændret i "Resten af dagen".
+  const { nextEvent, nextTask, restOfDayEvents, restOfDayTasks } = useMemo(() => {
+    if (areCalendarEventsLoading) {
+      return { nextEvent: null, nextTask: null, restOfDayEvents: [], restOfDayTasks: [...memberTasks] };
+    }
+    return buildMitIDagPlan(memberEvents, memberTasks, now);
+  }, [memberEvents, memberTasks, now, areCalendarEventsLoading]);
 
   const today = new Intl.DateTimeFormat("da-DK", {
     weekday: "long",
@@ -258,7 +290,12 @@ function MitIDagContent({ now }: MitIDagContentProps) {
     month: "long",
   }).format(now);
 
-  if (areCalendarEventsLoading || areTasksLoading) {
+  // Sprint 57: kun opgavehentningen (og dermed medlemslisten, som
+  // useTasks() leverer sammen med den — se dens egen kommentar) blokerer
+  // hele siden. Kalenderaftaler vises progressivt nedenfor i stedet for
+  // at spærre hele siden, mens de stadig indlæses — se
+  // 57_Sprint57_Sammenhaeng_Hastighed_UX_Plan.md, afsnit F.
+  if (areTasksLoading) {
     return (
       <Box
         role="status"
@@ -339,7 +376,18 @@ function MitIDagContent({ now }: MitIDagContentProps) {
               Næste
             </Typography>
 
-            {nextEvent ? (
+            {areCalendarEventsLoading ? (
+              // Mens kalenderen stadig indlæses, ved vi endnu ikke, om der
+              // findes en kommende aftale, der skal have forrang over en
+              // opgave — viser derfor en lokal, kompakt indlæsningstilstand
+              // for kun denne blok, i stedet for enten at blokere hele
+              // siden eller forkert vise en opgave, som en aftale burde
+              // have gået forud for.
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mt: 0.5 }}>
+                <CircularProgress size={20} aria-hidden="true" />
+                <Typography color="text.secondary">Henter kalenderen…</Typography>
+              </Box>
+            ) : nextEvent ? (
               <>
                 <Typography variant="h5" sx={{ fontWeight: 700, mt: 0.5 }}>
                   {nextEvent.title}
@@ -364,12 +412,20 @@ function MitIDagContent({ now }: MitIDagContentProps) {
             Resten af dagen
           </Typography>
 
-          {restOfDayEvents.length === 0 && restOfDayTasks.length === 0 ? (
+          {restOfDayEvents.length === 0 && restOfDayTasks.length === 0 && !areCalendarEventsLoading ? (
             <Typography color="text.secondary" sx={{ mb: 3 }}>
               Ikke mere på programmet.
             </Typography>
           ) : (
             <Box sx={{ mb: 3 }}>
+              {areCalendarEventsLoading && (
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, py: 1.75 }}>
+                  <CircularProgress size={18} aria-hidden="true" />
+                  <Typography variant="body2" color="text.secondary">
+                    Henter kalenderaftaler…
+                  </Typography>
+                </Box>
+              )}
               {restOfDayEvents.map((event) => (
                 <DayEventRow key={event.id} event={event} />
               ))}
@@ -379,53 +435,63 @@ function MitIDagContent({ now }: MitIDagContentProps) {
             </Box>
           )}
 
-          <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
-            Beskeder
-          </Typography>
-
-          {messages.length === 0 ? (
-            <Box
-              sx={{
-                border: "1.5px dashed",
-                borderColor: "divider",
-                borderRadius: 3,
-                p: 2,
-              }}
-            >
-              <Typography variant="body2" color="text.secondary" sx={{ fontStyle: "italic" }}>
-                Ingen beskeder endnu.
+          {/* Sprint 57: Beskeder og børneadgangs-administrationen er
+              udelukkende en børnefunktion — de må ikke vises, når den
+              valgte profil er en voksen eller familiens pseudoprofil (se
+              isChildRelation). Serveren håndhæver det samme uafhængigt
+              (childAccessManagement.ts, childMessages.ts), så dette er
+              kun visning, ikke selve adgangskontrollen. */}
+          {isSelectedMemberChild && (
+            <>
+              <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
+                Beskeder
               </Typography>
-            </Box>
-          ) : (
-            <Box sx={{ display: "grid", gap: 1 }}>
-              {messages.map((message) => (
-                <Alert key={message.id} severity={message.readAt ? "success" : "info"}>
-                  {message.body}
-                </Alert>
-              ))}
-            </Box>
-          )}
 
-          {familyId && (ownRole === "owner" || ownRole === "admin") && (
-            // slotProps.transition afmonterer AccordionDetails' indhold helt,
-            // når den er lukket, i stedet for MUI's standard (som blot sætter
-            // højden til 0 og beholder indholdet i DOM'en) — dels så
-            // ChildAccessAdminPanel's børneadgangs-opslag først sker, når
-            // forælderen rent faktisk åbner sektionen (samme lazy-adfærd som
-            // den oprindelige Dialog-udgave havde), dels fordi et lukket
-            // panel ellers stadig tælles som "synligt" af nogle enkle
-            // tilgængeligheds-tjek, selvom det reelt er skjult.
-            <Accordion disableGutters sx={{ mt: 4 }} slotProps={{ transition: { unmountOnExit: true } }}>
-              <AccordionSummary expandIcon={<ExpandMoreRounded />}>
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                  <ChildCareRounded color="action" fontSize="small" />
-                  <Typography sx={{ fontWeight: 600 }}>Børneadgang for {selectedMember.name}</Typography>
+              {messages.length === 0 ? (
+                <Box
+                  sx={{
+                    border: "1.5px dashed",
+                    borderColor: "divider",
+                    borderRadius: 3,
+                    p: 2,
+                  }}
+                >
+                  <Typography variant="body2" color="text.secondary" sx={{ fontStyle: "italic" }}>
+                    Ingen beskeder endnu.
+                  </Typography>
                 </Box>
-              </AccordionSummary>
-              <AccordionDetails>
-                <ChildAccessAdminPanel familyId={familyId} member={selectedMember} />
-              </AccordionDetails>
-            </Accordion>
+              ) : (
+                <Box sx={{ display: "grid", gap: 1 }}>
+                  {messages.map((message) => (
+                    <Alert key={message.id} severity={message.readAt ? "success" : "info"}>
+                      {message.body}
+                    </Alert>
+                  ))}
+                </Box>
+              )}
+
+              {familyId && (ownRole === "owner" || ownRole === "admin") && (
+                // slotProps.transition afmonterer AccordionDetails' indhold helt,
+                // når den er lukket, i stedet for MUI's standard (som blot sætter
+                // højden til 0 og beholder indholdet i DOM'en) — dels så
+                // ChildAccessAdminPanel's børneadgangs-opslag først sker, når
+                // forælderen rent faktisk åbner sektionen (samme lazy-adfærd som
+                // den oprindelige Dialog-udgave havde), dels fordi et lukket
+                // panel ellers stadig tælles som "synligt" af nogle enkle
+                // tilgængeligheds-tjek, selvom det reelt er skjult.
+                <Accordion disableGutters sx={{ mt: 4 }} slotProps={{ transition: { unmountOnExit: true } }}>
+                  <AccordionSummary expandIcon={<ExpandMoreRounded />}>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                      <ChildCareRounded color="action" fontSize="small" />
+                      <Typography sx={{ fontWeight: 600 }}>Børneadgang for {selectedMember.name}</Typography>
+                    </Box>
+                  </AccordionSummary>
+                  <AccordionDetails>
+                    <ChildAccessAdminPanel familyId={familyId} member={selectedMember} />
+                  </AccordionDetails>
+                </Accordion>
+              )}
+            </>
           )}
         </>
       )}

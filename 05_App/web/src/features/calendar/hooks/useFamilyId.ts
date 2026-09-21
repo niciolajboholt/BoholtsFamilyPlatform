@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-import { getMyFamily } from "../../family/familyApi";
+import { getCachedFamily } from "../../family/familySessionCache";
 
 // Kalenderen selv har ellers ingen grund til at kende familie-id'et (alle
 // kalenderoperationer går gennem provider-abstraktionen, scopet af
@@ -12,7 +12,7 @@ export function useFamilyId(): string | null {
   useEffect(() => {
     let isCancelled = false;
 
-    getMyFamily().then((result) => {
+    getCachedFamily().then((result) => {
       if (!isCancelled && result.ok && result.data.family) {
         setFamilyId(result.data.family.id);
       }

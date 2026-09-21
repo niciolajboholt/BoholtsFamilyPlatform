@@ -30,10 +30,10 @@ import {
   deleteIcloudConnection,
   getIcloudCalendars,
   getIcloudConnections,
-  getMyFamily,
   type IcloudCalendarInfoDto,
   type IcloudConnectionDto,
 } from "../../family/familyApi";
+import { getCachedFamily } from "../../family/familySessionCache";
 
 const maxConnections = 5;
 
@@ -85,7 +85,7 @@ export function IcloudConnectionsPanel({ isOpen }: IcloudConnectionsPanelProps) 
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsLoading(true);
 
-    getMyFamily().then(async (result) => {
+    getCachedFamily().then(async (result) => {
       if (isCancelled || !result.ok || !result.data.family) {
         setIsLoading(false);
         return;

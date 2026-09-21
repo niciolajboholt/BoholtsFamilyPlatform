@@ -15,8 +15,9 @@ import {
   Typography,
 } from "@mui/material";
 
-import { getMyFamily, regenerateInvite } from "./familyApi";
+import { regenerateInvite } from "./familyApi";
 import type { FamilyRole } from "./familyApi";
+import { getCachedFamily } from "./familySessionCache";
 
 interface InviteCodeDialogProps {
   open: boolean;
@@ -40,7 +41,7 @@ export function InviteCodeDialog({ open, onClose }: InviteCodeDialogProps) {
   useEffect(() => {
     let isCancelled = false;
 
-    getMyFamily().then((result) => {
+    getCachedFamily().then((result) => {
       if (isCancelled) {
         return;
       }

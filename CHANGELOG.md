@@ -1,5 +1,143 @@
 # Changelog
 
+## Sprint 57 — Sammenhæng, hastighed og UX
+
+> Se `01_Project_Documentation/Development/57_Sprint57_Sammenhaeng_Hastighed_UX_Plan.md`.
+
+Ingen nye hovedfunktioner — retter sammenhæng, ydelse og UX-gæld opstået
+i Sprint 51-56.
+
+- **Rettet (sikkerhed):** børneadgang (link/QR-kode, PIN, sessioner) og
+  Beskeder kunne fejlagtigt aktiveres/vises for en voksen profil eller
+  familiens pseudoprofil — både i Mit i dags UI og server-side
+  (`childAccessManagement.ts`/`childMessages.ts` tjekkede kun
+  `relation IS NOT NULL`, ikke `relation = 'Barn'`). Håndhæves nu
+  konsekvent begge steder; `relation` valideres nu også mod en
+  allow-list ved oprettelse/redigering af familiemedlemmer. Eksisterende
+  gyldig børneadgang til rigtige børneprofiler er upåvirket.
+- **Rettet:** Rutiner og Opgave-belønning kunne ende aktive uden
+  Opgaver — ingen afhængighedsvalidering fandtes. Serveren håndhæver nu
+  atomisk, at en underfunktion aktiverer sin hovedfunktion, og at
+  deaktivering af Opgaver deaktiverer dens underfunktioner; en allerede
+  gemt ugyldig tilstand normaliseres automatisk ved næste læsning, uden
+  at fjerne noget familien aktivt har slået til.
+- **Rettet:** forsidens Hurtige handlinger ("Indkøbsliste", "Opgaver")
+  fulgte ikke familiens feature flags og kunne navigere til en
+  deaktiveret funktion — filtreres nu som navigationen allerede gjorde.
+- **Rettet (blocker fundet ved review):** en nyere Google-synkronisering
+  kunne skjule aftaler efter datointerval-indsnævringen nedenfor. Et
+  cachet `syncToken` blev genbrugt uanset hvilket interval der
+  efterspurgtes, men det underliggende cachede datasæt var kun så
+  fuldstændigt, som den seneste FULDE synks interval var — hvis
+  Forsidens smalle 14-dages-vindue byggede cachen op først, ville en
+  efterfølgende bredere forespørgsel (måneds-/ugevisning) aldrig selv
+  udføre en intervalbaseret synk, og en aftale uden for de oprindelige
+  14 dage kunne derfor mangle. `GoogleCalendarSyncCacheState` gemmer nu
+  eksplicit det interval, den seneste fulde synk dækkede; et
+  efterspurgt interval uden for det udløser nu en ny, fuld synk (unionen
+  af gammelt og nyt interval) før syncToken-genbrug igen tillades. Ny
+  regressionstest reproducerer scenariet direkte (smalt interval først,
+  derefter bredt).
+- **Ydelse:** kalenderen hentede altid "et år tilbage til to år frem",
+  uanset visning. Mit i dag henter nu kun i dag ±1 dag, Overblik kun
+  14 dages udkig, og kalenderens måned-/uge-/dagvisning kun den synlige
+  periode. Familie-/planlæggervisningen er uændret. Rækkevidde-sikkerhed
+  er eksplicit verificeret pr. udbyder: Outlook, ICS-abonnementer og
+  (efter rettelsen ovenfor) Google får fuld effekt; iCloud/CalDAV har en
+  allerede eksisterende, uafhængig fejl (ingen RRULE-udfoldning),
+  upåvirket af denne ændring — dokumenteret som en kendt begrænsning for
+  en fremtidig sprint.
+- **Ydelse:** et let, delt cache-lag (`familySessionCache.ts`)
+  deduplikerer identiske `getMyFamily()`-kald på tværs af
+  hook-instanser (mindst 4 identiske kald ved én Overblik-/Mit i
+  dag-indlæsning hidtil) — genbruger appens eksisterende
+  cache+invalideringsmønster, ingen ny state-management-afhængighed.
+  **Rettet efter review:** invalidering skete tidligere ved enhver
+  synkronisering (også almindelige læsninger, fx AppLayouts
+  hver-sideindlæsnings-effekt), så cachen ofte blev slettet umiddelbart
+  efter oprettelse; et `{ ok: false }`-svar blev desuden cachet i op til
+  30 sekunder, da kun afviste promises blev ryddet. Invalidering sker nu
+  udelukkende ved reelle mutationer (tilføj/redigér/slet medlem, opret/
+  tilslut familie), og et `{ ok: false }`-svar caches ikke. Alle
+  resterende komponenter, der kaldte `getMyFamily()` direkte uden om
+  cachen, bruger nu også den delte cache.
+- **Forbedret:** Mit i dag blokerer ikke længere hele siden bag én
+  fælles spinner — allerede hentede opgaver vises, mens kalenderen
+  stadig indlæses, med en kompakt lokal indlæsningsnote i stedet.
+- **Rettet:** kalenderen brugte reelt kun ~900px på desktop, selvom
+  koden selv angav 1200px — den fælles sidelayout begrænsede den
+  utilsigtet. Kalenderen får nu sin tiltænkte bredde; øvrige sider er
+  upåvirkede.
+- **Forbedret:** "Vis kalendere" grupperes nu pr. familiemedlem (med en
+  "Fælles og andet"-gruppe) og foldes sammen som standard ved mere end
+  6 kilder, med en synlig "X af Y kalendere vises"-opsummering og
+  udbydertype pr. kilde for at skelne ens navngivne kalendere.
+- **Forbedret:** Indstillinger er opdelt i faner (Familie,
+  Kalenderforbindelser, Funktioner og notifikationer, Konto og data,
+  Hjælp og feedback) i stedet for én lang, flad liste — kun den aktive
+  fanes indhold henter data. **Rettet efter review:** fanedelingen betød
+  først, at ethvert link/enhver besked, der pegede på "/settings",
+  altid landede på standardfanen, uanset hvilken indstilling brugeren
+  reelt skulle finde. Hver fane har nu et stabilt id, valgbart via en
+  `?tab=`-URL-parameter (fx `/settings?tab=calendar-connections`), som
+  overlever en genindlæsning og virker som et delt link; forsidens "Se
+  familien"-knap peger nu eksplicit på `?tab=family`. Fanerne er
+  tastaturbetjente via MUI Tabs' indbyggede piletast-navigation.
+  **Blocker fundet ved en anden review-runde:** kontosletning og
+  familiesletning kræver en frisk OAuth-genbekræftelse (Google/Microsoft),
+  som returnerer til `/settings?accountDeletion=confirm`/
+  `/settings?familyDeletion=confirm` — uden `?tab=account` landede
+  brugeren nu på standardfanen ("Familie") efter genbekræftelsen, og
+  `AccountDataSection` (som læser returparametrene og genåbner
+  bekræftelsestrinnet) blev slet ikke monteret. Alle fire
+  `beginReauth()`-kald peger nu eksplicit på `?tab=account` ved siden af
+  de eksisterende returparametre. `SettingsPage` udleder desuden nu den
+  viste fane direkte af URL'en ved hvert render (ikke kun ved mount), så
+  ægte browser-frem/tilbage-navigation også følges korrekt. Oprydnings-
+  effekten, der fjerner de midlertidige `accountDeletion`/
+  `familyDeletion`/`reauth`-parametre efter genbekræftelsen, rydder nu
+  kun disse tre i stedet for hele forespørgselsstrengen, så `?tab=account`
+  bevares. **Endnu et blocker-fund ved samme review:** denne oprydning
+  brugte `window.history.replaceState()`, som kun opdaterer browserens
+  synlige URL — ikke React Routers interne `searchParams`-tilstand.
+  Routerens tilstand forblev derfor usynkroniseret med den fjernede
+  `accountDeletion`/`familyDeletion`/`reauth`; et efterfølgende faneskift
+  (som selv kalder `setSearchParams()`) kunne bygge videre på den
+  forældede tilstand og utilsigtet skrive de allerede fjernede parametre
+  tilbage i URL'en, hvorved slettedialogen kunne genåbne sig selv igen —
+  uden en genindlæsning nogen steder i flowet. Oprydningen bruger nu
+  `useSearchParams()` i stedet, så browserens URL og Routerens tilstand
+  altid er synkroniserede.
+- **Testdækning (efter review):** flere af Sprint 57's accept-kriterier
+  manglede automatiske tests — tilføjet: at en voksens/familiens
+  pseudoprofils børneadgang og Beskeder forbliver skjult i Mit i dag
+  (mens et rigtigt barn fortsat ser dem), at forsidens Hurtige
+  handlinger reelt forsvinder når deres funktion er slået fra, en
+  server-side testsuite for funktionsafhængighedskaskaden (routines/
+  task-rewards ⇄ tasks, inkl. selv-helbredelse af en tidligere ugyldig
+  tilstand), de faktiske datointervaller Forsiden og Mit i dag sender
+  til kalender-hooket, kalenderens målte bredere layout på desktop,
+  indstillingsfanernes URL-navigation og tastaturbetjening, samt
+  grundlæggende tastaturbetjening af "Vis kalendere"-filterets
+  gruppe-accordion og afkrydsningsfelter. Den mobile bredde-matrix
+  dækker nu også 360px. **Tilføjet efter blocker-fundet ovenfor:**
+  regressionstests for kontosletnings- og familiesletningsflowets
+  genåbning på bekræftelsestrinnet efter en OAuth-genbekræftelse (rigtig
+  returadresse, korrekt fane, genhentet preview-data, midlertidige
+  parametre fjernet men `?tab=account` bevaret, ingen utilsigtet
+  genåbning ved en efterfølgende genindlæsning), samt en test af, at en
+  ukendt fane falder sikkert tilbage og at aktiv fane følger ægte
+  browser-frem/tilbage-navigation mens Indstillinger allerede er
+  monteret.
+- **Undersøgt, bevidst ikke ændret:** en "mere meningsfuld" versionsvisning
+  end det nuværende, korte Cloudflare-deployment-id. En statisk
+  sprint-mærkat ville gå i stå ved næste sprint uden en huskeregel, og en
+  reel build-time-injiceret version ville kræve ændringer i
+  build-/deploy-opsætningen, som opgaven eksplicit beder om at undgå
+  risiko for. `package.json`s `"version": "0.0.0"` er fortsat ubrugt til
+  visning; det faktisk viste id kommer uændret fra
+  `CF_VERSION_METADATA` via `/api/health`.
+
 ## Sprint 56 — Børneadgang flyttet fra Indstillinger til Mit i dag
 
 - **Ændret:** administrationen af børneadgang (link/QR-kode, PIN,

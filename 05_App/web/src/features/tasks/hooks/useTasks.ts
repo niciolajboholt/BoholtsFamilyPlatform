@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 
-import { getMyFamily, type FamilyMemberDto } from "../../family/familyApi";
+import type { FamilyMemberDto } from "../../family/familyApi";
+import { getCachedFamily } from "../../family/familySessionCache";
 import {
   enqueueTaskToggle,
   listQueuedTaskToggles,
@@ -85,7 +86,7 @@ export function useTasks(): UseTasksResult {
   useEffect(() => {
     let isCancelled = false;
 
-    getMyFamily().then(async (familyResult) => {
+    getCachedFamily().then(async (familyResult) => {
       if (isCancelled) {
         return;
       }

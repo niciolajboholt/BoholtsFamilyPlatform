@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 
 import type { FeatureKey } from "../familyApi";
-import { getEnabledFeatures, getMyFamily, setFeatureEnabled } from "../familyApi";
+import { getEnabledFeatures, setFeatureEnabled } from "../familyApi";
+import { getCachedFamily } from "../familySessionCache";
 
 interface UseEnabledFeaturesResult {
   isLoading: boolean;
@@ -38,7 +39,7 @@ export function useEnabledFeatures(): UseEnabledFeaturesResult {
   useEffect(() => {
     let isCancelled = false;
 
-    getMyFamily().then((familyResult) => {
+    getCachedFamily().then((familyResult) => {
       if (isCancelled) {
         return;
       }

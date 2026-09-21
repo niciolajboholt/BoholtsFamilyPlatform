@@ -19,7 +19,7 @@ interface CreateFamilyResponse {
 async function createFamilyWithChild(
   env: ReturnType<typeof createFakeEnv>,
   cookieHeader: string,
-): Promise<{ familyId: string; inviteCode: string; childMemberId: string }> {
+): Promise<{ familyId: string; inviteCode: string; childMemberId: string; adultMemberId: string }> {
   const response = await families.request(
     "/",
     { method: "POST", headers: { Cookie: cookieHeader, "Content-Type": "application/json" } },
@@ -27,12 +27,13 @@ async function createFamilyWithChild(
   );
   const body: CreateFamilyResponse = await response.json();
   const child = body.members.find((member) => member.relation === "Barn");
+  const adult = body.members.find((member) => member.relation === "Far");
 
-  if (!child) {
-    throw new Error("test setup: expected a seeded child member");
+  if (!child || !adult) {
+    throw new Error("test setup: expected a seeded child member and an adult member");
   }
 
-  return { familyId: body.family.id, inviteCode: body.inviteCode, childMemberId: child.id };
+  return { familyId: body.family.id, inviteCode: body.inviteCode, childMemberId: child.id, adultMemberId: adult.id };
 }
 
 describe("child messages routes", () => {
@@ -130,6 +131,25 @@ describe("child messages routes", () => {
 
       expect(response.status).toBe(400);
     });
+
+    // Sprint 57: beskeder er en børneadgangs-funktion — en voksen kan ikke
+    // være modtager, heller ikke via et direkte API-kald.
+    it("rejects an adult member as recipient", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamilyWithChild(env, owner.cookieHeader);
+
+      const response = await families.request(
+        `/${created.familyId}/messages`,
+        {
+          method: "POST",
+          headers: { Cookie: owner.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({ familyMemberId: created.adultMemberId, body: "Hej" }),
+        },
+        env,
+      );
+
+      expect(response.status).toBe(400);
+    });
   });
 
   describe("GET /:id/messages", () => {
@@ -157,6 +177,19 @@ describe("child messages routes", () => {
       expect(response.status).toBe(200);
       expect(body.messages).toHaveLength(1);
       expect(body.messages[0].readAt).toBeNull();
+    });
+
+    it("rejects fetching messages for an adult member", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamilyWithChild(env, owner.cookieHeader);
+
+      const response = await families.request(
+        `/${created.familyId}/messages?memberId=${created.adultMemberId}`,
+        { headers: { Cookie: owner.cookieHeader } },
+        env,
+      );
+
+      expect(response.status).toBe(400);
     });
   });
 

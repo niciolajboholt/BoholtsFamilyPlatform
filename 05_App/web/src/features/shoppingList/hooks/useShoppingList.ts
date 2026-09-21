@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 
-import { getMyFamily } from "../../family/familyApi";
+import { getCachedFamily } from "../../family/familySessionCache";
 import {
   enqueueShoppingOperation,
   listQueuedShoppingOperations,
@@ -84,7 +84,7 @@ export function useShoppingList(): UseShoppingListResult {
   useEffect(() => {
     let isCancelled = false;
 
-    getMyFamily().then(async (familyResult) => {
+    getCachedFamily().then(async (familyResult) => {
       if (isCancelled) {
         return;
       }

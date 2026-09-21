@@ -604,6 +604,49 @@ describe("families routes", () => {
       expect(afterDelete.members.some((m) => m.id === newMember!.id)).toBe(false);
     });
 
+    // Sprint 57: relation styrer, om børneadgang må aktiveres for et medlem
+    // (se childAccessManagement.ts) — skal derfor være et håndhævet
+    // kategorisk felt, ikke fri tekst, både ved oprettelse og redigering.
+    it("rejects an unknown relation on create and on edit", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader);
+
+      const addResponse = await families.request(
+        `/${created.family.id}/members`,
+        {
+          method: "POST",
+          headers: { Cookie: owner.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({ name: "Ven", color: "#123456", relation: "Superhelt" }),
+        },
+        env,
+      );
+      expect(addResponse.status).toBe(400);
+
+      const validAddResponse = await families.request(
+        `/${created.family.id}/members`,
+        {
+          method: "POST",
+          headers: { Cookie: owner.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({ name: "Ven", color: "#123456", relation: "Andet" }),
+        },
+        env,
+      );
+      const afterAdd: { members: FamilyMemberJson[] } = await validAddResponse.json();
+      const newMember = afterAdd.members.find((m) => m.name === "Ven");
+      expect(newMember).toBeDefined();
+
+      const editResponse = await families.request(
+        `/${created.family.id}/members/${newMember!.id}`,
+        {
+          method: "PATCH",
+          headers: { Cookie: owner.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({ relation: "Superhelt" }),
+        },
+        env,
+      );
+      expect(editResponse.status).toBe(400);
+    });
+
     it("never deletes the reserved 'Familien' pseudo-member, even by its real id", async () => {
       const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
       const created = await createFamily(env, owner.cookieHeader);
@@ -2699,6 +2742,136 @@ describe("families routes", () => {
         env,
       );
       expect(putResponse.status).toBe(403);
+    });
+
+    // Sprint 57: routines og task-rewards kræver tasks — se
+    // 57_Sprint57_Sammenhaeng_Hastighed_UX_Plan.md, afsnit B.
+    it("enabling routines also enables tasks, atomically", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader);
+
+      const response = await families.request(
+        `/${created.family.id}/enabled-features/routines`,
+        {
+          method: "PUT",
+          headers: { Cookie: owner.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({ enabled: true }),
+        },
+        env,
+      );
+
+      const features = (await response.json()).features as string[];
+      expect(features.sort()).toEqual(["routines", "tasks"]);
+    });
+
+    it("enabling task-rewards also enables tasks, without duplicating an already-enabled tasks row", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader);
+
+      await families.request(
+        `/${created.family.id}/enabled-features/tasks`,
+        {
+          method: "PUT",
+          headers: { Cookie: owner.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({ enabled: true }),
+        },
+        env,
+      );
+
+      const response = await families.request(
+        `/${created.family.id}/enabled-features/task-rewards`,
+        {
+          method: "PUT",
+          headers: { Cookie: owner.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({ enabled: true }),
+        },
+        env,
+      );
+
+      const features = (await response.json()).features as string[];
+      expect(features.sort()).toEqual(["task-rewards", "tasks"]);
+    });
+
+    it("disabling tasks also disables routines and task-rewards, atomically", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader);
+
+      for (const key of ["tasks", "routines", "task-rewards"]) {
+        await families.request(
+          `/${created.family.id}/enabled-features/${key}`,
+          {
+            method: "PUT",
+            headers: { Cookie: owner.cookieHeader, "Content-Type": "application/json" },
+            body: JSON.stringify({ enabled: true }),
+          },
+          env,
+        );
+      }
+
+      const response = await families.request(
+        `/${created.family.id}/enabled-features/tasks`,
+        {
+          method: "PUT",
+          headers: { Cookie: owner.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({ enabled: false }),
+        },
+        env,
+      );
+
+      expect((await response.json()).features).toEqual([]);
+    });
+
+    it("disabling task-rewards alone leaves tasks and routines untouched", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader);
+
+      for (const key of ["tasks", "routines", "task-rewards"]) {
+        await families.request(
+          `/${created.family.id}/enabled-features/${key}`,
+          {
+            method: "PUT",
+            headers: { Cookie: owner.cookieHeader, "Content-Type": "application/json" },
+            body: JSON.stringify({ enabled: true }),
+          },
+          env,
+        );
+      }
+
+      const response = await families.request(
+        `/${created.family.id}/enabled-features/task-rewards`,
+        {
+          method: "PUT",
+          headers: { Cookie: owner.cookieHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({ enabled: false }),
+        },
+        env,
+      );
+
+      const features = (await response.json()).features as string[];
+      expect(features.sort()).toEqual(["routines", "tasks"]);
+    });
+
+    it("normalizes a pre-existing invalid state (routines enabled without tasks) on read", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamily(env, owner.cookieHeader);
+
+      // Simulerer data gemt før denne validering fandtes — indsæt routines
+      // direkte, uden om PUT-rutens kaskadelogik.
+      await env.DB.prepare(
+        `INSERT INTO family_enabled_features (family_id, feature_key, enabled_by_user_id, enabled_at)
+         VALUES (?, 'routines', ?, ?)`,
+      )
+        .bind(created.family.id, "owner", new Date().toISOString())
+        .run();
+
+      const response = await families.request(
+        `/${created.family.id}/enabled-features`,
+        { headers: { Cookie: owner.cookieHeader } },
+        env,
+      );
+
+      const features = (await response.json()).features as string[];
+      expect(features.sort()).toEqual(["routines", "tasks"]);
     });
   });
 });

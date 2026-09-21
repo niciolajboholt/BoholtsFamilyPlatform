@@ -185,6 +185,67 @@ describe("GoogleCalendarProvider.getEvents (Sprint 25: inkrementel synk)", () =>
     expect(getCachedCalendarSyncState(calendarId)?.syncToken).toBe("token-3");
   });
 
+  // Sprint 57-opfølgning: reproducerer bugrapporten direkte — et smalt
+  // interval (Forsidens 14-dages-vindue) rammer cachen først og gemmer et
+  // syncToken; et efterfølgende BREDERE interval (fx månedsvisningen) må
+  // ikke bare genbruge det cachede syncToken uden at tjekke, om det
+  // dækker det nye, større interval — ellers ville en aftale uden for det
+  // oprindelige, smalle interval aldrig blive hentet.
+  it("udvider til en fuld synk, når et senere interval rækker ud over det tidligere cachede interval", async () => {
+    const narrowRange = { start: "2026-08-15T00:00:00.000Z", end: "2026-08-29T00:00:00.000Z" };
+    const widerRange = { start: "2026-01-01T00:00:00.000Z", end: "2026-12-31T00:00:00.000Z" };
+
+    // Første kald: smalt interval (som Forsiden/Mit i dag nu beder om) —
+    // kun "Tandlæge" (inden for narrowRange) findes i Google-svaret.
+    listEvents.mockResolvedValueOnce({
+      events: [googleEvent({ id: "evt-narrow", summary: "Tandlæge" })],
+      nextSyncToken: "token-narrow",
+    });
+    const provider = await createProvider();
+    const narrowResult = await provider.getEvents(narrowRange);
+
+    expect(listEvents).toHaveBeenLastCalledWith(calendarId, { range: narrowRange });
+    expect(narrowResult).toHaveLength(1);
+
+    // Andet kald: et bredere interval (måneds-/uge-/dagvisningen, eller det
+    // brede standardinterval) — en aftale UDEN FOR det oprindelige, smalle
+    // interval ("Sommerferie", i juli) skal med i svaret. Da det efterspurgte
+    // interval ikke er dækket af den cachede (smalle) rangeStart/rangeEnd,
+    // skal provideren udføre en NY fuld synk (ikke genbruge syncToken'et
+    // blindt) — med intervallet udvidet til unionen af det gamle og det nye.
+    listEvents.mockResolvedValueOnce({
+      events: [
+        googleEvent({ id: "evt-narrow", summary: "Tandlæge" }),
+        googleEvent({
+          id: "evt-wide",
+          summary: "Sommerferie",
+          start: { dateTime: "2026-07-01T00:00:00.000Z" },
+          end: { dateTime: "2026-07-14T00:00:00.000Z" },
+        }),
+      ],
+      nextSyncToken: "token-wide",
+    });
+    const widerResult = await provider.getEvents(widerRange);
+
+    expect(listEvents).toHaveBeenLastCalledWith(calendarId, {
+      range: { start: widerRange.start, end: widerRange.end },
+    });
+    expect(widerResult.map((event) => event.title).sort()).toEqual(["Sommerferie", "Tandlæge"]);
+    expect(getCachedCalendarSyncState(calendarId)).toMatchObject({
+      syncToken: "token-wide",
+      rangeStart: widerRange.start,
+      rangeEnd: widerRange.end,
+    });
+
+    // Et efterfølgende kald med et interval, der ER dækket af den nu brede
+    // cache, skal derimod atter genbruge det billige, inkrementelle
+    // syncToken-kald.
+    listEvents.mockResolvedValueOnce({ events: [], nextSyncToken: "token-final" });
+    await provider.getEvents(narrowRange);
+
+    expect(listEvents).toHaveBeenLastCalledWith(calendarId, { syncToken: "token-wide" });
+  });
+
   it("kaster videre fejl der hverken er syncToken-udløb eller en netværksfejl", async () => {
     listEvents.mockResolvedValue({
       events: [googleEvent({ id: "evt-1" })],

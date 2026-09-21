@@ -17,7 +17,7 @@ import { expandRecurringEvents } from "../features/calendar/utils/expandRecurrin
 import { getEventsForDate } from "../features/calendar/utils/getEventsForDate";
 import { redactCalendarEventForViewer } from "../features/calendar/utils/redactCalendarEventForViewer";
 import type { FamilyMemberDto } from "../features/family/familyApi";
-import { getMyFamily } from "../features/family/familyApi";
+import { getCachedFamily } from "../features/family/familySessionCache";
 import { useEnabledFeatures } from "../features/family/hooks/useEnabledFeatures";
 import { useShoppingList } from "../features/shoppingList/hooks/useShoppingList";
 import { useTasks } from "../features/tasks/hooks/useTasks";
@@ -68,7 +68,7 @@ function KioskContent() {
   useEffect(() => {
     let isCancelled = false;
 
-    getMyFamily().then((result) => {
+    getCachedFamily().then((result) => {
       if (!isCancelled && result.ok && result.data.members) {
         setMembers(result.data.members);
       }

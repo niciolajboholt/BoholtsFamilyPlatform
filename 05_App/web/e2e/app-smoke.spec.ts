@@ -240,6 +240,10 @@ test("authenticated family can open every primary area", async ({ page }) => {
     await expect(page.getByRole("heading", { name: heading, exact: true })).toBeVisible();
   }
 
+  // Version-teksten sidder under Indstillinger → "Hjælp og feedback"-fanen
+  // (Sprint 57: Indstillinger blev opdelt i faner, se
+  // 57_Sprint57_Sammenhaeng_Hastighed_UX_Plan.md, afsnit I).
+  await page.getByRole("tab", { name: "Hjælp og feedback" }).click();
   await expect(page.getByText("Version e2e-version-")).toBeVisible();
 });
 
@@ -637,6 +641,21 @@ test("primary pages have no WCAG 2.0/2.1 A/AA accessibility violations", async (
   for (const path of ["/", "/calendar", "/shopping-list", "/tasks", "/mit-i-dag", "/settings"]) {
     await page.goto(path);
     await expect(page.locator("main")).toBeVisible();
+
+    // Mit i dag vælger asynkront et medlem kort efter montering (se
+    // MitIDagPage.tsx's useEffect for selectedMemberId), hvilket skifter
+    // det valgte medlems Chip fra "outlined" til "filled" — et
+    // klasseskift, MUI's delte .MuiChip-root-transition (background-color)
+    // animerer. Axe kan ramme scanningen midt i den animation og måle en
+    // midlertidig, interpoleret baggrundsfarve med for lav kontrast, selvom
+    // hverken start- eller sluttilstanden reelt har et kontrastproblem.
+    // Slår alle transitions/animationer fra på hver side (skal gentages
+    // pr. navigation — en ny page.goto rydder tidligere injicerede
+    // style-tags), så axe altid måler den faktiske, hvilende tilstand.
+    await page.addStyleTag({
+      content: "*, *::before, *::after { transition: none !important; animation: none !important; }",
+    });
+
     const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
 
     expect(results.violations, JSON.stringify(results.violations, null, 2)).toEqual([]);
@@ -712,6 +731,7 @@ test("a Settings dialog traps keyboard focus while open and restores it to the t
   test.skip(testInfo.project.name !== "desktop-chromium");
   await mockAuthenticatedApi(page);
   await page.goto("/settings");
+  await page.getByRole("tab", { name: "Kalenderforbindelser" }).click();
 
   const trigger = page.getByRole("button", { name: /Kalenderforbindelser/ });
   await trigger.focus();
@@ -1043,14 +1063,40 @@ test("offline task toggle is queued locally and syncs on reconnect", async ({
   await expect(checkbox).toBeChecked();
 });
 
+// Sprint 57, afsnit G (se 57_Sprint57_Sammenhaeng_Hastighed_UX_Plan.md):
+// kalenderen virkede for smal på desktop, fordi den delte det samme
+// 900px-loft som de øvrige sider, selvom den har markant mere indhold i
+// bredden (uge-/månedsgitter). CalendarPage.tsx bruger nu et bredere
+// 1200px-loft — denne test måler den faktiske gengivne bredde i stedet
+// for kun at kigge på sx-værdien i kildekoden.
+test("kalenderen bruger et bredere layout på desktop end de øvrige sider", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await mockAuthenticatedApi(page);
+
+  await page.goto("/tasks");
+  const tasksWidth = (await page.locator("main").boundingBox())!.width;
+
+  await page.goto("/calendar");
+  const calendarWidth = (await page.locator("main").boundingBox())!.width;
+
+  expect(calendarWidth).toBeGreaterThan(tasksWidth);
+  // Loftet er 1200px — med en vis margen til scrollbar/afrunding.
+  expect(calendarWidth).toBeGreaterThan(1100);
+});
+
 test("primary pages fit the complete supported mobile width matrix", async ({
   page,
 }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop-chromium");
-  test.setTimeout(120_000);
+  // 5 bredder × 6 sider = 30 sideindlæsninger. Oprindeligt 120s for 4
+  // bredder (24 indlæsninger) — 360px tilføjet (Sprint 57-reviewfund)
+  // pressede den samlede kørsel over budgettet på CI's langsommere
+  // runnere, selvom den var rigeligt inden for grænsen lokalt.
+  test.setTimeout(150_000);
   await mockAuthenticatedApi(page);
 
-  for (const width of [320, 375, 390, 430]) {
+  for (const width of [320, 360, 375, 390, 430]) {
     await page.setViewportSize({ width, height: 844 });
 
     for (const path of ["/", "/calendar", "/shopping-list", "/tasks", "/mit-i-dag", "/settings"]) {
@@ -1489,6 +1535,7 @@ test("a family member can add and remove an ICS calendar subscription in Setting
   });
 
   await page.goto("/settings");
+  await page.getByRole("tab", { name: "Kalenderforbindelser" }).click();
   await page.getByRole("button", { name: /Kalenderforbindelser/ }).click();
   const connectionsDialog = page.getByRole("dialog", { name: "Kalenderforbindelser" });
   await expect(connectionsDialog).toBeVisible();
@@ -2431,6 +2478,95 @@ test("an unassigned ICS subscription's event uses the subscription's own color, 
   expect(accentColor).not.toBe(hexToRgb("#6D597A")); // Familien-farven
 });
 
+// Sprint 57: "Vis kalendere" var en flad, ugrupperet liste, der blev
+// uoverskuelig med mange kilder — grupperes nu (her: alle i "Fælles og
+// andet", da ingen har en familiemedlem-tilknytning) og foldes sammen som
+// standard, når der er mere end 6 kilder i alt.
+test("the calendar source filter groups and collapses many sources, with a visible count summary", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  await mockAuthenticatedApi(page);
+
+  const subscriptionLabels = [
+    "Skole A", "Skole B", "Skole C", "Skole D", "Skole E", "Skole F", "Skole G", "Skole H",
+  ];
+  const subscriptions = subscriptionLabels.map((label, index) => ({
+    id: `sub-${index}`,
+    familyId: family.id,
+    url: `https://calendar.skole.dk/${index}.ics`,
+    label,
+    familyMemberId: null,
+    color: "#D99832",
+    lastFetchedAt: null,
+    lastFetchStatus: null,
+    createdAt: "2026-08-26T00:00:00.000Z",
+  }));
+
+  await page.route("**/api/families/*/ics-subscriptions", async (route) => {
+    if (route.request().method() !== "GET") {
+      await route.fallback();
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ subscriptions }),
+    });
+  });
+
+  await page.route("**/api/families/*/ics-subscriptions/*/events*", async (route) => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ events: [] }) });
+  });
+
+  // Overstyrer standardmockens tre Google-kalendere, så testen kun har de
+  // otte ICS-abonnementer at forholde sig til.
+  await page.route("**/api/calendar/calendars*", async (route) => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ items: [] }) });
+  });
+
+  await page.goto("/calendar");
+
+  await expect(page.getByText("8 af 8 kalendere vises")).toBeVisible();
+
+  // Alle otte havner i samme gruppe ("Fælles og andet", ingen har en
+  // medlemstilknytning) — foldet sammen som standard, da 8 > tærsklen på
+  // 6. Kilden findes i DOM'en (Accordion afmonterer ikke sit indhold),
+  // men er ikke synlig, før gruppen åbnes.
+  const firstSourceLabel = page.getByText("Skole A", { exact: true });
+  await expect(firstSourceLabel).not.toBeVisible();
+
+  const groupHeader = page.getByRole("button", { name: /Fælles og andet/ });
+  await expect(groupHeader).toBeVisible();
+  await groupHeader.click();
+  await expect(firstSourceLabel).toBeVisible();
+  await expect(page.getByText("Abonnement").first()).toBeVisible();
+
+  const firstCheckbox = page.getByRole("checkbox", { name: /Skole A/ });
+  await expect(firstCheckbox).toBeChecked();
+  await firstCheckbox.uncheck();
+  await expect(firstCheckbox).not.toBeChecked();
+  await expect(page.getByText("7 af 8 kalendere vises")).toBeVisible();
+
+  await groupHeader.click();
+  await expect(firstSourceLabel).not.toBeVisible();
+
+  // Grundlæggende tastaturbetjening: gruppens accordion-header kan åbnes
+  // med tastaturet alene (Enter), og den enkelte kildes afkrydsningsfelt
+  // kan slås til/fra med mellemrumstasten — ikke kun med museklik.
+  await groupHeader.focus();
+  await page.keyboard.press("Enter");
+  await expect(firstSourceLabel).toBeVisible();
+
+  // Stadig afkrydset fra (uncheck'et) tidligere i testen — Accordion
+  // afmonterer ikke sit indhold ved sammenfoldning, så tilstanden bevares.
+  await firstCheckbox.focus();
+  await expect(firstCheckbox).not.toBeChecked();
+  await page.keyboard.press("Space");
+  await expect(firstCheckbox).toBeChecked();
+  await expect(page.getByText("8 af 8 kalendere vises")).toBeVisible();
+});
+
 // Fase 5: sidste åbne "Mangler"-punkt — reel Playwright-E2E for opret/
 // redigér/slet gennem UI'et på indkøbsliste, opgaver og rutiner (hidtil kun
 // dækket for offline-scenarier, se de tre "offline ... is queued locally"
@@ -2932,6 +3068,7 @@ test("logging out through the real UI clears the session and every locally cache
   });
 
   await page.goto("/settings");
+  await page.getByRole("tab", { name: "Konto og data" }).click();
 
   await page.evaluate(() => {
     window.localStorage.setItem("boholts-family-members", "[]");
@@ -2946,7 +3083,10 @@ test("logging out through the real UI clears the session and every locally cache
   // useSession() gemmer sin tilstand lokalt pr. komponent uden delt context,
   // se kommentaren i useSession.ts. Uden genindlæsningen ville AppLayout's
   // egen, uafhængige useSession()-instans aldrig opdage logout'et.
-  await page.waitForURL("/settings");
+  // Regex i stedet for en eksakt streng: siden Indstillinger blev opdelt i
+  // faner (Sprint 57, afsnit I), bærer URL'en fortsat "?tab=account" fra
+  // fanevalget ovenfor, som en genindlæsning ikke fjerner.
+  await page.waitForURL(/\/settings/);
   // LoginPage's "Fortsæt med Google" er et <Button href="…">, som MUI/browseren
   // gengiver med role "link", ikke "button".
   await expect(page.getByRole("link", { name: "Fortsæt med Google" })).toBeVisible();
@@ -3811,6 +3951,7 @@ test("a family with nothing enabled can turn on a feature via 'Flere funktioner'
   // Nav-punktet for Måltider er skjult, da intet er slået til endnu.
   await expect(page.getByRole("button", { name: "Måltider" })).not.toBeVisible();
 
+  await page.getByRole("tab", { name: "Funktioner og notifikationer" }).click();
   await page.getByRole("button", { name: "Åbn", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Flere funktioner" });
   await expect(dialog).toBeVisible();
@@ -3832,6 +3973,252 @@ test("a family with nothing enabled can turn on a feature via 'Flere funktioner'
   // hvis man navigerer direkte til den.
   await page.goto("/tasks");
   await expect(page.getByText("Denne funktion er ikke slået til")).toBeVisible();
+});
+
+// Sprint 57, afsnit C: "Hurtige handlinger" på forsiden må ikke lokke ind i
+// et flow for en funktion, familien har slået fra (se HomePage.tsx's
+// visibleQuickActions-filter). "Ny aftale" har ingen featureKey og skal
+// derfor altid være synlig, uanset hvad der er slået til.
+test("hurtige handlinger på forsiden følger tændte/slukkede funktioner", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  await mockAuthenticatedApi(page);
+
+  await page.route("**/api/families/*/enabled-features", async (route) => {
+    if (route.request().method() !== "GET") {
+      await route.fallback();
+      return;
+    }
+    // Kun "tasks" slået til — "shopping-list" er bevidst udeladt.
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ features: ["tasks"] }) });
+  });
+
+  await page.goto("/");
+  const main = page.getByRole("main");
+
+  await expect(main.getByRole("button", { name: "Ny aftale" })).toBeVisible();
+  await expect(main.getByRole("button", { name: "Opgaver" })).toBeVisible();
+  await expect(main.getByRole("button", { name: "Indkøbsliste" })).not.toBeVisible();
+});
+
+// Sprint 57, afsnit I (reviewfund): et link/en besked, der peger på en
+// bestemt indstillingsfane, skal fortsat ramme rigtigt — brugeren skal
+// ikke selv skulle lede efter fx Kalenderforbindelser, blot fordi
+// Indstillinger blev delt op i faner. Se SettingsPage.tsx's
+// "?tab="-URL-parameter og HomePage.tsx's "Se familien"-knap.
+test("indstillingsfaner kan åbnes direkte via URL og er tastaturbetjente", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  await mockAuthenticatedApi(page);
+
+  // Direkte link til en ikke-standard fane rammer den fane med det samme
+  // — ikke standardfanen ("Familie"), som brugeren så selv skulle lede fra.
+  await page.goto("/settings?tab=calendar-connections");
+  await expect(page.getByRole("tab", { name: "Kalenderforbindelser", selected: true })).toBeVisible();
+  await expect(page.getByText("Kalenderforbindelser").first()).toBeVisible();
+  // Familie-fanepanelet (index 0) er ikke den aktive fane og skal derfor
+  // være skjult — ikke bare fraværende fra viewporten.
+  await expect(page.locator("#settings-tabpanel-0")).toBeHidden();
+
+  // Et klik på en anden fane opdaterer URL'en, så et genindlæst/delt link
+  // til den fane fortsat virker.
+  await page.getByRole("tab", { name: "Funktioner og notifikationer" }).click();
+  await expect(page.getByText("Notifikationer", { exact: true })).toBeVisible();
+  await expect(page).toHaveURL(/tab=features/);
+
+  // Tastaturbetjening: MUI Tabs' roving tabindex flytter fokus med
+  // piletaster mellem fanerne uden museklik.
+  await page.getByRole("tab", { name: "Funktioner og notifikationer" }).focus();
+  await page.keyboard.press("ArrowLeft");
+  await expect(page.getByRole("tab", { name: "Kalenderforbindelser" })).toBeFocused();
+
+  // "Se familien" fra forsiden går eksplicit til Familie-fanen.
+  await page.goto("/");
+  await page.getByRole("button", { name: "Se familien" }).click();
+  await expect(page).toHaveURL(/settings\?tab=family/);
+  await expect(page.getByRole("tab", { name: "Familie", selected: true })).toBeVisible();
+  await expect(page.locator("#settings-tabpanel-0")).toBeVisible();
+});
+
+// Reviewfund: en ukendt "?tab="-værdi skal falde sikkert tilbage til
+// Familie (ikke fejle), og den viste fane skal følge "?tab=" via ægte
+// browser-navigation (frem/tilbage), selv når URL'en ændres MENS
+// SettingsPage allerede er monteret — ikke kun ved mount/genindlæsning.
+// AccountDataSection.tsx's OAuth-genbekræftelses-retur (se testene
+// nedenfor) er én konkret kilde til præcis den slags navigation.
+//
+// Bemærk: et rent history.pushState()-kald udefra (uden en efterfølgende
+// reel browser-navigation) udløser IKKE en reaktion i React Router — kun
+// dets egen navigate()/setSearchParams() og ægte browser-frem/tilbage
+// (popstate) gør. Testen bruger derfor to reelle historik-poster og
+// browserens egen frem/tilbage, som er det, brugeren faktisk oplever.
+test("en ukendt indstillingsfane falder sikkert tilbage, og aktiv fane følger ægte browser-navigation mens siden er monteret", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  await mockAuthenticatedApi(page);
+
+  await page.goto("/settings?tab=does-not-exist");
+  await expect(page.locator("main")).toBeVisible();
+  await expect(page.locator("#settings-tab-0")).toHaveAttribute("aria-selected", "true");
+
+  // En anden historik-post med en gyldig fane, oprettet uden en fuld
+  // sideindlæsning (samme lav-niveau-mekanisme browserens adresselinje
+  // selv bruger).
+  await page.evaluate(() => window.history.pushState({}, "", "/settings?tab=calendar-connections"));
+
+  // Ægte browser-tilbage (afsender en rigtig popstate) skal vise fanen,
+  // den forrige post pegede på — også selvom den post aldrig blev "set"
+  // reaktivt af appen, mens den blev oprettet.
+  await page.goBack();
+  await expect(page.locator("#settings-tab-0")).toHaveAttribute("aria-selected", "true");
+
+  // ...og frem igen til den gyldige fane.
+  await page.goForward();
+  await expect(page.locator("#settings-tab-1")).toHaveAttribute("aria-selected", "true");
+});
+
+// Reviewfund (blocker): AccountDataSection.tsx's kontosletnings-dialog
+// genåbner sig selv på bekræftelses-trinnet efter en OAuth-
+// genbekræftelses-roundtrip (se auth.ts's /reauth/google og /reauth/
+// microsoft) — men returadressen peger på "/settings?accountDeletion=
+// confirm" UDEN "?tab=account". Siden fanedelingen (Sprint 57, afsnit I)
+// betyder det, at AccountDataSection slet ikke monteres, og dialogen kan
+// derfor ikke genåbnes. Denne test dækker hele roundtrippet: URL'en
+// beginReauth() rent faktisk sender brugeren til, ikke kun UI'et isoleret.
+test("kontosletning genåbner bekræftelsestrinnet på den rigtige fane efter OAuth-genbekræftelse", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  await mockAuthenticatedApi(page);
+
+  let accountPreviewCallCount = 0;
+  await page.route("**/api/account/deletion/preview", async (route) => {
+    accountPreviewCallCount += 1;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        memberships: [{ familyId: family.id, familyName: family.name, role: "owner", memberCount: 3 }],
+      }),
+    });
+  });
+
+  // Den faktiske returadresse, /auth/reauth/*/callback ville sende
+  // brugeren til (se auth.ts's appendReauthSuccess) — inkl. "&reauth=
+  // success", som readPendingDeletionReturn() kræver.
+  await page.goto("/settings?tab=account&accountDeletion=confirm&reauth=success");
+
+  // #settings-tab-3 ("Konto og data") i stedet for getByRole(..., {
+  // selected: true }): MUI Dialog sætter aria-hidden på resten af siden,
+  // mens den er åben (korrekt for skærmlæsere) — en rolle-baseret
+  // forespørgsel ville derfor slet ikke finde fanen, selvom den fint er
+  // synlig og korrekt markeret i selve DOM'en.
+  await expect(page.locator("#settings-tab-3")).toHaveAttribute("aria-selected", "true");
+
+  const dialog = page.getByRole("dialog", { name: "Slet min konto" });
+  await expect(dialog).toBeVisible();
+
+  // Bekræftelses-trinnet, ikke gennemgangs- eller genbekræftelses-trinnet.
+  await expect(dialog.getByLabel("Bekræftelsestekst")).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "Bekræft med Google" })).not.toBeVisible();
+
+  // Preview-data er genhentet efter OAuth-returen (siden mistede al
+  // tidligere state ved genindlæsningen) — bekræftes ved, at advarslen om
+  // stadig at eje en aktiv familie rent faktisk vises.
+  await expect(
+    dialog.getByText("Du ejer stadig en aktiv familie. Overdrag ejerskabet, eller slet familien først."),
+  ).toBeVisible();
+  await expect.poll(() => accountPreviewCallCount).toBeGreaterThan(0);
+
+  // De midlertidige returparametre er fjernet, men "tab=account" er bevaret.
+  await expect(page).toHaveURL(/\/settings\?tab=account$/);
+
+  // Reviewfund #2: window.history.replaceState() opdaterer kun browserens
+  // synlige URL, ikke React Routers interne searchParams-tilstand — et
+  // SENERE setSearchParams()-kald et andet sted (fx et faneskift) kunne
+  // derfor bygge videre på Routerens forældede tilstand og utilsigtet
+  // skrive de allerede fjernede parametre tilbage i URL'en. Dækkes her
+  // UDEN en genindlæsning (som ellers ville skjule en usynkroniseret
+  // Router-tilstand): luk dialogen, skift væk fra og tilbage til fanen.
+  await dialog.getByRole("button", { name: "Annullér" }).click();
+  await expect(dialog).not.toBeVisible();
+
+  await page.getByRole("tab", { name: "Familie" }).click();
+  await expect(page.locator("#settings-tab-0")).toHaveAttribute("aria-selected", "true");
+
+  await page.getByRole("tab", { name: "Konto og data" }).click();
+  await expect(page.locator("#settings-tab-3")).toHaveAttribute("aria-selected", "true");
+
+  // Slettedialogen må ikke genåbne, og de fjernede parametre må ikke være
+  // kommet tilbage i URL'en.
+  await expect(dialog).not.toBeVisible();
+  await expect(page).toHaveURL(/\/settings\?tab=account$/);
+
+  // En genindlæsning genåbner heller ikke dialogen utilsigtet, og fanen
+  // forbliver "Konto og data" (styret af den bevarede "?tab="-parameter).
+  await page.reload();
+  await expect(dialog).not.toBeVisible();
+  await expect(page.getByRole("tab", { name: "Konto og data", selected: true })).toBeVisible();
+});
+
+// Samme reviewfund som ovenfor, for familiesletnings-flowet.
+test("familiesletning genåbner bekræftelsestrinnet på den rigtige fane efter OAuth-genbekræftelse", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  await mockAuthenticatedApi(page);
+
+  await page.route(`**/api/families/${family.id}/deletion/preview`, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        familyName: family.name,
+        memberCount: 3,
+        taskCount: 5,
+        shoppingListCount: 2,
+        sharedExpenseCount: 1,
+        mealPlanEntryCount: 4,
+      }),
+    });
+  });
+
+  await page.goto("/settings?tab=account&familyDeletion=confirm&reauth=success");
+
+  // Se kommentaren i testen ovenfor: en rolle-baseret forespørgsel ville
+  // ikke finde fanen, mens MUI Dialog holder resten af siden aria-hidden.
+  await expect(page.locator("#settings-tab-3")).toHaveAttribute("aria-selected", "true");
+
+  const dialog = page.getByRole("dialog", { name: "Slet hele familien" });
+  await expect(dialog).toBeVisible();
+
+  // Bekræftelses-trinnet, ikke gennemgangs- eller genbekræftelses-trinnet.
+  // Optællingen ("X medlemmer, ...") vises kun på gennemgangs-trinnet —
+  // her bekræftes preview-genhentningen i stedet ved, at det genhentede
+  // familienavn indgår i selve bekræftelsesteksten.
+  await expect(dialog.getByLabel("Familiens navn")).toBeVisible();
+  await expect(dialog.getByText(new RegExp(`Skriv familiens navn præcist.*${family.name}`))).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "Bekræft med Google" })).not.toBeVisible();
+
+  await expect(page).toHaveURL(/\/settings\?tab=account$/);
+
+  // Se kommentaren i testen ovenfor: dækker uden en genindlæsning, at
+  // luk-dialog + faneskift væk og tilbage ikke utilsigtet genåbner
+  // dialogen eller skriver de fjernede parametre tilbage i URL'en.
+  await dialog.getByRole("button", { name: "Annullér" }).click();
+  await expect(dialog).not.toBeVisible();
+
+  await page.getByRole("tab", { name: "Familie" }).click();
+  await expect(page.locator("#settings-tab-0")).toHaveAttribute("aria-selected", "true");
+
+  await page.getByRole("tab", { name: "Konto og data" }).click();
+  await expect(page.locator("#settings-tab-3")).toHaveAttribute("aria-selected", "true");
+
+  await expect(dialog).not.toBeVisible();
+  await expect(page).toHaveURL(/\/settings\?tab=account$/);
+
+  await page.reload();
+  await expect(dialog).not.toBeVisible();
+  await expect(page.getByRole("tab", { name: "Konto og data", selected: true })).toBeVisible();
 });
 
 // Fundet ved fejlsøgning af en rigtig bruger-rapport om, at kalenderen blev
@@ -3999,6 +4386,39 @@ test("en voksen kan oprette børneadgang med QR-kode, sætte en PIN, og sende en
   await page.getByLabel(/Kort besked/).fill("God skoledag, Billie!");
   await page.getByRole("button", { name: "Send", exact: true }).click();
   await expect(page.getByText("God skoledag, Billie!").first()).toBeVisible();
+});
+
+// Sprint 57, afsnit A (sikkerhedsrettelse): "Børneadgang for {navn}" og
+// Beskeder må kun vises for en reel børneprofil (relation = "Barn"), ikke
+// for en voksen eller familiens pseudoprofil — uanset at den loggede
+// bruger selv er ejer/admin. Standardmockens "Alex" og "Chris" har begge
+// relation "Andet", "Billie" har "Barn" (se mockAuthenticatedApi ovenfor).
+test("Mit i dag viser kun børneadgang og beskeder for en reel børneprofil, ikke for en voksen", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  await mockAuthenticatedApi(page);
+
+  await page.goto("/mit-i-dag");
+
+  // Voksen (Alex, relation "Andet"): hverken Børneadgang eller Beskeder
+  // må være synlige.
+  await page.getByRole("button", { name: /Alex/ }).click();
+  await expect(page.getByText("Alex's dag").or(page.getByText("Alexs dag"))).toBeVisible();
+  await expect(page.getByRole("button", { name: /Børneadgang for Alex/ })).not.toBeVisible();
+  await expect(page.getByText("Beskeder", { exact: true })).not.toBeVisible();
+
+  // En anden voksen (Chris) — samme forventning, for at bekræfte det ikke
+  // kun er et enkeltstående navnetjek.
+  await page.getByRole("button", { name: /Chris/ }).click();
+  await expect(page.getByRole("button", { name: /Børneadgang for Chris/ })).not.toBeVisible();
+  await expect(page.getByText("Beskeder", { exact: true })).not.toBeVisible();
+
+  // Barnet (Billie, relation "Barn"): begge SKAL være synlige for en
+  // ejer/admin — bekræfter rettelsen ikke også skjuler den for reelle børn.
+  await page.getByRole("button", { name: /Billie/ }).click();
+  await expect(page.getByRole("button", { name: /Børneadgang for Billie/ })).toBeVisible();
+  await expect(page.getByText("Beskeder", { exact: true })).toBeVisible();
 });
 
 // Regression: da børneadgangs-panelet flyttede fra en Dialog (som klipper

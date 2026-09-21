@@ -25,7 +25,13 @@ interface CreateFamilyResponse {
 async function createFamilyWithChild(
   env: ReturnType<typeof createFakeEnv>,
   cookieHeader: string,
-): Promise<{ familyId: string; inviteCode: string; childMemberId: string; familyPseudoMemberId: string }> {
+): Promise<{
+  familyId: string;
+  inviteCode: string;
+  childMemberId: string;
+  familyPseudoMemberId: string;
+  adultMemberId: string;
+}> {
   const response = await families.request(
     "/",
     { method: "POST", headers: { Cookie: cookieHeader, "Content-Type": "application/json" } },
@@ -34,9 +40,10 @@ async function createFamilyWithChild(
   const body: CreateFamilyResponse = await response.json();
   const child = body.members.find((member) => member.relation === "Barn");
   const pseudo = body.members.find((member) => member.relation === null);
+  const adult = body.members.find((member) => member.relation === "Far");
 
-  if (!child || !pseudo) {
-    throw new Error("test setup: expected a seeded child member and family pseudo-member");
+  if (!child || !pseudo || !adult) {
+    throw new Error("test setup: expected a seeded child member, an adult member, and family pseudo-member");
   }
 
   return {
@@ -44,6 +51,7 @@ async function createFamilyWithChild(
     inviteCode: body.inviteCode,
     childMemberId: child.id,
     familyPseudoMemberId: pseudo.id,
+    adultMemberId: adult.id,
   };
 }
 
@@ -113,9 +121,38 @@ describe("child access management routes", () => {
 
       expect(response.status).toBe(404);
     });
+
+    // Sprint 57: bekræfter rettelsen af den server-side hul, hvor børneadgang
+    // tidligere kunne aktiveres for en voksen (relation != NULL, men også
+    // != 'Barn') — se plandokumentets afsnit A.
+    it("returns 404 for an adult member (relation = 'Far')", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamilyWithChild(env, owner.cookieHeader);
+
+      const response = await families.request(
+        `/${created.familyId}/members/${created.adultMemberId}/child-access`,
+        { headers: { Cookie: owner.cookieHeader } },
+        env,
+      );
+
+      expect(response.status).toBe(404);
+    });
   });
 
   describe("POST /:id/members/:memberId/child-access/token", () => {
+    it("refuses to generate a token for an adult member", async () => {
+      const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
+      const created = await createFamilyWithChild(env, owner.cookieHeader);
+
+      const response = await families.request(
+        `/${created.familyId}/members/${created.adultMemberId}/child-access/token`,
+        { method: "POST", headers: { Cookie: owner.cookieHeader } },
+        env,
+      );
+
+      expect(response.status).toBe(404);
+    });
+
     it("generates an unguessable token", async () => {
       const owner = await seedLoggedInUser(env.DB as never, { id: "owner" });
       const created = await createFamilyWithChild(env, owner.cookieHeader);

@@ -11,6 +11,7 @@ import {
   SaveRounded,
 } from "@mui/icons-material";
 import { Alert, Box, Button, Card, CardContent, Dialog, DialogActions, DialogContent, DialogTitle, Divider, IconButton, TextField, Typography } from "@mui/material";
+import { useSearchParams } from "react-router-dom";
 
 import { useSession } from "../../auth/hooks/useSession";
 import { CurrentMemberPickerDialog } from "../../calendar/components/CurrentMemberPickerDialog";
@@ -18,7 +19,8 @@ import { useCurrentMember } from "../../calendar/hooks/useCurrentMember";
 import { useFamilyId } from "../../calendar/hooks/useFamilyId";
 import { useFamilyMembers } from "../../calendar/hooks/useFamilyMembers";
 import { createDataBackup, restoreDataBackup } from "../../calendar/preferences/dataBackupStorage";
-import { getMyFamily, type FamilyRole } from "../../family/familyApi";
+import type { FamilyRole } from "../../family/familyApi";
+import { getCachedFamily } from "../../family/familySessionCache";
 import {
   beginReauth,
   cancelAccountDeletion,
@@ -49,6 +51,7 @@ function readPendingDeletionReturn(): "account" | "family" | null {
 }
 
 export function AccountDataSection() {
+  const [, setSearchParams] = useSearchParams();
   const { members } = useFamilyMembers();
   const { currentMember, setCurrentMemberId } = useCurrentMember();
   const [isCurrentMemberPickerOpen, setIsCurrentMemberPickerOpen] = useState(false);
@@ -69,7 +72,7 @@ export function AccountDataSection() {
 
   useEffect(() => {
     let isCancelled = false;
-    getMyFamily().then((result) => {
+    getCachedFamily().then((result) => {
       if (!isCancelled && result.ok) {
         setFamilyRole(result.data.role ?? null);
       }
@@ -124,15 +127,38 @@ export function AccountDataSection() {
   const [familyDeletionConfirmation, setFamilyDeletionConfirmation] = useState("");
 
   useEffect(() => {
-    // Fjerner forespørgselsparametrene med det samme, så et genindlæst
-    // faneblad ikke ved et uheld genåbner bekræftelses-trinnet igen —
-    // selve state'et er allerede sat af useState-initializerne ovenfor.
+    // Fjerner kun de midlertidige OAuth-returparametre med det samme, så
+    // et genindlæst faneblad ikke ved et uheld genåbner bekræftelses-
+    // trinnet igen — selve state'et er allerede sat af useState-
+    // initializerne ovenfor. "tab" (og enhver anden fremtidig parameter)
+    // bevares bevidst — reviewfund: en tidligere udgave ryddede HELE
+    // forespørgselsstrengen (url.search = ""), hvilket også fjernede
+    // "?tab=account" og sendte brugeren tilbage til standardfanen
+    // ("Familie") midt i sletningsflowet.
+    //
+    // Reviewfund #2: et rent window.history.replaceState()-kald ændrer
+    // kun browserens synlige URL, ikke React Routers interne
+    // searchParams-tilstand — den forbliver usynkroniseret, indtil noget
+    // andet (fx en genindlæsning) tvinger den til at læse URL'en igen. Et
+    // efterfølgende setSearchParams()-kald et andet sted i appen (fx
+    // SettingsPage.tsx's faneskift) ville derfor kunne skrive de gamle,
+    // allerede fjernede parametre tilbage i URL'en, fordi det bygger
+    // videre på Routerens forældede tilstand i stedet for den faktiske
+    // URL. Bruger derfor useSearchParams() til selve oprydningen, så
+    // browserens URL og Routerens tilstand altid er synkroniserede.
     if (readPendingDeletionReturn()) {
-      const url = new URL(window.location.href);
-      url.search = "";
-      window.history.replaceState({}, "", url.toString());
+      setSearchParams(
+        (current) => {
+          const next = new URLSearchParams(current);
+          next.delete("accountDeletion");
+          next.delete("familyDeletion");
+          next.delete("reauth");
+          return next;
+        },
+        { replace: true },
+      );
     }
-  }, []);
+  }, [setSearchParams]);
 
   // OAuth-roundtrippet genindlæser siden, så preview-state fra første trin
   // findes ikke længere. Hent konsekvensen igen på confirm-trinnet, så
@@ -576,13 +602,13 @@ export function AccountDataSection() {
               <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap" }}>
                 <Button
                   variant="outlined"
-                  onClick={() => beginReauth("google", "/settings?accountDeletion=confirm")}
+                  onClick={() => beginReauth("google", "/settings?tab=account&accountDeletion=confirm")}
                 >
                   Bekræft med Google
                 </Button>
                 <Button
                   variant="outlined"
-                  onClick={() => beginReauth("microsoft", "/settings?accountDeletion=confirm")}
+                  onClick={() => beginReauth("microsoft", "/settings?tab=account&accountDeletion=confirm")}
                 >
                   Bekræft med Microsoft
                 </Button>
@@ -688,13 +714,13 @@ export function AccountDataSection() {
               <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap" }}>
                 <Button
                   variant="outlined"
-                  onClick={() => beginReauth("google", "/settings?familyDeletion=confirm")}
+                  onClick={() => beginReauth("google", "/settings?tab=account&familyDeletion=confirm")}
                 >
                   Bekræft med Google
                 </Button>
                 <Button
                   variant="outlined"
-                  onClick={() => beginReauth("microsoft", "/settings?familyDeletion=confirm")}
+                  onClick={() => beginReauth("microsoft", "/settings?tab=account&familyDeletion=confirm")}
                 >
                   Bekræft med Microsoft
                 </Button>

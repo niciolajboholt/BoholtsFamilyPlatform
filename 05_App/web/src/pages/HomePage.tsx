@@ -36,6 +36,8 @@ import type { CalendarEvent } from "../features/calendar/models/calendarEvent";
 import { expandRecurringEvents } from "../features/calendar/utils/expandRecurringEvents";
 import { getEventsForDate } from "../features/calendar/utils/getEventsForDate";
 import { getInitials } from "../features/calendar/utils/getInitials";
+import type { FeatureKey } from "../features/family/familyApi";
+import { useEnabledFeatures } from "../features/family/hooks/useEnabledFeatures";
 
 // Hvor langt frem "Næste aftale" kigger for at finde en kommende
 // forekomst — også af gentagne aftaler, som først udfoldes inden for dette
@@ -46,12 +48,16 @@ interface QuickAction {
   title: string;
   icon: ReactNode;
   isComingSoon: boolean;
+  // Sprint 57: kun sat for handlinger, der kræver en valgfri funktion —
+  // "Ny aftale" har ingen (kalenderen er en kernefunktion) og vises
+  // derfor altid. Samme mønster som AppLayout.tsx's NavItem.featureKey.
+  featureKey?: FeatureKey;
 }
 
 const quickActions: QuickAction[] = [
   { title: "Ny aftale", icon: <AddRounded />, isComingSoon: false },
-  { title: "Indkøbsliste", icon: <ShoppingCartOutlined />, isComingSoon: false },
-  { title: "Opgaver", icon: <CheckCircleOutlineRounded />, isComingSoon: false },
+  { title: "Indkøbsliste", icon: <ShoppingCartOutlined />, isComingSoon: false, featureKey: "shopping-list" },
+  { title: "Opgaver", icon: <CheckCircleOutlineRounded />, isComingSoon: false, featureKey: "tasks" },
 ];
 
 function formatEventTime(value: string, allDay: boolean): string {
@@ -105,9 +111,34 @@ function HomePage() {
   const navigate = useNavigate();
   const { members } = useFamilyMembers();
   const { currentMember } = useCurrentMember();
-  const { events } = useCalendarEvents();
+
+  // Sprint 57: Overblik behøver kun i dag og "Næste aftale"'s
+  // lookahead-vindue (dashboardLookaheadDays), ikke det brede "et år
+  // tilbage til to år frem"-standardinterval. Beregnet én gang pr. mount
+  // (tom deps-liste) — objektidentitet er irrelevant for
+  // useCalendarEvents (den sammenligner kun start/slut-strengene), men en
+  // frisk `new Date()` ved hvert render ville ellers give et nyt
+  // millisekund-præcist tidsstempel og dermed udløse en unødig
+  // genhentning ved hvert render.
+  const dashboardRange = useMemo(() => {
+    const now = new Date();
+    const rangeEnd = new Date(now);
+    rangeEnd.setDate(rangeEnd.getDate() + dashboardLookaheadDays);
+    return { start: now.toISOString(), end: rangeEnd.toISOString() };
+  }, []);
+
+  const { events } = useCalendarEvents(undefined, dashboardRange);
   const { visibleCalendarSourceIds } = useCalendarSources();
   const recurrenceExceptions = useRecurrenceExceptions();
+  const { isEnabled: isFeatureEnabled } = useEnabledFeatures();
+
+  // Sprint 57: Hurtige handlinger må ikke fremstå som normale, aktive
+  // genveje for en funktion, familien har slået fra (samme skjul-mønster
+  // som AppLayout.tsx's navigation) — ellers lokkes almindelige medlemmer
+  // ind i et flow, de ikke har rettigheder til selv at aktivere.
+  const visibleQuickActions = quickActions.filter(
+    (action) => !action.featureKey || isFeatureEnabled(action.featureKey),
+  );
 
   const currentDate = new Intl.DateTimeFormat("da-DK", {
     weekday: "long",
@@ -322,7 +353,11 @@ function HomePage() {
 
               <IconButton
                 aria-label="Se familien"
-                onClick={() => navigate("/settings")}
+                // Sprint 57: eksplicit til "Familie"-fanen (i dag også
+                // standardfanen, men skrevet eksplicit her, så dette link
+                // fortsat rammer rigtigt, selv hvis standardfanen senere
+                // ændres — se SettingsPage.tsx's "?tab="-parameter.
+                onClick={() => navigate("/settings?tab=family")}
               >
                 <ChevronRightRounded />
               </IconButton>
@@ -434,7 +469,7 @@ function HomePage() {
               gap: 1.5,
             }}
           >
-            {quickActions.map((action) => (
+            {visibleQuickActions.map((action) => (
               <Button
                 key={action.title}
                 fullWidth

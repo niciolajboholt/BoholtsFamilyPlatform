@@ -49,6 +49,12 @@ interface TokenMemberRow {
   pinHash: string | null;
 }
 
+// Sprint 57: "AND relation = 'Barn'" er en ekstra sikkerhedslinje (ikke
+// selve rettelsen — den ligger i childAccessManagement.ts's
+// requireOwnerOrAdminMember, som nu forhindrer et token i overhovedet at
+// blive udstedt til en voksen). Et allerede udstedt, gyldigt børne-token
+// er upåvirket af dette; kun et (i praksis ikke-eksisterende) token
+// udstedt til en voksen, før denne rettelse, holder op med at virke.
 async function findMemberByToken(db: D1Database, token: string): Promise<TokenMemberRow | null> {
   const row = await db
     .prepare(
@@ -57,7 +63,8 @@ async function findMemberByToken(db: D1Database, token: string): Promise<TokenMe
               family_members.pin_hash AS pinHash
        FROM family_members
        JOIN families ON families.id = family_members.family_id
-       WHERE family_members.child_access_token = ? AND families.deleted_at IS NULL`,
+       WHERE family_members.child_access_token = ? AND family_members.relation = 'Barn'
+             AND families.deleted_at IS NULL`,
     )
     .bind(token)
     .first<TokenMemberRow>();

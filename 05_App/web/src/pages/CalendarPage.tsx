@@ -68,6 +68,7 @@ function CalendarPage() {
             visibleCalendarSourceIds={visibleCalendarSourceIds}
             events={viewerEvents}
             members={members}
+            providerHealth={providerHealth}
             isLoading={isLoadingCalendarSources}
             error={calendarSourcesError}
             onToggle={toggleCalendarSource}

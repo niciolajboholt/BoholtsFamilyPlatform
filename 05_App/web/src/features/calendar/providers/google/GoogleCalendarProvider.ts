@@ -142,6 +142,20 @@ export class GoogleCalendarProvider implements CalendarProvider {
   // tidsvindue-synk (dagens hidtidige adfærd) hvis intet er cachet endnu,
   // eller hvis Google afviser tokenet som udløbet (410 Gone, mappes til
   // CalendarProviderError med code "not-found").
+  //
+  // Sprint 57-opfølgning: en inkrementel synk (syncToken) er selv
+  // interval-uafhængig — Google returnerer ÆNDRINGER siden sidst, uanset
+  // hvornår de ligger, og den forrige kode antog derfor fejlagtigt, at det
+  // var trygt at genbruge cachen for ethvert efterspurgt interval. I
+  // praksis betød det: hvis forsidens smalle 14-dages-vindue ramte cachen
+  // FØRST, ville en efterfølgende bredere forespørgsel (månedsvisningen)
+  // aldrig selv udføre en fuld, intervalbaseret synk — aftaler uden for de
+  // oprindelige 14 dage kunne derfor mangle. Cachen husker nu selv, hvilket
+  // interval den seneste FULDE synk dækkede (rangeStart/rangeEnd); kun når
+  // det efterspurgte interval er en delmængde heraf, genbruges den billige
+  // inkrementelle synk. Ellers udføres en ny, fuld synk — med UNIONEN af
+  // det gamle og det nye interval, så tidligere kendte aftaler uden for det
+  // nye (typisk snævrere) interval ikke går tabt.
   private async fetchCalendarEvents(
     calendarId: string,
     range: CalendarEventRange,
@@ -149,14 +163,20 @@ export class GoogleCalendarProvider implements CalendarProvider {
     members: readonly CalendarOwner[],
   ): Promise<CalendarEvent[]> {
     const cached = getCachedCalendarSyncState(calendarId);
+    const cacheCoversRange = cached ? isRangeCovered(range, cached) : false;
 
-    if (cached) {
+    if (cached && cacheCoversRange) {
       try {
         const page = await this.api.listEvents(calendarId, { syncToken: cached.syncToken });
         const merged = mergeGoogleEventDelta(cached.events, page.events, calendarId, mappedOwnerId, members);
 
         if (page.nextSyncToken) {
-          setCachedCalendarSyncState(calendarId, { events: merged, syncToken: page.nextSyncToken });
+          setCachedCalendarSyncState(calendarId, {
+            events: merged,
+            syncToken: page.nextSyncToken,
+            rangeStart: cached.rangeStart,
+            rangeEnd: cached.rangeEnd,
+          });
         } else {
           clearCachedCalendarSyncState(calendarId);
         }
@@ -171,13 +191,19 @@ export class GoogleCalendarProvider implements CalendarProvider {
       }
     }
 
-    const page = await this.api.listEvents(calendarId, { range });
+    const fullSyncRange = cached ? unionRange(range, { start: cached.rangeStart, end: cached.rangeEnd }) : range;
+    const page = await this.api.listEvents(calendarId, { range: fullSyncRange });
     const mapped = page.events
       .map((event) => mapGoogleCalendarEvent(calendarId, event, mappedOwnerId, members))
       .filter((event): event is CalendarEvent => event !== null);
 
     if (page.nextSyncToken) {
-      setCachedCalendarSyncState(calendarId, { events: mapped, syncToken: page.nextSyncToken });
+      setCachedCalendarSyncState(calendarId, {
+        events: mapped,
+        syncToken: page.nextSyncToken,
+        rangeStart: fullSyncRange.start,
+        rangeEnd: fullSyncRange.end,
+      });
     }
 
     return mapped;
@@ -317,6 +343,23 @@ export class GoogleCalendarProvider implements CalendarProvider {
     if (!mapped) throw new CalendarProviderError("unknown", "Google Kalender sendte en ugyldig aftale.");
     return mapped;
   }
+}
+
+// Sprint 57-opfølgning: ISO-strenge fra .toISOString() (altid UTC, "Z"-endt)
+// sammenlignes trygt leksikografisk — samme antagelse som resten af
+// kalenderkoden (fx getVisibleRange) allerede gør.
+function isRangeCovered(
+  range: CalendarEventRange,
+  cached: { rangeStart: string; rangeEnd: string },
+): boolean {
+  return range.start >= cached.rangeStart && range.end <= cached.rangeEnd;
+}
+
+function unionRange(a: CalendarEventRange, b: CalendarEventRange): CalendarEventRange {
+  return {
+    start: a.start < b.start ? a.start : b.start,
+    end: a.end > b.end ? a.end : b.end,
+  };
 }
 
 // Sprint 25: en inkrementel synk returnerer kun ÆNDREDE/SLETTEDE events, ikke

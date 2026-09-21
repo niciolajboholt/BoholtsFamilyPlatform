@@ -17,9 +17,14 @@ import { parseJsonBody, type Variables } from "./familyQueries";
 
 const childMessages = new Hono<{ Bindings: Env; Variables: Variables }>();
 
-async function isRealFamilyMember(db: D1Database, familyId: string, memberId: string): Promise<boolean> {
+// Sprint 57: skærpet fra "relation IS NOT NULL" til "relation = 'Barn'" —
+// beskeder er en børneadgangs-funktion (voksen → barn), ikke generel
+// familie-besked, og må kun kunne sendes til/hentes for en reel
+// børneprofil. Samme markør som childAccessManagement.ts's
+// requireOwnerOrAdminMember.
+async function isChildFamilyMember(db: D1Database, familyId: string, memberId: string): Promise<boolean> {
   const member = await db
-    .prepare("SELECT id FROM family_members WHERE id = ? AND family_id = ? AND relation IS NOT NULL")
+    .prepare("SELECT id FROM family_members WHERE id = ? AND family_id = ? AND relation = 'Barn'")
     .bind(memberId, familyId)
     .first();
 
@@ -40,7 +45,7 @@ childMessages.post("/:id/messages", async (c) => {
 
   const body = await parseJsonBody<{ familyMemberId: string; body: string }>(c);
 
-  if (!body.familyMemberId || !(await isRealFamilyMember(c.env.DB, familyId, body.familyMemberId))) {
+  if (!body.familyMemberId || !(await isChildFamilyMember(c.env.DB, familyId, body.familyMemberId))) {
     return c.json({ error: "Ukendt familiemedlem." }, 400);
   }
 
@@ -73,7 +78,7 @@ childMessages.get("/:id/messages", async (c) => {
 
   const memberId = c.req.query("memberId");
 
-  if (!memberId || !(await isRealFamilyMember(c.env.DB, familyId, memberId))) {
+  if (!memberId || !(await isChildFamilyMember(c.env.DB, familyId, memberId))) {
     return c.json({ error: "Ukendt familiemedlem." }, 400);
   }
 

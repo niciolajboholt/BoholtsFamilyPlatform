@@ -31,6 +31,17 @@ export function mapMembersToCalendarOwners(
   }));
 }
 
+// Sprint 57-opfølgning (reviewfund): kaldes BÅDE efter almindelige
+// læsninger/synk (fx AppLayout's "hold pseudomedlemmets server-id varmt"-
+// effekt ved hver sideindlæsning) og efter reelle mutationer (tilføj/
+// redigér/slet medlem, opret/tilslut familie) — invaliderer derfor
+// bevidst IKKE selv familySessionCache her. Ville den gøre det, ville
+// AppLayouts helt almindelige, hyppige læse-kald ødelægge den cache, det
+// samme kald netop havde udfyldt, praktisk talt med det samme (cachen
+// ville reelt aldrig leve i det tilsigtede 30-sekunders TTL-vindue).
+// Kaldesteder, der udfører en REEL mutation, kalder selv
+// invalidateFamilyCache() ved siden af (se useFamilyMembers.ts og
+// FamilySetupOnboarding.tsx).
 export function syncFamilyMembersFromServer(members: FamilyMemberDto[]): void {
   const pseudoMember = members.find((member) => member.relation === null);
   setFamilyPseudoMemberServerId(pseudoMember?.id ?? null);
