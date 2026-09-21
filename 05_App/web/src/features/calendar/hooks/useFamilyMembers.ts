@@ -9,7 +9,7 @@ import {
   updateFamilyMember,
 } from "../../family/familyApi";
 import { syncFamilyMembersFromServer } from "../../family/familyMembersSync";
-import { getCachedFamily } from "../../family/familySessionCache";
+import { getCachedFamily, invalidateFamilyCache } from "../../family/familySessionCache";
 
 export interface FamilyMemberInput {
   name: string;
@@ -109,6 +109,7 @@ export function useFamilyMembers(): UseFamilyMembersResult {
 
       if (result.ok && result.data.members) {
         syncFamilyMembersFromServer(result.data.members);
+        invalidateFamilyCache();
         setMembers(getFamilyMembers());
       }
     },
@@ -134,6 +135,7 @@ export function useFamilyMembers(): UseFamilyMembersResult {
 
       if (result.ok && result.data.members) {
         syncFamilyMembersFromServer(result.data.members);
+        invalidateFamilyCache();
         setMembers(getFamilyMembers());
       }
     },
@@ -150,6 +152,7 @@ export function useFamilyMembers(): UseFamilyMembersResult {
 
       if (result.ok && result.data.members) {
         syncFamilyMembersFromServer(result.data.members);
+        invalidateFamilyCache();
         setMembers(getFamilyMembers());
       }
     },

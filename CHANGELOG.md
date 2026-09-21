@@ -52,6 +52,15 @@ i Sprint 51-56.
   hook-instanser (mindst 4 identiske kald ved én Overblik-/Mit i
   dag-indlæsning hidtil) — genbruger appens eksisterende
   cache+invalideringsmønster, ingen ny state-management-afhængighed.
+  **Rettet efter review:** invalidering skete tidligere ved enhver
+  synkronisering (også almindelige læsninger, fx AppLayouts
+  hver-sideindlæsnings-effekt), så cachen ofte blev slettet umiddelbart
+  efter oprettelse; et `{ ok: false }`-svar blev desuden cachet i op til
+  30 sekunder, da kun afviste promises blev ryddet. Invalidering sker nu
+  udelukkende ved reelle mutationer (tilføj/redigér/slet medlem, opret/
+  tilslut familie), og et `{ ok: false }`-svar caches ikke. Alle
+  resterende komponenter, der kaldte `getMyFamily()` direkte uden om
+  cachen, bruger nu også den delte cache.
 - **Forbedret:** Mit i dag blokerer ikke længere hele siden bag én
   fælles spinner — allerede hentede opgaver vises, mens kalenderen
   stadig indlæses, med en kompakt lokal indlæsningsnote i stedet.

@@ -5,7 +5,8 @@ import { Avatar, Box, Card, CardContent, Divider, IconButton, TextField, Typogra
 
 import { getInitials } from "../../calendar/utils/getInitials";
 import type { FamilyMemberDto } from "../../family/familyApi";
-import { getMyFamily, updateFamilyMember } from "../../family/familyApi";
+import { updateFamilyMember } from "../../family/familyApi";
+import { getCachedFamily } from "../../family/familySessionCache";
 import { useEnabledFeatures } from "../../family/hooks/useEnabledFeatures";
 import { BirthdayGiftPlansDialog } from "./BirthdayGiftPlansDialog";
 import { SettingsSectionHeader } from "./SettingsPrimitives";
@@ -87,7 +88,7 @@ export function BirthdaysSection() {
   useEffect(() => {
     let isCancelled = false;
 
-    getMyFamily().then((result) => {
+    getCachedFamily().then((result) => {
       if (!isCancelled && result.ok && result.data.family) {
         setFamilyId(result.data.family.id);
         // Pseudomedlemmet ("Familien", relation === null) har ingen egen

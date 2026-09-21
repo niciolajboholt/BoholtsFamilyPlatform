@@ -20,12 +20,12 @@ import {
 import {
   createShareLink,
   deleteShareLink,
-  getMyFamily,
   getShareLink,
   type FamilyMemberDto,
   type FamilyRole,
   type ShareLinkDto,
 } from "./familyApi";
+import { getCachedFamily } from "./familySessionCache";
 
 interface ShareLinkDialogProps {
   open: boolean;
@@ -50,7 +50,7 @@ export function ShareLinkDialog({ open, onClose }: ShareLinkDialogProps) {
   useEffect(() => {
     let isCancelled = false;
 
-    getMyFamily().then(async (result) => {
+    getCachedFamily().then(async (result) => {
       if (isCancelled || !result.ok || !result.data.family) {
         setIsLoading(false);
         return;

@@ -21,11 +21,11 @@ import type { FamilyMemberDto, SharedExpenseBalanceDto, SharedExpenseDto } from 
 import {
   createSharedExpense,
   deleteSharedExpense,
-  getMyFamily,
   getSharedExpenseBalances,
   getSharedExpenses,
   settleSharedExpenseBalance,
 } from "../../family/familyApi";
+import { getCachedFamily } from "../../family/familySessionCache";
 import { useEnabledFeatures } from "../../family/hooks/useEnabledFeatures";
 import { SettingsSectionHeader } from "./SettingsPrimitives";
 
@@ -56,7 +56,7 @@ export function SharedExpensesSection() {
   useEffect(() => {
     let isCancelled = false;
 
-    getMyFamily().then((result) => {
+    getCachedFamily().then((result) => {
       if (isCancelled || !result.ok || !result.data.family) {
         return;
       }

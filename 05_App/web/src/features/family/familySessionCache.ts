@@ -38,13 +38,24 @@ export function getCachedFamily(): Promise<{ ok: boolean; status: number; data: 
   entry = { promise, cachedAt: now };
 
   // En fejlet hentning skal ikke blive "husket" i TTL-vinduet — ellers
-  // ville en forbigående netværksfejl forhindre enhver efterfølgende
-  // hook i at prøve igen, indtil TTL'en selv udløber.
-  promise.catch(() => {
-    if (entry?.promise === promise) {
-      entry = null;
-    }
-  });
+  // ville en forbigående netværksfejl (eller et ikke-2xx-svar, se
+  // nedenfor) forhindre enhver efterfølgende hook i at prøve igen, indtil
+  // TTL'en selv udløber. getMyFamily() kaster kun ved en reel
+  // netværksfejl — et HTTP-fejlsvar (fx 401/404/500) resolver i stedet
+  // med { ok: false, ... } (se request() i familyApi.ts), så begge
+  // tilfælde skal rydde cachen, ikke kun et afvist promise.
+  promise.then(
+    (result) => {
+      if (!result.ok && entry?.promise === promise) {
+        entry = null;
+      }
+    },
+    () => {
+      if (entry?.promise === promise) {
+        entry = null;
+      }
+    },
+  );
 
   return promise;
 }

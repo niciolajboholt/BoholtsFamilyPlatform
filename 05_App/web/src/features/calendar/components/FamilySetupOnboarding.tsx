@@ -13,6 +13,7 @@ import {
 
 import { acceptInvite, createFamily } from "../../family/familyApi";
 import { syncFamilyMembersFromServer } from "../../family/familyMembersSync";
+import { invalidateFamilyCache } from "../../family/familySessionCache";
 
 interface FamilySetupOnboardingProps {
   onDone: () => void;
@@ -49,6 +50,7 @@ export function FamilySetupOnboarding({ onDone }: FamilySetupOnboardingProps) {
     }
 
     syncFamilyMembersFromServer(result.data.members);
+    invalidateFamilyCache();
 
     // Koden vises kun her — der er endnu ingen "Del invitation"-visning i
     // Indstillinger, så dette er brugerens eneste chance for at se den, før
@@ -83,6 +85,7 @@ export function FamilySetupOnboarding({ onDone }: FamilySetupOnboardingProps) {
     }
 
     syncFamilyMembersFromServer(result.data.members);
+    invalidateFamilyCache();
     onDone();
   }
 

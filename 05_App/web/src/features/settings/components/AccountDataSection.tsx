@@ -18,7 +18,8 @@ import { useCurrentMember } from "../../calendar/hooks/useCurrentMember";
 import { useFamilyId } from "../../calendar/hooks/useFamilyId";
 import { useFamilyMembers } from "../../calendar/hooks/useFamilyMembers";
 import { createDataBackup, restoreDataBackup } from "../../calendar/preferences/dataBackupStorage";
-import { getMyFamily, type FamilyRole } from "../../family/familyApi";
+import type { FamilyRole } from "../../family/familyApi";
+import { getCachedFamily } from "../../family/familySessionCache";
 import {
   beginReauth,
   cancelAccountDeletion,
@@ -69,7 +70,7 @@ export function AccountDataSection() {
 
   useEffect(() => {
     let isCancelled = false;
-    getMyFamily().then((result) => {
+    getCachedFamily().then((result) => {
       if (!isCancelled && result.ok) {
         setFamilyRole(result.data.role ?? null);
       }

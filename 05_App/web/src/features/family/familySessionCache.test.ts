@@ -67,4 +67,31 @@ describe("familySessionCache", () => {
 
     expect(getMyFamilyMock).toHaveBeenCalledTimes(2);
   });
+
+  // Reviewfund: getMyFamily() kaster kun ved en reel netværksfejl — et
+  // HTTP-fejlsvar (401/404/500/osv.) RESOLVER i stedet med { ok: false }
+  // (se request() i familyApi.ts). Kun at rydde cachen ved et afvist
+  // promise (som den oprindelige implementering gjorde) efterlod et
+  // { ok: false }-svar cachet i op til 30 sekunder — enhver efterfølgende
+  // hook ville få den samme fejl igen uden selv at kunne prøve friskt.
+  it("does not cache an { ok: false } response, so the next caller retries", async () => {
+    const { getCachedFamily } = await import("./familySessionCache");
+    getMyFamilyMock.mockResolvedValueOnce({ ok: false, status: 404, data: {} });
+    getMyFamilyMock.mockResolvedValueOnce({ ok: true, status: 200, data: { family: { id: "family-1" } } });
+
+    await expect(getCachedFamily()).resolves.toMatchObject({ ok: false });
+    await expect(getCachedFamily()).resolves.toMatchObject({ ok: true });
+
+    expect(getMyFamilyMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("does dedupe concurrent callers even when the shared request will resolve with { ok: false }", async () => {
+    const { getCachedFamily } = await import("./familySessionCache");
+    getMyFamilyMock.mockResolvedValue({ ok: false, status: 401, data: {} });
+
+    const [first, second] = await Promise.all([getCachedFamily(), getCachedFamily()]);
+
+    expect(getMyFamilyMock).toHaveBeenCalledTimes(1);
+    expect(first).toBe(second);
+  });
 });

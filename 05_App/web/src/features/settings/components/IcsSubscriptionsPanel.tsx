@@ -22,11 +22,11 @@ import {
   createIcsSubscription,
   deleteIcsSubscription,
   getIcsSubscriptions,
-  getMyFamily,
   updateIcsSubscription,
   type FamilyMemberDto,
   type IcsCalendarSubscriptionDto,
 } from "../../family/familyApi";
+import { getCachedFamily } from "../../family/familySessionCache";
 
 const maxSubscriptions = 5;
 
@@ -143,7 +143,7 @@ export function IcsSubscriptionsPanel({ isOpen }: IcsSubscriptionsPanelProps) {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsLoading(true);
 
-    getMyFamily().then(async (result) => {
+    getCachedFamily().then(async (result) => {
       if (isCancelled || !result.ok || !result.data.family) {
         setIsLoading(false);
         return;

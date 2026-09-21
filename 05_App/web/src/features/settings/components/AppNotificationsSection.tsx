@@ -11,7 +11,8 @@ import {
 import { Alert, Avatar, Box, Button, Card, CardContent, Divider, Switch, ToggleButton, ToggleButtonGroup, Typography } from "@mui/material";
 
 import { usePushNotifications } from "../../notifications/hooks/usePushNotifications";
-import { getMyFamily, updateFamilyPrivacySettings } from "../../family/familyApi";
+import { updateFamilyPrivacySettings } from "../../family/familyApi";
+import { getCachedFamily } from "../../family/familySessionCache";
 import type { ThemeModePreference } from "../../../theme/ThemeModeContext";
 import { useThemeMode } from "../../../theme/ThemeModeContext";
 import { FeatureFlagsDialog } from "./FeatureFlagsDialog";
@@ -56,7 +57,7 @@ export function AppNotificationsSection() {
   useEffect(() => {
     let isCancelled = false;
 
-    void getMyFamily().then((result) => {
+    void getCachedFamily().then((result) => {
       if (!isCancelled && result.ok && result.data.family) {
         setFamilyId(result.data.family.id);
         setCanManageAiPreference(

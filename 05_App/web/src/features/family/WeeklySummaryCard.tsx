@@ -4,7 +4,8 @@ import AutoAwesomeOutlined from "@mui/icons-material/AutoAwesomeOutlined";
 import RefreshRounded from "@mui/icons-material/RefreshRounded";
 import { Alert, Avatar, Box, Button, Card, CardContent, CircularProgress, IconButton, Typography } from "@mui/material";
 
-import { getMyFamily, getWeeklySummary, refreshWeeklySummary, type WeeklySummaryDto } from "./familyApi";
+import { getWeeklySummary, refreshWeeklySummary, type WeeklySummaryDto } from "./familyApi";
+import { getCachedFamily } from "./familySessionCache";
 
 function formatWeekStart(weekStart: string): string {
   return new Intl.DateTimeFormat("da-DK", { day: "numeric", month: "long" }).format(
@@ -32,7 +33,7 @@ export function WeeklySummaryCard() {
   useEffect(() => {
     let isCancelled = false;
 
-    getMyFamily().then(async (familyResult) => {
+    getCachedFamily().then(async (familyResult) => {
       if (
         isCancelled ||
         !familyResult.ok ||

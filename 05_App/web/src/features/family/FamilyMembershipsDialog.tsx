@@ -23,11 +23,11 @@ import { getInitials } from "../calendar/utils/getInitials";
 import {
   changeMemberRole,
   getFamilyMemberships,
-  getMyFamily,
   removeMembership,
   type FamilyMembershipDto,
   type FamilyRole,
 } from "./familyApi";
+import { getCachedFamily } from "./familySessionCache";
 
 interface FamilyMembershipsDialogProps {
   open: boolean;
@@ -70,7 +70,7 @@ export function FamilyMembershipsDialog({ open, onClose }: FamilyMembershipsDial
     setIsLoading(true);
     setErrorMessage(null);
 
-    getMyFamily().then(async (result) => {
+    getCachedFamily().then(async (result) => {
       if (isCancelled || !result.ok || !result.data.family) {
         setIsLoading(false);
         return;
