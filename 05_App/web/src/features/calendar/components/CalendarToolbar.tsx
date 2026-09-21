@@ -1,6 +1,8 @@
 import {
   ChevronLeftRounded,
   ChevronRightRounded,
+  StarRounded,
+  StarBorderRounded,
 } from "@mui/icons-material";
 import {
   Box,
@@ -8,6 +10,7 @@ import {
   Card,
   CardContent,
   IconButton,
+  Tooltip,
   Typography,
 } from "@mui/material";
 
@@ -29,13 +32,23 @@ const nextLabelByView: Record<CalendarView, string> = {
   planner: "Næste måned",
 };
 
+const calendarViewLabels: Record<CalendarView, string> = {
+  month: "Måned",
+  week: "Uge",
+  day: "Dag",
+  planner: "Familie",
+};
+
 interface CalendarToolbarProps {
   calendarView: CalendarView;
   visibleDate: Date;
+  isFavoriteView: boolean;
+  canSetFavoriteView: boolean;
   onPrevious: () => void;
   onNext: () => void;
   onToday: () => void;
   onChangeView: (view: CalendarView) => void;
+  onToggleFavoriteView: () => void;
 }
 
 function formatMonth(date: Date): string {
@@ -83,10 +96,13 @@ function formatPlanner(date: Date): string {
 function CalendarToolbar({
   calendarView,
   visibleDate,
+  isFavoriteView,
+  canSetFavoriteView,
   onPrevious,
   onNext,
   onToday,
   onChangeView,
+  onToggleFavoriteView,
 }: CalendarToolbarProps) {
   const title =
     calendarView === "month"
@@ -156,13 +172,40 @@ function CalendarToolbar({
           sx={{
             mt: 1.5,
             display: "flex",
+            alignItems: "center",
             justifyContent: "center",
+            gap: 1,
           }}
         >
           <CalendarViewToggle
             value={calendarView}
             onChange={onChangeView}
           />
+
+          <Tooltip
+            title={
+              !canSetFavoriteView
+                ? "Vælg din profil under Min profil i Indstillinger for at kunne gemme en favoritvisning"
+                : isFavoriteView
+                  ? "Fjern som favoritvisning"
+                  : `Gør ${calendarViewLabels[calendarView]} til din favoritvisning`
+            }
+          >
+            <span>
+              <IconButton
+                onClick={onToggleFavoriteView}
+                disabled={!canSetFavoriteView}
+                aria-label={
+                  isFavoriteView
+                    ? "Fjern som favoritvisning"
+                    : `Gør ${calendarViewLabels[calendarView]} til din favoritvisning`
+                }
+                sx={{ color: isFavoriteView ? "warning.main" : "action.active" }}
+              >
+                {isFavoriteView ? <StarRounded /> : <StarBorderRounded />}
+              </IconButton>
+            </span>
+          </Tooltip>
         </Box>
       </CardContent>
     </Card>

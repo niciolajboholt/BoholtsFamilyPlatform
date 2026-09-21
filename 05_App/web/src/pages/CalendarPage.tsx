@@ -33,10 +33,13 @@ function CalendarPage() {
     wasOutlookCalendarEverConnected,
     isAttemptingOutlookSilentReconnect,
     connectedProviderLabels,
+    isFavoriteView,
+    canSetFavoriteView,
     handlePrevious,
     handleNext,
     handleToday,
     handleChangeView,
+    handleToggleFavoriteView,
   } = controller;
 
   return (
@@ -83,10 +86,13 @@ function CalendarPage() {
       <CalendarToolbar
         calendarView={calendarView}
         visibleDate={visibleDate}
+        isFavoriteView={isFavoriteView}
+        canSetFavoriteView={canSetFavoriteView}
         onPrevious={handlePrevious}
         onNext={handleNext}
         onToday={handleToday}
         onChangeView={handleChangeView}
+        onToggleFavoriteView={handleToggleFavoriteView}
       />
 
       <CalendarBody {...controller} />

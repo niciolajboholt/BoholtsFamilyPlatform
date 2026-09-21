@@ -12,6 +12,12 @@ import type { CalendarEvent } from "../models/calendarEvent";
 import type { CreateCalendarEventInput } from "../models/calendarEventInput";
 import type { CalendarView } from "../models/calendarView";
 import {
+  clearFavoriteCalendarView,
+  getFavoriteCalendarView,
+  setFavoriteCalendarView,
+} from "../preferences/calendarFavoriteViewStorage";
+import { getCurrentMemberId } from "../preferences/currentMemberStorage";
+import {
   changeDay,
   changeMonth,
   changeWeek,
@@ -45,6 +51,13 @@ export interface SnackbarState {
   showUndo: boolean;
 }
 
+const calendarViewLabels: Record<CalendarView, string> = {
+  month: "Måned",
+  week: "Uge",
+  day: "Dag",
+  planner: "Familie",
+};
+
 // Al ikke-visuel tilstand og logik for CalendarPage samlet ét sted, så selve
 // siden kan koncentrere sig om at koordinere komponenter. Ren udflytning fra
 // CalendarPage.tsx — ingen adfærdsændring.
@@ -54,11 +67,20 @@ export function useCalendarPageController() {
     setSelectedDate,
   ] = useState(getTodayCalendarDate);
 
+  // Åbner direkte i medlemmets egen favoritvisning, hvis der er valgt en for
+  // "mig" på denne enhed (se calendarFavoriteViewStorage.ts) — ellers falder
+  // den tilbage til den samme viewport-baserede standard som før.
+  // getCurrentMemberId() læses direkte (i stedet for currentMember fra
+  // useCurrentMember nedenfor), fordi den er synkront tilgængelig med det
+  // samme — useCurrentMember afhænger af useFamilyMembers' asynkrone
+  // hentning og ville derfor altid give null ved selve mount.
   const [
     calendarView,
     setCalendarView,
   ] =
-    useState<CalendarView>(getDefaultCalendarView);
+    useState<CalendarView>(
+      () => getFavoriteCalendarView(getCurrentMemberId()) ?? getDefaultCalendarView(),
+    );
 
   const [
     visibleDate,
@@ -170,6 +192,33 @@ export function useCalendarPageController() {
 
   const { members } = useFamilyMembers();
   const { currentMember } = useCurrentMember();
+
+  // localStorage er ikke reaktivt i sig selv — denne tæller tvinger et
+  // gen-render (og dermed et friskt opslag nedenfor) efter et
+  // sæt/fjern-klik, uden at skulle duplikere værdien i React-state.
+  const [, forceFavoriteViewRefresh] = useState(0);
+
+  // Genberegnes ved hvert render (billigt opslag) — afspejler derfor både
+  // et skift af "Min profil" og et sæt/fjern-klik uden en effekt.
+  const favoriteView = getFavoriteCalendarView(currentMember?.id ?? null);
+  const isFavoriteView = favoriteView === calendarView;
+  const canSetFavoriteView = Boolean(currentMember);
+
+  function handleToggleFavoriteView() {
+    if (!currentMember) {
+      return;
+    }
+
+    if (isFavoriteView) {
+      clearFavoriteCalendarView(currentMember.id);
+      showSnackbar("success", "Favoritvisningen er fjernet.");
+    } else {
+      setFavoriteCalendarView(currentMember.id, calendarView);
+      showSnackbar("success", `${calendarViewLabels[calendarView]} er nu din favoritvisning.`);
+    }
+
+    forceFavoriteViewRefresh((version) => version + 1);
+  }
 
   // Kun brugt til aftale-påmindelser (Sprint 31) — resten af kalenderen
   // scopes sig selv via sessionen alene, se useFamilyId's egen kommentar.
@@ -659,6 +708,9 @@ export function useCalendarPageController() {
     refreshEvents,
     members,
     recurrenceExceptions,
+    isFavoriteView,
+    canSetFavoriteView,
+    handleToggleFavoriteView,
     isGoogleCalendarStatusLoading,
     isGoogleCalendarConnected,
     isOutlookCalendarConfigured,
