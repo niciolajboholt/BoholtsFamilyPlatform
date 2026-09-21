@@ -537,13 +537,14 @@ function FamilyPlannerCalendar({
                                     display: "flex",
                                     alignItems: "center",
                                     gap: 0.5,
+                                    width: "100%",
                                     minWidth: 0,
                                   }}
                                 >
                                   <Typography
                                     variant="caption"
                                     noWrap
-                                    sx={{ fontWeight: 700 }}
+                                    sx={{ fontWeight: 700, minWidth: 0 }}
                                   >
                                     {formatEventTime(event)}
                                   </Typography>
@@ -555,10 +556,23 @@ function FamilyPlannerCalendar({
                                   />
                                 </Box>
 
+                                {/*
+                                  Den omgivende ButtonBase bruger bevidst
+                                  alignItems: "flex-start" (venstrejusteret
+                                  tekst) i stedet for standarden "stretch" —
+                                  det betyder, at et flex-barn IKKE automatisk
+                                  strækkes til forælderens bredde, og derfor
+                                  ikke har noget at trunkere ("noWrap") imod:
+                                  uden en eksplicit width her rendered titlen
+                                  altid i sin fulde, uklippede bredde og flød
+                                  visuelt ud over cellen (usynligt på
+                                  desktops brede kolonner, men tydeligt på
+                                  mobils smalle).
+                                */}
                                 <Typography
                                   variant="caption"
                                   noWrap
-                                  sx={{ display: "block" }}
+                                  sx={{ display: "block", width: "100%" }}
                                 >
                                   {event.title}
                                 </Typography>
