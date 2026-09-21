@@ -56,47 +56,58 @@ afterEach(() => {
 // udkigsvindue (dashboardLookaheadDays i HomePage.tsx), ikke det brede
 // "et år tilbage til to år frem"-standardinterval. Denne test dækker det
 // faktiske interval, HomePage rent faktisk sender til useCalendarEvents.
+// Et fuldt React 19 + StrictMode-render er tungere end en ren hook-test —
+// givet 20 sekunder pr. test i stedet for Vitests standard på 5000ms, som
+// viste sig for stramt på CI's langsommere runnere (samme grænse som
+// MitIDagPage.progressiveLoading.test.tsx og
+// MitIDagPage.dateRange.test.tsx).
+const renderTestTimeoutMs = 20_000;
+
 describe("HomePage's calendar fetch range", () => {
-  it("henter fra nu og 14 dage frem, ikke et bredt standardinterval", async () => {
-    const before = new Date();
+  it(
+    "henter fra nu og 14 dage frem, ikke et bredt standardinterval",
+    async () => {
+      const before = new Date();
 
-    const { default: HomePage } = await import("./HomePage");
-    const container = document.createElement("div");
-    document.body.appendChild(container);
-    const root = createRoot(container);
+      const { default: HomePage } = await import("./HomePage");
+      const container = document.createElement("div");
+      document.body.appendChild(container);
+      const root = createRoot(container);
 
-    try {
-      await act(async () => {
-        root.render(
-          <StrictMode>
-            <HomePage />
-          </StrictMode>,
-        );
-      });
+      try {
+        await act(async () => {
+          root.render(
+            <StrictMode>
+              <HomePage />
+            </StrictMode>,
+          );
+        });
 
-      const after = new Date();
+        const after = new Date();
 
-      expect(capturedRange).toBeDefined();
-      const range = capturedRange!;
-      const start = new Date(range.start);
-      const end = new Date(range.end);
+        expect(capturedRange).toBeDefined();
+        const range = capturedRange!;
+        const start = new Date(range.start);
+        const end = new Date(range.end);
 
-      // Startet er "nu" ved mount — inden for testens egen udførselsvindue.
-      expect(start.getTime()).toBeGreaterThanOrEqual(before.getTime());
-      expect(start.getTime()).toBeLessThanOrEqual(after.getTime());
+        // Startet er "nu" ved mount — inden for testens egen udførselsvindue.
+        expect(start.getTime()).toBeGreaterThanOrEqual(before.getTime());
+        expect(start.getTime()).toBeLessThanOrEqual(after.getTime());
 
-      // Slut er nøjagtig 14 dage efter start (dashboardLookaheadDays).
-      const expectedEnd = new Date(start);
-      expectedEnd.setDate(expectedEnd.getDate() + 14);
-      expect(end.getTime()).toBe(expectedEnd.getTime());
+        // Slut er nøjagtig 14 dage efter start (dashboardLookaheadDays).
+        const expectedEnd = new Date(start);
+        expectedEnd.setDate(expectedEnd.getDate() + 14);
+        expect(end.getTime()).toBe(expectedEnd.getTime());
 
-      // Ikke det tidligere brede "et år tilbage"-interval.
-      const oneYearAgo = new Date(before);
-      oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
-      expect(start.getTime()).toBeGreaterThan(oneYearAgo.getTime());
-    } finally {
-      await act(async () => root.unmount());
-      container.remove();
-    }
-  });
+        // Ikke det tidligere brede "et år tilbage"-interval.
+        const oneYearAgo = new Date(before);
+        oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+        expect(start.getTime()).toBeGreaterThan(oneYearAgo.getTime());
+      } finally {
+        await act(async () => root.unmount());
+        container.remove();
+      }
+    },
+    renderTestTimeoutMs,
+  );
 });

@@ -58,41 +58,52 @@ afterEach(() => {
 // Mit i dag skal kun hente i dag ±1 dags buffer, ikke det brede "et år
 // tilbage til to år frem"-standardinterval. Denne test dækker det
 // faktiske interval, siden rent faktisk sender til useCalendarEvents.
+//
+// Et fuldt React 19 + StrictMode-render er tungere end en ren hook-test —
+// givet 20 sekunder pr. test i stedet for Vitests standard på 5000ms, som
+// viste sig for stramt på CI's langsommere runnere (samme grænse som
+// MitIDagPage.progressiveLoading.test.tsx).
+const renderTestTimeoutMs = 20_000;
+
 describe("MitIDagPage's calendar fetch range", () => {
-  it("henter kun i dag ±1 dags buffer, ikke et bredt standardinterval", async () => {
-    const { default: MitIDagPage } = await import("./MitIDagPage");
-    const container = document.createElement("div");
-    document.body.appendChild(container);
-    const root = createRoot(container);
+  it(
+    "henter kun i dag ±1 dags buffer, ikke et bredt standardinterval",
+    async () => {
+      const { default: MitIDagPage } = await import("./MitIDagPage");
+      const container = document.createElement("div");
+      document.body.appendChild(container);
+      const root = createRoot(container);
 
-    try {
-      await act(async () => {
-        root.render(
-          <StrictMode>
-            <MitIDagPage />
-          </StrictMode>,
-        );
-      });
+      try {
+        await act(async () => {
+          root.render(
+            <StrictMode>
+              <MitIDagPage />
+            </StrictMode>,
+          );
+        });
 
-      expect(capturedRange).toBeDefined();
-      const range = capturedRange!;
-      const start = new Date(range.start);
-      const end = new Date(range.end);
+        expect(capturedRange).toBeDefined();
+        const range = capturedRange!;
+        const start = new Date(range.start);
+        const end = new Date(range.end);
 
-      const now = new Date();
-      const expectedStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 0, 0, 0, 0);
-      const expectedEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 2, 0, 0, 0, 0);
+        const now = new Date();
+        const expectedStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 0, 0, 0, 0);
+        const expectedEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 2, 0, 0, 0, 0);
 
-      expect(start.getTime()).toBe(expectedStart.getTime());
-      expect(end.getTime()).toBe(expectedEnd.getTime());
+        expect(start.getTime()).toBe(expectedStart.getTime());
+        expect(end.getTime()).toBe(expectedEnd.getTime());
 
-      // Ikke det tidligere brede "to år frem"-interval.
-      const twoYearsFromNow = new Date(now);
-      twoYearsFromNow.setFullYear(twoYearsFromNow.getFullYear() + 2);
-      expect(end.getTime()).toBeLessThan(twoYearsFromNow.getTime());
-    } finally {
-      await act(async () => root.unmount());
-      container.remove();
-    }
-  });
+        // Ikke det tidligere brede "to år frem"-interval.
+        const twoYearsFromNow = new Date(now);
+        twoYearsFromNow.setFullYear(twoYearsFromNow.getFullYear() + 2);
+        expect(end.getTime()).toBeLessThan(twoYearsFromNow.getTime());
+      } finally {
+        await act(async () => root.unmount());
+        container.remove();
+      }
+    },
+    renderTestTimeoutMs,
+  );
 });
