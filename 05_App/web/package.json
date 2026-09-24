@@ -27,7 +27,7 @@
     "qrcode-generator": "^2.0.4",
     "react": "^19.2.7",
     "react-dom": "^19.3.0",
-    "react-router-dom": "^7.18.3",
+    "react-router-dom": "^7.18.4",
     "web-push-browser": "^1.4.2"
   },
   "devDependencies": {
