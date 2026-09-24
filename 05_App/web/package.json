@@ -19,7 +19,7 @@
     "@emotion/styled": "^11.14.1",
     "@mui/icons-material": "^9.4.0",
     "@mui/material": "^9.4.0",
-    "@mui/x-date-pickers": "^9.13.0",
+    "@mui/x-date-pickers": "^9.14.0",
     "date-fns": "^4.4.0",
     "fast-xml-parser": "^5.11.1",
     "hono": "^4.13.7",
